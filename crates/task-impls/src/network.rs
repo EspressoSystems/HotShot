@@ -1,5 +1,6 @@
 use crate::events::HotShotEvent;
 use either::Either::{self, Left, Right};
+use hotshot_constants::{PROGRAM_MAJOR_VERSION, PROGRAM_MINOR_VERSION};
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HotShotTaskCompleted, TS},
@@ -22,7 +23,6 @@ use snafu::Snafu;
 use std::sync::Arc;
 use tracing::error;
 use tracing::instrument;
-use hotshot_constants::{PROGRAM_MAJOR_VERSION, PROGRAM_MINOR_VERSION};
 
 /// the type of network task
 #[derive(Clone, Copy, Debug)]
@@ -88,6 +88,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             }
                             GeneralConsensusMessage::UpgradeCertificate(message) => {
                                 HotShotEvent::UpgradeCertificateRecv(message)
+                            }
+                            GeneralConsensusMessage::UpgradeProposal(message) => {
+                                HotShotEvent::UpgradeProposalRecv(message)
+                            }
+                            GeneralConsensusMessage::UpgradeVote(message) => {
+                                HotShotEvent::UpgradeVoteRecv(message)
                             }
                             GeneralConsensusMessage::InternalTrigger(_) => {
                                 error!("Got unexpected message type in network task!");

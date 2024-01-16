@@ -12,8 +12,8 @@ use ethereum_types::U256;
 use crate::{
     data::Leaf,
     simple_vote::{
-        DAData, QuorumData, TimeoutData, UpgradeData, ViewSyncCommitData, ViewSyncFinalizeData,
-        ViewSyncPreCommitData, Voteable,
+        DAData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
+        ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
     },
     traits::{
         election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
@@ -174,5 +174,6 @@ pub type ViewSyncCommitCertificate2<TYPES> =
 /// Type alias for a `ViewSyncFinalize` certificate over a view number
 pub type ViewSyncFinalizeCertificate2<TYPES> =
     SimpleCertificate<TYPES, ViewSyncFinalizeData<TYPES>, SuccessThreshold>;
-/// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeData`
-pub type UpgradeCertificate<TYPES> = SimpleCertificate<TYPES, UpgradeData<TYPES>, UpgradeThreshold>;
+/// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
+pub type UpgradeCertificate<TYPES> =
+    SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;

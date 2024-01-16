@@ -3,6 +3,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use commit::{Commitment, Committable};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -62,15 +63,15 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
-pub struct UpgradeData<TYPES: NodeType> {
+pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     /// The old major version that we are upgrading from.
-    pub old_major_version: u32,
+    pub old_major_version: u16,
     /// The old minor version that we are upgrading from.
-    pub old_minor_version: u32,
+    pub old_minor_version: u16,
     /// The new major version that we are upgrading to.
-    pub new_major_version: u32,
+    pub new_major_version: u16,
     /// The new minor version that we are upgrading to.
-    pub new_minor_version: u32,
+    pub new_minor_version: u16,
     /// A unique identifier for the specific protocol being voted on.
     /// This is to enable differentiation in the case that
     /// multiple upgrades to the same version number are considered simultaneously.
@@ -196,15 +197,14 @@ impl Committable for VIDData {
     }
 }
 
-impl<TYPES: NodeType> Committable for UpgradeData<TYPES> {
+impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let builder = commit::RawCommitmentBuilder::new("Upgrade Vote");
         builder
             .u64(*self.new_version_first_block)
             .u64(*self.old_version_last_block)
             .var_size_bytes(self.new_version_hash.as_slice())
-            // TODO: Change these from .fixed_size_bytes() to .u32() after
-            // https://github.com/EspressoSystems/commit/pull/45 has been merged.
+            // TODO: Change these from .fixed_size_bytes() to .u16() after updating EspressoSystems/commit
             .fixed_size_bytes(&self.new_minor_version.to_le_bytes())
             .fixed_size_bytes(&self.new_major_version.to_le_bytes())
             .fixed_size_bytes(&self.old_minor_version.to_le_bytes())
@@ -260,3 +260,5 @@ pub type ViewSyncCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncCommitData<TYPES>
 pub type ViewSyncPreCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData<TYPES>>;
 /// View Sync Finalize Vote type alias
 pub type ViewSyncFinalizeVote<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>;
+/// Upgrade proposal vote
+pub type UpgradeVote<TYPES> = SimpleVote<TYPES, UpgradeProposalData<TYPES>>;
