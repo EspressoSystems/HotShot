@@ -597,7 +597,7 @@ pub fn cross_all_types(input: TokenStream) -> TokenStream {
     } = parse_macro_input!(input as CrossAllTypesSpec);
     let tokens = quote! {
             DemoType: [ /* (Consensus, hotshot_testing::demo::DemoState), */ (hotshot::demos::vdemo::VDemoState) ],
-            SignatureKey: [ hotshot_types::traits::signature_key::bn254::BLSPubKey ],
+            SignatureKey: [ hotshot_types::signature_key::BLSPubKey ],
             CommChannel: [ hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
             Time: [ hotshot_types::data::ViewNumber ],
             Storage: [ hotshot::traits::implementations::MemoryStorage ],

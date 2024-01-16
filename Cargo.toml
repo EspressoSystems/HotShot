@@ -8,14 +8,12 @@ documentation = "https://hotshot.docs.espressosys.com"
 repository = "https://github.com/EspressoSystems/HotShot"
 ### Workspace
 
-# The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
+# The hotshot-types crate needs to be a separate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 members = [
         "crates/constants",
         "crates/hotshot",
-        "crates/hotshot-qc",
-        "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
         "crates/hotshot-state-prover",
         "crates/libp2p-networking",
