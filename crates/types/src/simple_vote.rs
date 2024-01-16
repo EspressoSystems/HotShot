@@ -6,6 +6,8 @@ use commit::{Commitment, Committable};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use hotshot_constants::Version;
+
 use crate::{
     data::{Leaf, VidCommitment},
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
@@ -64,18 +66,11 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
 pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
-    /// The old major version that we are upgrading from.
-    pub old_major_version: u16,
-    /// The old minor version that we are upgrading from.
-    pub old_minor_version: u16,
-    /// The new major version that we are upgrading to.
-    pub new_major_version: u16,
-    /// The new minor version that we are upgrading to.
-    pub new_minor_version: u16,
+    /// The old version that we are upgrading from.
+    pub old_version: Version,
+    /// The new version that we are upgrading to.
+    pub new_version: Version,
     /// A unique identifier for the specific protocol being voted on.
-    /// This is to enable differentiation in the case that
-    /// multiple upgrades to the same version number are considered simultaneously.
-    /// It is recommended to produce this by hashing the specification.
     pub new_version_hash: Vec<u8>,
     /// The last block for which the old version will be in effect.
     pub old_version_last_block: TYPES::Time,
@@ -204,10 +199,10 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u64(*self.new_version_first_block)
             .u64(*self.old_version_last_block)
             .var_size_bytes(self.new_version_hash.as_slice())
-            .u16(self.new_minor_version)
-            .u16(self.new_major_version)
-            .u16(self.old_minor_version)
-            .u16(self.old_major_version)
+            .u16(self.new_version.minor)
+            .u16(self.new_version.major)
+            .u16(self.old_version.minor)
+            .u16(self.old_version.major)
             .finalize()
     }
 }

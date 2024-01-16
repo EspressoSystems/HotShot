@@ -2716,6 +2716,9 @@ dependencies = [
 [[package]]
 name = "hotshot-constants"
 version = "0.3.3"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hotshot-orchestrator"
@@ -2869,6 +2872,7 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "ethereum-types",
  "generic-array",
+ "hotshot-constants",
  "hotshot-task",
  "hotshot-utils",
  "jf-plonk",

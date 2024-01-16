@@ -1,6 +1,6 @@
 use crate::events::HotShotEvent;
 use either::Either::{self, Left, Right};
-use hotshot_constants::{PROGRAM_MAJOR_VERSION, PROGRAM_MINOR_VERSION};
+use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HotShotTaskCompleted, TS},
@@ -289,10 +289,8 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                 return None;
             }
         };
-
         let message = Message {
-            major_version: PROGRAM_MAJOR_VERSION,
-            minor_version: PROGRAM_MINOR_VERSION,
+            version: PROGRAM_PROTOCOL_VERSION,
             sender,
             kind: message_kind,
         };
