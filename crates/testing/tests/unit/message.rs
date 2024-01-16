@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 use commit::Committable;
 use either::Left;
 
+use hotshot_constants::Version;
+
 use hotshot_testing::node_types::TestTypes;
 
 use hotshot_types::{
@@ -40,7 +42,7 @@ fn version_number_at_start_of_serialization() {
         _pd: PhantomData,
     };
     let message = Message {
-        version,
+        version: version.clone(),
         sender,
         kind: MessageKind::Consensus(SequencingMessage(Left(
             GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
@@ -48,8 +50,8 @@ fn version_number_at_start_of_serialization() {
     };
     let serialized_message: Vec<u8> = bincode::serialize(&message).unwrap();
     // The versions we've read from the message
-    let major_version_read = u32::from_le_bytes(serialized_message[..4].try_into().unwrap());
-    let minor_version_read = u32::from_le_bytes(serialized_message[4..8].try_into().unwrap());
+    let major_version_read = u16::from_le_bytes(serialized_message[..2].try_into().unwrap());
+    let minor_version_read = u16::from_le_bytes(serialized_message[2..4].try_into().unwrap());
 
     assert_eq!(version.major, major_version_read);
     assert_eq!(version.minor, minor_version_read);
