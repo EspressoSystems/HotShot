@@ -40,8 +40,9 @@ async fn main() {
             private_advertise_address: config.push_cdn_address.unwrap(),
             redis_url: "redis://127.0.0.1:6379".to_string(),
             redis_password: "".to_string(),
-            cert_path: None,
-            key_path: None,
+            tls_cert_path: None,
+            tls_key_path: None,
+            signing_key: None,
         })
         .unwrap();
 

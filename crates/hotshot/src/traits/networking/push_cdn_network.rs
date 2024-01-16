@@ -91,9 +91,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 private_advertise_address: "127.0.0.1:8080".to_string(),
                 redis_url: "redis://127.0.0.1:8080".to_string(),
                 redis_password: "".to_string(),
-
-                cert_path: None,
-                key_path: None,
+                signing_key: None,
+                tls_cert_path: None,
+                tls_key_path: None,
             })
             .unwrap();
 
@@ -106,16 +106,18 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
 
-                let privkey: BLSPrivKey =
-                    if TypeId::of::<<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey>() == TypeId::of::<BLSPrivKey>() {
-                        unsafe { std::mem::transmute_copy(&privkey) }
-                    } else {
-                        panic!(
-                            "Cannot convert from {:?} to {:?}",
-                            TypeId::of::<TYPES::SignatureKey>(),
-                            TypeId::of::<BLSPrivKey>()
-                        );
-                    };
+                let privkey: BLSPrivKey = if TypeId::of::<
+                    <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
+                >() == TypeId::of::<BLSPrivKey>()
+                {
+                    unsafe { std::mem::transmute_copy(&privkey) }
+                } else {
+                    panic!(
+                        "Cannot convert from {:?} to {:?}",
+                        TypeId::of::<TYPES::SignatureKey>(),
+                        TypeId::of::<BLSPrivKey>()
+                    );
+                };
 
                 let pubkey: BLSPubKey =
                     if TypeId::of::<TYPES::SignatureKey>() == TypeId::of::<BLSPubKey>() {

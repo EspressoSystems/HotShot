@@ -1434,6 +1434,7 @@ version = "0.1.0"
 dependencies = [
  "ark-serialize 0.4.2",
  "derive_more",
+ "hex",
  "jf-primitives",
  "quinn",
  "rand 0.8.5",
@@ -6513,6 +6514,7 @@ dependencies = [
  "clap",
  "client",
  "common",
+ "hex",
  "jf-primitives",
  "pem 3.0.3",
  "quinn",

@@ -1,6 +1,6 @@
 rounds = 100
 transactions_per_round = 1
-transaction_size = 0
+transaction_size = 100000
 node_index = 0
 seed = [
     0,
