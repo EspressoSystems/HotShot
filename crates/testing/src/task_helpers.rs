@@ -7,7 +7,7 @@ use crate::{
 };
 use commit::Committable;
 use hotshot::{
-    types::{bn254::BLSPubKey, SignatureKey, SystemContextHandle},
+    types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
 };
 use hotshot_task::event_stream::ChannelStream;
@@ -145,7 +145,6 @@ async fn build_quorum_proposal_and_signature(
         block_header: block_header.clone(),
         block_payload: None,
         rejected: vec![],
-        timestamp: 0,
         proposer_id: *api.public_key(),
     };
     let signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
