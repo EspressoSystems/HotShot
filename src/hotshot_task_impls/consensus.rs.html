@@ -1262,6 +1262,7 @@
 <a href="#1262" id="1262">1262</a>
 <a href="#1263" id="1263">1263</a>
 <a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1447,6 +1448,7 @@
             );
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
+
         <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_proposal {
             <span class="comment">// ED Need to account for the genesis DA cert
             // No need to check vid share nor da cert for genesis
@@ -1607,8 +1609,8 @@
                 <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>,
-                        vote.get_view_number()
-                    );
+                        vote.get_view_number() + <span class="number">1
+                    </span>);
                     <span class="self">self</span>.event_stream
                         .publish(HotShotEvent::QuorumVoteSend(vote))
                         .<span class="kw">await</span>;
@@ -1616,7 +1618,7 @@
                 }
             }
             <span class="macro">debug!</span>(
-                <span class="string">&quot;Couldn&#39;t find DAC cert in certs, meaning we haven&#39;t received it yet for view {:?}&quot;</span>,
+                <span class="string">&quot;Received VID share, but couldn&#39;t find DAC cert for view {:?}&quot;</span>,
                 <span class="kw-2">*</span>proposal.get_view_number(),
             );
             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -1716,7 +1718,7 @@
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(
-                    <span class="string">&quot;Receved Quorum Proposal for view {}&quot;</span>,
+                    <span class="string">&quot;Received Quorum Proposal for view {}&quot;</span>,
                     <span class="kw-2">*</span>proposal.data.view_number
                 );
 
@@ -1785,8 +1787,7 @@
                         .cloned()
                 };
 
-                <span class="comment">//
-                // Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
+                <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
                     <span class="comment">// If no parent then just update our state map and return.  We will not vote.
                     </span><span class="macro">error!</span>(
@@ -2030,6 +2031,7 @@
                     <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
                         .<span class="kw">await</span>;
                 }
+
                 <span class="kw">if </span>!<span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
                     <span class="kw">return</span>;
                 }
@@ -2181,7 +2183,7 @@
                 }
             }
             HotShotEvent::DACRecv(cert) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;DAC Recved for view ! {}&quot;</span>, <span class="kw-2">*</span>cert.view_number);
+                <span class="macro">debug!</span>(<span class="string">&quot;DAC Received for view {}!&quot;</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
 
                 <span class="self">self</span>.quorum_network
