@@ -7,6 +7,17 @@ original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_examp
 
 run_ci: lint build test
 
+async := "async_std"
+
+# Run arbitrary cargo commands, with e.g.
+#     just async=async-std cargo check
+# or
+#     just async=tokio cargo test -p unit_tests
+
+@cargo *ARGS:
+  echo setting async executor to {{async}}
+  export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="{{async}}" --cfg async_channel_impl="{{async}}" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="{{async}}" --cfg async_channel_impl="{{async}}" {{original_rustflags}}' && cargo {{ARGS}}
+
 @tokio target *ARGS:
   echo setting executor to tokio
   export RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio" {{original_rustflags}}' && just {{target}} {{ARGS}}
