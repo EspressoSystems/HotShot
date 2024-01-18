@@ -1,5 +1,6 @@
-use async_compatibility_layer::channel::{unbounded, UnboundedSender, UnboundedStream};
+use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
+use core::panic;
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -11,7 +12,117 @@ use async_trait::async_trait;
 use futures::Stream;
 
 use crate::task::{FilterEvent, PassType};
+use futures::ready;
+/// A receiver broadcast channel based on tokio::broadcast.  
+/// This/// Channel handles forwarding messages to channels which were cloned from it.
+/// I don't love this impl for 2 reasons.  The receiver depends on the receiver it was
+/// cloned from to get all messages.  A receiver may get messages in a different order
+/// than they were sent.
+use tokio::sync::broadcast::{channel, error::RecvError, Receiver, Sender};
 
+use tokio_util::sync::ReusableBoxFuture;
+
+use std::fmt;
+
+/// A wrapper around [`tokio::sync::broadcast::Receiver`] that implements [`Stream`].
+///
+/// [`tokio::sync::broadcast::Receiver`]: struct@tokio::sync::broadcast::Receiver
+/// [`Stream`]: trait@crate::Stream
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+pub struct BroadcastStream<T: Clone> {
+    inner: ReusableBoxFuture<'static, (Result<T, RecvError>, BroadcastReceiver<T>)>,
+}
+
+async fn make_future<T: Clone>(
+    mut rx: BroadcastReceiver<T>,
+) -> (Result<T, RecvError>, BroadcastReceiver<T>) {
+    let result = rx.recv().await;
+    (result, rx)
+}
+
+impl<T: 'static + Clone + Send> BroadcastStream<T> {
+    /// Create a new `BroadcastStream`.
+    pub fn new(rx: BroadcastReceiver<T>) -> Self {
+        Self {
+            inner: ReusableBoxFuture::new(make_future(rx)),
+        }
+    }
+}
+
+impl<T: 'static + Clone + Send> Stream for BroadcastStream<T> {
+    type Item = T;
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let (result, rx) = ready!(self.inner.poll(cx));
+        self.inner.set(make_future(rx));
+        match result {
+            Ok(item) => Poll::Ready(Some(item)),
+            Err(RecvError::Closed) => Poll::Ready(None),
+            Err(RecvError::Lagged(n)) => {
+                panic!("Lagging stream");
+            }
+        }
+    }
+}
+
+impl<T: Clone> fmt::Debug for BroadcastStream<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BroadcastStream").finish()
+    }
+}
+
+impl<T: 'static + Clone + Send> From<BroadcastReceiver<T>> for BroadcastStream<T> {
+    fn from(recv: BroadcastReceiver<T>) -> Self {
+        Self::new(recv)
+    }
+}
+pub struct BroadcastReceiver<T: Clone> {
+    recevier: Receiver<T>,
+    clone_sender: Sender<T>,
+    clone_receiver: Option<Receiver<T>>,
+    clone_recvs_expected: usize,
+}
+
+impl<T: Clone> BroadcastReceiver<T> {
+    pub async fn recv(&mut self) -> Result<T, RecvError> {
+        // if the receiver we cloned from has a value for us, take that, if not wait for our own
+        let val = if self.clone_recvs_expected > 0
+            && self.clone_receiver.as_ref().is_some_and(|c| !c.is_empty())
+        {
+            let v = self.clone_receiver.as_mut().unwrap().recv().await?;
+            self.clone_recvs_expected -= 1;
+            if self.clone_recvs_expected == 0 {
+                self.clone_receiver = None;
+            }
+            v
+        } else {
+            self.recevier.recv().await?
+        };
+
+        // If we were cloned, send the value along
+        if self.clone_sender.receiver_count() > 0 {
+            let _ = self.clone_sender.send(val.clone());
+        }
+        Ok(val)
+    }
+}
+
+impl<T: Clone> Clone for BroadcastReceiver<T> {
+    fn clone(&self) -> Self {
+        let (tx, _) = channel(1024);
+        let queued_msgs = self.recevier.len();
+        let clone_receiver = if queued_msgs > 0 {
+            Some(self.clone_sender.subscribe())
+        } else {
+            None
+        };
+        Self {
+            recevier: self.recevier.resubscribe(),
+            clone_sender: tx,
+            clone_receiver: clone_receiver,
+            clone_recvs_expected: queued_msgs,
+        }
+    }
+}
 /// a stream that does nothing.
 /// it's immediately closed
 #[derive(Clone)]
@@ -41,8 +152,6 @@ impl EventStream for DummyStream {
     }
 
     async fn unsubscribe(&self, _id: StreamId) {}
-
-    async fn direct_message(&self, _id: StreamId, _event: Self::EventType) {}
 }
 
 impl SendableStream for DummyStream {}
@@ -75,37 +184,38 @@ pub trait EventStream: Clone + 'static + Sync + Send {
 
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
-
-    /// send direct message to node
-    async fn direct_message(&self, id: StreamId, event: Self::EventType);
 }
 
 /// Event stream implementation using channels as the underlying primitive.
 /// We want it to be cloneable
-#[derive(Clone)]
 pub struct ChannelStream<EVENT: PassType> {
-    /// inner field. Useful for having the stream itself
-    /// be clone
-    inner: Arc<RwLock<ChannelStreamInner<EVENT>>>,
+    sender: Sender<EVENT>,
+    receiver: BroadcastStream<EVENT>,
 }
 
-/// trick to make the event stream clonable
-struct ChannelStreamInner<EVENT: PassType> {
-    /// the subscribers to the channel
-    subscribers: HashMap<StreamId, (FilterEvent<EVENT>, UnboundedSender<EVENT>)>,
-    /// the next unused assignable id
-    next_stream_id: StreamId,
+impl<EVENT: PassType> Clone for ChannelStream<EVENT> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+            receiver: BroadcastStream::new(self.receiver.inner.clone()),
+        }
+    }
 }
 
 impl<EVENT: PassType> ChannelStream<EVENT> {
     /// construct a new event stream
     #[must_use]
     pub fn new() -> Self {
+        let (tx, rx) = channel(1024);
+        let (clone_tx, _) = channel(1024);
         Self {
-            inner: Arc::new(RwLock::new(ChannelStreamInner {
-                subscribers: HashMap::new(),
-                next_stream_id: 0,
-            })),
+            sender: tx,
+            receiver: BroadcastStream::new(BroadcastReceiver {
+                recevier: rx,
+                clone_sender: clone_tx,
+                clone_receiver: None,
+                clone_recvs_expected: 0,
+            }),
         }
     }
 }
@@ -116,65 +226,29 @@ impl<EVENT: PassType> Default for ChannelStream<EVENT> {
     }
 }
 
-impl<EVENT: PassType> SendableStream for UnboundedStream<EVENT> {}
+impl<EVENT: PassType> SendableStream for BroadcastStream<EVENT> {}
 
 #[async_trait]
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
-    type StreamType = UnboundedStream<Self::EventType>;
-
-    async fn direct_message(&self, id: StreamId, event: Self::EventType) {
-        let inner = self.inner.write().await;
-        match inner.subscribers.get(&id) {
-            Some((filter, sender)) => {
-                if filter(&event) {
-                    match sender.send(event.clone()).await {
-                        Ok(()) => (),
-                        // error sending => stream is closed so remove it
-                        Err(_) => self.unsubscribe(id).await,
-                    }
-                }
-            }
-            None => {
-                tracing::debug!("Requested stream id not found");
-            }
-        }
-    }
+    type StreamType = BroadcastStream<Self::EventType>;
 
     /// publish an event to the event stream
-    async fn publish(&self, event: Self::EventType) {
-        let inner = self.inner.read().await;
-        for (uid, (filter, sender)) in &inner.subscribers {
-            if filter(&event) {
-                match sender.send(event.clone()).await {
-                    Ok(()) => (),
-                    // error sending => stream is closed so remove it
-                    Err(_) => {
-                        self.unsubscribe(*uid).await;
-                    }
-                }
-            }
-        }
+    fn publish(&self, event: Self::EventType) {
+        self.sender.send(event);
     }
 
     async fn subscribe(
         &self,
         filter: FilterEvent<Self::EventType>,
     ) -> (Self::StreamType, StreamId) {
-        let mut inner = self.inner.write().await;
-        let new_stream_id = inner.next_stream_id;
-        let (s, r) = unbounded();
-        inner.next_stream_id += 1;
-        // NOTE: can never be already existing.
-        // so, this should always return `None`
-        inner.subscribers.insert(new_stream_id, (filter, s));
-        (r.into_stream(), new_stream_id)
+        (
+            BroadcastStream::<EVENT>::new(self.receiver),
+            0,
+        )
     }
 
-    async fn unsubscribe(&self, uid: StreamId) {
-        let mut inner = self.inner.write().await;
-        inner.subscribers.remove(&uid);
-    }
+    async fn unsubscribe(&self, uid: StreamId) {}
 }
 
 #[cfg(test)]
