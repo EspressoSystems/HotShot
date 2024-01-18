@@ -325,8 +325,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Emit an external event
     // A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
-    async fn send_event(&self, event: Event<TYPES>) {
-        debug!(?event, "send_event");
+    async fn send_external_event(&self, event: Event<TYPES>) {
+        debug!(?event, "send_external_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
             if let Err(e) = sender.send_async(event).await {
@@ -372,7 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                         da_membership,
                     ),
                 api
-                    .send_event(Event {
+                    .send_external_event(Event {
                         view_number: api.inner.consensus.read().await.cur_view,
                         event: EventType::Transactions {
                             transactions: vec![transaction],

@@ -4,7 +4,6 @@ use crate::{
 };
 use async_lock::RwLock;
 
-use futures::join;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     global_registry::GlobalRegistry,
@@ -312,20 +311,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     _pd: PhantomData,
                 };
 
-                join! {
-                    self.event_stream
-                        .publish(HotShotEvent::DAProposalSend(
-                            message.clone(),
-                            self.public_key.clone(),
-                        )),
-                    self.api.send_event(Event {
-                        view_number: self.cur_view,
-                        event: EventType::DAProposal {
-                            proposal: message,
-                            sender: self.public_key.clone()
-                        },
-                    }),
-                };
+                self.event_stream
+                    .publish(HotShotEvent::DAProposalSend(
+                        message.clone(),
+                        self.public_key.clone(),
+                    ))
+                    .await;
             }
 
             HotShotEvent::Timeout(view) => {

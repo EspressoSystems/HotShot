@@ -1211,21 +1211,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 leaf.view_number, ""
             );
 
-            futures::join! {
-                self.event_stream
-                    .publish(HotShotEvent::QuorumProposalSend(
-                        message.clone(),
-                        self.public_key.clone(),
-                    )),
-                self.api
-                    .send_event(Event {
-                        view_number: self.cur_view,
-                        event: EventType::QuorumProposal {
-                            proposal: message,
-                            sender: self.public_key.clone(),
-                        },
-                    })
-            };
+            self.event_stream
+                .publish(HotShotEvent::QuorumProposalSend(
+                    message.clone(),
+                    self.public_key.clone(),
+                ))
+                .await;
+
             self.payload_commitment_and_metadata = None;
             return true;
         }
