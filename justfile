@@ -123,6 +123,14 @@ careful:
   echo Careful-ing with tokio executor
   cargo careful test --verbose --profile careful --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
+semver *ARGS:
+  #!/usr/bin/env bash
+  echo Running cargo-semver-checks
+  while IFS= read -r crate; do
+    cargo semver-checks \
+      --package "${crate}" {{ARGS}} || true;
+  done < <(cargo workspaces list)
+
 fix:
   cargo fix --allow-dirty --allow-staged --workspace --lib --bins --tests --benches
 
