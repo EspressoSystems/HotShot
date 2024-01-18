@@ -12,7 +12,7 @@ use pin_project::pin_project;
 use std::sync::Arc;
 
 use crate::{
-    event_stream::{EventStream, SendableStream, StreamId},
+    event_stream::{BroadcastReceiver, EventStream, SendableStream, StreamId},
     global_registry::{GlobalRegistry, HotShotTaskId, ShutdownFn},
     task_impls::TaskBuilder,
     task_state::{TaskState, TaskStatus},
@@ -81,7 +81,7 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// the other should unsubscribe from the stream
     shutdown_fns: Vec<ShutdownFn>,
     /// shared stream
-    event_stream: MaybePinnedEventStream<HSTT>,
+    event_stream: Option<HSTT::EventStream>,
     /// stream of messages
     message_stream: Option<Pin<Box<Fuse<HSTT::MessageStream>>>>,
     /// state
@@ -93,10 +93,6 @@ pub struct HST<HSTT: HotShotTaskTypes> {
     /// task id
     pub(crate) tid: Option<HotShotTaskId>,
 }
-
-/// an option of a pinned boxed fused event stream
-pub type MaybePinnedEventStream<HSTT> =
-    Option<Pin<Box<Fuse<<<HSTT as HotShotTaskTypes>::EventStream as EventStream>::StreamType>>>>;
 
 /// ADT for wrapping all possible handler types
 #[allow(dead_code)]
@@ -259,7 +255,7 @@ impl<HSTT: HotShotTaskTypes> HST<HSTT> {
         // TODO perhaps GC the event stream
         // (unsunscribe)
         Self {
-            event_stream: Some(Box::pin(stream.fuse())),
+            event_stream: Some(stream),
             shutdown_fns,
             stream_id: Some(uid),
             ..self

@@ -1,10 +1,6 @@
-use async_compatibility_layer::channel::UnboundedStream;
-use async_lock::RwLock;
 use core::panic;
 use std::{
-    collections::HashMap,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -118,7 +114,7 @@ impl<T: Clone> Clone for BroadcastReceiver<T> {
         Self {
             recevier: self.recevier.resubscribe(),
             clone_sender: tx,
-            clone_receiver: clone_receiver,
+            clone_receiver,
             clone_recvs_expected: queued_msgs,
         }
     }
@@ -136,24 +132,6 @@ impl Stream for DummyStream {
     }
 }
 
-#[async_trait]
-impl EventStream for DummyStream {
-    type EventType = ();
-
-    type StreamType = DummyStream;
-
-    async fn publish(&self, _event: Self::EventType) {}
-
-    async fn subscribe(
-        &self,
-        _filter: FilterEvent<Self::EventType>,
-    ) -> (Self::StreamType, StreamId) {
-        (DummyStream, 0)
-    }
-
-    async fn unsubscribe(&self, _id: StreamId) {}
-}
-
 impl SendableStream for DummyStream {}
 
 /// this is only used for indexing
@@ -169,18 +147,15 @@ pub trait SendableStream: Stream + Sync + Send + 'static {}
 pub trait EventStream: Clone + 'static + Sync + Send {
     /// the type of event to process
     type EventType: PassType;
-    /// the type of stream to use
-    type StreamType: SendableStream<Item = Self::EventType>;
 
     /// publish an event to the event stream
-    async fn publish(&self, event: Self::EventType);
+    fn publish(&self, event: Self::EventType);
 
     /// subscribe to a particular set of events
     /// specified by `filter`. Filter returns true if the event should be propagated
     /// TODO (justin) rethink API, we might be able just to use `StreamExt::filter` and `Filter`
     /// That would certainly be cleaner
-    async fn subscribe(&self, filter: FilterEvent<Self::EventType>)
-        -> (Self::StreamType, StreamId);
+    async fn subscribe(&self, filter: FilterEvent<Self::EventType>) -> (Self, StreamId);
 
     /// unsubscribe from the stream
     async fn unsubscribe(&self, id: StreamId);
@@ -231,21 +206,16 @@ impl<EVENT: PassType> SendableStream for BroadcastStream<EVENT> {}
 #[async_trait]
 impl<EVENT: PassType + 'static> EventStream for ChannelStream<EVENT> {
     type EventType = EVENT;
-    type StreamType = BroadcastStream<Self::EventType>;
 
     /// publish an event to the event stream
     fn publish(&self, event: Self::EventType) {
         self.sender.send(event);
     }
 
-    async fn subscribe(
-        &self,
-        filter: FilterEvent<Self::EventType>,
-    ) -> (Self::StreamType, StreamId) {
-        (
-            BroadcastStream::<EVENT>::new(self.receiver),
-            0,
-        )
+    /// A new stream subscribing from all messages this stream hasn't
+    /// yet recv
+    async fn subscribe(&self, filter: FilterEvent<Self::EventType>) -> (Self, StreamId) {
+        (self.clone(), 0)
     }
 
     async fn unsubscribe(&self, uid: StreamId) {}

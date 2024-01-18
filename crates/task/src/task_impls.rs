@@ -2,7 +2,7 @@ use futures::Stream;
 use std::marker::PhantomData;
 
 use crate::{
-    event_stream::{DummyStream, EventStream, SendableStream, StreamId},
+    event_stream::{ChannelStream, DummyStream, EventStream, SendableStream, StreamId},
     global_registry::{GlobalRegistry, HotShotTaskId},
     task::{
         FilterEvent, HandleEvent, HandleMessage, HotShotTaskHandler, HotShotTaskTypes, PassType,
@@ -154,7 +154,7 @@ impl<ERR: TaskErr, MSG: PassType, MSTREAM: SendableStream<Item = MSG>, STATE: TS
 {
     type Event = ();
     type State = STATE;
-    type EventStream = DummyStream;
+    type EventStream = ChannelStream<()>;
     type Message = MSG;
     type MessageStream = MSTREAM;
     type Error = ERR;
