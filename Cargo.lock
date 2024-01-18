@@ -2818,10 +2818,13 @@ name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
+ "async-lock 2.8.0",
  "async-std",
  "bincode",
+ "bitvec",
  "commit",
  "either",
+ "ethereum-types",
  "futures",
  "hotshot",
  "hotshot-constants",
@@ -5527,9 +5530,9 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.7"
+version = "0.17.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "688c63d65483050968b2a8937f7995f443e27041a0f7700aa59b0822aedebb74"
+checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
 dependencies = [
  "cc",
  "getrandom 0.2.12",
@@ -5694,7 +5697,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9d5a6813c0759e4609cd494e8e725babae6a2ca7b62a5536a13daaec6fcb7ba"
 dependencies = [
  "log",
- "ring 0.17.7",
+ "ring 0.17.5",
  "rustls-webpki",
  "sct 0.7.1",
 ]
@@ -5705,7 +5708,7 @@ version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
- "ring 0.17.7",
+ "ring 0.17.5",
  "untrusted 0.9.0",
 ]
 
@@ -5772,7 +5775,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
 dependencies = [
- "ring 0.17.7",
+ "ring 0.17.5",
  "untrusted 0.9.0",
 ]
 
@@ -6154,7 +6157,7 @@ dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
  "rand_core 0.6.4",
- "ring 0.17.7",
+ "ring 0.17.5",
  "rustc_version 0.4.0",
  "sha2 0.10.8",
  "subtle",

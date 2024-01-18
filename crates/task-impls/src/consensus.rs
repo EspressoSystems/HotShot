@@ -183,6 +183,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             );
             return false;
         }
+
         if let Some(proposal) = &self.current_proposal {
             // ED Need to account for the genesis DA cert
             // No need to check vid share nor da cert for genesis
@@ -343,7 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if let GeneralConsensusMessage::Vote(vote) = message {
                     debug!(
                         "Sending vote to next quorum leader {:?}",
-                        vote.get_view_number()
+                        vote.get_view_number() + 1
                     );
                     self.event_stream
                         .publish(HotShotEvent::QuorumVoteSend(vote))
@@ -352,7 +353,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             debug!(
-                "Couldn't find DAC cert in certs, meaning we haven't received it yet for view {:?}",
+                "Received VID share, but couldn't find DAC cert for view {:?}",
                 *proposal.get_view_number(),
             );
             return false;
@@ -452,7 +453,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!(
-                    "Receved Quorum Proposal for view {}",
+                    "Received Quorum Proposal for view {}",
                     *proposal.data.view_number
                 );
 
@@ -521,7 +522,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .cloned()
                 };
 
-                //
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some(parent) = parent else {
                     // If no parent then just update our state map and return.  We will not vote.
@@ -766,6 +766,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.publish_proposal_if_able(qc.view_number + 1, None)
                         .await;
                 }
+
                 if !self.vote_if_able().await {
                     return;
                 }
@@ -917,7 +918,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             HotShotEvent::DACRecv(cert) => {
-                debug!("DAC Recved for view ! {}", *cert.view_number);
+                debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
 
                 self.quorum_network
