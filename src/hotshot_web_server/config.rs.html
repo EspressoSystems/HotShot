@@ -92,6 +92,14 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
 <span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
@@ -141,6 +149,14 @@
 
 <span class="kw">pub fn </span>post_vid_disperse_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_disperse/{view_number}&quot;</span>)
+}
+
+<span class="kw">pub fn </span>get_upgrade_route(view_number: u64) -&gt; String {
+    <span class="macro">format!</span>(<span class="string">&quot;api/upgrade/{view_number}&quot;</span>)
+}
+
+<span class="kw">pub fn </span>post_upgrade_route(view_number: u64) -&gt; String {
+    <span class="macro">format!</span>(<span class="string">&quot;api/upgrade/{view_number}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>get_vid_vote_route(view_number: u64, index: u64) -&gt; String {

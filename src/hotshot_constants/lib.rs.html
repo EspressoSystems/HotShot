@@ -14,9 +14,23 @@
 <a href="#14" id="14">14</a>
 <a href="#15" id="15">15</a>
 <a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
-/// the number of views to gather information for ahead of time
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="doccomment">/// the number of views to gather information for ahead of time
 </span><span class="kw">pub const </span>LOOK_AHEAD: u64 = <span class="number">5</span>;
 
 <span class="doccomment">/// the default kademlia record republication interval (in seconds)
@@ -30,4 +44,14 @@
 
 <span class="doccomment">/// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
 </span><span class="kw">pub const </span>COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = <span class="number">5</span>;
+
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+</span><span class="doccomment">/// Type for protocol version number
+</span><span class="kw">pub struct </span>Version {
+    <span class="kw">pub </span>major: u16,
+    <span class="kw">pub </span>minor: u16,
+}
+
+<span class="doccomment">/// Constants for the current version number used by the program
+</span><span class="kw">pub const </span>PROGRAM_PROTOCOL_VERSION: Version = Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>};
 </code></pre></div></section></main></body></html>

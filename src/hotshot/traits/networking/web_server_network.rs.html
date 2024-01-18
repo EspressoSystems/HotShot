@@ -1327,6 +1327,17 @@
 <a href="#1327" id="1327">1327</a>
 <a href="#1328" id="1328">1328</a>
 <a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1590,7 +1601,8 @@
                 }
                 MessagePurpose::DAC =&gt; config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse =&gt; config::get_vid_disperse_route(view_number), <span class="comment">// like `Proposal`
-            </span>};
+                </span>MessagePurpose::Upgrade =&gt; config::get_upgrade_route(view_number),
+            };
 
             <span class="kw">if </span>message_purpose == MessagePurpose::Data {
                 <span class="kw">let </span>possible_message = <span class="self">self</span>.get_txs_from_web_server(endpoint).<span class="kw">await</span>;
@@ -1745,6 +1757,15 @@
 
                             MessagePurpose::Internal =&gt; {
                                 <span class="macro">error!</span>(<span class="string">&quot;Received internal message in web server network&quot;</span>);
+                            }
+
+                            MessagePurpose::Upgrade =&gt; {
+                                <span class="self">self</span>.broadcast_poll_queue
+                                    .write()
+                                    .<span class="kw">await
+                                    </span>.push(deserialized_messages[<span class="number">0</span>].clone());
+
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                             }
                         }
                     }
@@ -1975,6 +1996,7 @@
             MessagePurpose::ViewSyncVote =&gt; config::post_view_sync_vote_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::DAC =&gt; config::post_da_certificate_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::VidDisperse =&gt; config::post_vid_disperse_route(<span class="kw-2">*</span>view_number),
+            MessagePurpose::Upgrade =&gt; config::post_upgrade_route(<span class="kw-2">*</span>view_number),
         };
 
         <span class="kw">let </span>network_msg: SendMsg&lt;Message&lt;TYPES&gt;&gt; = SendMsg {
