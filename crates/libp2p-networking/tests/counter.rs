@@ -144,7 +144,7 @@ async fn run_request_response_increment<'a>(
 
         match stream.next().await.unwrap() {
             Ok(()) => {}
-            Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state");
+            Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state: {e}");
             std::process::exit(-1)},
         }
         requester_handle
