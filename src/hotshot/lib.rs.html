@@ -729,6 +729,33 @@
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -774,6 +801,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>custom_debug::Debug;
+<span class="kw">use </span>futures::join;
 <span class="kw">use </span>hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -785,6 +813,7 @@
     consensus::{Consensus, ConsensusMetricsValue, PayloadStore, View, ViewInner, ViewQueue},
     data::Leaf,
     error::StorageSnafu,
+    event::EventType,
     message::{
         DataMessage, InternalTrigger, Message, MessageKind, ProcessedGeneralConsensusMessage,
     },
@@ -1052,6 +1081,20 @@
         };
     }
 
+    <span class="doccomment">/// Emit an external event
+    </span><span class="comment">// A copypasta of `ConsensusApi::send_event`
+    // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
+    </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_external_event&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>event_sender = <span class="self">self</span>.inner.event_sender.write().<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="kw-2">&amp;*</span>event_sender {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = sender.send_async(event).<span class="kw">await </span>{
+                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not send event to event_sender&quot;</span>);
+                <span class="kw-2">*</span>event_sender = <span class="prelude-val">None</span>;
+            }
+        }
+    }
+
     <span class="doccomment">/// Publishes a transaction asynchronously to the network
     ///
     /// # Errors
@@ -1066,25 +1109,36 @@
         <span class="comment">// Wrap up a message
         // TODO place a view number here that makes sense
         // we haven&#39;t worked out how this will work yet
-        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(<span class="number">0</span>));
+        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), TYPES::Time::new(<span class="number">0</span>));
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
-        <span class="comment">// TODO We should have a function that can return a network error if there is one
-        // but first we&#39;d need to ensure our network implementations can support that
-        // (and not hang instead)
-        </span>async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>_result = api
-                .inner
-                .networks
-                .da_network
-                .broadcast_message(
-                    Message {
-                        version: PROGRAM_PROTOCOL_VERSION,
-                        sender: api.inner.public_key.clone(),
-                        kind: MessageKind::from(message),
-                    },
-                    <span class="kw-2">&amp;</span>api.inner.memberships.da_membership.clone(),
-                )
-                .<span class="kw">await</span>;
+
+        async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.inner.memberships.da_membership.clone();
+            <span class="macro">join! </span>{
+                <span class="comment">// TODO We should have a function that can return a network error if there is one
+                // but first we&#39;d need to ensure our network implementations can support that
+                // (and not hang instead)
+                //
+                </span>api
+                    .inner
+                    .networks
+                    .da_network
+                    .broadcast_message(
+                        Message {
+                            version: PROGRAM_PROTOCOL_VERSION,
+                            sender: api.inner.public_key.clone(),
+                            kind: MessageKind::from(message),
+                        },
+                        da_membership,
+                    ),
+                api
+                    .send_external_event(Event {
+                        view_number: api.inner.consensus.read().<span class="kw">await</span>.cur_view,
+                        event: EventType::Transactions {
+                            transactions: <span class="macro">vec!</span>[transaction],
+                        },
+                    }),
+            }
         });
         <span class="prelude-val">Ok</span>(())
     }

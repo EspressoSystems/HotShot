@@ -1263,6 +1263,19 @@
 <a href="#1263" id="1263">1263</a>
 <a href="#1264" id="1264">1264</a>
 <a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1822,10 +1835,10 @@
                     view_number: view,
                     justify_qc: justify_qc.clone(),
                     parent_commitment,
-                    block_header: proposal.data.block_header,
+                    block_header: proposal.data.block_header.clone(),
                     block_payload: <span class="prelude-val">None</span>,
                     rejected: Vec::new(),
-                    proposer_id: sender,
+                    proposer_id: sender.clone(),
                 };
                 <span class="kw">let </span>leaf_commitment = leaf.commit();
 
@@ -1867,6 +1880,17 @@
                     <span class="macro">error!</span>(<span class="string">&quot;Failed safety check and liveness check&quot;</span>);
                     <span class="kw">return</span>;
                 }
+
+                <span class="comment">// We accept the proposal, notify the application layer
+                </span><span class="self">self</span>.api
+                    .send_event(Event {
+                        view_number: <span class="self">self</span>.cur_view,
+                        event: EventType::QuorumProposal {
+                            proposal: proposal.clone(),
+                            sender,
+                        },
+                    })
+                    .<span class="kw">await</span>;
 
                 <span class="kw">let </span>high_qc = leaf.justify_qc.clone();
                 <span class="kw">let </span><span class="kw-2">mut </span>new_anchor_view = consensus.last_decided_view;
@@ -2465,12 +2489,14 @@
                 <span class="string">&quot;Sending proposal for view {:?} \n {:?}&quot;</span>,
                 leaf.view_number, <span class="string">&quot;&quot;
             </span>);
+
             <span class="self">self</span>.event_stream
                 .publish(HotShotEvent::QuorumProposalSend(
-                    message,
+                    message.clone(),
                     <span class="self">self</span>.public_key.clone(),
                 ))
                 .<span class="kw">await</span>;
+
             <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
