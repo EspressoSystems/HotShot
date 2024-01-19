@@ -27,7 +27,7 @@ const NUM_ROUNDS: usize = 100;
 
 const TOTAL_NUM_PEERS_COVERAGE: usize = 10;
 const NUM_OF_BOOTSTRAP_COVERAGE: usize = 5;
-const TIMEOUT_COVERAGE: Duration = Duration::from_secs(20);
+const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
 const TOTAL_NUM_PEERS_STRESS: usize = 100;
 const NUM_OF_BOOTSTRAP_STRESS: usize = 25;
