@@ -8,14 +8,12 @@ documentation = "https://hotshot.docs.espressosys.com"
 repository = "https://github.com/EspressoSystems/HotShot"
 ### Workspace
 
-# The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
+# The hotshot-types crate needs to be a separate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 members = [
         "crates/constants",
         "crates/hotshot",
-        "crates/hotshot-qc",
-        "crates/hotshot-signature-key",
         "crates/hotshot-stake-table",
         "crates/hotshot-state-prover",
         "crates/libp2p-networking",
@@ -34,13 +32,13 @@ ark-bn254 = "0.4"
 ark-ec = "0.4"
 ark-ed-on-bn254 = "0.4"
 ark-ff = "0.4"
-ark-serialize = "0.4" # features = ["derive"]
+ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.1", default-features = false, features = [
         "logging-utils",
 ] }
 async-lock = "2.8"
-async-trait = "0.1.75"
+async-trait = "0.1.77"
 bincode = "1.3.3"
 bitvec = { version = "1.0.1", default-features = false, features = [
         "alloc",
@@ -54,7 +52,7 @@ digest = "0.10"
 either = { version = "1.8" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
-futures = "0.3.29"
+futures = "0.3.30"
 
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
@@ -69,7 +67,7 @@ libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", de
 libp2p-swarm-derive = { version = "=0.33.0" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
-serde = { version = "1.0.193", features = ["derive"] }
+serde = { version = "1.0.195", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
