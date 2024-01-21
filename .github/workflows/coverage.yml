@@ -30,7 +30,7 @@ jobs:
         # Use the `release` profile rather than `release-lto` as other workflows do, since `--
         # profile=release-lto` will cause the `failed to generate report` error.
         run: |
-          nix develop .#perfShell -c RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' cargo-llvm-cov llvm-cov --features=full-ci --lib --bins --tests --benches --release --workspace --lcov --output-path lcov.info -- --test-threads=1
+          nix develop .#perfShell -c just tokio code_coverage
         timeout-minutes: 90
 
       - name: Coveralls upload
