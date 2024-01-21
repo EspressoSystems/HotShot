@@ -10,9 +10,6 @@
 # Owner of `hotshot-qc` crate
 /hotshot-qc/ @dailinsubjam
 
-# Owner of `hotshot-signature-key` crate
-/hotshot-signature-key/ @dailinsubjam
-
 # Owner of `hotshot-stake-table` crate
 /hotshot-stake-table/ @dailinsubjam
 
@@ -45,7 +42,7 @@
 
 # Owner of updating dependencies
 # This owner is updated on a monthly basis
-*.lock @rob-maron
-**/Cargo.toml @rob-maron
-Cargo.toml @rob-maron
-flake.nix @rob-maron
+*.lock @shenkeyao
+**/Cargo.toml @shenkeyao
+Cargo.toml @shenkeyao
+flake.nix @shenkeyao

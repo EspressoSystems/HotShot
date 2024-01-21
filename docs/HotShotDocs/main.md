@@ -66,10 +66,11 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
-![basic_hotstuff][basic_hotstuff]
-
-*Figure 1: Sequential HotShot. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.*
-
+<p align="center">
+<img src="./img/basic_hotstuff.svg" />
+</p>
+<p align="center"><i>Figure 1: Sequential HotShot. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.</i></p>
+<br /><br />
 
 Sequential HotShot does not currently support committee election or dynamically updating the
 membership list, instead using a predefined list of participant nodes with equal weights. Sequential
@@ -145,10 +146,11 @@ it, tagged with the nodes current prepareQC.
 
 ## Pipelined
 
-![chained_hotstuff][chained_hotstuff]
-
-*Figure 2: Pipelined HotShot. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.*
-
+<p align="center">
+<img src="./img/chained_hotstuff.svg" />
+</p>
+<p align="center"><i>Figure 2: Pipelined HotShot. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.</i></p>
+<br /><br />
 
 One of the limitations of the sequential version of HotShot is that 3 rounds of interactions are needed before
 a leader can commit a block. In order to increase the throughput and latency one can do the following:
@@ -190,7 +192,7 @@ Thus, our implementation of cryptographic sortition slightly differs from the Al
 
 ### Quorum Certificate
 
-A Quorum Certificate is a threshold signature of a [`ValidatingLeaf`](hotshot_types::data::ValidatingLeaf), composed of
+A Quorum Certificate is a threshold signature of a [`Leaf`](hotshot_types::data::Leaf), composed of
 signatures from at least `2f + 1` nodes.
 
 In the case of sequential HotShot, or pipelined HotShot without committee election, `f` is

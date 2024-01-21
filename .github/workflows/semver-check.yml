@@ -1,0 +1,61 @@
+name: Run semver check
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Baseline git revision to check against"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-sequencer:
+    runs-on: ubuntu-latest
+    name: semver
+    strategy:
+      matrix:
+        async_runtimes:
+          - async_std
+          - tokio
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+        with:
+          path: current
+
+      - uses: actions/checkout@v4
+        name: Checkout Baseline
+        with:
+          path: baseline
+          ref: ${{ inputs.baseline }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: semver
+          workspaces: "current -> target"
+
+      - name: Install cargo-semver-checks and cargo-workspaces
+        run: |
+          cargo install cargo-semver-checks --locked
+          cargo install cargo-workspaces
+
+      - name: Run cargo-semver-checks
+        run: |
+          cd current
+          just ${{matrix.async_runtimes}} semver --baseline-root ../baseline
+
