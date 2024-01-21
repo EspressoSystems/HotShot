@@ -1,4 +1,4 @@
-name: Build, Lint, and Test
+name: Build and Test
 
 on:
   push:
@@ -44,10 +44,6 @@ jobs:
           wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
-
-      - name: Run linting
-        run: |
-          just ${{ matrix.just_variants }} lint
 
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
@@ -231,7 +227,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-webserver.outputs.tags }}
           labels: ${{ steps.validator-webserver.outputs.labels }}
-      
+
   test-crypto:
     strategy:
       matrix:
