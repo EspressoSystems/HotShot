@@ -198,9 +198,12 @@ For espresso developers we have written up a description of our workflow [here](
 Choose an async runtime to use before launching a text editor. This may be done by setting the environment RUSTFLAGS. For example:
 
 ```
-export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"'
-# launch text editor
+export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' # export RUSTFLAGS so the editor is aware of extra flags
+nvim # launch text editor of choice. We choose neovim in this example
+unset RUSTFLAGS # Unset rustflags so we may continue to use the justfile without confusing it
 ```
+
+Be sure t
 
 # Debugging
 
