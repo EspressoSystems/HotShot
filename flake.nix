@@ -165,6 +165,7 @@
             cargo-expand
             cargo-workspaces
             cargo-audit
+            cargo-semver-checks
             nixpkgs-fmt
             git-chglog
             protobuf
