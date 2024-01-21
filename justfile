@@ -27,10 +27,10 @@ async := "async_std"
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --workspace --bins --tests --lib --benches --release
+  cargo build --workspace --examples --bins --tests --lib --benches --release
 
 build_release:
-  cargo build --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="docs, doc-images"
+  cargo build --package hotshot --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
@@ -116,11 +116,11 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests -- -D warnings
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
 
 lint_release: fmt
   echo linting
-  cargo clippy --workspace --exclude hotshot-testing --bins --examples --no-default-features --features="demo, docs, doc-images" -- -D warnings
+  cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt
