@@ -46,7 +46,7 @@ jobs:
           sudo cp just /usr/bin/just
 
       - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build_release
+        run: just ${{ matrix.just_variants }} build
 
       - name: Unit and integration tests for all crates in workspace
         run: |
@@ -91,7 +91,7 @@ jobs:
           prefix-key: arm-${{ matrix.just_variants }}
 
       - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build_release
+        run: just ${{ matrix.just_variants }} build
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v3
