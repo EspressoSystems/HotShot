@@ -96,13 +96,21 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs associated with light client state
 
-</span><span class="kw">use </span>ark_ff::PrimeField;
+</span><span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig <span class="kw">as </span>Config;
+<span class="kw">use </span>ark_ff::PrimeField;
+<span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>jf_primitives::signatures::schnorr;
+<span class="kw">use </span>rand::SeedableRng;
+<span class="kw">use </span>rand_chacha::ChaCha20Rng;
+<span class="kw">use </span>tagged_base64::tagged;
 
-<span class="doccomment">/// A serialized light client state for proof generation
-</span><span class="attr">#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+<span class="doccomment">/// A light client state
+</span><span class="attr">#[tagged(<span class="string">&quot;LIGHT_CLIENT_STATE&quot;</span>)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Default)]
 </span><span class="kw">pub struct </span>LightClientState&lt;F: PrimeField&gt; {
     <span class="doccomment">/// Current view number
     </span><span class="kw">pub </span>view_number: usize,
@@ -142,10 +150,6 @@
         ]
     }
 }
-
-<span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig <span class="kw">as </span>Config;
-<span class="kw">use </span>rand::SeedableRng;
-<span class="kw">use </span>rand_chacha::ChaCha20Rng;
 
 <span class="doccomment">/// Signatures
 </span><span class="kw">pub type </span>StateSignature = schnorr::Signature&lt;Config&gt;;
