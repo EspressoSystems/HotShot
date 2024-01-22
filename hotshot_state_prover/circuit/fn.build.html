@@ -2,7 +2,7 @@
     stake_table_entries: STIter,
     signer_bit_vec: BitIter,
     signatures: SigIter,
-    lightclient_state: &amp;<a class="struct" href="../../hotshot_types/light_client/struct.LightClientState.html" title="struct hotshot_types::light_client::LightClientState">LightClientState</a>&lt;F&gt;,
+    lightclient_state: &amp;LightClientState&lt;F&gt;,
     threshold: &amp;U256
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(PlonkCircuit&lt;F&gt;, <a class="struct" href="struct.PublicInput.html" title="struct hotshot_state_prover::circuit::PublicInput">PublicInput</a>&lt;F&gt;), PlonkError&gt;<span class="where fmt-newline">where
     F: RescueParameter,
