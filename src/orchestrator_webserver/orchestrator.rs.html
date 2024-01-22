@@ -29,7 +29,14 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! A orchestrator using the web server
+
+/// types used for this example
+</span><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
@@ -41,7 +48,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ViewSyncNetwork};
 
-<span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
+<span class="doccomment">/// general infra used for this example
+</span><span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;
 
 <span class="attr">#[cfg_attr(

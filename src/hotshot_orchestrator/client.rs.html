@@ -178,6 +178,16 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
@@ -191,8 +201,10 @@
 
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
-    client: surf_disco::Client&lt;ClientError&gt;,
-    <span class="kw">pub </span>identity: String,
+    <span class="doccomment">/// the client
+    </span>client: surf_disco::Client&lt;ClientError&gt;,
+    <span class="doccomment">/// the identity
+    </span><span class="kw">pub </span>identity: String,
 }
 
 <span class="comment">// VALIDATOR
@@ -215,7 +227,8 @@
     </span><span class="kw">pub </span>network_config_file: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="attr">#[derive(Parser, Debug, Clone)]
+<span class="doccomment">/// arguments to run multiple validators
+</span><span class="attr">#[derive(Parser, Debug, Clone)]
 </span><span class="kw">pub struct </span>MultiValidatorArgs {
     <span class="doccomment">/// Number of validators to run
     </span><span class="kw">pub </span>num_nodes: u16,
@@ -254,28 +267,33 @@
     /// let node_index = 1;
     /// let instance = Self::from_multi_args(multi_args, node_index);
     /// ```
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>from_multi_args(multi_args: MultiValidatorArgs, node_index: u16) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             url: multi_args.url,
             public_ip: multi_args.public_ip,
             network_config_file: multi_args
                 .network_config_file
-                .map(|s| <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, s, node_index)),
+                .map(|s| <span class="macro">format!</span>(<span class="string">&quot;{s}-{node_index}&quot;</span>)),
         }
     }
 }
 
 <span class="kw">impl </span>OrchestratorClient {
     <span class="doccomment">/// Creates the client that will connect to the orchestrator
-    </span><span class="kw">pub async fn </span>new(args: ValidatorArgs, identity: String) -&gt; <span class="self">Self </span>{
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>new(args: ValidatorArgs, identity: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>client = surf_disco::Client::&lt;ClientError&gt;::new(args.url);
         <span class="comment">// TODO ED: Add healthcheck wait here
         </span>OrchestratorClient { client, identity }
     }
 
     <span class="doccomment">/// Sends an identify message to the orchestrator and attempts to get its config
-    /// Returns both the node_index and the run configuration from the orchestrator
+    /// Returns both the `node_index` and the run configuration from the orchestrator
     /// Will block until both are returned
+    /// # Panics
+    /// if unable to convert the node index from usize into u64
+    /// (only applicable on 32 bit systems)
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub async fn </span>get_config&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -309,13 +327,15 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await</span>;
 
-        config.node_index = node_index <span class="kw">as </span>u64;
+        config.node_index = From::&lt;u16&gt;::from(node_index);
 
         config
     }
 
     <span class="doccomment">/// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
+    /// # Panics
+    /// Panics if unable to post.
     </span><span class="kw">pub async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, node_index: u64) -&gt; bool {
         <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{

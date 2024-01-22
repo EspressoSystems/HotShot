@@ -311,6 +311,7 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -364,7 +365,8 @@
 }
 
 <span class="kw">impl </span>DMBehaviour {
-    <span class="kw">fn </span>handle_dm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event&lt;DirectMessageRequest, DirectMessageResponse&gt;) {
+    <span class="doccomment">/// handle a direct message event
+    </span><span class="kw">fn </span>handle_dm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event&lt;DirectMessageRequest, DirectMessageResponse&gt;) {
         <span class="kw">match </span>event {
             Event::InboundFailure {
                 peer,

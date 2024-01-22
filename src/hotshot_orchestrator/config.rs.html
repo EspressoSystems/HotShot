@@ -517,10 +517,77 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
 };
+<span class="kw">use </span>serde_inline_default::serde_inline_default;
 <span class="kw">use </span>std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -536,88 +603,149 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::client::OrchestratorClient;
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+<span class="doccomment">/// Configuration describing a libp2p node
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfig {
-    <span class="kw">pub </span>bootstrap_nodes: Vec&lt;(SocketAddr, Vec&lt;u8&gt;)&gt;,
-    <span class="kw">pub </span>num_bootstrap_nodes: usize,
-    <span class="kw">pub </span>public_ip: IpAddr,
-    <span class="kw">pub </span>base_port: u16,
-    <span class="kw">pub </span>node_index: u64,
-    <span class="kw">pub </span>index_ports: bool,
-    <span class="kw">pub </span>bootstrap_mesh_n_high: usize,
-    <span class="kw">pub </span>bootstrap_mesh_n_low: usize,
-    <span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
-    <span class="kw">pub </span>bootstrap_mesh_n: usize,
-    <span class="kw">pub </span>mesh_n_high: usize,
-    <span class="kw">pub </span>mesh_n_low: usize,
-    <span class="kw">pub </span>mesh_outbound_min: usize,
-    <span class="kw">pub </span>mesh_n: usize,
-    <span class="kw">pub </span>next_view_timeout: u64,
-    <span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="kw">pub </span>propose_max_round_time: Duration,
-    <span class="kw">pub </span>online_time: u64,
-    <span class="kw">pub </span>num_txn_per_round: usize,
+    <span class="doccomment">/// bootstrap nodes (socket, serialized public key)
+    </span><span class="kw">pub </span>bootstrap_nodes: Vec&lt;(SocketAddr, Vec&lt;u8&gt;)&gt;,
+    <span class="doccomment">/// number of bootstrap nodes
+    </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
+    <span class="doccomment">/// public ip of this node
+    </span><span class="kw">pub </span>public_ip: IpAddr,
+    <span class="doccomment">/// port to run libp2p on
+    </span><span class="kw">pub </span>base_port: u16,
+    <span class="doccomment">/// global index of node (for testing purposes a uid)
+    </span><span class="kw">pub </span>node_index: u64,
+    <span class="doccomment">/// whether or not to index ports
+    </span><span class="kw">pub </span>index_ports: bool,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n_high: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n_low: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n_high: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n_low: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_outbound_min: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n: usize,
+    <span class="doccomment">/// timeout before starting the next view
+    </span><span class="kw">pub </span>next_view_timeout: u64,
+    <span class="doccomment">/// minimum time to wait for a view
+    </span><span class="kw">pub </span>propose_min_round_time: Duration,
+    <span class="doccomment">/// maximum time to wait for a view
+    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// time node has been running
+    </span><span class="kw">pub </span>online_time: u64,
+    <span class="doccomment">/// number of transactions per view
+    </span><span class="kw">pub </span>num_txn_per_round: usize,
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+<span class="doccomment">/// configuration serialized into a file
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfigFile {
-    <span class="kw">pub </span>index_ports: bool,
-    <span class="kw">pub </span>bootstrap_mesh_n_high: usize,
-    <span class="kw">pub </span>bootstrap_mesh_n_low: usize,
-    <span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
-    <span class="kw">pub </span>bootstrap_mesh_n: usize,
-    <span class="kw">pub </span>mesh_n_high: usize,
-    <span class="kw">pub </span>mesh_n_low: usize,
-    <span class="kw">pub </span>mesh_outbound_min: usize,
-    <span class="kw">pub </span>mesh_n: usize,
-    <span class="kw">pub </span>online_time: u64,
-    <span class="kw">pub </span>base_port: u16,
+    <span class="doccomment">/// whether or not to index ports
+    </span><span class="kw">pub </span>index_ports: bool,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n_high: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n_low: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_mesh_n: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n_high: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n_low: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_outbound_min: usize,
+    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
+    </span><span class="kw">pub </span>mesh_n: usize,
+    <span class="doccomment">/// time node has been running
+    </span><span class="kw">pub </span>online_time: u64,
+    <span class="doccomment">/// port to run libp2p on
+    </span><span class="kw">pub </span>base_port: u16,
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+<span class="doccomment">/// configuration for a web server
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>WebServerConfig {
-    <span class="kw">pub </span>url: Url,
-    <span class="kw">pub </span>wait_between_polls: Duration,
+    <span class="doccomment">/// the url to run on
+    </span><span class="kw">pub </span>url: Url,
+    <span class="doccomment">/// the time to wait between polls
+    </span><span class="kw">pub </span>wait_between_polls: Duration,
 }
 
-<span class="attr">#[derive(Error, Debug)]
+<span class="doccomment">/// a network configuration error
+</span><span class="attr">#[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>NetworkConfigError {
-    <span class="attr">#[error(<span class="string">&quot;Failed to read NetworkConfig from file&quot;</span>)]
+    <span class="doccomment">/// Failed to read NetworkConfig from file
+    </span><span class="attr">#[error(<span class="string">&quot;Failed to read NetworkConfig from file&quot;</span>)]
     </span>ReadFromFileError(std::io::Error),
-    <span class="attr">#[error(<span class="string">&quot;Failed to deserialize loaded NetworkConfig&quot;</span>)]
+    <span class="doccomment">/// Failed to deserialize loaded NetworkConfig
+    </span><span class="attr">#[error(<span class="string">&quot;Failed to deserialize loaded NetworkConfig&quot;</span>)]
     </span>DeserializeError(serde_json::Error),
-    <span class="attr">#[error(<span class="string">&quot;Failed to write NetworkConfig to file&quot;</span>)]
+    <span class="doccomment">/// Failed to write NetworkConfig to file
+    </span><span class="attr">#[error(<span class="string">&quot;Failed to write NetworkConfig to file&quot;</span>)]
     </span>WriteToFileError(std::io::Error),
-    <span class="attr">#[error(<span class="string">&quot;Failed to serialize NetworkConfig&quot;</span>)]
+    <span class="doccomment">/// Failed to serialize NetworkConfig
+    </span><span class="attr">#[error(<span class="string">&quot;Failed to serialize NetworkConfig&quot;</span>)]
     </span>SerializeError(serde_json::Error),
-    <span class="attr">#[error(<span class="string">&quot;Failed to recursively create path to NetworkConfig&quot;</span>)]
+    <span class="doccomment">/// Failed to recursively create path to NetworkConfig
+    </span><span class="attr">#[error(<span class="string">&quot;Failed to recursively create path to NetworkConfig&quot;</span>)]
     </span>FailedToCreatePath(std::io::Error),
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+<span class="doccomment">/// a network configuration
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>NetworkConfig&lt;KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig&gt; {
-    <span class="kw">pub </span>rounds: usize,
-    <span class="kw">pub </span>transactions_per_round: usize,
-    <span class="kw">pub </span>num_bootrap: usize,
-    <span class="kw">pub </span>next_view_timeout: u64,
-    <span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="kw">pub </span>propose_max_round_time: Duration,
-    <span class="kw">pub </span>node_index: u64,
-    <span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
-    <span class="kw">pub </span>transaction_size: usize,
-    <span class="kw">pub </span>start_delay_seconds: u64,
-    <span class="kw">pub </span>key_type_name: String,
-    <span class="kw">pub </span>election_config_type_name: String,
-    <span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
-    <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
-    <span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
-    <span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    <span class="doccomment">/// number of views to run
+    </span><span class="kw">pub </span>rounds: usize,
+    <span class="doccomment">/// number of transactions per view
+    </span><span class="kw">pub </span>transactions_per_round: usize,
+    <span class="doccomment">/// number of bootstrap nodes
+    </span><span class="kw">pub </span>num_bootrap: usize,
+    <span class="doccomment">/// timeout before starting the next view
+    </span><span class="kw">pub </span>next_view_timeout: u64,
+    <span class="doccomment">/// minimum time to wait for a view
+    </span><span class="kw">pub </span>propose_min_round_time: Duration,
+    <span class="doccomment">/// maximum time to wait for a view
+    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// global index of node (for testing purposes a uid)
+    </span><span class="kw">pub </span>node_index: u64,
+    <span class="doccomment">/// unique seed (for randomness? TODO)
+    </span><span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
+    <span class="doccomment">/// size of transactions
+    </span><span class="kw">pub </span>transaction_size: usize,
+    <span class="doccomment">/// delay before beginning consensus
+    </span><span class="kw">pub </span>start_delay_seconds: u64,
+    <span class="doccomment">/// name of the key type (for debugging)
+    </span><span class="kw">pub </span>key_type_name: String,
+    <span class="doccomment">/// election config type (for debugging)
+    </span><span class="kw">pub </span>election_config_type_name: String,
+    <span class="doccomment">/// the libp2p config
+    </span><span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
+    <span class="doccomment">/// the hotshot config
+    </span><span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
+    <span class="doccomment">/// the webserver config
+    </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    <span class="doccomment">/// the data availability web server config
+    </span><span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
-<span class="kw">pub enum </span>NetworkConfigSource {
-    Orchestrator,
-    File,
+<span class="doccomment">/// the source of the network config
+</span><span class="kw">pub enum </span>NetworkConfigSource {
+    <span class="doccomment">/// we source the network configuration from the orchestrator
+    </span>Orchestrator,
+    <span class="doccomment">/// we source the network configuration from a config file on disk
+    </span>File,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; NetworkConfig&lt;K, E&gt; {
@@ -781,11 +909,11 @@
 <span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            rounds: default_rounds(),
-            transactions_per_round: default_transactions_per_round(),
+            rounds: ORCHESTRATOR_DEFAULT_NUM_ROUNDS,
+            transactions_per_round: ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND,
             node_index: <span class="number">0</span>,
             seed: [<span class="number">0u8</span>; <span class="number">32</span>],
-            transaction_size: default_transaction_size(),
+            transaction_size: ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
             libp2p_config: <span class="prelude-val">None</span>,
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: <span class="number">60</span>,
@@ -801,34 +929,42 @@
     }
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+<span class="doccomment">/// a network config stored in a file
+</span><span class="attr">#[serde_inline_default]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>NetworkConfigFile&lt;KEY: SignatureKey&gt; {
-    <span class="attr">#[serde(default = <span class="string">&quot;default_rounds&quot;</span>)]
+    <span class="doccomment">/// number of views to run
+    </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_NUM_ROUNDS)]
     </span><span class="kw">pub </span>rounds: usize,
-    <span class="attr">#[serde(default = <span class="string">&quot;default_transactions_per_round&quot;</span>)]
+    <span class="doccomment">/// number of transactions per view
+    </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND)]
     </span><span class="kw">pub </span>transactions_per_round: usize,
-    <span class="attr">#[serde(default)]
+    <span class="doccomment">/// global index of node (for testing purposes a uid)
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>node_index: u64,
-    <span class="attr">#[serde(default)]
+    <span class="doccomment">/// unique seed (for randomness? TODO)
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>seed: [u8; <span class="number">32</span>],
-    <span class="attr">#[serde(default = <span class="string">&quot;default_transaction_size&quot;</span>)]
+    <span class="doccomment">/// size of transactions
+    </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE)]
     </span><span class="kw">pub </span>transaction_size: usize,
-    <span class="attr">#[serde(default = <span class="string">&quot;default_start_delay_seconds&quot;</span>)]
+    <span class="doccomment">/// delay before beginning consensus
+    </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS)]
     </span><span class="kw">pub </span>start_delay_seconds: u64,
-    <span class="attr">#[serde(default)]
+    <span class="doccomment">/// the libp2p config
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfigFile&gt;,
-    <span class="attr">#[serde(default)]
+    <span class="doccomment">/// the hotshot config file
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>config: HotShotConfigFile&lt;KEY&gt;,
-    <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
+    <span class="doccomment">/// the webserver config
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
-    <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
+    <span class="doccomment">/// the data availability web server config
+    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
-
-<span class="kw">fn </span>default_web_server_config() -&gt; <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt; {
-    <span class="prelude-val">None
-</span>}
 
 <span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
     <span class="kw">fn </span>from(val: NetworkConfigFile&lt;K&gt;) -&gt; <span class="self">Self </span>{
@@ -920,7 +1056,10 @@
 </span>}
 
 <span class="kw">impl </span>ValidatorConfigFile {
-    <span class="kw">pub fn </span>from_file(dir_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// read the validator config from a file
+    /// # Panics
+    /// Panics if unable to get the current working directory
+    </span><span class="kw">pub fn </span>from_file(dir_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>current_working_dir = <span class="kw">match </span>env::current_dir() {
             <span class="prelude-val">Ok</span>(dir) =&gt; dir,
             <span class="prelude-val">Err</span>(e) =&gt; {
@@ -977,17 +1116,14 @@
         }
     }
 }
-
-<span class="comment">// This is hacky, blame serde for not having something like `default_value = &quot;10&quot;`
-</span><span class="kw">fn </span>default_rounds() -&gt; usize {
-    <span class="number">10
-</span>}
-<span class="kw">fn </span>default_transactions_per_round() -&gt; usize {
-    <span class="number">10
-</span>}
-<span class="kw">fn </span>default_transaction_size() -&gt; usize {
-    <span class="number">100
-</span>}
+<span class="doccomment">/// default number of rounds to run
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = <span class="number">10</span>;
+<span class="doccomment">/// default number of transactions per round
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND: usize = <span class="number">10</span>;
+<span class="doccomment">/// default size of transactions
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE: usize = <span class="number">100</span>;
+<span class="doccomment">/// default delay before beginning consensus
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS: u64 = <span class="number">60</span>;
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>ValidatorConfig&lt;K&gt; {
     <span class="kw">fn </span>from(val: ValidatorConfigFile) -&gt; <span class="self">Self </span>{
@@ -1032,8 +1168,4 @@
         }
     }
 }
-
-<span class="kw">fn </span>default_start_delay_seconds() -&gt; u64 {
-    <span class="number">60
-</span>}
 </code></pre></div></section></main></body></html>

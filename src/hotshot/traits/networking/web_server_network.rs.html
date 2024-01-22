@@ -1385,6 +1385,10 @@
 };
 <span class="kw">use </span>surf_disco::error::ClientError;
 <span class="kw">use </span>tracing::{debug, error, info, warn};
+
+<span class="doccomment">/// convenience alias alias for the result of getting transactions from the web server
+</span><span class="kw">pub type </span>TxnResult&lt;TYPES&gt; = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(u64, Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;)&gt;, NetworkError&gt;;
+
 <span class="doccomment">/// Represents the communication channel abstraction for the web server
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WebCommChannel&lt;TYPES: NodeType&gt;(Arc&lt;WebServerNetwork&lt;TYPES&gt;&gt;);
@@ -1825,12 +1829,8 @@
     }
 
     <span class="doccomment">/// Fetches transactions from web server
-    </span><span class="kw">async fn </span>get_txs_from_web_server(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        endpoint: String,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(u64, Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;)&gt;, NetworkError&gt; {
-        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(u64, Vec&lt;Vec&lt;u8&gt;&gt;)&gt;, ClientError&gt; =
-            <span class="self">self</span>.client.get(<span class="kw-2">&amp;</span>endpoint).send().<span class="kw">await</span>;
+    </span><span class="kw">async fn </span>get_txs_from_web_server(<span class="kw-2">&amp;</span><span class="self">self</span>, endpoint: String) -&gt; TxnResult&lt;TYPES&gt; {
+        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(<span class="kw">_</span>, Vec&lt;Vec&lt;u8&gt;&gt;)&gt;, <span class="kw">_</span>&gt; = <span class="self">self</span>.client.get(<span class="kw-2">&amp;</span>endpoint).send().<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(_error) =&gt; <span class="prelude-val">Err</span>(NetworkError::WebServer {
                 source: WebServerNetworkError::ClientError,
@@ -2637,7 +2637,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>network = WebServerNetwork::create(
                 url,
                 Duration::from_millis(<span class="number">100</span>),
-                known_nodes[id <span class="kw">as </span>usize].clone(),
+                known_nodes[usize::try_from(id).unwrap()].clone(),
                 is_da,
             );
             network.server_shutdown_signal = <span class="prelude-val">Some</span>(sender);

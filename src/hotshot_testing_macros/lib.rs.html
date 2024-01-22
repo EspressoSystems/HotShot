@@ -241,9 +241,23 @@
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
-</pre></div><pre class="rust"><code><span class="kw">extern crate </span>proc_macro;
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Macros for testing over all network implementations and nodetype implementations
 
-<span class="kw">use </span>proc_macro::TokenStream;
+</span><span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>proc_macro2::TokenStream <span class="kw">as </span>TokenStream2;
 <span class="kw">use </span>quote::{format_ident, quote};
 <span class="kw">use </span>syn::parse::Result;
@@ -268,7 +282,8 @@
 }
 
 <span class="kw">impl </span>CrossTestDataBuilder {
-    <span class="kw">fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// if we&#39;ve extracted all the metadata
+    </span><span class="kw">fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.impls.is_some()
             &amp;&amp; <span class="self">self</span>.types.is_some()
             &amp;&amp; <span class="self">self</span>.test_name.is_some()
@@ -281,11 +296,16 @@
 <span class="doccomment">/// requisite data to generate a single test
 </span><span class="attr">#[derive(derive_builder::Builder, Debug, Clone)]
 </span><span class="kw">struct </span>TestData {
-    ty: ExprPath,
-    imply: ExprPath,
-    test_name: Ident,
-    metadata: Expr,
-    ignore: LitBool,
+    <span class="doccomment">/// type
+    </span>ty: ExprPath,
+    <span class="doccomment">/// impl
+    </span>imply: ExprPath,
+    <span class="doccomment">/// name of test
+    </span>test_name: Ident,
+    <span class="doccomment">/// test description
+    </span>metadata: Expr,
+    <span class="doccomment">/// whether or not to ignore the test
+    </span>ignore: LitBool,
 }
 
 <span class="doccomment">/// trait make a string lower and snake case
@@ -299,7 +319,7 @@
         <span class="self">self</span>.path
             .segments
             .iter()
-            .fold(<span class="string">&quot;&quot;</span>.to_string(), |<span class="kw-2">mut </span>acc, s| {
+            .fold(String::new(), |<span class="kw-2">mut </span>acc, s| {
                 acc.push_str(<span class="kw-2">&amp;</span>s.ident.to_string().to_lowercase());
                 acc.push(<span class="string">&#39;_&#39;</span>);
                 acc
@@ -309,16 +329,18 @@
 }
 
 <span class="kw">impl </span>ToLowerSnakeStr <span class="kw">for </span>ExprTuple {
-    <span class="kw">fn </span>to_lower_snake_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="doccomment">/// allow panic because this is a compiler error
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>to_lower_snake_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">self</span>.elems
             .iter()
             .map(|x| {
                 <span class="kw">let </span>Expr::Path(expr_path) = x <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Expected path expr, got {:?}&quot;</span>, x)
+                    <span class="macro">panic!</span>(<span class="string">&quot;Expected path expr, got {x:?}&quot;</span>);
                 };
                 expr_path
             })
-            .fold(<span class="string">&quot;&quot;</span>.to_string(), |<span class="kw-2">mut </span>acc, s| {
+            .fold(String::new(), |<span class="kw-2">mut </span>acc, s| {
                 acc.push_str(<span class="kw-2">&amp;</span>s.to_lower_snake_str());
                 acc
             })
@@ -326,7 +348,8 @@
 }
 
 <span class="kw">impl </span>TestData {
-    <span class="kw">fn </span>generate_test(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TokenStream2 {
+    <span class="doccomment">/// generate the code for a single test
+    </span><span class="kw">fn </span>generate_test(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TokenStream2 {
         <span class="kw">let </span>TestData {
             ty,
             imply,
@@ -370,7 +393,9 @@
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>CrossTestData {
-    <span class="kw">fn </span>parse(input: ParseStream) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// allow panic because this is a compiler error
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>description = CrossTestDataBuilder::create_empty();
 
         <span class="kw">while </span>!description.is_ready() {
@@ -410,21 +435,24 @@
         }
         description
             .build()
-            .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e)))
+            .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>)))
     }
 }
 
-<span class="kw">fn </span>cross_tests_internal(test_spec: CrossTestData) -&gt; TokenStream {
+<span class="doccomment">/// Helper function to do the actual code gen
+/// allow panic because this is a compiler error
+</span><span class="attr">#[allow(clippy::panic)]
+</span><span class="kw">fn </span>cross_tests_internal(test_spec: CrossTestData) -&gt; TokenStream {
     <span class="kw">let </span>impls = test_spec.impls.elems.iter().map(|t| {
         <span class="kw">let </span>Expr::Path(p) = t <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">&quot;Expected Path for Impl! Got {:?}&quot;</span>, t)
+            <span class="macro">panic!</span>(<span class="string">&quot;Expected Path for Impl! Got {t:?}&quot;</span>);
         };
         p
     });
     <span class="comment">//
     </span><span class="kw">let </span>types = test_spec.types.elems.iter().map(|t| {
         <span class="kw">let </span>Expr::Path(p) = t <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">&quot;Expected Path for Type! Got {:?}&quot;</span>, t)
+            <span class="macro">panic!</span>(<span class="string">&quot;Expected Path for Type! Got {t:?}&quot;</span>);
         };
         p
     });
@@ -474,8 +502,8 @@
 <span class="doccomment">/// Generate a cartesian product of tests across all types
 /// Arguments:
 /// - `Impls: []` - a list of types that implement nodetype
-/// - `Metadata`: TestMetadata::default()` - test metadata
-/// - `Types: []` - a list types that implement NodeImplementation over the types in `Impls`
+/// - `Metadata`: `TestMetadata::default()` - test metadata
+/// - `Types: []` - a list types that implement `NodeImplementation` over the types in `Impls`
 /// - `TestName: example_test` - the name of the test
 /// - `Ignore`: whether or not this set of tests are ignored
 /// Example usage: see tests in this module

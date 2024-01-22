@@ -112,7 +112,12 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
+/// types used for this example
+</span><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::load_config_from_file;
 <span class="kw">use </span><span class="kw">crate</span>::types::ThisRun;
@@ -135,7 +140,8 @@
     types::{DANetwork, NodeImpl, QuorumNetwork, VIDNetwork, ViewSyncNetwork},
 };
 
-<span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
+<span class="doccomment">/// general infra used for this example
+</span><span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;
 
 <span class="attr">#[cfg_attr(
@@ -202,7 +208,7 @@
     </span><span class="kw">let </span>config: NetworkConfig&lt;
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
-    &gt; = load_config_from_file::&lt;TestTypes&gt;(args.config_file);
+    &gt; = load_config_from_file::&lt;TestTypes&gt;(<span class="kw-2">&amp;</span>args.config_file);
     <span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
     <span class="kw">for _ in </span><span class="number">0</span>..config.config.total_nodes.into() {
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
@@ -220,8 +226,8 @@
                 public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                 network_config_file: <span class="prelude-val">None</span>,
             })
-            .<span class="kw">await
-        </span>});
+            .<span class="kw">await</span>;
+        });
         nodes.push(node);
     }
     futures::future::join_all(nodes).<span class="kw">await</span>;

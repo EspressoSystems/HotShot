@@ -323,6 +323,17 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{
@@ -369,13 +380,17 @@
     },
 }
 
-<span class="attr">#[derive(Clone, derive_builder::Builder, custom_debug::Debug, Default)]
+<span class="doccomment">/// configuration describing the cache
+</span><span class="attr">#[derive(Clone, derive_builder::Builder, custom_debug::Debug, Default)]
 </span><span class="kw">pub struct </span>Config {
     <span class="attr">#[builder(default = <span class="string">&quot;Some(\&quot;dht.cache\&quot;.to_string())&quot;</span>)]
+    </span><span class="doccomment">/// filename to save to
     </span><span class="kw">pub </span>filename: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[builder(default = <span class="string">&quot;Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC * 16)&quot;</span>)]
+    </span><span class="doccomment">/// time before entry expires
     </span><span class="kw">pub </span>expiry: Duration,
-    <span class="attr">#[builder(default = <span class="string">&quot;4&quot;</span>)]
+    <span class="doccomment">/// max differences with disk before write
+    </span><span class="attr">#[builder(default = <span class="string">&quot;4&quot;</span>)]
     </span><span class="kw">pub </span>max_disk_parity_delta: u32,
 }
 
@@ -385,21 +400,21 @@
     }
 }
 
-<span class="kw">pub struct </span>Cache {
+<span class="doccomment">/// key value cache
+</span><span class="kw">pub struct </span>Cache {
     <span class="doccomment">/// the cache&#39;s config
     </span>config: Config,
-
     <span class="doccomment">/// the cache for records (key -&gt; value)
     </span>inner: Arc&lt;DashMap&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt;,
     <span class="doccomment">/// the expiries for the dht cache, in order (expiry time -&gt; key)
     </span>expiries: Arc&lt;RwLock&lt;BTreeMap&lt;SystemTime, Vec&lt;u8&gt;&gt;&gt;&gt;,
-
     <span class="doccomment">/// number of inserts since the last save
     </span>disk_parity_delta: Arc&lt;AtomicU32&gt;,
 }
 
 <span class="kw">impl </span>Cache {
-    <span class="kw">pub async fn </span>new(config: Config) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// create a new cache
+    </span><span class="kw">pub async fn </span>new(config: Config) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>cache = <span class="self">Self </span>{
             inner: Arc::new(DashMap::new()),
             expiries: Arc::new(RwLock::new(BTreeMap::new())),
@@ -415,7 +430,8 @@
         cache
     }
 
-    <span class="kw">pub async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
+    <span class="doccomment">/// load from file if configured to do so
+    </span><span class="kw">pub async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = <span class="kw-2">&amp;</span><span class="self">self</span>.config.filename {
             <span class="kw">let </span>encoded = std::fs::read(filename).context(DiskSnafu)<span class="question-mark">?</span>;
 
@@ -436,7 +452,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
+    <span class="doccomment">/// save to file if configured to do so
+    </span><span class="kw">pub async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = <span class="kw-2">&amp;</span><span class="self">self</span>.config.filename {
             <span class="comment">// prune first
             </span><span class="self">self</span>.prune().<span class="kw">await</span>;
@@ -467,7 +484,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>prune(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    <span class="doccomment">/// prune stale entries
+    </span><span class="kw">async fn </span>prune(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>now = SystemTime::now();
         <span class="kw">let </span><span class="kw-2">mut </span>expiries = <span class="self">self</span>.expiries.write().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>removed: u32 = <span class="number">0</span>;
@@ -487,7 +505,8 @@
         }
     }
 
-    <span class="kw">pub async fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ref&lt;<span class="lifetime">&#39;_</span>, Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt; {
+    <span class="doccomment">/// get value for `key` if exists
+    </span><span class="kw">pub async fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ref&lt;<span class="lifetime">&#39;_</span>, Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt; {
         <span class="comment">// prune, save if necessary
         </span><span class="self">self</span>.prune().<span class="kw">await</span>;
         <span class="self">self</span>.save_if_necessary().<span class="kw">await</span>;
@@ -496,7 +515,9 @@
         </span><span class="self">self</span>.inner.get(key)
     }
 
-    <span class="kw">pub async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;) {
+    <span class="doccomment">/// insert key and value into cache and experies, then save to disk if max disk parity delta
+    /// exceeded
+    </span><span class="kw">pub async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;) {
         <span class="comment">// insert into cache and expiries
         </span><span class="self">self</span>.inner.insert(key.clone(), value);
         <span class="self">self</span>.expiries
@@ -509,7 +530,8 @@
         <span class="self">self</span>.save_if_necessary().<span class="kw">await</span>;
     }
 
-    <span class="kw">async fn </span>save_if_necessary(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    <span class="doccomment">/// save to disk if differences is over max disk parity delta
+    </span><span class="kw">async fn </span>save_if_necessary(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>cur_disk_parity_delta = <span class="self">self</span>.disk_parity_delta.load(Ordering::Relaxed);
         <span class="kw">if </span>cur_disk_parity_delta &gt;= <span class="self">self</span>.config.max_disk_parity_delta {
             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.save().<span class="kw">await </span>{

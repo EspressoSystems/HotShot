@@ -874,7 +874,104 @@
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>config;
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
+
+/// Configuration for the webserver
+</span><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 <span class="kw">use </span>async_compatibility_layer::channel::OneShotReceiver;
@@ -893,18 +990,22 @@
 };
 <span class="kw">use </span>tracing::{debug, info};
 
-<span class="kw">type </span>State&lt;KEY&gt; = RwLock&lt;WebServerState&lt;KEY&gt;&gt;;
-<span class="kw">type </span>Error = ServerError;
+<span class="doccomment">/// Convience alias for a lock over the state of the app
+/// TODO this is used in two places. It might be clearer to just inline
+</span><span class="kw">type </span>State&lt;KEY&gt; = RwLock&lt;WebServerState&lt;KEY&gt;&gt;;
+<span class="doccomment">/// Convience alias for errors in this crate
+</span><span class="kw">type </span>Error = ServerError;
 
 <span class="doccomment">/// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec&lt;u8&gt;` to not incur overhead from deserializing
+</span><span class="comment">// TODO should the view numbers be generic over time?
 </span><span class="kw">struct </span>WebServerState&lt;KEY&gt; {
     <span class="doccomment">/// view number -&gt; (secret, proposal)
     </span>proposals: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
-
-    view_sync_proposals: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
-
-    view_sync_proposal_index: HashMap&lt;u64, u64&gt;,
+    <span class="doccomment">/// for view sync: view number -&gt; (relay, certificate)
+    </span>view_sync_proposals: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
+    <span class="doccomment">/// view number -&gt; relay
+    </span>view_sync_proposal_index: HashMap&lt;u64, u64&gt;,
     <span class="doccomment">/// view number -&gt; (secret, da_certificates)
     </span>da_certificates: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
     <span class="doccomment">/// view for oldest proposals in memory
@@ -913,40 +1014,43 @@
     </span>latest_quorum_proposal: u64,
     <span class="doccomment">/// view for the most recent view sync proposal
     </span>latest_view_sync_proposal: u64,
-
-    <span class="doccomment">/// view for teh oldest DA certificate
+    <span class="doccomment">/// view for the oldest DA certificate
     </span>oldest_certificate: u64,
-
-    oldest_view_sync_proposal: u64,
+    <span class="doccomment">/// view for the oldest view sync certificate
+    </span>oldest_view_sync_proposal: u64,
     <span class="doccomment">/// view number -&gt; Vec(index, vote)
     </span>votes: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
-
-    view_sync_votes: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
+    <span class="doccomment">/// view sync: view number -&gt; Vec(relay, vote)
+    </span>view_sync_votes: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
     <span class="doccomment">/// view number -&gt; highest vote index for that view number
     </span>vote_index: HashMap&lt;u64, u64&gt;,
-
-    view_sync_vote_index: HashMap&lt;u64, u64&gt;,
+    <span class="doccomment">/// view_sync: view number -&gt; highest vote index for that view number
+    </span>view_sync_vote_index: HashMap&lt;u64, u64&gt;,
     <span class="doccomment">/// view number of oldest votes in memory
     </span>oldest_vote: u64,
-
-    oldest_view_sync_vote: u64,
-
-    vid_disperses: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
-    oldest_vid_disperse: u64,
-    recent_vid_disperse: u64,
-
-    vid_votes: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
-    oldest_vid_vote: u64,
-    <span class="comment">// recent_vid_vote: u64,
+    <span class="doccomment">/// view sync: view number of oldest votes in memory
+    </span>oldest_view_sync_vote: u64,
+    <span class="doccomment">/// view number -&gt; (secret, string)
+    </span>vid_disperses: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
+    <span class="doccomment">/// view for the oldest vid disperal
+    </span>oldest_vid_disperse: u64,
+    <span class="doccomment">/// view of most recent vid dispersal
+    </span>recent_vid_disperse: u64,
+    <span class="doccomment">/// votes that a node got, that is, their VID share
+    </span>vid_votes: HashMap&lt;u64, Vec&lt;(u64, Vec&lt;u8&gt;)&gt;&gt;,
+    <span class="doccomment">/// oldest vid vote view number
+    </span>oldest_vid_vote: u64,
+    <span class="doccomment">/// recent_vid_vote view number
     </span>vid_certificates: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
-    oldest_vid_certificate: u64,
-    <span class="comment">// recent_vid_certificate: u64,
+    <span class="doccomment">/// oldest vid certificate view number
+    </span>oldest_vid_certificate: u64,
+    <span class="doccomment">/// recent_vid_certificate: u64,
     </span>vid_vote_index: HashMap&lt;u64, u64&gt;,
-
     <span class="doccomment">/// index -&gt; transaction
     </span><span class="comment">// TODO ED Make indexable by hash of tx
     </span>transactions: HashMap&lt;u64, Vec&lt;u8&gt;&gt;,
-    txn_lookup: HashMap&lt;Vec&lt;u8&gt;, u64&gt;,
+    <span class="doccomment">/// tx hash -&gt; tx index, is currently unused
+    </span>txn_lookup: HashMap&lt;Vec&lt;u8&gt;, u64&gt;,
     <span class="doccomment">/// highest transaction index
     </span>num_txns: u64,
 
@@ -959,7 +1063,8 @@
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt; WebServerState&lt;KEY&gt; {
-    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Create new web server state
+    </span><span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             proposals: HashMap::new(),
             da_certificates: HashMap::new(),
@@ -997,10 +1102,15 @@
             view_sync_proposal_index: HashMap::new(),
         }
     }
-    <span class="kw">pub fn </span>with_shutdown_signal(<span class="kw-2">mut </span><span class="self">self</span>, shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">if </span><span class="self">self</span>.shutdown.is_some() {
-            <span class="macro">panic!</span>(<span class="string">&quot;A shutdown signal is already registered and can not be registered twice&quot;</span>);
-        }
+    <span class="doccomment">/// Provide a shutdown signal to the server
+    /// # Panics
+    /// Panics if already shut down
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">pub fn </span>with_shutdown_signal(<span class="kw-2">mut </span><span class="self">self</span>, shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="macro">assert!</span>(
+            <span class="self">self</span>.shutdown.is_none(),
+            <span class="string">&quot;A shutdown signal is already registered and can not be registered twice&quot;
+        </span>);
         <span class="self">self</span>.shutdown = shutdown_listener;
         <span class="self">self
     </span>}
@@ -1008,47 +1118,117 @@
 
 <span class="doccomment">/// Trait defining methods needed for the `WebServerState`
 </span><span class="kw">pub trait </span>WebServerDataSource&lt;KEY&gt; {
-    <span class="kw">fn </span>get_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_latest_view_sync_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_view_sync_proposal(
+    <span class="doccomment">/// Get proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get latest quanrum proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get latest view sync proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_latest_view_sync_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get view sync proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_view_sync_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: u64,
         index: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
 
-    <span class="kw">fn </span>get_votes(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_view_sync_votes(
+    <span class="doccomment">/// Get vote
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_votes(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get view sync votes
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_view_sync_votes(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: u64,
         index: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
 
     <span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="doccomment">/// Get transactions
+    /// # Errors
+    /// Error if unable to serve.
     </span><span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(u64, Vec&lt;Vec&lt;u8&gt;&gt;)&gt;, Error&gt;;
-    <span class="kw">fn </span>get_da_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>post_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_view_sync_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Get da certificate
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_da_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Post vote
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post view sync vote
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_view_sync_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
-    <span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_view_sync_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, proposal: Vec&lt;u8&gt;)
+    <span class="doccomment">/// Post proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post view sync proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_view_sync_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, proposal: Vec&lt;u8&gt;)
         -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
-    <span class="kw">fn </span>post_da_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, cert: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, txn: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_staketable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_completed_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_secret_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _view_number: u64, _proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Option</span>&lt;(String, Vec&lt;u8&gt;)&gt;;
-
-    <span class="kw">fn </span>post_vid_disperse(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, disperse: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_vid_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-    <span class="kw">fn </span>post_vid_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, certificate: Vec&lt;u8&gt;)
+    <span class="doccomment">/// Post data avaiability certificate
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_da_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, cert: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post transaction
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, txn: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post staketable
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_staketable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post completed transaction
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_completed_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post secret proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_secret_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _view_number: u64, _proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post proposal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Option</span>&lt;(String, Vec&lt;u8&gt;)&gt;;
+    <span class="doccomment">/// Post vid disperal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_vid_disperse(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, disperse: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// Post vid vote
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_vid_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, vote: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+    <span class="doccomment">/// post vid certificate
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>post_vid_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, certificate: Vec&lt;u8&gt;)
         -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-
-    <span class="kw">fn </span>get_vid_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_vid_votes(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
-    <span class="kw">fn </span>get_vid_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get vid dispersal
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_vid_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get vid votes
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_vid_votes(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    <span class="doccomment">/// Get vid certificates
+    /// # Errors
+    /// Error if unable to serve.
+    </span><span class="kw">fn </span>get_vid_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; WebServerDataSource&lt;KEY&gt; <span class="kw">for </span>WebServerState&lt;KEY&gt; {
@@ -1112,13 +1292,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ret_proposals = <span class="macro">vec!</span>[];
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = proposals {
             <span class="kw">for </span>i <span class="kw">in </span>index..<span class="kw-2">*</span><span class="self">self</span>.view_sync_proposal_index.get(<span class="kw-2">&amp;</span>view_number).unwrap() {
-                ret_proposals.push(cert[i <span class="kw">as </span>usize].<span class="number">1</span>.clone());
+                ret_proposals.push(cert[usize::try_from(i).unwrap()].<span class="number">1</span>.clone());
             }
         }
-        <span class="kw">if </span>!ret_proposals.is_empty() {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_proposals))
-        } <span class="kw">else </span>{
+        <span class="kw">if </span>ret_proposals.is_empty() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_proposals))
         }
     }
 
@@ -1128,13 +1308,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ret_votes = <span class="macro">vec!</span>[];
         <span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = votes {
             <span class="kw">for </span>i <span class="kw">in </span>index..<span class="kw-2">*</span><span class="self">self</span>.vote_index.get(<span class="kw-2">&amp;</span>view_number).unwrap() {
-                ret_votes.push(votes[i <span class="kw">as </span>usize].<span class="number">1</span>.clone());
+                ret_votes.push(votes[usize::try_from(i).unwrap()].<span class="number">1</span>.clone());
             }
         }
-        <span class="kw">if </span>!ret_votes.is_empty() {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
-        } <span class="kw">else </span>{
+        <span class="kw">if </span>ret_votes.is_empty() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
         }
     }
 
@@ -1144,13 +1324,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ret_votes = <span class="macro">vec!</span>[];
         <span class="kw">if let </span><span class="prelude-val">Some</span>(vid_votes) = vid_votes {
             <span class="kw">for </span>i <span class="kw">in </span>index..<span class="kw-2">*</span><span class="self">self</span>.vid_vote_index.get(<span class="kw-2">&amp;</span>view_number).unwrap() {
-                ret_votes.push(vid_votes[i <span class="kw">as </span>usize].<span class="number">1</span>.clone());
+                ret_votes.push(vid_votes[usize::try_from(i).unwrap()].<span class="number">1</span>.clone());
             }
         }
-        <span class="kw">if </span>!ret_votes.is_empty() {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
-        } <span class="kw">else </span>{
+        <span class="kw">if </span>ret_votes.is_empty() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
         }
     }
 
@@ -1163,13 +1343,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ret_votes = <span class="macro">vec!</span>[];
         <span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = votes {
             <span class="kw">for </span>i <span class="kw">in </span>index..<span class="kw-2">*</span><span class="self">self</span>.view_sync_vote_index.get(<span class="kw-2">&amp;</span>view_number).unwrap() {
-                ret_votes.push(votes[i <span class="kw">as </span>usize].<span class="number">1</span>.clone());
+                ret_votes.push(votes[usize::try_from(i).unwrap()].<span class="number">1</span>.clone());
             }
         }
-        <span class="kw">if </span>!ret_votes.is_empty() {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
-        } <span class="kw">else </span>{
+        <span class="kw">if </span>ret_votes.is_empty() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ret_votes))
         }
     }
 
@@ -1182,34 +1362,34 @@
         <span class="kw">let </span>lowest_in_memory_txs = <span class="kw">if </span><span class="self">self</span>.num_txns &lt; MAX_TXNS.try_into().unwrap() {
             <span class="number">0
         </span>} <span class="kw">else </span>{
-            <span class="self">self</span>.num_txns <span class="kw">as </span>usize - MAX_TXNS
+            usize::try_from(<span class="self">self</span>.num_txns).unwrap() - MAX_TXNS
         };
 
-        <span class="kw">let </span>starting_index = <span class="kw">if </span>(index <span class="kw">as </span>usize) &lt; lowest_in_memory_txs {
+        <span class="kw">let </span>starting_index = <span class="kw">if </span>(usize::try_from(index).unwrap()) &lt; lowest_in_memory_txs {
             lowest_in_memory_txs
         } <span class="kw">else </span>{
-            index <span class="kw">as </span>usize
+            usize::try_from(index).unwrap()
         };
 
         <span class="kw">for </span>idx <span class="kw">in </span>starting_index..=<span class="self">self</span>.num_txns.try_into().unwrap() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(txn) = <span class="self">self</span>.transactions.get(<span class="kw-2">&amp;</span>(idx <span class="kw">as </span>u64)) {
-                txns_to_return.push(txn.clone())
+                txns_to_return.push(txn.clone());
             }
-            <span class="kw">if </span>txns_to_return.len() &gt;= TX_BATCH_SIZE <span class="kw">as </span>usize {
+            <span class="kw">if </span>txns_to_return.len() &gt;= usize::try_from(TX_BATCH_SIZE).unwrap() {
                 <span class="kw">break</span>;
             }
         }
 
-        <span class="kw">if </span>!txns_to_return.is_empty() {
-            <span class="macro">debug!</span>(<span class="string">&quot;Returning this many txs {}&quot;</span>, txns_to_return.len());
-            <span class="comment">//starting_index is the oldest index of the returned txns
-            </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((starting_index <span class="kw">as </span>u64, txns_to_return)))
-        } <span class="kw">else </span>{
+        <span class="kw">if </span>txns_to_return.is_empty() {
             <span class="prelude-val">Err</span>(ServerError {
                 <span class="comment">// TODO ED: Why does NoContent status code cause errors?
                 </span>status: StatusCode::NotImplemented,
                 message: <span class="macro">format!</span>(<span class="string">&quot;Transaction not found for index {index}&quot;</span>),
             })
+        } <span class="kw">else </span>{
+            <span class="macro">debug!</span>(<span class="string">&quot;Returning this many txs {}&quot;</span>, txns_to_return.len());
+            <span class="comment">//starting_index is the oldest index of the returned txns
+            </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((starting_index <span class="kw">as </span>u64, txns_to_return)))
         }
     }
 
@@ -1542,13 +1722,16 @@
     }
 }
 
-<span class="attr">#[derive(Args, Default)]
+<span class="doccomment">/// configurability options for the web server
+</span><span class="attr">#[derive(Args, Default)]
 </span><span class="kw">pub struct </span>Options {
     <span class="attr">#[arg(long = <span class="string">&quot;web-server-api-path&quot;</span>, env = <span class="string">&quot;WEB_SERVER_API_PATH&quot;</span>)]
+    </span><span class="doccomment">/// path to API
     </span><span class="kw">pub </span>api_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
 <span class="doccomment">/// Sets up all API routes
+</span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">fn </span>define_api&lt;State, KEY&gt;(options: <span class="kw-2">&amp;</span>Options) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">&#39;static </span>+ Send + Sync + ReadState + WriteState,
@@ -1711,21 +1894,20 @@
                         <span class="prelude-val">Err</span>(ServerError {
                             status: StatusCode::BadRequest,
                             message: <span class="macro">format!</span>(
-                                <span class="string">&quot;Wrong secret value for proposal for view {:?}&quot;</span>,
-                                view_number
-                            ),
+                                <span class="string">&quot;Wrong secret value for proposal for view {view_number:?}&quot;
+                            </span>),
                         })
                     }
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::BadRequest,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal already submitted for view {:?}&quot;</span>, view_number),
+                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal already submitted for view {view_number:?}&quot;</span>),
                     })
                 }
             } <span class="kw">else </span>{
                 <span class="prelude-val">Err</span>(ServerError {
                     status: StatusCode::BadRequest,
-                    message: <span class="macro">format!</span>(<span class="string">&quot;No endpoint for view number {} yet&quot;</span>, view_number),
+                    message: <span class="macro">format!</span>(<span class="string">&quot;No endpoint for view number {view_number:?} yet&quot;</span>),
                 })
             }
         }
@@ -1734,17 +1916,23 @@
     <span class="prelude-val">Ok</span>(api)
 }
 
-<span class="kw">pub async fn </span>run_web_server&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt;(
+<span class="doccomment">/// run the web server
+/// # Errors
+/// TODO
+/// this looks like it will panic not error
+/// # Panics
+/// on errors creating or registering the tide disco api
+</span><span class="kw">pub async fn </span>run_web_server&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt;(
     shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;,
     url: Url,
 ) -&gt; io::Result&lt;()&gt; {
     <span class="kw">let </span>options = Options::default();
 
-    <span class="kw">let </span>api = define_api(<span class="kw-2">&amp;</span>options).unwrap();
+    <span class="kw">let </span>web_api = define_api(<span class="kw-2">&amp;</span>options).unwrap();
     <span class="kw">let </span>state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error&gt;::with_state(state);
 
-    app.register_module(<span class="string">&quot;api&quot;</span>, api).unwrap();
+    app.register_module(<span class="string">&quot;api&quot;</span>, web_api).unwrap();
 
     <span class="kw">let </span>app_future = app.serve(url);
 

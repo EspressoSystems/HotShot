@@ -52,7 +52,12 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-</pre></div><pre class="rust"><code><span class="comment">// pub mod common;
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! This is dead code, do not use
+</span><span class="comment">// pub mod common;
 //
 // use async_compatibility_layer::art::async_main;
 // use clap::Parser;
@@ -68,42 +73,45 @@
 // #[async_main]
 // #[instrument]
 // async fn main() -&gt; Result&lt;()&gt; {
-</span><span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-    <span class="comment">//     let args = CliOpt::parse();
-    //
-    //     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
-    //     let network = {
-    //         use crate::common::lossy_network::LOSSY_QDISC;
-    //         let mut builder = LossyNetworkBuilder::default();
-    //         builder
-    //             .env_type(args.env_type_delegate.env_type)
-    //             .netem_config(LOSSY_QDISC);
-    //         match args.env_type_delegate.env_type {
-    //             ExecutionEnvironment::Docker =&gt; {
-    //                 builder.eth_name(&quot;eth0&quot;.to_string()).isolation_config(None)
-    //             }
-    //             ExecutionEnvironment::Metal =&gt; builder
-    //                 .eth_name(&quot;ens5&quot;.to_string())
-    //                 .isolation_config(Some(IsolationConfig::default())),
-    //         };
-    //         builder.build()
-    //     }?;
-    //
-    //     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
-    //     {
-    //         network.isolate().await?;
-    //         network.create_qdisc().await?;
-    //     }
-    //
-    //     start_main(args).await?;
-    //
-    //     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
-    //     {
-    //         // implicitly deletes qdisc in the case of metal run
-    //         // leaves qdisc alive in docker run with expectation docker does cleanup
-    //         network.undo_isolate().await?;
-    //     }
-    //
-    </span><span class="prelude-val">Ok</span>(())
-}
+// fn main() -&gt; Result&lt;(), ()&gt; {
+//     let args = CliOpt::parse();
+//
+//     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
+//     let network = {
+//         use crate::common::lossy_network::LOSSY_QDISC;
+//         let mut builder = LossyNetworkBuilder::default();
+//         builder
+//             .env_type(args.env_type_delegate.env_type)
+//             .netem_config(LOSSY_QDISC);
+//         match args.env_type_delegate.env_type {
+//             ExecutionEnvironment::Docker =&gt; {
+//                 builder.eth_name(&quot;eth0&quot;.to_string()).isolation_config(None)
+//             }
+//             ExecutionEnvironment::Metal =&gt; builder
+//                 .eth_name(&quot;ens5&quot;.to_string())
+//                 .isolation_config(Some(IsolationConfig::default())),
+//         };
+//         builder.build()
+//     }?;
+//
+//     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
+//     {
+//         network.isolate().await?;
+//         network.create_qdisc().await?;
+//     }
+//
+//     start_main(args).await?;
+//
+//     #[cfg(all(feature = &quot;lossy_network&quot;, target_os = &quot;linux&quot;))]
+//     {
+//         // implicitly deletes qdisc in the case of metal run
+//         // leaves qdisc alive in docker run with expectation docker does cleanup
+//         network.undo_isolate().await?;
+//     }
+//
+//     Ok(())
+// }
+//
+</span><span class="doccomment">/// dead code
+</span><span class="kw">fn </span>main() {}
 </code></pre></div></section></main></body></html>

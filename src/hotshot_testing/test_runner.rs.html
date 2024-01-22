@@ -288,7 +288,26 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::{
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+</pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
+</span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
     txn_task::TxnTask,
@@ -318,21 +337,30 @@
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>tracing::info;
 
-<span class="attr">#[derive(Clone)]
+<span class="doccomment">/// a node participating in a test
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="kw">pub </span>node_id: u64,
-    <span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
-    <span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
+    <span class="doccomment">/// the unique identifier of the node
+    </span><span class="kw">pub </span>node_id: u64,
+    <span class="doccomment">/// the networks of the node
+    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// the handle to the node&#39;s internals
+    </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
 /// spin up and down nodes, execute rounds
 </span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) task_runner: TaskRunner,
+    <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
+    <span class="doccomment">/// nodes in the test
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// nodes with a late start
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// the next node unique identifier
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
+    <span class="doccomment">/// overarching test task
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) task_runner: TaskRunner,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt;
@@ -340,6 +368,9 @@
     </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
 {
     <span class="doccomment">/// excecute test
+    /// # Panics
+    /// if the test fails
+    </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">pub async fn </span>run_test(<span class="kw-2">mut </span><span class="self">self</span>) {
         <span class="kw">let </span>spinning_changes = <span class="self">self
             </span>.launcher
@@ -469,7 +500,7 @@
         <span class="kw">for </span>(name, result) <span class="kw">in </span>results {
             <span class="kw">match </span>result {
                 hotshot_task::task::HotShotTaskCompleted::ShutDown =&gt; {
-                    <span class="macro">info!</span>(<span class="string">&quot;Task {} shut down successfully&quot;</span>, name)
+                    <span class="macro">info!</span>(<span class="string">&quot;Task {} shut down successfully&quot;</span>, name);
                 }
                 hotshot_task::task::HotShotTaskCompleted::Error(e) =&gt; error_list.push((name, e)),
                 <span class="kw">_ </span>=&gt; {
@@ -477,12 +508,15 @@
                 }
             }
         }
-        <span class="kw">if </span>!error_list.is_empty() {
-            <span class="macro">panic!</span>(<span class="string">&quot;TEST FAILED! Results: {:?}&quot;</span>, error_list);
-        }
+        <span class="macro">assert!</span>(
+            error_list.is_empty(),
+            <span class="string">&quot;TEST FAILED! Results: {error_list:?}&quot;
+        </span>);
     }
 
     <span class="doccomment">/// add nodes
+    /// # Panics
+    /// Panics if unable to create a [`HotShotInitializer`]
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, total: usize, late_start: <span class="kw-2">&amp;</span>HashSet&lt;u64&gt;) -&gt; Vec&lt;u64&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
@@ -520,6 +554,8 @@
     }
 
     <span class="doccomment">/// add a specific node with a config
+    /// # Panics
+    /// if unable to initialize the node&#39;s `SystemContext` based on the config
     </span><span class="kw">pub async fn </span>add_node_with_config(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         networks: Networks&lt;TYPES, I&gt;,

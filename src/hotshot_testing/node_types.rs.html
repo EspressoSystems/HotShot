@@ -137,6 +137,23 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 
 <span class="kw">use crate</span>::{
@@ -171,6 +188,8 @@
     serde::Serialize,
     serde::Deserialize,
 )]
+</span><span class="doccomment">/// filler struct to implement node type and allow us
+/// to select our traits
 </span><span class="kw">pub struct </span>TestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypes {
     <span class="kw">type </span>Time = ViewNumber;
@@ -183,39 +202,54 @@
     <span class="kw">type </span>Membership = GeneralStaticCommittee&lt;TestTypes, <span class="self">Self</span>::SignatureKey&gt;;
 }
 
-<span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+<span class="doccomment">/// Memory network implementation
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>MemoryImpl;
 
-<span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+<span class="doccomment">/// Libp2p network implementation
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>Libp2pImpl;
 
-<span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+<span class="doccomment">/// Web server network implementation
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>WebImpl;
 
-<span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+<span class="doccomment">/// Combined Network implementation (libp2p + web sever)
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>CombinedImpl;
 
-<span class="kw">pub type </span>StaticMembership = StaticCommittee&lt;TestTypes&gt;;
+<span class="doccomment">/// static committee type alias
+</span><span class="kw">pub type </span>StaticMembership = StaticCommittee&lt;TestTypes&gt;;
 
-<span class="kw">pub type </span>StaticMemoryDAComm = MemoryCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// memory network
+</span><span class="kw">pub type </span>StaticMemoryDAComm = MemoryCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticLibp2pDAComm = Libp2pCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// libp2p network
+</span><span class="kw">type </span>StaticLibp2pDAComm = Libp2pCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticWebDAComm = WebCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// web server network communication channel
+</span><span class="kw">type </span>StaticWebDAComm = WebCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticCombinedDAComm = CombinedCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// combined network
+</span><span class="kw">type </span>StaticCombinedDAComm = CombinedCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">pub type </span>StaticMemoryQuorumComm = MemoryCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// memory comm channel
+</span><span class="kw">pub type </span>StaticMemoryQuorumComm = MemoryCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticLibp2pQuorumComm = Libp2pCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// libp2p comm channel
+</span><span class="kw">type </span>StaticLibp2pQuorumComm = Libp2pCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticWebQuorumComm = WebCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// web server comm channel
+</span><span class="kw">type </span>StaticWebQuorumComm = WebCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">type </span>StaticCombinedQuorumComm = CombinedCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// combined network (libp2p + web server)
+</span><span class="kw">type </span>StaticCombinedQuorumComm = CombinedCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">pub type </span>StaticMemoryViewSyncComm = MemoryCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// memory network
+</span><span class="kw">pub type </span>StaticMemoryViewSyncComm = MemoryCommChannel&lt;TestTypes&gt;;
 
-<span class="kw">pub type </span>StaticMemoryVIDComm = MemoryCommChannel&lt;TestTypes&gt;;
+<span class="doccomment">/// memory network
+</span><span class="kw">pub type </span>StaticMemoryVIDComm = MemoryCommChannel&lt;TestTypes&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>Libp2pImpl {
     <span class="kw">type </span>Storage = MemoryStorage&lt;TestTypes&gt;;

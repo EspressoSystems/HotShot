@@ -346,7 +346,25 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::marker::PhantomData;
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+</pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
+</span><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
     block_types::{TestBlockHeader, TestBlockPayload},
@@ -391,7 +409,10 @@
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>std::{fmt::Debug, hash::Hash};
 
-<span class="kw">pub async fn </span>build_system_handle(
+<span class="doccomment">/// create the [`SystemContextHandle`] from a node id
+/// # Panics
+/// if cannot create a [`HotShotInitializer`]
+</span><span class="kw">pub async fn </span>build_system_handle(
     node_id: u64,
 ) -&gt; (
     SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
@@ -463,7 +484,10 @@
     </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>)
 }
 
-<span class="kw">pub fn </span>build_cert&lt;
+<span class="doccomment">/// create certificate
+/// # Panics
+/// if we fail to sign the data
+</span><span class="kw">pub fn </span>build_cert&lt;
     TYPES: NodeType&lt;SignatureKey = BLSPubKey&gt;,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">&#39;static</span>,
     VOTE: Vote&lt;TYPES, Commitment = DATAType&gt;,
@@ -475,8 +499,7 @@
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; CERT {
-    <span class="kw">let </span>real_qc_sig =
-        build_assembled_sig::&lt;TYPES, VOTE, CERT, DATAType&gt;(data.clone(), membership, view);
+    <span class="kw">let </span>real_qc_sig = build_assembled_sig::&lt;TYPES, VOTE, CERT, DATAType&gt;(<span class="kw-2">&amp;</span>data, membership, view);
 
     <span class="kw">let </span>vote =
         SimpleVote::&lt;TYPES, DATAType&gt;::create_signed_vote(data, view, public_key, private_key)
@@ -490,13 +513,16 @@
     cert
 }
 
-<span class="kw">pub fn </span>build_assembled_sig&lt;
+<span class="doccomment">/// create signature
+/// # Panics
+/// if fails to convert node id into keypair
+</span><span class="kw">pub fn </span>build_assembled_sig&lt;
     TYPES: NodeType&lt;SignatureKey = BLSPubKey&gt;,
     VOTE: Vote&lt;TYPES&gt;,
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">&#39;static</span>,
 &gt;(
-    data: DATAType,
+    data: <span class="kw-2">&amp;</span>DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view: TYPES::Time,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType {
@@ -534,7 +560,8 @@
     real_qc_sig
 }
 
-<span class="kw">async fn </span>build_quorum_proposal_and_signature(
+<span class="doccomment">/// build a quorum proposal and signature
+</span><span class="kw">async fn </span>build_quorum_proposal_and_signature(
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     public_key: <span class="kw-2">&amp;</span>BLSPubKey,
@@ -656,7 +683,8 @@
     (proposal, signature)
 }
 
-<span class="kw">pub async fn </span>build_quorum_proposal(
+<span class="doccomment">/// create a quorum proposal
+</span><span class="kw">pub async fn </span>build_quorum_proposal(
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     view: u64,
@@ -671,15 +699,21 @@
     }
 }
 
-<span class="kw">pub fn </span>key_pair_for_id(node_id: u64) -&gt; (&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey, BLSPubKey) {
+<span class="doccomment">/// get the keypair for a node id
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>key_pair_for_id(node_id: u64) -&gt; (&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey, BLSPubKey) {
     <span class="kw">let </span>private_key =
         &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
     <span class="kw">let </span>public_key = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
     (private_key, public_key)
 }
 
-<span class="kw">pub fn </span>vid_init&lt;TYPES: NodeType&gt;(
-    membership: TYPES::Membership,
+<span class="doccomment">/// initialize VID
+/// # Panics
+/// if unable to create a [`VidScheme`]
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>vid_init&lt;TYPES: NodeType&gt;(
+    membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view_number: TYPES::Time,
 ) -&gt; VidScheme {
     <span class="kw">let </span>num_committee = membership.get_committee(view_number).len();

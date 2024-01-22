@@ -26,6 +26,8 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -48,8 +50,10 @@
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Type for protocol version number
 </span><span class="kw">pub struct </span>Version {
-    <span class="kw">pub </span>major: u16,
-    <span class="kw">pub </span>minor: u16,
+    <span class="doccomment">/// major version number
+    </span><span class="kw">pub </span>major: u16,
+    <span class="doccomment">/// minor version number
+    </span><span class="kw">pub </span>minor: u16,
 }
 
 <span class="doccomment">/// Constants for the current version number used by the program

@@ -587,6 +587,30 @@
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Circuit implementation for verifying light client state update
 
 </span><span class="kw">use </span>ark_ec::twisted_edwards::TECurveConfig;
@@ -622,7 +646,7 @@
 }
 
 <span class="doccomment">/// Light client state Variable
-/// The stake table commitment is a triple (qc_keys_comm, state_keys_comm, stake_amount_comm).
+/// The stake table commitment is a triple `(qc_keys_comm, state_keys_comm, stake_amount_comm)`.
 /// Variable for a stake table commitment
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>StakeTableCommVar {
@@ -646,7 +670,8 @@
     </span>vars: [Variable; <span class="number">7</span>],
 }
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="doccomment">/// public input
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>PublicInput&lt;F: PrimeField&gt;(Vec&lt;F&gt;);
 
 <span class="kw">impl</span>&lt;F: PrimeField&gt; AsRef&lt;[F]&gt; <span class="kw">for </span>PublicInput&lt;F&gt; {
@@ -663,53 +688,64 @@
 
 <span class="kw">impl</span>&lt;F: PrimeField&gt; PublicInput&lt;F&gt; {
     <span class="doccomment">/// Return the threshold
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">0</span>]
     }
 
     <span class="doccomment">/// Return the view number of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">1</span>]
     }
 
     <span class="doccomment">/// Return the block height of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>block_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">2</span>]
     }
 
     <span class="doccomment">/// Return the block commitment root of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>block_comm_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">3</span>]
     }
 
     <span class="doccomment">/// Return the fee ledger commitment of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>fee_ledger_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">4</span>]
     }
 
     <span class="doccomment">/// Return the stake table commitment of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>stake_table_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (F, F, F) {
         (<span class="self">self</span>.<span class="number">0</span>[<span class="number">5</span>], <span class="self">self</span>.<span class="number">0</span>[<span class="number">6</span>], <span class="self">self</span>.<span class="number">0</span>[<span class="number">7</span>])
     }
 
     <span class="doccomment">/// Return the qc key commitment of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>qc_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">5</span>]
     }
 
     <span class="doccomment">/// Return the state key commitment of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>state_key_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">6</span>]
     }
 
     <span class="doccomment">/// Return the stake amount commitment of the light client state
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>stake_amount_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
         <span class="self">self</span>.<span class="number">0</span>[<span class="number">7</span>]
     }
 }
 
 <span class="kw">impl </span>LightClientStateVar {
-    <span class="kw">pub fn </span>new&lt;F: PrimeField&gt;(
+    <span class="doccomment">/// # Errors
+    /// if unable to create any of the public variables
+    </span><span class="kw">pub fn </span>new&lt;F: PrimeField&gt;(
         circuit: <span class="kw-2">&amp;mut </span>PlonkCircuit&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>LightClientState&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CircuitError&gt; {
@@ -728,23 +764,33 @@
         })
     }
 
-    <span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
+    <span class="doccomment">/// Returns the view number
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
         <span class="self">self</span>.vars[<span class="number">0</span>]
     }
 
-    <span class="kw">pub fn </span>block_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
+    <span class="doccomment">/// Returns the block height
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>block_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
         <span class="self">self</span>.vars[<span class="number">1</span>]
     }
 
-    <span class="kw">pub fn </span>block_comm_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
+    <span class="doccomment">/// Returns the Merkle root of the block commitments
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>block_comm_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
         <span class="self">self</span>.vars[<span class="number">2</span>]
     }
 
-    <span class="kw">pub fn </span>fee_ledger_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
+    <span class="doccomment">/// Returns the commitment of the fee ledger
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>fee_ledger_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Variable {
         <span class="self">self</span>.vars[<span class="number">3</span>]
     }
 
-    <span class="kw">pub fn </span>stake_table_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StakeTableCommVar {
+    <span class="doccomment">/// Returns the commitment of the associated stake table
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>stake_table_comm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StakeTableCommVar {
         StakeTableCommVar {
             qc_keys_comm: <span class="self">self</span>.vars[<span class="number">4</span>],
             state_keys_comm: <span class="self">self</span>.vars[<span class="number">5</span>],
@@ -774,7 +820,8 @@
 /// and returns
 /// - A circuit for proof generation
 /// - A list of public inputs for verification
-/// - A PlonkError if any error happens when building the circuit
+/// - A `PlonkError` if any error happens when building the circuit
+</span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build&lt;F, P, STIter, BitIter, SigIter, <span class="kw">const </span>STAKE_TABLE_CAPACITY: usize&gt;(
     stake_table_entries: STIter,
     signer_bit_vec: BitIter,
@@ -1015,6 +1062,7 @@
     <span class="kw">const </span>ST_CAPACITY: usize = <span class="number">20</span>;
 
     <span class="attr">#[test]
+    #[allow(clippy::too_many_lines)]
     </span><span class="kw">fn </span>crypto_test_circuit_building() {
         <span class="kw">let </span>num_validators = <span class="number">10</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>prng = test_rng();
@@ -1173,7 +1221,7 @@
             <span class="kw-2">&amp;</span>lightclient_state,
             <span class="kw-2">&amp;</span>U256::from(<span class="number">26u32</span>),
         )
-        .is_err())
+        .is_err());
     }
 }
 </code></pre></div></section></main></body></html>

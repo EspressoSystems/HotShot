@@ -149,6 +149,12 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_task::task::{HotShotTaskCompleted, HotShotTaskTypes};
@@ -165,13 +171,14 @@
 
 <span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node, GlobalTestEvent};
 
-<span class="doccomment">/// ViewSync Task error
+<span class="doccomment">/// `ViewSync` Task error
 </span><span class="attr">#[derive(Snafu, Debug, Clone)]
 </span><span class="kw">pub struct </span>ViewSyncTaskErr {
-    hit_view_sync: HashSet&lt;usize&gt;,
+    <span class="doccomment">/// set of node ids that hit view sync
+    </span>hit_view_sync: HashSet&lt;usize&gt;,
 }
 
-<span class="doccomment">/// ViewSync task state
+<span class="doccomment">/// `ViewSync` task state
 </span><span class="kw">pub struct </span>ViewSyncTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// the node handles
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
@@ -181,7 +188,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>ViewSyncTask&lt;TYPES, I&gt; {}
 
-<span class="doccomment">/// ViewSync task types
+<span class="doccomment">/// `ViewSync` task types
 </span><span class="kw">pub type </span>ViewSyncTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
     ViewSyncTaskErr,
     GlobalTestEvent,
@@ -191,7 +198,8 @@
     ViewSyncTask&lt;TYPES, I&gt;,
 &gt;;
 
-<span class="attr">#[derive(Clone, Debug, Copy)]
+<span class="doccomment">/// enum desecribing whether a node should hit view sync
+</span><span class="attr">#[derive(Clone, Debug, Copy)]
 </span><span class="kw">pub enum </span>ShouldHitViewSync {
     <span class="doccomment">/// the node should hit view sync
     </span>Yes,
@@ -209,7 +217,11 @@
 }
 
 <span class="kw">impl </span>ViewSyncTaskDescription {
-    <span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
+    <span class="doccomment">/// build a view sync task from its description
+    /// # Panics
+    /// if there is an violation of the view sync description
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;ViewSyncTask&lt;TYPES, I&gt;&gt; {
         Box::new(<span class="kw">move </span>|<span class="kw-2">mut </span>state, <span class="kw-2">mut </span>registry, test_event_stream| {

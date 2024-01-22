@@ -254,8 +254,44 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>client;
-<span class="kw">pub mod </span>config;
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
+
+/// The orchestrator&#39;s clients
+</span><span class="kw">pub mod </span>client;
+<span class="doccomment">/// Configuration for the orchestrator
+</span><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
@@ -282,7 +318,11 @@
     Keypair,
 };
 
-<span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
+<span class="doccomment">/// Generate an keypair based on a `seed` and an `index`
+/// # Panics
+/// This panics if libp2p is unable to generate a secret key from the seed
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
@@ -291,7 +331,8 @@
     &lt;EdKeypair <span class="kw">as </span>From&lt;SecretKey&gt;&gt;::from(sk_bytes).into()
 }
 
-<span class="attr">#[derive(Default, Clone)]
+<span class="doccomment">/// The state of the orchestrator
+</span><span class="attr">#[derive(Default, Clone)]
 </span><span class="kw">struct </span>OrchestratorState&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
     <span class="doccomment">/// Tracks the latest node index we have generated a configuration for
     </span>latest_index: u16,
@@ -309,7 +350,8 @@
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
     OrchestratorState&lt;KEY, ELECTION&gt;
 {
-    <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// create a new [`OrchestratorState`]
+    </span><span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>web_client = <span class="prelude-val">None</span>;
         <span class="kw">if </span>network_config.web_server_config.is_some() {
             <span class="kw">let </span>base_url = <span class="string">&quot;http://0.0.0.0/9000&quot;</span>.to_string().parse().unwrap();
@@ -325,15 +367,31 @@
     }
 }
 
-<span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
-    <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
-    <span class="kw">fn </span>post_getconfig(
+<span class="doccomment">/// An api exposed by the orchestrator
+</span><span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
+    <span class="doccomment">/// post endpoint for identity
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
+    <span class="doccomment">/// post endpoint for each node&#39;s config
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         node_index: u16,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
-    <span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt;;
-    <span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
-    <span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
+    <span class="doccomment">/// get endpoint for whether or not the run has started
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt;;
+    <span class="doccomment">/// post endpoint for whether or not all nodes are ready
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
+    <span class="doccomment">/// post endpoint for the results of the run
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
 }
 
 <span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
@@ -372,10 +430,11 @@
             <span class="kw">let </span>libp2p_config_clone = <span class="self">self</span>.config.libp2p_config.clone().unwrap();
             <span class="comment">// Designate node as bootstrap node and store its identity information
             </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len() &lt; libp2p_config_clone.num_bootstrap_nodes {
-                <span class="kw">let </span>port_index = <span class="kw">match </span>libp2p_config_clone.index_ports {
-                    <span class="bool-val">true </span>=&gt; node_index,
-                    <span class="bool-val">false </span>=&gt; <span class="number">0</span>,
-                };
+                <span class="kw">let </span>port_index = <span class="kw">if </span>libp2p_config_clone.index_ports {
+                    node_index
+                } <span class="kw">else </span>{
+                    <span class="number">0
+                </span>};
                 <span class="kw">let </span>socketaddr =
                     SocketAddr::new(identity, libp2p_config_clone.base_port + port_index);
                 <span class="kw">let </span>keypair = libp2p_generate_indexed_identity(<span class="self">self</span>.config.seed, node_index.into());
@@ -491,6 +550,10 @@
 }
 
 <span class="doccomment">/// Runs the orchestrator
+/// # Errors
+/// This errors if tide disco runs into an issue during serving
+/// # Panics
+/// This panics if unable to register the api with tide disco
 </span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY, ELECTION&gt;(
     network_config: NetworkConfig&lt;KEY, ELECTION&gt;,
     url: Url,
@@ -499,13 +562,14 @@
     </span>KEY: SignatureKey + <span class="lifetime">&#39;static </span>+ serde::Serialize,
     ELECTION: ElectionConfig + <span class="lifetime">&#39;static </span>+ serde::Serialize,
 {
-    <span class="kw">let </span>api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">&quot;Failed to define api&quot;</span>));
+    <span class="kw">let </span>web_api =
+        define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">&quot;Failed to define api&quot;</span>));
 
     <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
         RwLock::new(OrchestratorState::new(network_config));
 
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
-    app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
+    app.register_module(<span class="string">&quot;api&quot;</span>, web_api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
     <span class="macro">tracing::error!</span>(<span class="string">&quot;listening on {:?}&quot;</span>, url);
     app.serve(url).<span class="kw">await

@@ -338,6 +338,7 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A stake table implementation that&#39;s based on Append-only Merkle Tree.
 
 </span><span class="kw">mod </span>config;
@@ -382,21 +383,20 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         new_key: <span class="self">Self</span>::Key,
         amount: <span class="self">Self</span>::Amount,
-        <span class="kw">_</span>: <span class="self">Self</span>::Aux,
+        (): <span class="self">Self</span>::Aux,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
-        <span class="kw">match </span><span class="self">self</span>.mapping.get(<span class="kw-2">&amp;</span>new_key) {
-            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(StakeTableError::ExistingKey),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>pos = <span class="self">self</span>.mapping.len();
-                <span class="self">self</span>.head = <span class="self">self</span>.head.register(
-                    <span class="self">self</span>.height,
-                    <span class="kw-2">&amp;</span>to_merkle_path(pos, <span class="self">self</span>.height),
-                    <span class="kw-2">&amp;</span>new_key,
-                    amount,
-                )<span class="question-mark">?</span>;
-                <span class="self">self</span>.mapping.insert(new_key, pos);
-                <span class="prelude-val">Ok</span>(())
-            }
+        <span class="kw">if </span><span class="self">self</span>.mapping.get(<span class="kw-2">&amp;</span>new_key).is_some() {
+            <span class="prelude-val">Err</span>(StakeTableError::ExistingKey)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>pos = <span class="self">self</span>.mapping.len();
+            <span class="self">self</span>.head = <span class="self">self</span>.head.register(
+                <span class="self">self</span>.height,
+                <span class="kw-2">&amp;</span>to_merkle_path(pos, <span class="self">self</span>.height),
+                <span class="kw-2">&amp;</span>new_key,
+                amount,
+            )<span class="question-mark">?</span>;
+            <span class="self">self</span>.mapping.insert(new_key, pos);
+            <span class="prelude-val">Ok</span>(())
         }
     }
 
@@ -406,7 +406,7 @@
     }
 
     <span class="kw">fn </span>commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Commitment, StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(MerkleCommitment::new(
             root.commitment(),
             <span class="self">self</span>.height,
@@ -415,12 +415,12 @@
     }
 
     <span class="kw">fn </span>total_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Amount, StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(root.total_stakes())
     }
 
     <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;usize, StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(root.num_keys())
     }
 
@@ -429,7 +429,7 @@
     }
 
     <span class="kw">fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion, key: <span class="kw-2">&amp;</span>K) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Amount, StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="kw">match </span><span class="self">self</span>.mapping.get(key) {
             <span class="prelude-val">Some</span>(index) =&gt; {
                 <span class="kw">let </span>branches = to_merkle_path(<span class="kw-2">*</span>index, <span class="self">self</span>.height);
@@ -444,7 +444,7 @@
         version: SnapshotVersion,
         key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Amount, <span class="self">Self</span>::LookupProof), StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>proof = <span class="kw">match </span><span class="self">self</span>.mapping.get(key) {
             <span class="prelude-val">Some</span>(index) =&gt; {
@@ -489,7 +489,7 @@
     }
 
     <span class="doccomment">/// Almost uniformly samples a key weighted by its stake from the
-    /// last_epoch_start stake table
+    /// `last_epoch_start` stake table
     </span><span class="kw">fn </span>sample(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>SeedableRng + CryptoRngCore),
@@ -503,7 +503,7 @@
     }
 
     <span class="kw">fn </span>try_iter(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::IntoIter, StakeTableError&gt; {
-        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root = <span class="self">Self</span>::get_root(<span class="self">self</span>, <span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(internal::IntoIter::new(root))
     }
 }
@@ -521,10 +521,10 @@
         }
     }
 
-    <span class="comment">// returns the root of stake table at `version`
+    <span class="doccomment">/// returns the root of stake table at `version`
     </span><span class="kw">fn </span>get_root(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        version: SnapshotVersion,
+        version: <span class="kw-2">&amp;</span>SnapshotVersion,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;, StakeTableError&gt; {
         <span class="kw">match </span>version {
             SnapshotVersion::Head =&gt; <span class="prelude-val">Ok</span>(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.head)),
@@ -542,6 +542,8 @@
 
     <span class="doccomment">/// Set the stake withheld by `key` to be `value`.
     /// Return the previous stake if succeed.
+    /// # Errors
+    /// Errors if the key is not found in the staketable
     </span><span class="kw">pub fn </span>set_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>K, value: U256) -&gt; <span class="prelude-ty">Result</span>&lt;U256, StakeTableError&gt; {
         <span class="kw">match </span><span class="self">self</span>.mapping.get(key) {
             <span class="prelude-val">Some</span>(pos) =&gt; {

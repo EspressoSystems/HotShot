@@ -100,9 +100,61 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-</pre></div><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
-<span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
-<span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+</pre></div><pre class="rust"><code><span class="doccomment">/// the default port on which to run the web server
+</span><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
+<span class="doccomment">/// the default port on which to serve Data availability functionality
+</span><span class="kw">pub const </span>DEFAULT_WEB_SERVER_DA_PORT: u16 = <span class="number">9001</span>;
+<span class="doccomment">/// the default port on which to serve View Sync functionality
+</span><span class="kw">pub const </span>DEFAULT_WEB_SERVER_VIEW_SYNC_PORT: u16 = <span class="number">9002</span>;
 
 <span class="doccomment">/// How many views to keep in memory
 </span><span class="kw">pub const </span>MAX_VIEWS: usize = <span class="number">100</span>;
@@ -111,95 +163,141 @@
 <span class="doccomment">/// How many transactions to return at once
 </span><span class="kw">pub const </span>TX_BATCH_SIZE: u64 = <span class="number">1</span>;
 
-<span class="kw">pub fn </span>get_proposal_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// get proposal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_proposal_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_proposal_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post proposal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_proposal_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_latest_quorum_proposal_route() -&gt; String {
+<span class="doccomment">/// get latest qc
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_latest_quorum_proposal_route() -&gt; String {
     <span class="string">&quot;api/proposal/latest&quot;</span>.to_string()
 }
 
-<span class="kw">pub fn </span>get_latest_view_sync_proposal_route() -&gt; String {
+<span class="doccomment">/// get latest view sync proposal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_latest_view_sync_proposal_route() -&gt; String {
     <span class="string">&quot;api/view_sync_proposal/latest&quot;</span>.to_string()
 }
 
-<span class="kw">pub fn </span>get_da_certificate_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// get latest certificate
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_da_certificate_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/certificate/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_da_certificate_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post data availability certificate
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_da_certificate_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/certificate/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_vote_route(view_number: u64, index: u64) -&gt; String {
+<span class="doccomment">/// get vote
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_vote_route(view_number: u64, index: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/votes/{view_number}/{index}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_vote_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post vote
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_vote_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/votes/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_vid_disperse_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// get vid dispersal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_vid_disperse_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_disperse/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_vid_disperse_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post vid dispersal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_vid_disperse_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_disperse/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_upgrade_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// get upgrade route
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_upgrade_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/upgrade/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_upgrade_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post upgrade route
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_upgrade_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/upgrade/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_vid_vote_route(view_number: u64, index: u64) -&gt; String {
+<span class="doccomment">/// get vid vote route
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_vid_vote_route(view_number: u64, index: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_votes/{view_number}/{index}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_vid_vote_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post vid vote route
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_vid_vote_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_votes/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_vid_certificate_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// get vid certificate
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_vid_certificate_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_certificate/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_vid_certificate_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post vid certificate
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_vid_certificate_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/vid_certificate/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_transactions_route(index: u64) -&gt; String {
+<span class="doccomment">/// get transactions
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_transactions_route(index: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/transactions/{index}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_transactions_route() -&gt; String {
+<span class="doccomment">/// post transactions
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_transactions_route() -&gt; String {
     <span class="string">&quot;api/transactions&quot;</span>.to_string()
 }
 
-<span class="kw">pub fn </span>post_staketable_route() -&gt; String {
+<span class="doccomment">/// post stake table
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_staketable_route() -&gt; String {
     <span class="string">&quot;api/staketable&quot;</span>.to_string()
 }
 
-<span class="kw">pub fn </span>post_view_sync_proposal_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post view sync proposal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_view_sync_proposal_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_proposal/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_view_sync_proposal_route(view_number: u64, index: u64) -&gt; String {
+<span class="doccomment">/// get view sync proposal
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_view_sync_proposal_route(view_number: u64, index: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_proposal/{view_number}/{index}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>post_view_sync_vote_route(view_number: u64) -&gt; String {
+<span class="doccomment">/// post view sync vote
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>post_view_sync_vote_route(view_number: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_vote/{view_number}&quot;</span>)
 }
 
-<span class="kw">pub fn </span>get_view_sync_vote_route(view_number: u64, index: u64) -&gt; String {
+<span class="doccomment">/// get view sync vote
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>get_view_sync_vote_route(view_number: u64, index: u64) -&gt; String {
     <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_vote/{view_number}/{index}&quot;</span>)
 }
 </code></pre></div></section></main></body></html>

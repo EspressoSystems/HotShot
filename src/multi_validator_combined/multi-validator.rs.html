@@ -46,7 +46,11 @@
 <a href="#46" id="46">46</a>
 <a href="#47" id="47">47</a>
 <a href="#48" id="48">48</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::{
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! A multi-validator using both the web server libp2p
+</span><span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
@@ -58,9 +62,11 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun, ViewSyncNetwork};
 
-<span class="kw">pub mod </span>types;
+<span class="doccomment">/// types used for this example
+</span><span class="kw">pub mod </span>types;
 
-<span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
+<span class="doccomment">/// general infra used for this example
+</span><span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;
 
 <span class="attr">#[cfg_attr(
@@ -88,8 +94,8 @@
                 NodeImpl,
                 ThisRun,
             &gt;(ValidatorArgs::from_multi_args(args, node_index))
-            .<span class="kw">await
-        </span>});
+            .<span class="kw">await</span>;
+        });
         nodes.push(node);
     }
     <span class="kw">let </span>_result = futures::future::join_all(nodes).<span class="kw">await</span>;

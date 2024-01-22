@@ -909,7 +909,47 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+</pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
+</span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -996,10 +1036,13 @@
 }
 
 <span class="doccomment">/// Reads a network configuration from a given filepath
+/// # Panics
+/// if unable to convert the config file into toml
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>load_config_from_file&lt;TYPES: NodeType&gt;(
-    config_file: String,
+    config_file: <span class="kw-2">&amp;</span>str,
 ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
-    <span class="kw">let </span>config_file_as_string: String = fs::read_to_string(config_file.as_str())
+    <span class="kw">let </span>config_file_as_string: String = fs::read_to_string(config_file)
         .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Could not read config file located at {config_file}&quot;</span>));
     <span class="kw">let </span>config_toml: NetworkConfigFile&lt;TYPES::SignatureKey&gt; =
         toml::from_str::&lt;NetworkConfigFile&lt;TYPES::SignatureKey&gt;&gt;(<span class="kw-2">&amp;</span>config_file_as_string)
@@ -1038,7 +1081,7 @@
     OrchestratorArgs { url, config_file }: OrchestratorArgs,
 ) {
     <span class="macro">error!</span>(<span class="string">&quot;Starting orchestrator&quot;</span>,);
-    <span class="kw">let </span>run_config = load_config_from_file::&lt;TYPES&gt;(config_file);
+    <span class="kw">let </span>run_config = load_config_from_file::&lt;TYPES&gt;(<span class="kw-2">&amp;</span>config_file);
     <span class="kw">let </span>_result = hotshot_orchestrator::run_orchestrator::&lt;
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -1047,17 +1090,23 @@
 }
 
 <span class="doccomment">/// Helper function to calculate the nuymber of transactions to send per node per round
+</span><span class="attr">#[allow(clippy::cast_possible_truncation)]
 </span><span class="kw">fn </span>calculate_num_tx_per_round(
     node_index: u64,
     total_num_nodes: usize,
     transactions_per_round: usize,
 ) -&gt; usize {
     transactions_per_round / total_num_nodes
-        + ((total_num_nodes - <span class="number">1 </span>- node_index <span class="kw">as </span>usize) &lt; (transactions_per_round % total_num_nodes))
-            <span class="kw">as </span>usize
+        + usize::from(
+            (total_num_nodes - <span class="number">1 </span>- node_index <span class="kw">as </span>usize)
+                &lt; (transactions_per_round % total_num_nodes),
+        )
 }
 
-<span class="kw">async fn </span>webserver_network_from_config&lt;TYPES: NodeType&gt;(
+<span class="doccomment">/// create a web server network from a config file + public key
+/// # Panics
+/// Panics if the web server config doesn&#39;t exist in `config`
+</span><span class="kw">fn </span>webserver_network_from_config&lt;TYPES: NodeType&gt;(
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     pub_key: TYPES::SignatureKey,
 ) -&gt; WebServerNetwork&lt;TYPES&gt; {
@@ -1070,7 +1119,13 @@
     WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">false</span>)
 }
 
-<span class="kw">async fn </span>libp2p_network_from_config&lt;TYPES: NodeType&gt;(
+<span class="attr">#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_lossless)]
+#[allow(clippy::too_many_lines)]
+</span><span class="doccomment">/// Create a libp2p network from a config file and public key
+/// # Panics
+/// If unable to create bootstrap nodes multiaddres or the libp2p config is invalid
+</span><span class="kw">async fn </span>libp2p_network_from_config&lt;TYPES: NodeType&gt;(
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     pub_key: TYPES::SignatureKey,
 ) -&gt; Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; {
@@ -1099,10 +1154,11 @@
         NetworkNodeType::Regular
     };
     <span class="kw">let </span>node_index = config.node_index;
-    <span class="kw">let </span>port_index = <span class="kw">match </span>libp2p_config.index_ports {
-        <span class="bool-val">true </span>=&gt; node_index,
-        <span class="bool-val">false </span>=&gt; <span class="number">0</span>,
-    };
+    <span class="kw">let </span>port_index = <span class="kw">if </span>libp2p_config.index_ports {
+        node_index
+    } <span class="kw">else </span>{
+        <span class="number">0
+    </span>};
     <span class="kw">let </span>bound_addr: Multiaddr = <span class="macro">format!</span>(
         <span class="string">&quot;/{}/{}/udp/{}/quic-v1&quot;</span>,
         <span class="kw">if </span>libp2p_config.public_ip.is_ipv4() {
@@ -1163,7 +1219,8 @@
     }
     <span class="kw">let </span>node_config = config_builder.build().unwrap();
 
-    Libp2pNetwork::new(
+    <span class="attr">#[allow(clippy::cast_possible_truncation)]
+    </span>Libp2pNetwork::new(
         NetworkingMetricsValue::default(),
         node_config,
         pub_key.clone(),
@@ -1336,7 +1393,7 @@
                                 </span><span class="kw">for _ in </span><span class="number">0</span>..transactions_to_send_per_round {
                                     <span class="kw">let </span>tx = transactions.remove(<span class="number">0</span>);
 
-                                    <span class="kw">_ </span>= context.submit_transaction(tx).<span class="kw">await</span>.unwrap();
+                                    () = context.submit_transaction(tx).<span class="kw">await</span>.unwrap();
                                     total_transactions_sent += <span class="number">1</span>;
                                 }
                             }
@@ -1393,11 +1450,16 @@
 
 </span><span class="doccomment">/// Represents a web server-based run
 </span><span class="kw">pub struct </span>WebServerDARun&lt;TYPES: NodeType&gt; {
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    quorum_channel: WebCommChannel&lt;TYPES&gt;,
-    da_channel: WebCommChannel&lt;TYPES&gt;,
-    view_sync_channel: WebCommChannel&lt;TYPES&gt;,
-    vid_channel: WebCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// the network configuration
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    <span class="doccomment">/// quorum channel
+    </span>quorum_channel: WebCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// data availability channel
+    </span>da_channel: WebCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// view sync channel
+    </span>view_sync_channel: WebCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// vid channel
+    </span>vid_channel: WebCommChannel&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1442,7 +1504,7 @@
 
         <span class="comment">// create and wait for underlying network
         </span><span class="kw">let </span>underlying_quorum_network =
-            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone()).<span class="kw">await</span>;
+            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone());
 
         underlying_quorum_network.wait_for_ready().<span class="kw">await</span>;
 
@@ -1495,11 +1557,16 @@
 
 </span><span class="doccomment">/// Represents a libp2p-based run
 </span><span class="kw">pub struct </span>Libp2pDARun&lt;TYPES: NodeType&gt; {
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    quorum_channel: Libp2pCommChannel&lt;TYPES&gt;,
-    da_channel: Libp2pCommChannel&lt;TYPES&gt;,
-    view_sync_channel: Libp2pCommChannel&lt;TYPES&gt;,
-    vid_channel: Libp2pCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// the network configuration
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    <span class="doccomment">/// quorum channel
+    </span>quorum_channel: Libp2pCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// data availability channel
+    </span>da_channel: Libp2pCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// view sync channel
+    </span>view_sync_channel: Libp2pCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// vid channel
+    </span>vid_channel: Libp2pCommChannel&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1588,11 +1655,16 @@
 
 </span><span class="doccomment">/// Represents a combined-network-based run
 </span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType&gt; {
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    quorum_channel: CombinedCommChannel&lt;TYPES&gt;,
-    da_channel: CombinedCommChannel&lt;TYPES&gt;,
-    view_sync_channel: CombinedCommChannel&lt;TYPES&gt;,
-    vid_channel: CombinedCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// the network configuration
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    <span class="doccomment">/// quorum channel
+    </span>quorum_channel: CombinedCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// data availability channel
+    </span>da_channel: CombinedCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// view sync channel
+    </span>view_sync_channel: CombinedCommChannel&lt;TYPES&gt;,
+    <span class="doccomment">/// vid channel
+    </span>vid_channel: CombinedCommChannel&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1647,7 +1719,7 @@
 
         <span class="comment">// create and wait for underlying webserver network
         </span><span class="kw">let </span>webserver_underlying_quorum_network =
-            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone()).<span class="kw">await</span>;
+            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone());
 
         <span class="kw">let </span>webserver_underlying_da_network =
             WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">true</span>);
@@ -1707,6 +1779,8 @@
 }
 
 <span class="doccomment">/// Main entry point for validators
+/// # Panics
+/// if unable to get the local ip address
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
     TYPES: NodeType&lt;
         Transaction = TestTransaction,
@@ -1743,7 +1817,7 @@
     };
 
     <span class="kw">let </span>orchestrator_client: OrchestratorClient =
-        OrchestratorClient::new(args.clone(), public_ip.to_string()).<span class="kw">await</span>;
+        OrchestratorClient::new(args.clone(), public_ip.to_string());
 
     <span class="comment">// conditionally save/load config from file or orchestrator
     </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
@@ -1812,7 +1886,11 @@
     .<span class="kw">await</span>;
 }
 
-<span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
+<span class="doccomment">/// generate a libp2p identity based on a seed and idx
+/// # Panics
+/// if unable to create a secret key out of bytes
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>libp2p_generate_indexed_identity(seed: [u8; <span class="number">32</span>], index: u64) -&gt; Keypair {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());

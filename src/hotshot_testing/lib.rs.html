@@ -56,7 +56,15 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
-</pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Testing infrastructure for `HotShot`
+
+</span><span class="attr">#![cfg_attr(
     <span class="comment">// hotshot_example option is set manually in justfile when running examples
     </span>not(any(test, debug_assertions, hotshot_example)),
     deprecated = <span class="string">&quot;suspicious usage of testing/demo implementations in non-test/non-debug build&quot;
@@ -100,18 +108,22 @@
 <span class="doccomment">/// node types
 </span><span class="kw">pub mod </span>node_types;
 
-<span class="comment">// TODO node changer (spin up and down)
-
+<span class="doccomment">/// global event at the test level
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub enum </span>GlobalTestEvent {
-    ShutDown,
+    <span class="doccomment">/// the test is shutting down
+    </span>ShutDown,
 }
 
-<span class="kw">pub enum </span>ShutDownReason {
-    SafetyViolation,
-    SuccessfullyCompleted,
+<span class="doccomment">/// the reason for shutting down the test
+</span><span class="kw">pub enum </span>ShutDownReason {
+    <span class="doccomment">/// the test is shutting down because of a safety violation
+    </span>SafetyViolation,
+    <span class="doccomment">/// the test is shutting down because the test has completed successfully
+    </span>SuccessfullyCompleted,
 }
 
-<span class="kw">pub type </span>TestTask&lt;ERR, STATE&gt; =
+<span class="doccomment">/// type alias for the type of tasks created in testing
+</span><span class="kw">pub type </span>TestTask&lt;ERR, STATE&gt; =
     HSTWithEvent&lt;ERR, GlobalTestEvent, ChannelStream&lt;GlobalTestEvent&gt;, STATE&gt;;
 </code></pre></div></section></main></body></html>

@@ -26,7 +26,11 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_testing::state_types::TestTypes;
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! web server example
+</span><span class="kw">use </span>hotshot_testing::state_types::TestTypes;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>surf_disco::Url;
 
@@ -36,9 +40,11 @@
 };
 <span class="kw">use </span>clap::Parser;
 
-<span class="attr">#[derive(Parser, Debug)]
+<span class="doccomment">/// web server arguments
+</span><span class="attr">#[derive(Parser, Debug)]
 </span><span class="kw">struct </span>WebServerArgs {
-    url: Url,
+    <span class="doccomment">/// url to run on
+    </span>url: Url,
 }
 
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">&quot;tokio&quot;</span>, tokio::main)]

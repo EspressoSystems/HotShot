@@ -738,6 +738,38 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utilities and internals for maintaining a local stake table
 
 </span><span class="kw">use </span><span class="kw">super</span>::config::{Digest, FieldType, TREE_BRANCH};
@@ -772,34 +804,50 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(bound = <span class="string">&quot;K: Key&quot;</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>PersistentMerkleNode&lt;K: Key&gt; {
-    Empty,
-    Branch {
-        <span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
+    <span class="doccomment">/// Empty
+    </span>Empty,
+    <span class="doccomment">/// A branch
+    </span>Branch {
+        <span class="doccomment">/// field type
+        </span><span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
         </span>comm: FieldType,
-        children: [Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;; TREE_BRANCH],
-        num_keys: usize,
-        total_stakes: U256,
+        <span class="doccomment">/// children
+        </span>children: [Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;; TREE_BRANCH],
+        <span class="doccomment">/// number of keys
+        </span>num_keys: usize,
+        <span class="doccomment">/// total stake
+        </span>total_stakes: U256,
     },
-    Leaf {
-        <span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
+    <span class="doccomment">/// A leaf
+    </span>Leaf {
+        <span class="doccomment">/// field type
+        </span><span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
         </span>comm: FieldType,
-        <span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
+        <span class="doccomment">/// the key
+        </span><span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
         </span>key: K,
-        value: U256,
+        <span class="doccomment">/// the value
+        </span>value: U256,
     },
 }
 
 <span class="doccomment">/// A compressed Merkle node for Merkle path
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>MerklePathEntry&lt;K&gt; {
-    Branch {
-        pos: usize,
-        <span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
+    <span class="doccomment">/// A branch
+    </span>Branch {
+        <span class="doccomment">/// Position in tree
+        </span>pos: usize,
+        <span class="doccomment">/// Siblings
+        </span><span class="attr">#[serde(with = <span class="string">&quot;canonical&quot;</span>)]
         </span>siblings: [FieldType; TREE_BRANCH - <span class="number">1</span>],
     },
-    Leaf {
-        key: K,
-        value: U256,
+    <span class="doccomment">/// A leaf
+    </span>Leaf {
+        <span class="doccomment">/// the key
+        </span>key: K,
+        <span class="doccomment">/// the value
+        </span>value: U256,
     },
 }
 <span class="doccomment">/// Path from a Merkle root to a leaf
@@ -815,36 +863,44 @@
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; MerkleProof&lt;K&gt; {
-    <span class="kw">pub fn </span>tree_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="doccomment">/// Returns the height of the tree
+    </span><span class="kw">pub fn </span>tree_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.path.len() - <span class="number">1
     </span>}
 
-    <span class="kw">pub fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>usize {
+    <span class="doccomment">/// Returns the index of the given key
+    </span><span class="kw">pub fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>usize {
         <span class="kw-2">&amp;</span><span class="self">self</span>.index
     }
 
-    <span class="kw">pub fn </span>get_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>K&gt; {
+    <span class="doccomment">/// Returns the public key of the associated stake table entry, if there&#39;s any.
+    </span><span class="kw">pub fn </span>get_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>K&gt; {
         <span class="kw">match </span><span class="self">self</span>.path.first() {
             <span class="prelude-val">Some</span>(MerklePathEntry::Leaf { key, value: <span class="kw">_ </span>}) =&gt; <span class="prelude-val">Some</span>(key),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub fn </span>get_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>U256&gt; {
+    <span class="doccomment">/// Returns the stake amount of the associated stake table entry, if there&#39;s any.
+    </span><span class="kw">pub fn </span>get_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>U256&gt; {
         <span class="kw">match </span><span class="self">self</span>.path.first() {
             <span class="prelude-val">Some</span>(MerklePathEntry::Leaf { key: <span class="kw">_</span>, value }) =&gt; <span class="prelude-val">Some</span>(value),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub fn </span>get_key_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>K, <span class="kw-2">&amp;</span>U256)&gt; {
+    <span class="doccomment">/// Returns the associated stake table entry, if there&#39;s any.
+    </span><span class="kw">pub fn </span>get_key_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>K, <span class="kw-2">&amp;</span>U256)&gt; {
         <span class="kw">match </span><span class="self">self</span>.path.first() {
             <span class="prelude-val">Some</span>(MerklePathEntry::Leaf { key, value }) =&gt; <span class="prelude-val">Some</span>((key, value)),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub fn </span>compute_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;FieldType, StakeTableError&gt; {
+    <span class="doccomment">/// Compute the root of this Merkle proof.
+    /// # Errors
+    /// Errors could be triggered by internal Rescue hash, or if the proof is malformed.
+    </span><span class="kw">pub fn </span>compute_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;FieldType, StakeTableError&gt; {
         <span class="kw">match </span><span class="self">self</span>.path.first() {
             <span class="prelude-val">Some</span>(MerklePathEntry::Leaf { key, value }) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>input = [FieldType::default(); <span class="number">3</span>];
@@ -865,14 +921,17 @@
                                 .map_err(|<span class="kw">_</span>| StakeTableError::RescueError)<span class="question-mark">?</span>[<span class="number">0</span>];
                             <span class="prelude-val">Ok</span>(comm)
                         }
-                        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(StakeTableError::MalformedProof),
+                        MerklePathEntry::Leaf { .. } =&gt; <span class="prelude-val">Err</span>(StakeTableError::MalformedProof),
                     })
             }
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(StakeTableError::MalformedProof),
         }
     }
 
-    <span class="kw">pub fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, comm: <span class="kw-2">&amp;</span>MerkleCommitment) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
+    <span class="doccomment">/// Verify the Merkle proof against the provided Merkle commitment.
+    /// # Errors
+    /// Error could be triggered while computing the root of this proof, or if the verification fails.
+    </span><span class="kw">pub fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, comm: <span class="kw-2">&amp;</span>MerkleCommitment) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
         <span class="kw">if </span><span class="self">self</span>.tree_height() != comm.tree_height() || !<span class="self">self</span>.compute_root()<span class="question-mark">?</span>.eq(comm.digest()) {
             <span class="prelude-val">Err</span>(StakeTableError::VerificationError)
         } <span class="kw">else </span>{
@@ -894,19 +953,23 @@
 }
 
 <span class="kw">impl </span>MerkleCommitment {
-    <span class="kw">pub fn </span>new(comm: FieldType, height: usize, size: usize) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new merkle commitment
+    </span><span class="kw">pub fn </span>new(comm: FieldType, height: usize, size: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ comm, height, size }
     }
 
-    <span class="kw">pub fn </span>digest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FieldType {
+    <span class="doccomment">/// Returns the digest of the tree
+    </span><span class="kw">pub fn </span>digest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FieldType {
         <span class="kw-2">&amp;</span><span class="self">self</span>.comm
     }
 
-    <span class="kw">pub fn </span>tree_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="doccomment">/// Returns the height of the tree
+    </span><span class="kw">pub fn </span>tree_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.height
     }
 
-    <span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="doccomment">/// Returns the number of leaves
+    </span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.size
     }
 }
@@ -921,8 +984,8 @@
                 children: <span class="kw">_</span>,
                 num_keys: <span class="kw">_</span>,
                 total_stakes: <span class="kw">_</span>,
-            } =&gt; <span class="kw-2">*</span>comm,
-            PersistentMerkleNode::Leaf {
+            }
+            | PersistentMerkleNode::Leaf {
                 comm,
                 key: <span class="kw">_</span>,
                 value: <span class="kw">_</span>,
@@ -1251,7 +1314,8 @@
 <span class="doccomment">/// An owning iterator over the (key, value) entries of a `PersistentMerkleNode`
 /// Traverse using post-order: children from left to right, finally visit the current.
 </span><span class="kw">pub struct </span>IntoIter&lt;K: Key&gt; {
-    unvisited: Vec&lt;Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;&gt;,
+    <span class="doccomment">/// The unvisited key values
+    </span>unvisited: Vec&lt;Arc&lt;PersistentMerkleNode&lt;K&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; IntoIter&lt;K&gt; {
@@ -1472,7 +1536,7 @@
                     .register(height <span class="kw">as </span>usize, <span class="kw-2">&amp;</span>paths[i], <span class="kw-2">&amp;</span>keys[i], amounts[i])
                     .unwrap();
             }
-            <span class="kw">for </span>(i, (k, v, <span class="kw">_</span>)) <span class="kw">in </span>(<span class="kw-2">*</span>root).clone().into_iter().enumerate() {
+            <span class="kw">for </span>(i, (k, v, ())) <span class="kw">in </span>(<span class="kw-2">*</span>root).clone().into_iter().enumerate() {
                 <span class="macro">assert_eq!</span>((k, v), (keys[i], amounts[i]));
             }
         }

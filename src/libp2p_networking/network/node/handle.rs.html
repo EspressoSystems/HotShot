@@ -699,6 +699,12 @@
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
@@ -738,22 +744,27 @@
 </span><span class="kw">pub struct </span>NetworkNodeHandle&lt;S&gt; {
     <span class="doccomment">/// network configuration
     </span>network_config: NetworkNodeConfig,
+
     <span class="doccomment">/// the state of the replica
     </span>state: Arc&lt;SubscribableMutex&lt;S&gt;&gt;,
+
     <span class="doccomment">/// send an action to the networkbehaviour
     </span>send_network: UnboundedSender&lt;ClientRequest&gt;,
 
     <span class="doccomment">/// the local address we&#39;re listening on
     </span>listen_addr: Multiaddr,
+
     <span class="doccomment">/// the peer id of the networkbehaviour
     </span>peer_id: PeerId,
+
     <span class="doccomment">/// human readable id
     </span>id: usize,
 
     <span class="doccomment">/// A list of webui listeners that are listening for changes on this node
     </span>webui_listeners: Arc&lt;Mutex&lt;Vec&lt;Sender&lt;()&gt;&gt;&gt;&gt;,
 
-    receiver: NetworkNodeReceiver,
+    <span class="doccomment">/// network node receiver
+    </span>receiver: NetworkNodeReceiver,
 }
 
 <span class="doccomment">/// internal network node receiver
@@ -776,7 +787,8 @@
 }
 
 <span class="kw">impl </span>NetworkNodeReceiver {
-    <span class="kw">pub async fn </span>recv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkEvent, NetworkNodeHandleError&gt; {
+    <span class="doccomment">/// recv a network event
+    </span><span class="kw">pub async fn </span>recv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkEvent, NetworkNodeHandleError&gt; {
         <span class="kw">if </span><span class="self">self</span>.killed.load(Ordering::Relaxed) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkNodeHandleError::Killed);
         }

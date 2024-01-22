@@ -273,7 +273,15 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! SNARK-assisted light client state update verification in HotShot
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! SNARK-assisted light client state update verification in `HotShot`
 
 /// State verifier circuit builder
 </span><span class="kw">pub mod </span>circuit;
@@ -312,6 +320,9 @@
 </span><span class="kw">pub type </span>UniversalSrs = jf_plonk::proof_system::structs::UniversalSrs&lt;Bn254&gt;;
 
 <span class="doccomment">/// Given a SRS, returns the proving key and verifying key for state update
+/// # Errors
+/// Errors if unable to preprocess
+</span><span class="attr">#[allow(clippy::cast_possible_truncation)]
 </span><span class="kw">pub fn </span>preprocess&lt;<span class="kw">const </span>STAKE_TABLE_CAPACITY: usize&gt;(
     srs: <span class="kw-2">&amp;</span>UniversalSrs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(ProvingKey, VerifyingKey), PlonkError&gt; {
@@ -326,10 +337,14 @@
 /// - updated light client state (`(view_number, block_height, block_comm_root, fee_ledger_comm, stake_table_comm)`)
 /// - a bit vector indicates the signers
 /// - a quorum threshold
-/// Returns error or a pair (proof, public_inputs) asserting that
+/// Returns error or a pair `(proof, public_inputs)` asserting that
 /// - the signer&#39;s accumulated weight exceeds the quorum threshold
 /// - the stake table corresponds to the one committed in the light client state
 /// - all signed schnorr signatures are valid
+/// # Errors
+/// Errors if unable to generate proof
+/// # Panics
+/// if the stake table is not up to date
 </span><span class="kw">pub fn </span>generate_state_update_proof&lt;ST, R, BitIter, SigIter, <span class="kw">const </span>STAKE_TABLE_CAPACITY: usize&gt;(
     rng: <span class="kw-2">&amp;mut </span>R,
     pk: <span class="kw-2">&amp;</span>ProvingKey,
@@ -399,6 +414,7 @@
     <span class="kw">const </span>ST_CAPACITY: usize = <span class="number">20</span>;
 
     <span class="comment">// FIXME(Chengyu): see &lt;https://github.com/EspressoSystems/jellyfish/issues/249&gt;
+    </span><span class="attr">#[allow(clippy::unnecessary_wraps)]
     </span><span class="kw">fn </span>universal_setup_for_testing&lt;R&gt;(
         max_degree: usize,
         rng: <span class="kw-2">&amp;mut </span>R,
@@ -509,7 +525,7 @@
                 .<span class="number">0
                 </span>.num_gates();
         <span class="kw">let </span>test_srs = universal_setup_for_testing(num_gates + <span class="number">2</span>, <span class="kw-2">&amp;mut </span>prng).unwrap();
-        <span class="macro">ark_std::println!</span>(<span class="string">&quot;Number of constraint in the circuit: {}&quot;</span>, num_gates);
+        <span class="macro">ark_std::println!</span>(<span class="string">&quot;Number of constraint in the circuit: {num_gates}&quot;</span>);
 
         <span class="kw">let </span>result = preprocess::&lt;ST_CAPACITY&gt;(<span class="kw-2">&amp;</span>test_srs);
         <span class="macro">assert!</span>(result.is_ok());

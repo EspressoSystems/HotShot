@@ -183,6 +183,19 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
@@ -199,19 +212,25 @@
 <span class="kw">use </span>snafu::Snafu;
 
 <span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node};
-<span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
+<span class="doccomment">/// convience type for state and block
+</span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
 <span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
 
-<span class="attr">#[derive(Snafu, Debug)]
+<span class="doccomment">/// error for the spinning task
+</span><span class="attr">#[derive(Snafu, Debug)]
 </span><span class="kw">pub struct </span>SpinningTaskErr {}
 
 <span class="doccomment">/// Spinning task state
 </span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) changes: HashMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) latest_view: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
+    <span class="doccomment">/// handle to the nodes
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// late start nodes
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// time based changes
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) changes: HashMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt;,
+    <span class="doccomment">/// most recent view seen by spinning task
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) latest_view: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {}
@@ -238,13 +257,20 @@
     </span><span class="kw">pub </span>updown: UpDown,
 }
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="doccomment">/// description of the spinning task
+/// (used to build a spinning task)
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>SpinningTaskDescription {
-    <span class="kw">pub </span>node_changes: Vec&lt;(u64, Vec&lt;ChangeNode&gt;)&gt;,
+    <span class="doccomment">/// the changes in node status, time -&gt; changes
+    </span><span class="kw">pub </span>node_changes: Vec&lt;(u64, Vec&lt;ChangeNode&gt;)&gt;,
 }
 
 <span class="kw">impl </span>SpinningTaskDescription {
     <span class="doccomment">/// build a task
+    /// # Panics
+    /// If there is no latest view
+    /// or if the node id is over `u32::MAX`
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt; {

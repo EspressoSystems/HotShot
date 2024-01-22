@@ -904,6 +904,11 @@
 <a href="#904" id="904">904</a>
 <a href="#905" id="905">905</a>
 <a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -960,6 +965,10 @@
     time::Duration,
 };
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
+
+<span class="doccomment">/// convienence alias for the type for bootstrap addresses
+/// concurrency primitives are needed for having tests
+</span><span class="kw">pub type </span>BootstrapAddrs = Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;;
 
 <span class="doccomment">/// hardcoded topic of QC used
 </span><span class="kw">pub const </span>QC_TOPIC: <span class="kw-2">&amp;</span>str = <span class="string">&quot;global&quot;</span>;
@@ -1143,7 +1152,7 @@
                         pubkey.clone(),
                         bootstrap_addrs_ref,
                         num_bootstrap,
-                        node_id <span class="kw">as </span>usize,
+                        usize::try_from(node_id).unwrap(),
                         keys,
                         da.clone(),
                         da.contains(<span class="kw-2">&amp;</span>pubkey),
@@ -1194,7 +1203,7 @@
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;,
+        bootstrap_addrs: BootstrapAddrs,
         bootstrap_addrs_len: usize,
         id: usize,
         <span class="comment">// HACK
@@ -1281,6 +1290,7 @@
             <span class="comment">// cancels on shutdown
             </span><span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((view_number, pk))) = node_lookup_recv.recv().<span class="kw">await </span>{
                 <span class="doccomment">/// defines lookahead threshold based on the constant
+                </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
                 </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
 
                 <span class="macro">info!</span>(<span class="string">&quot;Performing lookup for peer {:?}&quot;</span>, pk);

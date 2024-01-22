@@ -49,7 +49,12 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! A multi web server
+</span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
@@ -61,10 +66,13 @@
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
 
-<span class="attr">#[derive(Parser, Debug)]
+<span class="doccomment">/// Arguments to run multiple web servers
+</span><span class="attr">#[derive(Parser, Debug)]
 </span><span class="kw">struct </span>MultiWebServerArgs {
-    consensus_url: Url,
-    da_url: Url,
+    <span class="doccomment">/// consensus url
+    </span>consensus_url: Url,
+    <span class="doccomment">/// data availability server url
+    </span>da_url: Url,
 }
 
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">&quot;tokio&quot;</span>, tokio::main)]

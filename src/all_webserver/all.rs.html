@@ -103,7 +103,12 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>types;
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the web server
+/// types used for this example
+</span><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::load_config_from_file;
 <span class="kw">use </span><span class="kw">crate</span>::infra::{ConfigArgs, OrchestratorArgs};
@@ -115,7 +120,8 @@
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
+<span class="doccomment">/// general infra used for this example
+</span><span class="attr">#[path = <span class="string">&quot;../infra/mod.rs&quot;</span>]
 </span><span class="kw">pub mod </span>infra;
 
 <span class="kw">use </span>async_compatibility_layer::{art::async_spawn, channel::oneshot};
@@ -184,7 +190,7 @@
     </span><span class="kw">let </span>config: NetworkConfig&lt;
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
-    &gt; = load_config_from_file::&lt;TestTypes&gt;(args.config_file);
+    &gt; = load_config_from_file::&lt;TestTypes&gt;(<span class="kw-2">&amp;</span>args.config_file);
     <span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
     <span class="kw">for _ in </span><span class="number">0</span>..(config.config.total_nodes.get()) {
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
@@ -202,8 +208,8 @@
                 public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                 network_config_file: <span class="prelude-val">None</span>,
             })
-            .<span class="kw">await
-        </span>});
+            .<span class="kw">await</span>;
+        });
         nodes.push(node);
     }
     <span class="kw">let </span>_result = futures::future::join_all(nodes).<span class="kw">await</span>;

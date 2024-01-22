@@ -29,6 +29,7 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Config file for stake table
 </span><span class="kw">use </span><span class="kw">crate</span>::utils::ToFields;
 <span class="kw">use </span>ark_ff::PrimeField;
@@ -54,7 +55,8 @@
 <span class="kw">impl </span>ToFields&lt;FieldType&gt; <span class="kw">for </span>bls_over_bn254::VerKey {
     <span class="kw">const </span>SIZE: usize = <span class="number">2</span>;
     <span class="kw">fn </span>to_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;FieldType&gt; {
-        <span class="kw">let </span>bytes = <span class="macro">jf_utils::to_bytes!</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.to_affine()).unwrap();
+        <span class="attr">#[allow(clippy::ignored_unit_patterns)]
+        </span><span class="kw">let </span>bytes = <span class="macro">jf_utils::to_bytes!</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.to_affine()).unwrap();
         <span class="kw">let </span>x = &lt;ark_bn254::Fq <span class="kw">as </span>PrimeField&gt;::from_le_bytes_mod_order(<span class="kw-2">&amp;</span>bytes[..<span class="number">32</span>]);
         <span class="kw">let </span>y = &lt;ark_bn254::Fq <span class="kw">as </span>PrimeField&gt;::from_le_bytes_mod_order(<span class="kw-2">&amp;</span>bytes[<span class="number">32</span>..]);
         <span class="macro">vec!</span>[x, y]

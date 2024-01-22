@@ -155,6 +155,9 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::test_runner::Node;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>futures::FutureExt;
@@ -213,6 +216,9 @@
 
 <span class="kw">impl </span>TxnTaskDescription {
     <span class="doccomment">/// build a task
+    /// # Panics
+    /// if unable to get task id
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
     ) -&gt; TaskGenerator&lt;TxnTask&lt;TYPES, I&gt;&gt;
@@ -225,7 +231,7 @@
                 <span class="comment">// consistency check
                 </span><span class="kw">match </span><span class="self">self </span>{
                     TxnTaskDescription::RoundRobinTimeBased(<span class="kw">_</span>) =&gt; {
-                        <span class="macro">assert!</span>(state.next_node_idx.is_some())
+                        <span class="macro">assert!</span>(state.next_node_idx.is_some());
                     }
                     TxnTaskDescription::DistributionBased =&gt; <span class="macro">assert!</span>(state.next_node_idx.is_none()),
                 }
@@ -245,7 +251,7 @@
                         .boxed()
                     }));
                 <span class="kw">let </span>message_handler =
-                    HandleMessage::&lt;TxnTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(<span class="kw">move </span>|<span class="kw">_</span>, <span class="kw-2">mut </span>state| {
+                    HandleMessage::&lt;TxnTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(<span class="kw">move </span>|(), <span class="kw-2">mut </span>state| {
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = state.next_node_idx {
                                 <span class="comment">// submit to idx handle

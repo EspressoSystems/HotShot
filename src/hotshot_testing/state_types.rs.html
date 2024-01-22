@@ -94,6 +94,9 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>commit::{Commitment, Committable};
 
@@ -187,7 +190,10 @@
     ) -&gt; &lt;<span class="self">Self</span>::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
         <span class="doccomment">/// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         </span><span class="kw">const </span>RANDOM_TX_BASE_SIZE: usize = <span class="number">8</span>;
-        TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; RANDOM_TX_BASE_SIZE + (padding <span class="kw">as </span>usize)])
+        TestTransaction(<span class="macro">vec!</span>[
+            <span class="number">0</span>;
+            RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
+        ])
     }
 }
 </code></pre></div></section></main></body></html>

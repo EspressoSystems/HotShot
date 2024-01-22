@@ -297,6 +297,16 @@
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -346,13 +356,13 @@
     </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
     <span class="doccomment">/// Size of the DA committee for the test
     </span><span class="kw">pub </span>da_committee_size: usize,
-    <span class="comment">// overall safety property description
+    <span class="doccomment">/// overall safety property description
     </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription,
     <span class="doccomment">/// spinning properties
     </span><span class="kw">pub </span>spinning_properties: SpinningTaskDescription,
-    <span class="comment">// txns timing
+    <span class="doccomment">/// txns timing
     </span><span class="kw">pub </span>txn_description: TxnTaskDescription,
-    <span class="comment">// completion task
+    <span class="doccomment">/// completion task
     </span><span class="kw">pub </span>completion_task_description: CompletionTaskDescription,
     <span class="doccomment">/// Minimum transactions required for a block
     </span><span class="kw">pub </span>min_transactions: usize,
@@ -376,7 +386,9 @@
 }
 
 <span class="kw">impl </span>TestMetadata {
-    <span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// the default metadata for a stress test
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes = <span class="number">100</span>;
         TestMetadata {
             num_bootstrap_nodes: <span class="number">15</span>,
@@ -403,7 +415,9 @@
         }
     }
 
-    <span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
+    <span class="doccomment">/// the default metadata for multiple rounds
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
         <span class="kw">let </span>num_nodes = <span class="number">10</span>;
         TestMetadata {
             total_nodes: num_nodes,
@@ -418,7 +432,7 @@
                 threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
             },
             timing_data: TimingData {
-                start_delay: <span class="number">120000</span>,
+                start_delay: <span class="number">120_000</span>,
                 round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
@@ -428,6 +442,7 @@
     }
 
     <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestMetadata {
         <span class="kw">let </span>num_nodes = <span class="number">20</span>;
         TestMetadata {
@@ -488,7 +503,12 @@
 }
 
 <span class="kw">impl </span>TestMetadata {
-    <span class="kw">pub fn </span>gen_launcher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
+    <span class="doccomment">/// turn a description of a test (e.g. a [`TestMetadata`]) into
+    /// a [`TestLauncher`] that can be used to launch the test.
+    /// # Panics
+    /// if some of the the configuration values are zero
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>gen_launcher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
         <span class="self">self</span>,
         node_id: u64,
     ) -&gt; TestLauncher&lt;TYPES, I&gt;
