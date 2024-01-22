@@ -2725,6 +2725,7 @@ dependencies = [
  "hotshot-types",
  "libp2p",
  "serde",
+ "serde-inline-default",
  "serde_json",
  "surf-disco",
  "thiserror",
@@ -2837,6 +2838,34 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "snafu",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-testing-macros"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "blake3",
+ "commit",
+ "derive_builder",
+ "either",
+ "futures",
+ "hotshot",
+ "hotshot-testing",
+ "hotshot-types",
+ "jf-primitives",
+ "proc-macro2",
+ "quote",
+ "rand 0.8.5",
+ "serde",
+ "snafu",
+ "syn 2.0.48",
  "tokio",
  "tracing",
 ]
@@ -3015,7 +3044,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.13",
- "socket2 0.4.10",
+ "socket2 0.5.5",
  "tokio",
  "tower-service",
  "tracing",
@@ -4263,9 +4292,9 @@ checksum = "c4cd1a83af159aa67994778be9070f0ae1bd732942279cabb14f86f986a21456"
 
 [[package]]
 name = "local-ip-address"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66357e687a569abca487dc399a9c9ac19beb3f13991ed49f00c144e02cbd42ab"
+checksum = "612ed4ea9ce5acfb5d26339302528a5e1e59dfed95e9e11af3c083236ff1d15d"
 dependencies = [
  "libc",
  "neli",
@@ -5836,6 +5865,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63261df402c67811e9ac6def069e4786148c4563f4b50fd4bf30aa370d626b02"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-inline-default"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa824cde50b5f01ff28a955114d8152a07cd62d81f53459dad0f2610136be844"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
