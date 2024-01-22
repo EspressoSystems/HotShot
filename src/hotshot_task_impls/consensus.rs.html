@@ -1276,6 +1276,39 @@
 <a href="#1276" id="1276">1276</a>
 <a href="#1277" id="1277">1277</a>
 <a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1786,8 +1819,6 @@
                 <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
                 </span><span class="self">self</span>.update_view(view).<span class="kw">await</span>;
 
-                <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
-
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
 
                 <span class="comment">// Construct the leaf.
@@ -1800,10 +1831,16 @@
                         .cloned()
                 };
 
+                <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+
+                <span class="kw">if </span>justify_qc.get_view_number() &gt; consensus.high_qc.view_number {
+                    <span class="macro">debug!</span>(<span class="string">&quot;Updating high QC&quot;</span>);
+                    consensus.high_qc = justify_qc.clone();
+                }
+
                 <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-                    <span class="comment">// If no parent then just update our state map and return.  We will not vote.
-                    </span><span class="macro">error!</span>(
+                    <span class="macro">error!</span>(
                         <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}&quot;</span>,
                         justify_qc.get_data().leaf_commit
                     );
@@ -1811,13 +1848,12 @@
                         view_number: view,
                         justify_qc: justify_qc.clone(),
                         parent_commitment: justify_qc.get_data().leaf_commit,
-                        block_header: proposal.data.block_header,
+                        block_header: proposal.data.block_header.clone(),
                         block_payload: <span class="prelude-val">None</span>,
                         rejected: Vec::new(),
                         proposer_id: sender,
                     };
 
-                    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
                     consensus.state_map.insert(
                         view,
                         View {
@@ -1827,6 +1863,40 @@
                         },
                     );
                     consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                    <span class="comment">// If we are missing the parent from storage, the safety check will fail.  But we can
+                    // still vote if the liveness check succeeds.
+                    </span><span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus.locked_view;
+
+                    <span class="kw">let </span>high_qc = consensus.high_qc.clone();
+                    <span class="kw">let </span>locked_view = consensus.locked_view; 
+                
+
+                    drop(consensus);
+
+                    <span class="kw">if </span>liveness_check {
+                        <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
+                        <span class="kw">let </span>new_view = proposal.data.view_number + <span class="number">1</span>;
+
+                        <span class="comment">// This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                        </span><span class="kw">let </span>should_propose = <span class="self">self</span>.quorum_membership.get_leader(new_view)
+                            == <span class="self">self</span>.public_key
+                            &amp;&amp; high_qc.view_number
+                                == <span class="self">self</span>.current_proposal.clone().unwrap().view_number;
+                        <span class="kw">let </span>qc = high_qc.clone();
+                        <span class="kw">if </span>should_propose {
+                            <span class="macro">debug!</span>(
+                                <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
+                                <span class="kw-2">*</span>new_view
+                            );
+                            <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                                .<span class="kw">await</span>;
+                        }
+                        <span class="kw">if </span><span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
+                            <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
+                        }
+                    }
+                    <span class="macro">warn!</span>(<span class="string">&quot;Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}&quot;</span>, high_qc, proposal.data.clone(), locked_view);
 
                     <span class="kw">return</span>;
                 };
@@ -1877,9 +1947,11 @@
 
                 <span class="comment">// Skip if both saftey and liveness checks fail.
                 </span><span class="kw">if </span>!safety_check &amp;&amp; !liveness_check {
-                    <span class="macro">error!</span>(<span class="string">&quot;Failed safety check and liveness check&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}&quot;</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view);
                     <span class="kw">return</span>;
                 }
+
+                <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
 
                 <span class="comment">// We accept the proposal, notify the application layer
                 </span><span class="self">self</span>.api
@@ -1892,7 +1964,6 @@
                     })
                     .<span class="kw">await</span>;
 
-                <span class="kw">let </span>high_qc = leaf.justify_qc.clone();
                 <span class="kw">let </span><span class="kw-2">mut </span>new_anchor_view = consensus.last_decided_view;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_locked_view = consensus.locked_view;
                 <span class="kw">let </span><span class="kw-2">mut </span>last_view_number_visited = view;
@@ -1980,11 +2051,6 @@
                     HashSet::new()
                 };
 
-                <span class="comment">// promote lock here to add proposal to statemap
-                </span><span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-                <span class="kw">if </span>high_qc.view_number &gt; consensus.high_qc.view_number {
-                    consensus.high_qc = high_qc;
-                }
                 consensus.state_map.insert(
                     view,
                     View {
