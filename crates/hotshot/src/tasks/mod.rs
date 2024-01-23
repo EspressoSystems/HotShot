@@ -11,7 +11,6 @@ use hotshot_task::{
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
-use tracing::error;
 use hotshot_task_impls::{
     consensus::{
         consensus_event_filter, CommitmentAndMetadata, ConsensusTaskState, ConsensusTaskTypes,
@@ -45,6 +44,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tracing::error;
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -96,7 +96,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
                     Ok(msgs) => Messages(msgs),
                     Err(err) => {
                         error!("failed to receive broadcast messages: {err}");
-                        
+
                         // return zero messages so we sleep and try again
                         Messages(vec![])
                     }
