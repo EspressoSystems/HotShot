@@ -2833,6 +2833,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
+ "hotshot-utils",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -2921,6 +2922,7 @@ name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "hotshot-constants",
 ]
 
 [[package]]

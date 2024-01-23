@@ -17,6 +17,9 @@ pub use self::{
     },
 };
 
+use hotshot_constants::{version::Versioned, Version, PROGRAM_PROTOCOL_VERSION};
+use hotshot_utils::version::read_version;
+
 use self::behaviours::{
     dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
     gossip::GossipEvent,
@@ -174,6 +177,24 @@ pub enum NetworkEvent {
     DirectResponse(Vec<u8>, PeerId),
     /// Report that kademlia has successfully bootstrapped into the network
     IsBootstrapped,
+}
+
+/// Extract underlying (binary) message from a `NetworkEvent`
+impl Versioned for NetworkEvent {
+    fn version(&self) -> Version {
+        match self {
+            NetworkEvent::GossipMsg(msg, _)
+            | NetworkEvent::DirectRequest(msg, _, _)
+            | NetworkEvent::DirectResponse(msg, _) => {
+              if msg.len() < 4 {
+                PROGRAM_PROTOCOL_VERSION
+              } else {
+                read_version(msg)
+              }
+            }
+            NetworkEvent::IsBootstrapped => PROGRAM_PROTOCOL_VERSION,
+        }
+    }
 }
 
 #[derive(Debug)]

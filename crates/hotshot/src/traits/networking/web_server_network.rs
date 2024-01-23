@@ -13,6 +13,8 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+use hotshot_utils::{bincode::bincode_opts};
+use bincode::Options;
 use hotshot_types::{
     message::{Message, MessagePurpose},
     traits::{
@@ -192,9 +194,9 @@ struct Inner<TYPES: NodeType> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for broadcasted messages
-    broadcast_poll_queue: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
+    broadcast_poll_queue_0_1: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
     /// Queue for direct messages
-    direct_poll_queue: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
+    direct_poll_queue_0_1: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
     /// Client is running
     running: AtomicBool,
     /// The web server connection is ready
@@ -270,16 +272,17 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
             if message_purpose == MessagePurpose::Data {
                 let possible_message = self.get_txs_from_web_server(endpoint).await;
+                let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
+                // let mut direct_poll_queue = self.direct_poll_queue_0_1;
                 match possible_message {
                     Ok(Some((index, deserialized_messages))) => {
-                        let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
                         if index > tx_index + 1 {
                             debug!("missed txns from {} to {}", tx_index + 1, index - 1);
                             tx_index = index - 1;
                         }
                         for tx in &deserialized_messages {
                             tx_index += 1;
-                            broadcast_poll_queue.push(tx.clone());
+                            broadcast_poll_queue.write().await.push(tx.clone());
                         }
                         debug!("tx index is {}", tx_index);
                     }
@@ -292,6 +295,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 }
             } else {
                 let possible_message = self.get_message_from_web_server(endpoint).await;
+                let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
+                let direct_poll_queue = &self.direct_poll_queue_0_1;
 
                 match possible_message {
                     Ok(Some(deserialized_messages)) => {
@@ -301,7 +306,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                             MessagePurpose::Proposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
+                                broadcast_poll_queue
                                     .write()
                                     .await
                                     .push(deserialized_messages[0].clone());
@@ -318,7 +323,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                             MessagePurpose::LatestQuorumProposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
+                                broadcast_poll_queue
                                     .write()
                                     .await
                                     .push(deserialized_messages[0].clone());
@@ -326,13 +331,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 return Ok(());
                             }
                             MessagePurpose::LatestViewSyncProposal => {
-                                let mut broadcast_poll_queue =
-                                    self.broadcast_poll_queue.write().await;
 
                                 for cert in &deserialized_messages {
                                     let hash = hash(&cert);
                                     if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.push(cert.clone());
+                                        broadcast_poll_queue
+                                          .write()
+                                          .await
+                                          .push(cert.clone());
                                     }
                                 }
 
@@ -346,10 +352,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 //     view_number,
                                 //     self.is_da
                                 // );
-                                let mut direct_poll_queue = self.direct_poll_queue.write().await;
                                 for vote in &deserialized_messages {
                                     vote_index += 1;
-                                    direct_poll_queue.push(vote.clone());
+                                    direct_poll_queue.write().await.push(vote.clone());
                                 }
                             }
                             MessagePurpose::DAC => {
@@ -358,7 +363,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                     view_number, self.is_da
                                 );
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
+                                self.broadcast_poll_queue_0_1
                                     .write()
                                     .await
                                     .push(deserialized_messages[0].clone());
@@ -371,7 +376,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
 
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
+                                self.broadcast_poll_queue_0_1
                                     .write()
                                     .await
                                     .push(deserialized_messages[0].clone());
@@ -393,10 +398,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 //     view_number,
                                 //     self.is_da
                                 // );
-                                let mut direct_poll_queue = self.direct_poll_queue.write().await;
                                 for vote in &deserialized_messages {
                                     vote_index += 1;
-                                    direct_poll_queue.push(vote.clone());
+                                    direct_poll_queue.write().await.push(vote.clone());
                                 }
                             }
                             MessagePurpose::ViewSyncProposal => {
@@ -406,15 +410,13 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 //     view_number,
                                 //     self.is_da
                                 // );
-                                let mut broadcast_poll_queue =
-                                    self.broadcast_poll_queue.write().await;
                                 // TODO ED Special case this for view sync
                                 // TODO ED Need to add vote indexing to web server for view sync certs
                                 for cert in &deserialized_messages {
                                     vote_index += 1;
                                     let hash = hash(cert);
                                     if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.push(cert.clone());
+                                        broadcast_poll_queue.write().await.push(cert.clone());
                                     }
                                 }
                             }
@@ -424,7 +426,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
 
                             MessagePurpose::Upgrade => {
-                                self.broadcast_poll_queue
+                                broadcast_poll_queue
                                     .write()
                                     .await
                                     .push(deserialized_messages[0].clone());
@@ -498,7 +500,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             Ok(Some((index, messages))) => {
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
-                    let deserialized_message = bincode::deserialize(message);
+                    let deserialized_message = bincode_opts().deserialize(message);
                     if let Err(e) = deserialized_message {
                         return Err(NetworkError::FailedToDeserialize { source: e });
                     }
@@ -525,7 +527,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
-                    let deserialized_message = bincode::deserialize(message);
+                    let deserialized_message = bincode_opts().deserialize(message);
                     if let Err(e) = deserialized_message {
                         return Err(NetworkError::FailedToDeserialize { source: e });
                     }
@@ -605,8 +607,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         let client = surf_disco::Client::<ClientError>::new(url);
 
         let inner = Arc::new(Inner {
-            broadcast_poll_queue: Arc::default(),
-            direct_poll_queue: Arc::default(),
+            broadcast_poll_queue_0_1: Arc::default(),
+            direct_poll_queue_0_1: Arc::default(),
             running: AtomicBool::new(true),
             connected: AtomicBool::new(false),
             client,
@@ -858,7 +860,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         let closure = async move {
             match transmit_type {
                 TransmitType::Direct => {
-                    let mut queue = self.inner.direct_poll_queue.write().await;
+                    let mut queue = self.inner.direct_poll_queue_0_1.write().await;
                     Ok(queue
                         .drain(..)
                         .collect::<Vec<_>>()
@@ -867,7 +869,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         .collect())
                 }
                 TransmitType::Broadcast => {
-                    let mut queue = self.inner.broadcast_poll_queue.write().await;
+                    let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
                     Ok(queue
                         .drain(..)
                         .collect::<Vec<_>>()

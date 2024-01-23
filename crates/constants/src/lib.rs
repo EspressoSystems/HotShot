@@ -28,3 +28,5 @@ pub struct Version {
 
 /// Constants for the current version number used by the program
 pub const PROGRAM_PROTOCOL_VERSION: Version = Version { major: 0, minor: 1 };
+
+pub mod version;

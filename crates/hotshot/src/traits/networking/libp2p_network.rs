@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_constants::LOOK_AHEAD;
+use hotshot_constants::{version::Versioned, Version, LOOK_AHEAD };
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     data::ViewNumber,
@@ -27,7 +27,7 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{bincode::bincode_opts};
 use libp2p_identity::PeerId;
 use libp2p_networking::{
     network::{
@@ -501,6 +501,56 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             .map_err(Into::<NetworkError>::into)
     }
 
+    /// Handle events for Version 0.1 of the protocol.
+    async fn spawn_events_0_1(
+        &self,
+        msg: NetworkEvent,
+        is_bootstrapped: &Arc<AtomicBool>,
+        direct_send: &UnboundedSender<M>,
+        broadcast_send: &UnboundedSender<M>,
+    ) -> Result<(), NetworkError> {
+        match msg {
+            GossipMsg(msg, _topic) => {
+                let result: Result<M, _> = bincode_opts().deserialize(&msg);
+                if let Ok(result) = result {
+                    broadcast_send
+                        .send(result)
+                        .await
+                        .map_err(|_| NetworkError::ChannelSend)?;
+                }
+            }
+            DirectRequest(msg, _pid, chan) => {
+                let result: Result<M, _> = bincode_opts()
+                    .deserialize(&msg)
+                    .context(FailedToSerializeSnafu);
+                if let Ok(result) = result {
+                    direct_send
+                        .send(result)
+                        .await
+                        .map_err(|_| NetworkError::ChannelSend)?;
+                }
+                if self
+                    .inner
+                    .handle
+                    .direct_response(chan, &Empty::Empty)
+                    .await
+                    .is_err()
+                {
+                    error!("failed to ack!");
+                };
+            }
+            DirectResponse(msg, _) => {
+                let _result: Result<M, _> = bincode_opts()
+                    .deserialize(&msg)
+                    .context(FailedToSerializeSnafu);
+            }
+            NetworkEvent::IsBootstrapped => {
+                is_bootstrapped.store(true, Ordering::Relaxed);
+            }
+        }
+        Ok::<(), NetworkError>(())
+    }
+
     /// task to propagate messages to handlers
     /// terminates on shut down of network
     fn spawn_event_generator(
@@ -510,50 +560,23 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
+        let version_0_1 = Version { major: 0, minor: 1 };
         async_spawn(async move {
-            while let Ok(msg) = handle.inner.handle.receiver().recv().await {
-                match msg {
-                    GossipMsg(msg, _topic) => {
-                        let result: Result<M, _> = bincode_opts().deserialize(&msg);
-                        if let Ok(result) = result {
-                            broadcast_send
-                                .send(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
-                        }
-                    }
-                    DirectRequest(msg, _pid, chan) => {
-                        let result: Result<M, _> = bincode_opts()
-                            .deserialize(&msg)
-                            .context(FailedToSerializeSnafu);
-                        if let Ok(result) = result {
-                            direct_send
-                                .send(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
-                        }
-                        if handle
-                            .inner
-                            .handle
-                            .direct_response(chan, &Empty::Empty)
-                            .await
-                            .is_err()
-                        {
-                            error!("failed to ack!");
-                        };
-                    }
-                    DirectResponse(msg, _) => {
-                        let _result: Result<M, _> = bincode_opts()
-                            .deserialize(&msg)
-                            .context(FailedToSerializeSnafu);
-                    }
-                    NetworkEvent::IsBootstrapped => {
-                        is_bootstrapped.store(true, Ordering::Relaxed);
-                    }
+            while let Ok(message) = handle.inner.handle.receiver().recv().await {
+                let message_version = message.version();
+                if message_version == version_0_1 {
+                    let _ = handle
+                        .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
+                        .await;
+                } else {
+                    error!(
+                        "Received message with unexpected version {:?}.",
+                        message_version
+                    );
+                    error!("Message payload:\n{:?}", message);
                 }
             }
-            warn!("Network receiever shut down!");
-            Ok::<(), NetworkError>(())
+            error!("Network receiver shut down!");
         });
     }
 }
