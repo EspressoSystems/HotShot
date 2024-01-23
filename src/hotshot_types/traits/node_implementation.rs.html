@@ -302,6 +302,10 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -310,7 +314,7 @@
 </span><span class="kw">use super</span>::{
     block_contents::{BlockHeader, Transaction},
     election::ElectionConfig,
-    network::{CommunicationChannel, TestableNetworkingImplementation},
+    network::{CommunicationChannel, NetworkReliability, TestableNetworkingImplementation},
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
@@ -476,6 +480,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (<span class="self">Self</span>::QuorumNetwork, <span class="self">Self</span>::CommitteeNetwork)&gt;;
 }
 
@@ -534,6 +539,7 @@
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (<span class="self">Self</span>::QuorumNetwork, <span class="self">Self</span>::CommitteeNetwork)&gt; {
         <span class="kw">let </span>network_generator = &lt;&lt;I::QuorumNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
                 expected_node_count,
@@ -541,6 +547,7 @@
                 <span class="number">0</span>,
                 da_committee_size,
                 <span class="bool-val">false</span>,
+                reliability_config.clone(),
             );
         <span class="kw">let </span>da_generator = &lt;&lt;I::CommitteeNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
                 expected_node_count,
@@ -548,6 +555,7 @@
                 <span class="number">1</span>,
                 da_committee_size,
                 <span class="bool-val">true</span>,
+                reliability_config
             );
 
         Box::new(<span class="kw">move </span>|id| {

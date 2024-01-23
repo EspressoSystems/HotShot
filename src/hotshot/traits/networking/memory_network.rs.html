@@ -568,6 +568,7 @@
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -662,7 +663,7 @@
     </span>metrics: NetworkingMetricsValue,
 
     <span class="doccomment">/// config to introduce unreliability to the network
-    </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
+    </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
 }
 
 <span class="doccomment">/// In memory only network simulator.
@@ -693,7 +694,7 @@
         pub_key: K,
         metrics: NetworkingMetricsValue,
         master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
-        reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;&gt;,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;M, K&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Attaching new MemoryNetwork&quot;</span>);
         <span class="kw">let </span>(broadcast_input, broadcast_task_recv) = bounded(<span class="number">128</span>);
@@ -819,6 +820,7 @@
         _network_id: usize,
         _da_committee_size: usize,
         _is_da: bool,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>master: Arc&lt;<span class="kw">_</span>&gt; = MasterMap::new();
         <span class="comment">// We assign known_nodes&#39; public key and stake value rather than read from config file since it&#39;s a test
@@ -829,7 +831,7 @@
                 pubkey,
                 NetworkingMetricsValue::default(),
                 master.clone(),
-                <span class="prelude-val">None</span>,
+                reliability_config.clone(),
             )
         })
     }
@@ -882,8 +884,7 @@
                 <span class="kw">continue</span>;
             }
             <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Sending message to node&quot;</span>);
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
-                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
                 {
                     <span class="kw">let </span>node2 = node.clone();
                     <span class="kw">let </span>fut = config.chaos_send_msg(
@@ -926,15 +927,14 @@
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, finding recipient&quot;</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.inner.master_map.map.get(<span class="kw-2">&amp;</span>recipient) {
             <span class="kw">let </span>node = node.value().clone();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
-                <span class="kw">let </span>config = r.read().<span class="kw">await</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
                 {
                     <span class="kw">let </span>fut = config.chaos_send_msg(
                         vec.clone(),
                         Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                             <span class="kw">let </span>node2 = node.clone();
                             boxed_sync(<span class="kw">async move </span>{
-                                <span class="kw">let </span>_res = node2.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="kw">let </span>_res = node2.direct_input(msg).<span class="kw">await</span>;
                                 <span class="comment">// NOTE we&#39;re dropping metrics here but this is only for testing
                                 // purposes. I think that should be okay
                             </span>})
@@ -1045,6 +1045,7 @@
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;MemoryNetwork&lt;
             Message&lt;TYPES&gt;,
@@ -1054,7 +1055,8 @@
             num_bootstrap,
             network_id,
             da_committee_size,
-            is_da
+            is_da,
+            reliability_config,
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into()))
     }

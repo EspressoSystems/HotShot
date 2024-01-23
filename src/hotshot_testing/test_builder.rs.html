@@ -307,7 +307,12 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::types::SignatureKey;
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::NetworkReliability, types::SignatureKey};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -368,6 +373,8 @@
     </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// timing data
     </span><span class="kw">pub </span>timing_data: TimingData,
+    <span class="doccomment">/// unrelabile networking metadata
+    </span><span class="kw">pub </span>unreliable_network: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     <span class="doccomment">/// view sync check task
     </span><span class="kw">pub </span>view_sync_properties: ViewSyncTaskDescription,
 }
@@ -497,6 +504,7 @@
                     </span>duration: Duration::from_millis(<span class="number">10000</span>),
                 },
             ),
+            unreliable_network: <span class="prelude-val">None</span>,
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
         }
     }
@@ -525,6 +533,7 @@
             completion_task_description,
             overall_safety_properties,
             spinning_properties,
+            unreliable_network,
             view_sync_properties,
             ..
         } = <span class="self">self</span>.clone();
@@ -601,6 +610,7 @@
                     total_nodes,
                     num_bootstrap_nodes,
                     da_committee_size,
+                    unreliable_network,
                 ),
                 storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
                 config,

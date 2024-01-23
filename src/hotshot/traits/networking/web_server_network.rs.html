@@ -1338,6 +1338,11 @@
 <a href="#1338" id="1338">1338</a>
 <a href="#1339" id="1339">1339</a>
 <a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1373,7 +1378,7 @@
 <span class="kw">use </span>std::num::NonZeroUsize;
 <span class="kw">use </span>surf_disco::Url;
 
-<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
+<span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, ViewMessage};
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::{
     collections::{btree_map::Entry, BTreeSet},
@@ -2599,6 +2604,7 @@
         _network_id: usize,
         _da_committee_size: usize,
         is_da: bool,
+        _reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
@@ -2657,6 +2663,7 @@
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        _reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;WebServerNetwork&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
             expected_node_count,
@@ -2664,6 +2671,9 @@
             network_id,
             da_committee_size,
             is_da,
+            <span class="comment">// network reliability is a testing feature
+            // not yet implemented for webcommchannel
+            </span><span class="prelude-val">None</span>,
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into()))
     }

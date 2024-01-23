@@ -634,6 +634,8 @@
 <a href="#634" id="634">634</a>
 <a href="#635" id="635">635</a>
 <a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::FutureExt;
@@ -658,6 +660,7 @@
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
 };
+<span class="kw">use </span>tracing::error;
 
 <span class="kw">use crate</span>::{test_launcher::TaskGenerator, test_runner::Node};
 <span class="doccomment">/// convenience type alias for state and block
@@ -902,6 +905,7 @@
         <span class="kw">let </span>remaining_nodes = total_num_nodes - (num_decided + num_failed);
 
         <span class="kw">if </span>check_leaf &amp;&amp; <span class="self">self</span>.leaf_map.len() != <span class="number">1 </span>{
+            <span class="macro">error!</span>(<span class="string">&quot;LEAF MAP (that is mismatched) IS: {:?}&quot;</span>, <span class="self">self</span>.leaf_map);
             <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
             <span class="kw">return</span>;
         }

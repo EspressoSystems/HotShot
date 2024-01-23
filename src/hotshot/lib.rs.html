@@ -783,6 +783,9 @@
 };
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_types::traits::node_implementation::ChannelMaps;
+
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, PayloadStore, View, ViewInner, ViewQueue},
     data::Leaf,
@@ -813,9 +816,6 @@
 };
 <span class="kw">use </span>tasks::add_vid_task;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::node_implementation::ChannelMaps;
 
 <span class="comment">// -- Rexports
 // External

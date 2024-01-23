@@ -909,12 +909,94 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>async_compatibility_layer::art::async_block_on;
 <span class="kw">use </span>async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
@@ -923,6 +1005,8 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>hotshot_constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber,
     message::{Message, MessageKind},
@@ -930,34 +1014,36 @@
         election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
-            NetworkError, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType, ViewMessage,
+            NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
 };
+
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p_identity::PeerId;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
+
 <span class="kw">use </span>libp2p_networking::{
     network::{
-        MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     reexport::Multiaddr,
 };
 
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::ResultExt;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
+
 <span class="kw">use </span>std::{
-    collections::{BTreeSet, HashSet},
+    collections::BTreeSet,
     fmt::Debug,
     marker::PhantomData,
-    num::NonZeroUsize,
-    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -1027,6 +1113,9 @@
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven&#39;t made that atomic yet and we prefer lock-free
     </span>latest_seen_view: Arc&lt;AtomicU64&gt;,
+    <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="doccomment">/// reliability_config
+    </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     <span class="doccomment">/// if we&#39;re a member of the DA committee or not
     </span>is_da: bool,
 }
@@ -1039,7 +1128,8 @@
     </span>inner: Arc&lt;Libp2pNetworkInner&lt;M, K&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
     <span class="kw">for </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
 <span class="kw">where
     </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
@@ -1060,6 +1150,7 @@
         _network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="macro">assert!</span>(
             da_committee_size &lt;= expected_node_count,
@@ -1145,6 +1236,7 @@
                 <span class="kw">let </span>bootstrap_addrs_ref = bootstrap_addrs.clone();
                 <span class="kw">let </span>keys = all_keys.clone();
                 <span class="kw">let </span>da = da_keys.clone();
+                <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
                 async_block_on(<span class="kw">async move </span>{
                     <span class="kw">match </span>Libp2pNetwork::new(
                         NetworkingMetricsValue::default(),
@@ -1154,6 +1246,8 @@
                         num_bootstrap,
                         usize::try_from(node_id).unwrap(),
                         keys,
+                        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+                        </span>reliability_config_dup,
                         da.clone(),
                         da.contains(<span class="kw-2">&amp;</span>pubkey),
                     )
@@ -1208,6 +1302,7 @@
         id: usize,
         <span class="comment">// HACK
         </span>committee_pks: BTreeSet&lt;K&gt;,
+        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         da_pks: BTreeSet&lt;K&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
@@ -1267,6 +1362,8 @@
                 // proposals on&quot;. We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don&#39;t need.
                 </span>latest_seen_view: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+                </span>reliability_config,
                 is_da,
             }),
         };
@@ -1534,6 +1631,40 @@
                 </span>.map_err(|<span class="kw">_</span>| NetworkError::ShutDown)<span class="question-mark">?</span>;
         }
 
+        <span class="comment">// NOTE: metrics is threadsafe, so clone is fine (and lightweight)
+        </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        </span>{
+            <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+
+                <span class="kw">let </span>serialized_msg = bincode_opts()
+                    .serialize(<span class="kw-2">&amp;</span>message)
+                    .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
+                <span class="kw">let </span>fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                        <span class="kw">let </span>topic_2 = topic.clone();
+                        <span class="kw">let </span>handle_2 = handle.clone();
+                        <span class="kw">let </span>metrics_2 = metrics.clone();
+                        boxed_sync(<span class="kw">async move </span>{
+                            <span class="kw">match </span>handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
+                                <span class="prelude-val">Err</span>(e) =&gt; {
+                                    metrics_2.message_failed_to_send.add(<span class="number">1</span>);
+                                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to broadcast to libp2p: {:?}&quot;</span>, e);
+                                }
+                                <span class="prelude-val">Ok</span>(()) =&gt; {
+                                    metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            }
+        }
+
         <span class="kw">match </span><span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(()) =&gt; {
                 <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
@@ -1582,15 +1713,41 @@
             }
         };
 
+        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        </span>{
+            <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
+                <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+
+                <span class="kw">let </span>serialized_msg = bincode_opts()
+                    .serialize(<span class="kw-2">&amp;</span>message)
+                    .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
+                <span class="kw">let </span>fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
+                        <span class="kw">let </span>handle_2 = handle.clone();
+                        <span class="kw">let </span>metrics_2 = metrics.clone();
+                        boxed_sync(<span class="kw">async move </span>{
+                            <span class="kw">match </span>handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{
+                                <span class="prelude-val">Err</span>(e) =&gt; {
+                                    metrics_2.message_failed_to_send.add(<span class="number">1</span>);
+                                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to broadcast to libp2p: {:?}&quot;</span>, e);
+                                }
+                                <span class="prelude-val">Ok</span>(()) =&gt; {
+                                    metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            }
+        }
+
         <span class="kw">match </span><span class="self">self</span>.inner.handle.direct_request(pid, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(()) =&gt; {
-                <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
-                <span class="prelude-val">Ok</span>(())
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                <span class="prelude-val">Err</span>(e.into())
-            }
+            <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
         }
     }
 
@@ -1689,7 +1846,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES&gt;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES&gt;
 <span class="kw">where
     </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
 {
@@ -1708,6 +1866,7 @@
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>generator = &lt;Libp2pNetwork&lt;
             Message&lt;TYPES&gt;,
@@ -1717,7 +1876,8 @@
             num_bootstrap,
             network_id,
             da_committee_size,
-            is_da
+            is_da,
+            reliability_config
         );
         Box::new(<span class="kw">move </span>|node_id| <span class="self">Self</span>(generator(node_id).into(), PhantomData))
     }

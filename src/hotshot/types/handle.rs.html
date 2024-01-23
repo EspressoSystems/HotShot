@@ -279,6 +279,8 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -294,8 +296,13 @@
     BoxSyncFuture,
 };
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_types::{
+    message::{MessageKind, SequencingMessage},
+    traits::election::Membership,
+};
+
 <span class="kw">use </span>hotshot_types::simple_vote::QuorumData;
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -306,9 +313,6 @@
 };
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::error;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-</span><span class="kw">use </span>hotshot_types::message::{MessageKind, SequencingMessage};
 
 <span class="doccomment">/// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
