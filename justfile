@@ -27,14 +27,17 @@ async := "async_std"
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --workspace --examples --bins --tests --lib --benches
+  cargo build --workspace --examples --bins --tests --lib --benches --release
+
+build_release:
+  cargo build --package hotshot --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
-test:
-  echo Testing
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+test *ARGS:
+  echo Testing {{ARGS}}
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
@@ -113,7 +116,11 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
+
+lint_release: fmt
+  echo linting
+  cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt
