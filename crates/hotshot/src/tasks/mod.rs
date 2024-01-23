@@ -11,6 +11,7 @@ use hotshot_task::{
     task_launcher::TaskRunner,
     GeneratedStream, Merge,
 };
+use tracing::error;
 use hotshot_task_impls::{
     consensus::{
         consensus_event_filter, CommitmentAndMetadata, ConsensusTaskState, ConsensusTaskTypes,
@@ -67,12 +68,16 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
         let network = net.clone();
         let closure = async move {
             loop {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Broadcast)
-                        .await
-                        .expect("Failed to receive broadcast messages"),
-                );
+                let msgs = match network.recv_msgs(TransmitType::Broadcast).await {
+                    Ok(msgs) => Messages(msgs),
+                    Err(err) => {
+                        error!("failed to receive broadcast messages: {err}");
+
+                        // return zero messages so we sleep and try again
+                        Messages(vec![])
+                    }
+                };
+
                 if msgs.0.is_empty() {
                     async_sleep(Duration::from_millis(100)).await;
                 } else {
@@ -87,12 +92,15 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
         let network = net.clone();
         let closure = async move {
             loop {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Direct)
-                        .await
-                        .expect("Failed to receive direct messages"),
-                );
+                let msgs = match network.recv_msgs(TransmitType::Direct).await {
+                    Ok(msgs) => Messages(msgs),
+                    Err(err) => {
+                        error!("failed to receive broadcast messages: {err}");
+                        
+                        // return zero messages so we sleep and try again
+                        Messages(vec![])
+                    }
+                };
                 if msgs.0.is_empty() {
                     async_sleep(Duration::from_millis(100)).await;
                 } else {
