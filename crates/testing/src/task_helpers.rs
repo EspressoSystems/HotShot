@@ -9,11 +9,11 @@ use crate::{
 use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
+    tasks::events::HotShotEvent,
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
 };
 use hotshot_task::event_stream::ChannelStream;
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidScheme, ViewNumber},

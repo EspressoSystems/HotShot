@@ -1,7 +1,7 @@
 use async_compatibility_layer::channel::UnboundedStream;
 use either::Either;
 use futures::FutureExt;
-use hotshot::{traits::TestableNodeImplementation, HotShotError};
+use hotshot::{tasks::events::HotShotEvent, traits::TestableNodeImplementation, HotShotError};
 use hotshot_task::{
     event_stream::ChannelStream,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
@@ -9,7 +9,6 @@ use hotshot_task::{
     MergeN,
 };
 use hotshot_task::{event_stream::EventStream, Merge};
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     data::{Leaf, VidCommitment},
     error::RoundTimedoutState,

@@ -1,8 +1,11 @@
 #![allow(clippy::panic)]
 use commit::Committable;
-use hotshot::{tasks::add_consensus_task, types::SystemContextHandle, HotShotConsensusApi};
+use hotshot::{
+    tasks::{add_consensus_task, events::HotShotEvent},
+    types::SystemContextHandle,
+    HotShotConsensusApi,
+};
 use hotshot_task::event_stream::ChannelStream;
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
     task_helpers::{build_quorum_proposal, key_pair_for_id},
@@ -83,7 +86,7 @@ async fn build_vote(
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::tasks::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_certificate::QuorumCertificate;
 
@@ -142,7 +145,7 @@ async fn test_consensus_task() {
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::tasks::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -195,8 +198,7 @@ async fn test_consensus_vote() {
 // issue: https://github.com/EspressoSystems/HotShot/issues/2236
 #[ignore]
 async fn test_consensus_with_vid() {
-    use hotshot::types::SignatureKey;
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::{tasks::harness::run_harness, types::SignatureKey};
     use hotshot_testing::block_types::TestBlockPayload;
     use hotshot_testing::block_types::TestTransaction;
     use hotshot_testing::task_helpers::build_cert;

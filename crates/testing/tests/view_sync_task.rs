@@ -1,5 +1,4 @@
-use hotshot::HotShotConsensusApi;
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot::{tasks::events::HotShotEvent, HotShotConsensusApi};
 use hotshot_testing::node_types::{MemoryImpl, TestTypes};
 use hotshot_types::{data::ViewNumber, traits::state::ConsensusTime};
 use std::collections::HashMap;
@@ -11,8 +10,7 @@ use std::collections::HashMap;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_task() {
-    use hotshot::tasks::add_view_sync_task;
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::tasks::{add_view_sync_task, harness::run_harness};
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_vote::ViewSyncPreCommitData;
 

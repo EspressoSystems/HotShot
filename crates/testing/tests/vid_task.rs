@@ -1,5 +1,8 @@
-use hotshot::{tasks::add_vid_task, types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot::{
+    tasks::{add_vid_task, events::HotShotEvent},
+    types::SignatureKey,
+    HotShotConsensusApi,
+};
 use hotshot_testing::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
@@ -19,7 +22,7 @@ use std::marker::PhantomData;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_task() {
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::tasks::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::message::Proposal;
 

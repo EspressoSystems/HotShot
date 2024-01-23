@@ -1,17 +1,6 @@
 //! Provides a number of tasks that run continuously
 
-use crate::{types::SystemContextHandle, HotShotConsensusApi};
-use async_compatibility_layer::art::async_sleep;
-use futures::FutureExt;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
-    task_impls::TaskBuilder,
-    task_launcher::TaskRunner,
-    GeneratedStream, Merge,
-};
-use hotshot_task_impls::{
+use crate::tasks::{
     consensus::{
         consensus_event_filter, CommitmentAndMetadata, ConsensusTaskState, ConsensusTaskTypes,
     },
@@ -24,6 +13,17 @@ use hotshot_task_impls::{
     transactions::{TransactionTaskState, TransactionsTaskTypes},
     vid::{VIDTaskState, VIDTaskTypes},
     view_sync::{ViewSyncTaskState, ViewSyncTaskStateTypes},
+};
+use crate::{types::SystemContextHandle, HotShotConsensusApi};
+use async_compatibility_layer::art::async_sleep;
+use futures::FutureExt;
+use hotshot_task::{
+    boxed_sync,
+    event_stream::ChannelStream,
+    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
+    task_impls::TaskBuilder,
+    task_launcher::TaskRunner,
+    GeneratedStream, Merge,
 };
 use hotshot_types::traits::election::Membership;
 use hotshot_types::{
@@ -44,6 +44,36 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+
+/// the task which implements the main parts of consensus
+pub mod consensus;
+
+/// The task which implements the main parts of data availability.
+pub mod da;
+
+/// The task which implements all transaction handling
+pub mod transactions;
+
+/// Defines the events passed between tasks
+pub mod events;
+
+/// The task which implements the network.
+pub mod network;
+
+/// Defines the types to run unit tests for a task.
+pub mod harness;
+
+/// The task which implements view synchronization
+pub mod view_sync;
+
+/// The task which implements verifiable information dispersal
+pub mod vid;
+
+/// Generic task for collecting votes
+pub mod vote;
+
+/// Helper functions used by any task
+mod helpers;
 
 /// event for global event stream
 #[derive(Clone, Debug)]

@@ -16,7 +16,7 @@ pub mod tasks;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_view_sync_task,
+        add_transaction_task, add_view_sync_task, events::HotShotEvent, network::NetworkTaskKind,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
@@ -36,7 +36,6 @@ use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task_launcher::TaskRunner,
 };
-use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::node_implementation::ChannelMaps;

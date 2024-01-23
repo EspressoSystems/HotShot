@@ -1,5 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
-use crate::{
+use crate::tasks::{
     events::HotShotEvent,
     helpers::cancel_task,
     vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},

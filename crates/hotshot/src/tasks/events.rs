@@ -1,4 +1,4 @@
-use crate::view_sync::ViewSyncPhase;
+use crate::tasks::view_sync::ViewSyncPhase;
 
 use either::Either;
 use hotshot_types::{

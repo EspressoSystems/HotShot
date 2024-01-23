@@ -1,5 +1,4 @@
-use hotshot::{types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot::{tasks::events::HotShotEvent, types::SignatureKey, HotShotConsensusApi};
 use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
     task_helpers::{build_quorum_proposal, vid_init},
@@ -20,7 +19,7 @@ use std::{collections::HashMap, marker::PhantomData};
 #[ignore]
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
-    use hotshot_task_impls::harness::run_harness;
+    use hotshot::tasks::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{data::VidDisperse, message::Proposal};
 

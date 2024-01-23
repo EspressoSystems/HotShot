@@ -2673,6 +2673,7 @@ dependencies = [
  "async-trait",
  "bimap",
  "bincode",
+ "bitvec",
  "blake3",
  "clap",
  "commit",
@@ -2685,7 +2686,6 @@ dependencies = [
  "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
- "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
  "hotshot-utils",
@@ -2697,6 +2697,7 @@ dependencies = [
  "portpicker",
  "rand 0.8.5",
  "serde",
+ "sha2 0.10.8",
  "snafu",
  "surf-disco",
  "time 0.3.31",
@@ -2791,30 +2792,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-task-impls"
-version = "0.1.0"
-dependencies = [
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "bincode",
- "bitvec",
- "commit",
- "either",
- "futures",
- "hotshot-constants",
- "hotshot-task",
- "hotshot-types",
- "hotshot-utils",
- "sha2 0.10.8",
- "snafu",
- "time 0.3.31",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
@@ -2831,7 +2808,6 @@ dependencies = [
  "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
- "hotshot-task-impls",
  "hotshot-types",
  "rand 0.8.5",
  "serde",

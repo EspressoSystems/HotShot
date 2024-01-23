@@ -24,7 +24,6 @@ hotshot-constants = { path = "../constants" }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-orchestrator = { version = "0.1.1", path = "../orchestrator", default-features = false }
 hotshot-task = { path = "../task", version = "0.1.0", default-features = false }
-hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
 rand = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }

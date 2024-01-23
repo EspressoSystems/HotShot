@@ -1,4 +1,4 @@
-use crate::events::HotShotEvent;
+use crate::tasks::events::HotShotEvent;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;

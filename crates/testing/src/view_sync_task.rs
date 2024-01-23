@@ -1,5 +1,6 @@
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::FutureExt;
+use hotshot::tasks::events::HotShotEvent;
 use hotshot_task::task::{HotShotTaskCompleted, HotShotTaskTypes};
 use hotshot_task::{
     event_stream::ChannelStream,
@@ -7,7 +8,6 @@ use hotshot_task::{
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use snafu::Snafu;
 use std::{collections::HashSet, sync::Arc};

@@ -1,4 +1,4 @@
-use crate::events::HotShotEvent;
+use crate::tasks::events::HotShotEvent;
 use either::Either::{self, Left, Right};
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 use hotshot_task::{

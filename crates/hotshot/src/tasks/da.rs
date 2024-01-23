@@ -1,6 +1,6 @@
-use crate::{
+use crate::tasks::{
     events::HotShotEvent,
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
 };
 use async_lock::RwLock;
 
@@ -31,7 +31,6 @@ use hotshot_types::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::vote::HandleVoteEvent;
 use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{debug, error, instrument, warn};

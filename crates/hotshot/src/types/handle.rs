@@ -1,6 +1,6 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
-use crate::{traits::NodeImplementation, types::Event, SystemContext};
+use crate::{tasks::events::HotShotEvent, traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
@@ -12,7 +12,6 @@ use hotshot_task::{
     task::FilterEvent,
     BoxSyncFuture,
 };
-use hotshot_task_impls::events::HotShotEvent;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     message::{MessageKind, SequencingMessage},

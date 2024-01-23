@@ -1,4 +1,4 @@
-use crate::events::HotShotEvent;
+use crate::tasks::events::HotShotEvent;
 use async_compatibility_layer::art::async_spawn;
 
 use futures::FutureExt;

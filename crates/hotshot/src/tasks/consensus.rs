@@ -1,7 +1,7 @@
-use crate::{
+use crate::tasks::{
     events::HotShotEvent,
     helpers::cancel_task,
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
 };
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -38,7 +38,6 @@ use hotshot_types::{
 };
 use tracing::warn;
 
-use crate::vote::HandleVoteEvent;
 use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use crate::events::HotShotEvent;
+use crate::tasks::events::HotShotEvent;
 use async_trait::async_trait;
 use bitvec::prelude::*;
 use either::Either::{self, Left, Right};
