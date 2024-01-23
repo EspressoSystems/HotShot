@@ -42,7 +42,7 @@ async fn test_catchup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
-        node_changes: vec![(14, catchup_nodes)],
+        node_changes: vec![(13, catchup_nodes)],
     };
 
     metadata.completion_task_description =
@@ -90,17 +90,23 @@ async fn test_catchup_web() {
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
-    let catchup_nodes = vec![ChangeNode {
-        idx: 18,
-        updown: UpDown::Up,
-    }];
-
+    let catchup_nodes = vec![
+        ChangeNode {
+            idx: 18,
+            updown: UpDown::Up,
+        },
+        ChangeNode {
+            idx: 19,
+            updown: UpDown::Up,
+        },
+    ];
     metadata.timing_data = timing_data;
-    metadata.start_nodes = 19;
+    metadata.start_nodes = 18;
     metadata.total_nodes = 20;
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(25, catchup_nodes)],
+        // Start the nodes before their leadership.
+        node_changes: vec![(13, catchup_nodes)],
     };
 
     metadata.completion_task_description =
@@ -147,18 +153,23 @@ async fn test_catchup_one_node() {
         ..Default::default()
     };
     let mut metadata = TestMetadata::default();
-    let catchup_nodes = vec![ChangeNode {
-        idx: 18,
-        updown: UpDown::Up,
-    }];
-
+    let catchup_nodes = vec![
+        ChangeNode {
+            idx: 18,
+            updown: UpDown::Up,
+        },
+        ChangeNode {
+            idx: 19,
+            updown: UpDown::Up,
+        },
+    ];
     metadata.timing_data = timing_data;
-    metadata.start_nodes = 19;
+    metadata.start_nodes = 18;
     metadata.total_nodes = 20;
 
     metadata.spinning_properties = SpinningTaskDescription {
-        // Start the node before its leadership.
-        node_changes: vec![(15, catchup_nodes)],
+        // Start the nodes before their leadership.
+        node_changes: vec![(13, catchup_nodes)],
     };
 
     metadata.completion_task_description =
