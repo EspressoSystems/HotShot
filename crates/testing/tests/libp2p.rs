@@ -29,7 +29,7 @@ async fn libp2p_network() {
             },
         ),
         timing_data: TimingData {
-            next_view_timeout: 2500,
+            next_view_timeout: 4000,
             propose_max_round_time: Duration::from_millis(300),
             ..Default::default()
         },
