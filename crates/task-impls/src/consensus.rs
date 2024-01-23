@@ -546,8 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let liveness_check = justify_qc.get_view_number() > consensus.locked_view;
 
                     let high_qc = consensus.high_qc.clone();
-                    let locked_view = consensus.locked_view; 
-                
+                    let locked_view = consensus.locked_view;
 
                     drop(consensus);
 
@@ -680,7 +679,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
                                 if let Some(encoded_txns) =
-                                    consensus.saved_payloads.get(leaf.get_payload_commitment())
+                                    consensus.saved_payloads.get(&leaf.get_view_number())
                                 {
                                     let payload = BlockPayload::from_bytes(
                                         encoded_txns.clone().into_iter(),
