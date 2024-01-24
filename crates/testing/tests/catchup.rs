@@ -236,7 +236,7 @@ async fn test_catchup_in_view_sync() {
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(25, catchup_nodes)],
+        node_changes: vec![(18, catchup_nodes)],
     };
 
     metadata.completion_task_description =
