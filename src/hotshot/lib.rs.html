@@ -787,7 +787,7 @@
 </span><span class="kw">use </span>hotshot_types::traits::node_implementation::ChannelMaps;
 
 <span class="kw">use </span>hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, PayloadStore, View, ViewInner, ViewQueue},
+    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
     data::Leaf,
     error::StorageSnafu,
     event::EventType,
@@ -962,11 +962,10 @@
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = PayloadStore::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
-        <span class="kw">let </span>payload_commitment = anchored_leaf.get_payload_commitment();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.get_block_payload() {
-            <span class="kw">let </span>encoded_txns = <span class="kw">match </span>payload.encode() {
+            <span class="kw">let </span>encoded_txns: Vec&lt;u8&gt; = <span class="kw">match </span>payload.encode() {
                 <span class="comment">// TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
                 // &lt;https://github.com/EspressoSystems/HotShot/issues/2115&gt;
                 </span><span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect(),
@@ -974,7 +973,8 @@
                     <span class="kw">return </span><span class="prelude-val">Err</span>(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(payload_commitment, encoded_txns);
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            saved_payloads.insert(TYPES::Time::new(<span class="number">1</span>), encoded_txns);
         }
 
         <span class="kw">let </span>start_view = anchored_leaf.get_view_number();
