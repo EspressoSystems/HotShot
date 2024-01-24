@@ -27,10 +27,10 @@ async := "async_std"
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --workspace --examples --bins --tests --lib --benches --release
+  cargo build --workspace --examples --bins --tests --lib --benches
 
 build_release:
-  cargo build --package hotshot --no-default-features --features="docs, doc-images"
+  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
