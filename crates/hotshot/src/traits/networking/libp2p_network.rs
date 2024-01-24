@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_constants::{version::Versioned, Version, LOOK_AHEAD };
+use hotshot_constants::{version::Versioned, Version, LOOK_AHEAD};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     data::ViewNumber,
@@ -27,7 +27,7 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
-use hotshot_utils::{bincode::bincode_opts};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_identity::PeerId;
 use libp2p_networking::{
     network::{

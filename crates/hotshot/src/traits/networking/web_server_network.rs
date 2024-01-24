@@ -286,14 +286,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             .push(deserialized_message.clone());
                     }
                     // return Ok(());
-                    // Wait for the view to change before polling for proposals again
-                    // let event = receiver.recv().await;
-                    // match event {
-                    //     Ok(event) => view_number = event.view_number(),
-                    //     Err(_r) => {
-                    //         error!("Proposal receiver error!  It was likely shutdown")
-                    //     }
-                    // }
                 }
                 MessagePurpose::LatestQuorumProposal => {
                     if !*quorum_proposal_seen {
@@ -320,12 +312,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     async_sleep(Duration::from_millis(300)).await;
                 }
                 MessagePurpose::Vote => {
-                    // error!(
-                    //     "Received {} votes from web server for view {} is da {}",
-                    //     deserialized_messages.len(),
-                    //     view_number,
-                    //     self.is_da
-                    // );
                     *vote_index += 1;
                     direct_poll_queue
                         .write()
@@ -363,22 +349,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     }
 
                     // return Ok(());
-                    // Wait for the view to change before polling for proposals again
-                    // let event = receiver.recv().await;
-                    // match event {
-                    //     Ok(event) => view_number = event.view_number(),
-                    //     Err(_r) => {
-                    //         error!("Proposal receiver error!  It was likely shutdown")
-                    //     }
-                    // }
                 }
                 MessagePurpose::ViewSyncVote => {
-                    // error!(
-                    //     "Received {} view sync votes from web server for view {} is da {}",
-                    //     deserialized_messages.len(),
-                    //     view_number,
-                    //     self.is_da
-                    // );
                     *vote_index += 1;
                     direct_poll_queue
                         .write()
@@ -386,12 +358,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         .push(deserialized_message.clone());
                 }
                 MessagePurpose::ViewSyncProposal => {
-                    // error!(
-                    //     "Received {} view sync certs from web server for view {} is da {}",
-                    //     deserialized_messages.len(),
-                    //     view_number,
-                    //     self.is_da
-                    // );
                     // TODO ED Special case this for view sync
                     // TODO ED Need to add vote indexing to web server for view sync certs
                     *vote_index += 1;
@@ -519,187 +485,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 }
             }
 
-            //            let mut possible_messages;
-            //            let mut index;
-            //
-            //            match message_purpose {
-            //              MessagePurpose::Data => {
-            //              }
-            //            }
-
-            if let MessagePurpose::Data = message_purpose {
-                let possible_message = self.get_txs_from_web_server(endpoint).await;
-                //                let possible_messages: Result<Option<(u64, Vec<Vec<u8>>)>, ClientError> = self.client.get(&endpoint).send().await;
-                //
-                //                for
-
-                let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
-                match possible_message {
-                    Ok(Some((index, deserialized_messages))) => {
-                        if index > tx_index + 1 {
-                            debug!("missed txns from {} to {}", tx_index + 1, index - 1);
-                            tx_index = index - 1;
-                        }
-                        for tx in &deserialized_messages {
-                            tx_index += 1;
-                            broadcast_poll_queue.write().await.push(tx.clone());
-                        }
-                        debug!("tx index is {}", tx_index);
-                    }
-                    Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                    Err(_e) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                }
-            } else {
-                let possible_message = self.get_message_from_web_server(endpoint).await;
-                let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
-                let direct_poll_queue = &self.direct_poll_queue_0_1;
-
-                match possible_message {
-                    Ok(Some(deserialized_messages)) => {
-                        match message_purpose {
-                            MessagePurpose::Data => {
-                                unreachable!("We should not receive transactions in this function");
-                            }
-                            MessagePurpose::Proposal => {
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
-                                // Wait for the view to change before polling for proposals again
-                                // let event = receiver.recv().await;
-                                // match event {
-                                //     Ok(event) => view_number = event.view_number(),
-                                //     Err(_r) => {
-                                //         error!("Proposal receiver error!  It was likely shutdown")
-                                //     }
-                                // }
-                            }
-                            MessagePurpose::LatestQuorumProposal => {
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
-                            }
-                            MessagePurpose::LatestViewSyncProposal => {
-                                for cert in &deserialized_messages {
-                                    let hash = hash(&cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.write().await.push(cert.clone());
-                                    }
-                                }
-
-                                // additional sleep to reduce load on web server
-                                async_sleep(Duration::from_millis(300)).await;
-                            }
-                            MessagePurpose::Vote => {
-                                // error!(
-                                //     "Received {} votes from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                for vote in &deserialized_messages {
-                                    vote_index += 1;
-                                    direct_poll_queue.write().await.push(vote.clone());
-                                }
-                            }
-                            MessagePurpose::DAC => {
-                                debug!(
-                                    "Received DAC from web server for view {} {}",
-                                    view_number, self.is_da
-                                );
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue_0_1
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                // return if we found a DAC, since there will only be 1 per view
-                                // In future we should check to make sure DAC is valid
-                                return Ok(());
-                            }
-                            MessagePurpose::VidDisperse => {
-                                // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue_0_1
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
-                                // Wait for the view to change before polling for proposals again
-                                // let event = receiver.recv().await;
-                                // match event {
-                                //     Ok(event) => view_number = event.view_number(),
-                                //     Err(_r) => {
-                                //         error!("Proposal receiver error!  It was likely shutdown")
-                                //     }
-                                // }
-                            }
-                            MessagePurpose::ViewSyncVote => {
-                                // error!(
-                                //     "Received {} view sync votes from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                for vote in &deserialized_messages {
-                                    vote_index += 1;
-                                    direct_poll_queue.write().await.push(vote.clone());
-                                }
-                            }
-                            MessagePurpose::ViewSyncProposal => {
-                                // error!(
-                                //     "Received {} view sync certs from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                // TODO ED Special case this for view sync
-                                // TODO ED Need to add vote indexing to web server for view sync certs
-                                for cert in &deserialized_messages {
-                                    vote_index += 1;
-                                    let hash = hash(cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.write().await.push(cert.clone());
-                                    }
-                                }
-                            }
-
-                            MessagePurpose::Internal => {
-                                error!("Received internal message in web server network");
-                            }
-
-                            MessagePurpose::Upgrade => {
-                                broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
-                            }
-                        }
-                    }
-                    Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                    Err(_e) => {
-                        // error!("error is {:?}", _e);
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                }
-            }
             let maybe_event = receiver.try_recv();
             match maybe_event {
                 Ok(event) => {
