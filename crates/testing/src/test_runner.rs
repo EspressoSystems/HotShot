@@ -32,12 +32,21 @@ use tracing::info;
 /// a node participating in a test
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// the unique identifier of the node
+    /// The node's unique identifier
     pub node_id: u64,
-    /// the networks of the node
+    /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
-    /// the handle to the node's internals
+    /// The handle to the node's internals
     pub handle: SystemContextHandle<TYPES, I>,
+}
+
+/// A yet-to-be-started node that participates in tests
+#[derive(Clone)]
+pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The underlying networks belonging to the node
+    pub networks: Networks<TYPES, I>,
+    /// The context to which we will use to launch HotShot when it's time
+    pub context: SystemContext<TYPES, I>,
 }
 
 /// The runner of a test network
@@ -48,7 +57,7 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
     /// nodes with a late start
-    pub(crate) late_start: HashMap<u64, SystemContext<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier
     pub(crate) next_node_id: u64,
     /// overarching test task
@@ -231,7 +240,13 @@ where
                 )
                 .await;
             if late_start.contains(&node_id) {
-                self.late_start.insert(node_id, hotshot);
+                self.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: hotshot,
+                    },
+                );
             } else {
                 self.nodes.push(Node {
                     node_id,

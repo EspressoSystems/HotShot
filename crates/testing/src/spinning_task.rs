@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::FutureExt;
-use hotshot::{traits::TestableNodeImplementation, SystemContext};
+use hotshot::traits::TestableNodeImplementation;
 use hotshot_task::{
     event_stream::ChannelStream,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
@@ -13,7 +13,10 @@ use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
 
-use crate::{test_launcher::TaskGenerator, test_runner::Node};
+use crate::{
+    test_launcher::TaskGenerator,
+    test_runner::{LateStartNode, Node},
+};
 /// convience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -28,7 +31,7 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handle to the nodes
     pub(crate) handles: Vec<Node<TYPES, I>>,
     /// late start nodes
-    pub(crate) late_start: HashMap<u64, SystemContext<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// time based changes
     pub(crate) changes: HashMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
@@ -73,6 +76,7 @@ impl SpinningTaskDescription {
     /// If there is no latest view
     /// or if the node id is over `u32::MAX`
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
@@ -83,6 +87,12 @@ impl SpinningTaskDescription {
                         async move {
                             match event {
                                 GlobalTestEvent::ShutDown => {
+                                    // We do this here as well as in the completion task
+                                    // because that task has no knowledge of our late start handles.
+                                    for node in &state.handles {
+                                        node.handle.clone().shut_down().await;
+                                    }
+
                                     (Some(HotShotTaskCompleted::ShutDown), state)
                                 }
                             }
@@ -115,8 +125,19 @@ impl SpinningTaskDescription {
                                                         "Node {} spinning up late",
                                                         idx
                                                     );
-                                                    let handle = node.run_tasks().await;
-                                                    handle.hotshot.start_consensus().await;
+
+                                                    // create node and add to state, so we can shut them down properly later
+                                                    let node = Node {
+                                                        node_id: idx.try_into().unwrap(),
+                                                        networks: node.networks,
+                                                        handle: node.context.run_tasks().await,
+                                                    };
+
+                                                    // bootstrap consensus by sending the event
+                                                    node.handle.hotshot.start_consensus().await;
+
+                                                    // add nodes to our state
+                                                    state.handles.push(node);
                                                 }
                                             }
                                             UpDown::Down => {
