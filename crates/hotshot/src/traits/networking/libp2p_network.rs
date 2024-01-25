@@ -569,25 +569,23 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let version_0_1 = Version { major: 0, minor: 1 };
         async_spawn(async move {
             while let Ok(message) = handle.inner.handle.receiver().recv().await {
-                let _message_version = match &message {
+                let message_version = match &message {
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
                         read_version(raw)
                     }
-                    NetworkEvent::IsBootstrapped => {
-                        version_0_1
-                    }
+                    NetworkEvent::IsBootstrapped => version_0_1,
                 };
-                //    if message_version == version_0_1 {
-                let _ = handle
-                    .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
-                    .await;
-                //   } else {
-                //      error!(
-                //          "Received message with unexpected version {:?}.",
-                //          message_version
-                //      );
-                //      error!("Message payload:\n{:?}", message);
-                //  }
+                if message_version == version_0_1 {
+                    let _ = handle
+                        .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
+                        .await;
+                } else {
+                    error!(
+                        "Received message with unexpected version {:?}.",
+                        message_version
+                    );
+                    error!("Message payload:\n{:?}", message);
+                }
             }
             warn!("Network receiver shut down!");
         });

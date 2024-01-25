@@ -127,18 +127,18 @@ tokio = { version = "1.35.1", features = [
 ## Apply some optimizations to test dependencies in debug/test builds
 
 [profile.dev]
-strip = false
-debug = true
+strip = true
+debug = 0
 
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
-strip = false
-debug = true
+strip = true
+debug = 0
 
 # The default release profile without LTO.
 [profile.release]
-debug = true
+debug = 1
 # Disable LTO to decrease the linking time.
 lto = "off"
 incremental = true
@@ -150,12 +150,11 @@ incremental = true
 inherits = "release"
 # Enable "thin" LTO to optimize performance.
 lto = "thin"
-debug = true
 
 ## LTO doesn't work with careful
 ## explicitly specifying features in case releases features change
 [profile.careful]
-debug = true
+debug = 1
 inherits = "release"
 lto = "off"
 incremental = true

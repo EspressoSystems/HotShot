@@ -46,7 +46,7 @@ fn version_number_at_start_of_serialization() {
         _pd: PhantomData,
     };
     let message = Message {
-        version: version,
+        version,
         sender,
         kind: MessageKind::Consensus(SequencingMessage(Left(
             GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
