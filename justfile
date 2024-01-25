@@ -65,6 +65,10 @@ test_with_failures:
   echo Testing nodes leaving the network with async std executor
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
+test_with_failures_2_web:
+  echo Testing nodes leaving the network with async std executor
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_2_web -- --test-threads=1 --nocapture
+
 test_network_task:
   echo Testing the DA task with async std executor
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture

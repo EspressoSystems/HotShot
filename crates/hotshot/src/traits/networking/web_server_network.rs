@@ -244,7 +244,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message) = bincode::deserialize::<RecvMsg<Message<TYPES>>>(&tx) {
+        if let Ok(deserialized_message) = bincode_opts().deserialize::<RecvMsg<Message<TYPES>>>(&tx)
+        {
             broadcast_poll_queue
                 .write()
                 .await
@@ -267,14 +268,17 @@ impl<TYPES: NodeType> Inner<TYPES> {
         quorum_proposal_seen: &mut bool,
         dac_seen: &mut bool,
         vid_disperse_seen: &mut bool,
-    ) {
+    ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
-        if let Ok(deserialized_message) = bincode::deserialize::<RecvMsg<Message<TYPES>>>(&message)
+        if let Ok(deserialized_message) =
+            bincode_opts().deserialize::<RecvMsg<Message<TYPES>>>(&message)
         {
             match message_purpose {
                 MessagePurpose::Data => {
                     unreachable!("We should not receive transactions in this function");
+
+                    return false;
                 }
                 MessagePurpose::Proposal => {
                     // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
@@ -285,7 +289,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             .await
                             .push(deserialized_message.clone());
                     }
-                    // return Ok(());
+                    return true;
                 }
                 MessagePurpose::LatestQuorumProposal => {
                     if !*quorum_proposal_seen {
@@ -297,7 +301,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             .push(deserialized_message.clone());
                     }
 
-                    // return Ok(());
+                    return true;
                 }
                 MessagePurpose::LatestViewSyncProposal => {
                     let hash = hash(&deserialized_message);
@@ -310,6 +314,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                     // additional sleep to reduce load on web server
                     async_sleep(Duration::from_millis(300)).await;
+
+                    return false;
                 }
                 MessagePurpose::Vote => {
                     *vote_index += 1;
@@ -317,6 +323,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         .write()
                         .await
                         .push(deserialized_message.clone());
+
+                    return false;
                 }
                 MessagePurpose::DAC => {
                     debug!(
@@ -334,7 +342,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                     // return if we found a DAC, since there will only be 1 per view
                     // In future we should check to make sure DAC is valid
-                    // return Ok(());
+                    return true;
                 }
                 MessagePurpose::VidDisperse => {
                     // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
@@ -348,7 +356,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             .push(deserialized_message.clone());
                     }
 
-                    // return Ok(());
+                    return true;
                 }
                 MessagePurpose::ViewSyncVote => {
                     *vote_index += 1;
@@ -356,6 +364,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         .write()
                         .await
                         .push(deserialized_message.clone());
+
+                    return false;
                 }
                 MessagePurpose::ViewSyncProposal => {
                     // TODO ED Special case this for view sync
@@ -368,10 +378,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             .await
                             .push(deserialized_message.clone());
                     }
+
+                    return false;
                 }
 
                 MessagePurpose::Internal => {
                     error!("Received internal message in web server network");
+
+                    return false;
                 }
 
                 MessagePurpose::Upgrade => {
@@ -380,10 +394,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         .await
                         .push(deserialized_message.clone());
 
-                    // return Ok(());
+                    return true;
                 }
             }
         }
+
+        return false;
     }
 
     /// Pull a web server.
@@ -424,24 +440,47 @@ impl<TYPES: NodeType> Inner<TYPES> {
             };
 
             let version_0_1 = Version { major: 0, minor: 1 };
-
             if let MessagePurpose::Data = message_purpose {
                 let possible_message: Result<Option<(u64, Vec<Vec<u8>>)>, ClientError> =
                     self.client.get(&endpoint).send().await;
-
                 // Deserialize and process transactions from the server.
                 // If something goes wrong at any point, we sleep for wait_between_polls
                 // then try again next time.
                 if let Ok(Some((index, txs))) = possible_message {
-                    for tx in txs {
-                        let tx_version = read_version(&tx);
-                        if tx_version == version_0_1 {
-                            self.handle_tx_0_1(tx, index, &mut tx_index);
-                        } else {
-                            warn!(
-                                "Received message with unrecognized version: {:?}",
-                                tx_version
-                            );
+                    for tx_raw in txs {
+                        // This is very hacky.
+                        //
+                        // Fundamentally, tx_raw is a serialized Option(Message<TYPES>).
+                        // The problem is, we want to extract the serialized Message<TYPES>
+                        // *without* deserializing the entire tx_raw
+                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
+                        // which we have not yet read at this point).
+                        //
+                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
+                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
+                        //
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
+
+                        match tx_raw[0] {
+                           // 0 => {
+                           //     continue;
+                           // }
+                            _ => {
+                                let tx = tx_raw[1..].to_vec();
+                                let tx_version = read_version(&tx);
+                           //     if tx_version == version_0_1 {
+                                    self.handle_tx_0_1(tx, index, &mut tx_index).await;
+                          //      } else {
+                          //          error!(
+                          //      "Received message with unrecognized version: {:?}. Payload: {:?}",
+                          //      tx_version,
+                          //      bincode_opts().deserialize::<Message<TYPES>>(&tx)
+                          //  );
+                          //      }
+                            }
+                           // _ => {
+                           //     error!("Could not deserialize transaction: {:?}", tx_raw);
+                           // }
                         }
                     }
                 } else {
@@ -458,26 +497,56 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 let mut vid_disperse_seen = false;
 
                 if let Ok(Some(messages)) = possible_message {
-                    for message in messages {
-                        let message_version = read_version(&message);
+                    for message_raw in messages {
+                        // This is very hacky.
+                        //
+                        // Fundamentally, message_raw is a serialized Option(Message<TYPES>).
+                        // The problem is, we want to extract the serialized Message<TYPES>
+                        // *without* deserializing the entire message_raw
+                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
+                        // which we have not yet read at this point).
+                        //
+                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
+                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
+                        //
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
 
-                        if message_version == version_0_1 {
-                            self.handle_message_0_1(
-                                message,
-                                view_number,
-                                message_purpose,
-                                &mut vote_index,
-                                &mut seen_proposals,
-                                &mut proposal_seen,
-                                &mut quorum_proposal_seen,
-                                &mut dac_seen,
-                                &mut vid_disperse_seen,
-                            );
-                        } else {
-                            warn!(
-                                "Received message with unrecognized version: {:?}",
-                                message_version
-                            );
+                        match message_raw[0] {
+                          //  0 => {
+                          //      continue;
+                          //  }
+                            _ => {
+                                let message = message_raw[1..].to_vec();
+                                let message_version = read_version(&message);
+
+
+                                let should_return;
+
+                            //    if message_version == version_0_1 {
+                                    should_return = self
+                                        .handle_message_0_1(
+                                            message,
+                                            view_number,
+                                            message_purpose,
+                                            &mut vote_index,
+                                            &mut seen_proposals,
+                                            &mut proposal_seen,
+                                            &mut quorum_proposal_seen,
+                                            &mut dac_seen,
+                                            &mut vid_disperse_seen,
+                                        )
+                                        .await;
+
+                                    if should_return {
+                                        return Ok(());
+                                    }
+                          //      } else {
+                          //        error!("Unexpected version {:?} for message: {:?}", message_version, message)
+                          //      }
+                          }
+                        //    _ => {
+                        //        error!("Could not deserialize message: {:?}", message_raw);
+                        //    }
                         }
                     }
                 } else {
@@ -529,55 +598,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
             }
         }
         Err(NetworkError::ShutDown)
-    }
-
-    /// Fetches transactions from web server
-    async fn get_txs_from_web_server(&self, endpoint: String) -> TxnResult<TYPES> {
-        let result: Result<Option<(_, Vec<Vec<u8>>)>, _> = self.client.get(&endpoint).send().await;
-        match result {
-            Err(_error) => Err(NetworkError::WebServer {
-                source: WebServerNetworkError::ClientError,
-            }),
-            Ok(Some((index, messages))) => {
-                let mut deserialized_messages = Vec::new();
-                for message in &messages {
-                    let deserialized_message = bincode_opts().deserialize(message);
-                    if let Err(e) = deserialized_message {
-                        return Err(NetworkError::FailedToDeserialize { source: e });
-                    }
-                    deserialized_messages.push(deserialized_message.unwrap());
-                }
-                Ok(Some((index, deserialized_messages)))
-            }
-            Ok(None) => Ok(None),
-        }
-    }
-
-    /// Sends a GET request to the webserver for some specified endpoint
-    /// Returns a vec of deserialized, received messages or an error
-    async fn get_message_from_web_server(
-        &self,
-        endpoint: String,
-    ) -> Result<Option<Vec<RecvMsg<Message<TYPES>>>>, NetworkError> {
-        let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
-            self.client.get(&endpoint).send().await;
-        match result {
-            Err(_error) => Err(NetworkError::WebServer {
-                source: WebServerNetworkError::ClientError,
-            }),
-            Ok(Some(messages)) => {
-                let mut deserialized_messages = Vec::new();
-                for message in &messages {
-                    let deserialized_message = bincode_opts().deserialize(message);
-                    if let Err(e) = deserialized_message {
-                        return Err(NetworkError::FailedToDeserialize { source: e });
-                    }
-                    deserialized_messages.push(deserialized_message.unwrap());
-                }
-                Ok(Some(deserialized_messages))
-            }
-            Ok(None) => Ok(None),
-        }
     }
 }
 
