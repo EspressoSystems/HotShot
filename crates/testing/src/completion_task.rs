@@ -3,13 +3,6 @@ use std::{sync::Arc, time::Duration};
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    GeneratedStream,
-};
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
@@ -87,7 +80,7 @@ impl TimeBasedCompletionTaskDescription {
                                     for node in &state.handles {
                                         node.handle.clone().shut_down().await;
                                     }
-                                    (Some(HotShotTaskCompleted::ShutDown), state)
+                                    (Some(HotShotTaskCompleted), state)
                                 }
                             }
                         }
@@ -103,7 +96,7 @@ impl TimeBasedCompletionTaskDescription {
                             for node in &state.handles {
                                 node.handle.clone().shut_down().await;
                             }
-                            (Some(HotShotTaskCompleted::ShutDown), state)
+                            (Some(HotShotTaskCompleted), state)
                         }
                         .boxed()
                     }));

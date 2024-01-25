@@ -5,14 +5,7 @@ use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
 use futures::Stream;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::{ChannelStream, EventStream, StreamId},
-    global_registry::GlobalRegistry,
-    task::FilterEvent,
-    BoxSyncFuture,
-};
-use hotshot_task_impls::events::HotShotEvent;
+
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     message::{MessageKind, SequencingMessage},
@@ -29,6 +22,7 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, state::ConsensusTime, storage::Storage},
 };
 use std::sync::Arc;
+use task::task::TaskRegistry;
 use tracing::error;
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
@@ -36,33 +30,20 @@ use tracing::error;
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
+#[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](ChannelStream) for the output stream from the background process
     pub(crate) output_event_stream: ChannelStream<Event<TYPES>>,
     /// access to the internal ev ent stream, in case we need to, say, shut something down
     pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
     /// registry for controlling tasks
-    pub(crate) registry: GlobalRegistry,
+    pub(crate) registry: Arc<TaskRegistry>,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: SystemContext<TYPES, I>,
 
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone
-    for SystemContextHandle<TYPES, I>
-{
-    fn clone(&self) -> Self {
-        Self {
-            registry: self.registry.clone(),
-            output_event_stream: self.output_event_stream.clone(),
-            internal_event_stream: self.internal_event_stream.clone(),
-            hotshot: self.hotshot.clone(),
-            storage: self.storage.clone(),
-        }
-    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
@@ -189,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     {
         boxed_sync(async move {
             self.hotshot.inner.networks.shut_down_networks().await;
-            self.registry.shutdown_all().await;
+            self.registry.shutdown().await;
         })
     }
 

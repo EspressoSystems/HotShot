@@ -32,10 +32,6 @@ use commit::Committable;
 use custom_debug::Debug;
 use futures::join;
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
-use hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    task_launcher::TaskRunner,
-};
 use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 
 #[cfg(feature = "hotshot-testing")]
@@ -69,6 +65,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use task::task::TaskRegistry;
 use tasks::add_vid_task;
 use tracing::{debug, error, info, instrument, trace, warn};
 
@@ -570,7 +567,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let task_runner = TaskRunner::new();
-        let registry = task_runner.registry.clone();
+        let registry = Arc::new(TaskRegistry::default());
 
         let output_event_stream = self.inner.output_event_stream.clone();
         let internal_event_stream = self.inner.internal_event_stream.clone();
@@ -639,17 +636,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             task_runner,
             internal_event_stream.clone(),
             output_event_stream.clone(),
-            handle.clone(),
+            &handle,
         )
         .await;
+        let task_runner = add_da_task(task_runner, internal_event_stream.clone(), &handle).await;
+        let task_runner = add_vid_task(task_runner, internal_event_stream.clone(), &handle).await;
         let task_runner =
-            add_da_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+            add_transaction_task(task_runner, internal_event_stream.clone(), &handle).await;
         let task_runner =
-            add_vid_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        let task_runner =
-            add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        let task_runner =
-            add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+            add_view_sync_task(task_runner, internal_event_stream.clone(), &handle).await;
         async_spawn(async move {
             let _ = task_runner.launch().await;
             info!("Task runner exited!");

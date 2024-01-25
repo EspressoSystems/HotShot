@@ -2,12 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::future::BoxFuture;
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot_task::{
-    event_stream::ChannelStream,
-    global_registry::{GlobalRegistry, HotShotTaskId},
-    task::HotShotTaskCompleted,
-    task_launcher::TaskRunner,
-};
 use hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
 
 use crate::{spinning_task::SpinningTask, view_sync_task::ViewSyncTask};

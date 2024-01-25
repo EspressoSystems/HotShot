@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::LOOK_AHEAD;
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{

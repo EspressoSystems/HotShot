@@ -534,6 +534,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-broadcast"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "334d75cf09b33bede6cbc20e52515853ae7bee3d4eadd9540e13ce92af983d34"
+dependencies = [
+ "event-listener 3.1.0",
+ "event-listener-strategy 0.1.0",
+ "futures-core",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -552,7 +563,7 @@ checksum = "1ca33f4bc4ed1babef42cad36cc1f51fa88be00420404e5b1e80ab1b18f7678c"
 dependencies = [
  "concurrent-queue",
  "event-listener 4.0.3",
- "event-listener-strategy",
+ "event-listener-strategy 0.4.0",
  "futures-core",
  "pin-project-lite 0.2.13",
 ]
@@ -700,7 +711,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d034b430882f8381900d3fe6f0aaa3ad94f2cb4ac519b429692a1bc2dda4ae7b"
 dependencies = [
  "event-listener 4.0.3",
- "event-listener-strategy",
+ "event-listener-strategy 0.4.0",
  "pin-project-lite 0.2.13",
 ]
 
@@ -2155,6 +2166,16 @@ dependencies = [
 
 [[package]]
 name = "event-listener-strategy"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15c97b4e30ea7e4b7e7b429d6e2d8510433ba8cee4e70dfb3243794e539d29fd"
+dependencies = [
+ "event-listener 3.1.0",
+ "pin-project-lite 0.2.13",
+]
+
+[[package]]
+name = "event-listener-strategy"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "958e4d70b6d5e81971bebec42271ec641e7ff4e170a6fa605f2b8a8b65cb97d3"
@@ -2684,7 +2705,6 @@ dependencies = [
  "futures",
  "hotshot-constants",
  "hotshot-orchestrator",
- "hotshot-task",
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
@@ -2699,6 +2719,7 @@ dependencies = [
  "serde",
  "snafu",
  "surf-disco",
+ "task",
  "time 0.3.31",
  "tokio",
  "toml 0.8.8",
@@ -2794,6 +2815,7 @@ dependencies = [
 name = "hotshot-task-impls"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
@@ -2804,11 +2826,11 @@ dependencies = [
  "either",
  "futures",
  "hotshot-constants",
- "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
  "sha2 0.10.8",
  "snafu",
+ "task",
  "time 0.3.31",
  "tokio",
  "tracing",
@@ -2830,7 +2852,6 @@ dependencies = [
  "hotshot",
  "hotshot-constants",
  "hotshot-orchestrator",
- "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "rand 0.8.5",
@@ -2897,7 +2918,6 @@ dependencies = [
  "ethereum-types",
  "generic-array",
  "hotshot-constants",
- "hotshot-task",
  "hotshot-utils",
  "jf-plonk",
  "jf-primitives",
@@ -6575,6 +6595,17 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "task"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/BroadcastChannel.git#8a623b5fcefae1a9c1485090b281dfc4a9662770"
+dependencies = [
+ "async-broadcast",
+ "async-std",
+ "futures",
+ "tokio",
+]
 
 [[package]]
 name = "tempfile"

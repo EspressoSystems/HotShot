@@ -3,12 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::FutureExt;
 use hotshot::{traits::TestableNodeImplementation, SystemContext};
-use hotshot_task::{
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    MergeN,
-};
+
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
@@ -82,9 +77,7 @@ impl SpinningTaskDescription {
                     HandleEvent::<SpinningTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
                         async move {
                             match event {
-                                GlobalTestEvent::ShutDown => {
-                                    (Some(HotShotTaskCompleted::ShutDown), state)
-                                }
+                                GlobalTestEvent::ShutDown => (Some(HotShotTaskCompleted), state),
                             }
                         }
                         .boxed()

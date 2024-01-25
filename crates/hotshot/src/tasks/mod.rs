@@ -3,14 +3,6 @@
 use crate::{types::SystemContextHandle, HotShotConsensusApi};
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes},
-    task_impls::TaskBuilder,
-    task_launcher::TaskRunner,
-    GeneratedStream, Merge,
-};
 use hotshot_task_impls::{
     consensus::{
         consensus_event_filter, CommitmentAndMetadata, ConsensusTaskState, ConsensusTaskTypes,
@@ -200,7 +192,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
     output_stream: ChannelStream<Event<TYPES>>,
-    handle: SystemContextHandle<TYPES, I>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) -> TaskRunner {
     let consensus = handle.hotshot.get_consensus();
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -258,7 +250,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         move |event, mut state: ConsensusTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>>| {
             async move {
                 if let HotShotEvent::Shutdown = event {
-                    (Some(HotShotTaskCompleted::ShutDown), state)
+                    (Some(HotShotTaskCompleted), state)
                 } else {
                     state.handle_event(event).await;
                     (None, state)
@@ -294,7 +286,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
-    handle: SystemContextHandle<TYPES, I>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) -> TaskRunner {
     // build the vid task
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -351,7 +343,7 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
-    handle: SystemContextHandle<TYPES, I>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) -> TaskRunner {
     // build the da task
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -408,7 +400,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
-    handle: SystemContextHandle<TYPES, I>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) -> TaskRunner {
     // build the transactions task
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
@@ -464,7 +456,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
 pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_runner: TaskRunner,
     event_stream: ChannelStream<HotShotEvent<TYPES>>,
-    handle: SystemContextHandle<TYPES, I>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) -> TaskRunner {
     let api = HotShotConsensusApi {
         inner: handle.hotshot.inner.clone(),
@@ -494,7 +486,7 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         move |event, mut state: ViewSyncTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>>| {
             async move {
                 if let HotShotEvent::Shutdown = event {
-                    (Some(HotShotTaskCompleted::ShutDown), state)
+                    (Some(HotShotTaskCompleted), state)
                 } else {
                     state.handle_event(event).await;
                     (None, state)

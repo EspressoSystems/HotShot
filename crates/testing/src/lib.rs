@@ -6,8 +6,6 @@
     deprecated = "suspicious usage of testing/demo implementations in non-test/non-debug build"
 )]
 
-use hotshot_task::{event_stream::ChannelStream, task_impls::HSTWithEvent};
-
 /// Helpers for initializing system context handle and building tasks.
 pub mod task_helpers;
 

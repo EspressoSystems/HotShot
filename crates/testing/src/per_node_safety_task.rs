@@ -9,15 +9,6 @@
 //     FutureExt,
 // };
 // use hotshot::traits::TestableNodeImplementation;
-// use hotshot_task::{
-//     event_stream::ChannelStream,
-//     global_registry::{GlobalRegistry, HotShotTaskId},
-//     task::{
-//         FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TaskErr,
-//         HST, TS,
-//     },
-//     task_impls::{HSTWithEvent, HSTWithEventAndMessage, TaskBuilder},
-// };
 // use hotshot_types::{
 //     event::{Event, EventType},
 //     traits::node_implementation::NodeType,
@@ -177,7 +168,7 @@
 //                                     GlobalTestEvent::ShutDown => {
 //                                         let finished = finisher(&mut state.ctx).await;
 //                                         let result = match finished {
-//                                             Ok(()) => HotShotTaskCompleted::ShutDown,
+//                                             Ok(()) => HotShotTaskCompleted,
 //                                             Err(err) => HotShotTaskCompleted::Error(Box::new(err)),
 //                                         };
 //                                         return (Some(result), state);

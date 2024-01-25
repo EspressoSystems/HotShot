@@ -19,7 +19,6 @@ use async_trait::async_trait;
 use futures::join;
 
 use async_compatibility_layer::channel::UnboundedSendError;
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{

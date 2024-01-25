@@ -1,4 +1,5 @@
-use crate::events::HotShotEvent;
+use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use async_broadcast::Sender;
 use async_compatibility_layer::{
     art::async_timeout,
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -6,12 +7,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
-use hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    global_registry::GlobalRegistry,
-    task::{HotShotTaskCompleted, TS},
-    task_impls::HSTWithEvent,
-};
+
 use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -32,6 +28,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
+use task::task::{Task, TaskState};
 use tracing::{debug, error, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
@@ -49,8 +46,6 @@ pub struct TransactionTaskState<
 > {
     /// The state's api
     pub api: A,
-    /// Global registry task for the state
-    pub registry: GlobalRegistry,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -70,9 +65,6 @@ pub struct TransactionTaskState<
     /// Membership for teh quorum
     pub membership: Arc<TYPES::Membership>,
 
-    /// Global events stream to publish events
-    pub event_stream: ChannelStream<HotShotEvent<TYPES>>,
-
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
@@ -87,9 +79,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
 
-    pub async fn handle_event(
+    pub async fn handle(
         &mut self,
         event: HotShotEvent<TYPES>,
+        event_stream: Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
             HotShotEvent::TransactionsRecv(transactions) => {
@@ -250,8 +243,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
-                self.event_stream
-                    .publish(HotShotEvent::TransactionsSequenced(
+                event_stream
+                    .broadcast(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
                         metadata,
                         block_view,
@@ -261,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return None;
             }
             HotShotEvent::Shutdown => {
-                return Some(HotShotTaskCompleted::ShutDown);
+                return Some(HotShotTaskCompleted);
             }
             _ => {}
         }
@@ -335,9 +328,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         //     .collect();
         Some(txns)
     }
+}
 
-    /// Event filter for the transaction task
-    pub fn filter(event: &HotShotEvent<TYPES>) -> bool {
+/// task state implementation for Transactions Task
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
+    for TransactionTaskState<TYPES, I, A>
+{
+    type Event = HotShotEvent<TYPES>;
+
+    type Result = HotShotTaskCompleted;
+
+    fn filter(event: &HotShotEvent<TYPES>) -> bool {
         matches!(
             event,
             HotShotEvent::TransactionsRecv(_)
@@ -346,18 +347,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::ViewChange(_)
         )
     }
-}
 
-/// task state implementation for Transactions Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TS
-    for TransactionTaskState<TYPES, I, A>
-{
-}
+    async fn handle_event(
+        event: Self::Event,
+        task: &mut Task<Self>,
+    ) -> Option<HotShotTaskCompleted> {
+        let sender = task.clone_sender();
+        task.state_mut().handle(event, sender).await
+    }
 
-/// Type alias for DA Task Types
-pub type TransactionsTaskTypes<TYPES, I, A> = HSTWithEvent<
-    ConsensusTaskError,
-    HotShotEvent<TYPES>,
-    ChannelStream<HotShotEvent<TYPES>>,
-    TransactionTaskState<TYPES, I, A>,
->;
+    fn should_shutdown(event: &Self::Event) -> bool {
+        matches!(event, HotShotEvent::Shutdown)
+    }
+}

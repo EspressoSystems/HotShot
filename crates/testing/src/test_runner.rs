@@ -12,9 +12,7 @@ use crate::{
 use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
-use hotshot_task::{
-    event_stream::ChannelStream, global_registry::GlobalRegistry, task_launcher::TaskRunner,
-};
+
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -191,7 +189,7 @@ where
         let mut error_list = vec![];
         for (name, result) in results {
             match result {
-                hotshot_task::task::HotShotTaskCompleted::ShutDown => {
+                hotshot_task::task::HotShotTaskCompleted => {
                     info!("Task {} shut down successfully", name);
                 }
                 hotshot_task::task::HotShotTaskCompleted::Error(e) => error_list.push((name, e)),

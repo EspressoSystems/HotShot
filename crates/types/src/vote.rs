@@ -102,17 +102,17 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
     ///
     /// # Panics
     /// Panics if the vote comes from a node not in the stake table
-    pub fn accumulate(mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<Self, CERT> {
+    pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.get_signing_key();
 
         let vote_commitment = vote.get_data_commitment();
         if !key.validate(&vote.get_signature(), vote_commitment.as_ref()) {
             error!("Invalid vote! Vote Data {:?}", vote.get_data());
-            return Either::Left(self);
+            return Either::Left(());
         }
 
         let Some(stake_table_entry) = membership.get_stake(&key) else {
-            return Either::Left(self);
+            return Either::Left(());
         };
         let stake_table = membership.get_committee_qc_stake_table();
         let vote_node_id = stake_table
@@ -130,12 +130,12 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
         // Check for duplicate vote
         if total_vote_map.contains_key(&key) {
-            return Either::Left(self);
+            return Either::Left(());
         }
 
         if self.signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
-            return Either::Left(self);
+            return Either::Left(());
         }
         self.signers.set(vote_node_id, true);
         self.sig_lists.push(original_signature);
@@ -166,7 +166,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             );
             return Either::Right(cert);
         }
-        Either::Left(self)
+        Either::Left(())
     }
 }
 

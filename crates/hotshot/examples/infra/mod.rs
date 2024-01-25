@@ -23,7 +23,6 @@ use hotshot_orchestrator::{
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
-use hotshot_task::task::FilterEvent;
 use hotshot_testing::block_types::{TestBlockHeader, TestBlockPayload, TestTransaction};
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;

@@ -2,13 +2,7 @@ use async_compatibility_layer::channel::UnboundedStream;
 use either::Either;
 use futures::FutureExt;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
-use hotshot_task::{
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    MergeN,
-};
-use hotshot_task::{event_stream::EventStream, Merge};
+
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     data::{Leaf, VidCommitment},
@@ -448,7 +442,7 @@ impl OverallSafetyPropertiesDescription {
                                         );
                                     }
                                     // TODO check if we got enough successful views
-                                    (Some(HotShotTaskCompleted::ShutDown), state)
+                                    (Some(HotShotTaskCompleted), state)
                                 }
                             }
                         }
@@ -529,7 +523,7 @@ impl OverallSafetyPropertiesDescription {
                                                         .test_event_stream
                                                         .publish(GlobalTestEvent::ShutDown)
                                                         .await;
-                                                    return (Some(HotShotTaskCompleted::ShutDown), state);
+                                                    return (Some(HotShotTaskCompleted), state);
                                                 }
                                             return (None, state);
                                         }

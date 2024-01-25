@@ -2,13 +2,6 @@ use crate::test_runner::Node;
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    GeneratedStream,
-};
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use rand::thread_rng;
 use snafu::Snafu;
@@ -83,9 +76,7 @@ impl TxnTaskDescription {
                     HandleEvent::<TxnTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
                         async move {
                             match event {
-                                GlobalTestEvent::ShutDown => {
-                                    (Some(HotShotTaskCompleted::ShutDown), state)
-                                }
+                                GlobalTestEvent::ShutDown => (Some(HotShotTaskCompleted), state),
                             }
                         }
                         .boxed()

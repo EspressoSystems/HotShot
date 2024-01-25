@@ -1,6 +1,6 @@
 //! Types and Traits for the `HotShot` consensus module
 use displaydoc::Display;
-use std::{num::NonZeroUsize, time::Duration};
+use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
 pub mod consensus;
 pub mod data;
@@ -16,6 +16,9 @@ pub mod stake_table;
 pub mod traits;
 pub mod utils;
 pub mod vote;
+
+/// Pinned future that is Send and Sync
+pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
 
 /// the type of consensus to run. Either:
 /// wait for a signal to start a view,

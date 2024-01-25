@@ -112,7 +112,7 @@ async fn test_vid_task() {
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| add_vid_task(task_runner, event_stream, handle);
+    let build_fn = |task_runner, event_stream| add_vid_task(task_runner, event_stream, &handle);
 
     run_harness(input, output, None, build_fn, false).await;
 }

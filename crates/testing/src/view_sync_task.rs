@@ -1,12 +1,6 @@
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::FutureExt;
-use hotshot_task::task::{HotShotTaskCompleted, HotShotTaskTypes};
-use hotshot_task::{
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    MergeN,
-};
+
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use snafu::Snafu;
@@ -78,7 +72,7 @@ impl ViewSyncTaskDescription {
                                     ViewSyncTaskDescription::Threshold(min, max) => {
                                         let num_hits = state.hit_view_sync.len();
                                         if min <= num_hits && num_hits <= max {
-                                            (Some(HotShotTaskCompleted::ShutDown), state)
+                                            (Some(HotShotTaskCompleted), state)
                                         } else {
                                             (
                                                 Some(HotShotTaskCompleted::Error(Box::new(
