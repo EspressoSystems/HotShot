@@ -22,7 +22,7 @@ use hotshot_types::{
     HotShotConfig, ValidatorConfig,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
 };
 
@@ -132,7 +132,7 @@ where
 
         // add spinning task
         // map spinning to view
-        let mut changes: HashMap<TYPES::Time, Vec<ChangeNode>> = HashMap::new();
+        let mut changes: BTreeMap<TYPES::Time, Vec<ChangeNode>> = BTreeMap::new();
         for (view, mut change) in spinning_changes {
             changes
                 .entry(TYPES::Time::new(view))

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use async_compatibility_layer::channel::UnboundedStream;
 use futures::FutureExt;
@@ -10,6 +13,7 @@ use hotshot_task::{
     MergeN,
 };
 use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
 
@@ -33,7 +37,7 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// late start nodes
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// time based changes
-    pub(crate) changes: HashMap<TYPES::Time, Vec<ChangeNode>>,
+    pub(crate) changes: BTreeMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
     pub(crate) latest_view: Option<TYPES::Time>,
 }
@@ -113,57 +117,71 @@ impl SpinningTaskDescription {
                                 || view_number > state.latest_view.unwrap()
                             {
                                 // perform operations on the nodes
-                                if let Some(operations) = state.changes.remove(&view_number) {
-                                    for ChangeNode { idx, updown } in operations {
-                                        match updown {
-                                            UpDown::Up => {
-                                                if let Some(node) = state
-                                                    .late_start
-                                                    .remove(&idx.try_into().unwrap())
-                                                {
-                                                    tracing::error!(
-                                                        "Node {} spinning up late",
-                                                        idx
-                                                    );
 
-                                                    // create node and add to state, so we can shut them down properly later
-                                                    let node = Node {
-                                                        node_id: idx.try_into().unwrap(),
-                                                        networks: node.networks,
-                                                        handle: node.context.run_tasks().await,
-                                                    };
+                                // We want to make sure we didn't miss any views (for example, there is no decide event
+                                // if we get a timeout)
+                                let views_with_relevant_changes: Vec<_> = state
+                                    .changes
+                                    .range(TYPES::Time::new(0)..view_number)
+                                    .map(|(k, _v)| *k)
+                                    .collect();
 
-                                                    // bootstrap consensus by sending the event
-                                                    node.handle.hotshot.start_consensus().await;
+                                for view in views_with_relevant_changes {
+                                    if let Some(operations) = state.changes.remove(&view) {
+                                        for ChangeNode { idx, updown } in operations {
+                                            match updown {
+                                                UpDown::Up => {
+                                                    if let Some(node) = state
+                                                        .late_start
+                                                        .remove(&idx.try_into().unwrap())
+                                                    {
+                                                        tracing::error!(
+                                                            "Node {} spinning up late",
+                                                            idx
+                                                        );
 
-                                                    // add nodes to our state
-                                                    state.handles.push(node);
+                                                        // create node and add to state, so we can shut them down properly later
+                                                        let node = Node {
+                                                            node_id: idx.try_into().unwrap(),
+                                                            networks: node.networks,
+                                                            handle: node.context.run_tasks().await,
+                                                        };
+
+                                                        // bootstrap consensus by sending the event
+                                                        node.handle.hotshot.start_consensus().await;
+
+                                                        // add nodes to our state
+                                                        state.handles.push(node);
+                                                    }
                                                 }
-                                            }
-                                            UpDown::Down => {
-                                                if let Some(node) = state.handles.get_mut(idx) {
-                                                    tracing::error!("Node {} shutting down", idx);
-                                                    node.handle.shut_down().await;
+                                                UpDown::Down => {
+                                                    if let Some(node) = state.handles.get_mut(idx) {
+                                                        tracing::error!(
+                                                            "Node {} shutting down",
+                                                            idx
+                                                        );
+                                                        node.handle.shut_down().await;
+                                                    }
                                                 }
-                                            }
-                                            UpDown::NetworkUp => {
-                                                if let Some(handle) = state.handles.get(idx) {
-                                                    tracing::error!(
-                                                        "Node {} networks resuming",
-                                                        idx
-                                                    );
-                                                    handle.networks.0.resume();
-                                                    handle.networks.1.resume();
+                                                UpDown::NetworkUp => {
+                                                    if let Some(handle) = state.handles.get(idx) {
+                                                        tracing::error!(
+                                                            "Node {} networks resuming",
+                                                            idx
+                                                        );
+                                                        handle.networks.0.resume();
+                                                        handle.networks.1.resume();
+                                                    }
                                                 }
-                                            }
-                                            UpDown::NetworkDown => {
-                                                if let Some(handle) = state.handles.get(idx) {
-                                                    tracing::error!(
-                                                        "Node {} networks pausing",
-                                                        idx
-                                                    );
-                                                    handle.networks.0.pause();
-                                                    handle.networks.1.pause();
+                                                UpDown::NetworkDown => {
+                                                    if let Some(handle) = state.handles.get(idx) {
+                                                        tracing::error!(
+                                                            "Node {} networks pausing",
+                                                            idx
+                                                        );
+                                                        handle.networks.0.pause();
+                                                        handle.networks.1.pause();
+                                                    }
                                                 }
                                             }
                                         }
