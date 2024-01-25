@@ -17,7 +17,7 @@ pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 /// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
 pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
 /// Type for protocol version number
 pub struct Version {
     /// major version number
