@@ -1308,6 +1308,22 @@
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1341,7 +1357,7 @@
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
-        BlockPayload,
+        BlockPayload, State,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
@@ -1516,14 +1532,13 @@
                 <span class="comment">// Justify qc&#39;s leaf commitment is not the same as the parent&#39;s leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
                     <span class="macro">error!</span>(
-                                <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}, proposal view {:?}&quot;</span>,
-                                justify_qc.get_data().leaf_commit,
-                                proposal.view_number,
-                            );
+                        <span class="string">&quot;Proposal&#39;s parent missing from storage with commitment: {:?}, proposal view {:?}&quot;</span>,
+                        justify_qc.get_data().leaf_commit,
+                        proposal.view_number,
+                    );
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 };
                 <span class="kw">let </span>parent_commitment = parent.commit();
-
                 <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf {
                     view_number: view,
                     justify_qc: proposal.justify_qc.clone(),
@@ -1852,12 +1867,15 @@
                         rejected: Vec::new(),
                         proposer_id: sender,
                     };
+                    <span class="kw">let </span>state =
+                        &lt;TYPES::StateType <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header);
 
                     consensus.state_map.insert(
                         view,
                         View {
                             view_inner: ViewInner::Leaf {
                                 leaf: leaf.commit(),
+                                state,
                             },
                         },
                     );
@@ -1896,6 +1914,18 @@
                     }
                     <span class="macro">warn!</span>(<span class="string">&quot;Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}&quot;</span>, high_qc, proposal.data.clone(), locked_view);
 
+                    <span class="kw">return</span>;
+                };
+                <span class="kw">let </span><span class="prelude-val">Some</span>(parent_state) = consensus.get_state(parent.view_number) <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;Parent state not found! Consensus internally inconsistent&quot;</span>);
+                    <span class="kw">return</span>;
+                };
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(state) = parent_state.validate_and_apply_header(
+                    <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
+                    <span class="kw-2">&amp;</span>parent.block_header.clone(),
+                    <span class="kw-2">&amp;</span>view,
+                ) <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;Block header doesn&#39;t extend the proposal&quot;</span>,);
                     <span class="kw">return</span>;
                 };
                 <span class="kw">let </span>parent_commitment = parent.commit();
@@ -2054,6 +2084,7 @@
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: leaf.commit(),
+                            state,
                         },
                     },
                 );
@@ -2514,15 +2545,16 @@
         </span>}
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
+            <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
+                commit_and_metadata.commitment,
+                commit_and_metadata.metadata.clone(),
+                <span class="kw-2">&amp;</span>parent_header,
+            );
             <span class="kw">let </span>leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
-                block_header: TYPES::BlockHeader::new(
-                    commit_and_metadata.commitment,
-                    commit_and_metadata.metadata.clone(),
-                    <span class="kw-2">&amp;</span>parent_header,
-                ),
+                block_header: block_header.clone(),
                 block_payload: <span class="prelude-val">None</span>,
                 rejected: <span class="macro">vec!</span>[],
                 proposer_id: <span class="self">self</span>.api.public_key().clone(),
@@ -2536,7 +2568,7 @@
             };
             <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don&#39;t have to wait for it.
             </span><span class="kw">let </span>proposal = QuorumProposal {
-                block_header: leaf.block_header.clone(),
+                block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| <span class="prelude-val">None</span>),

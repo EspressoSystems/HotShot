@@ -802,7 +802,7 @@
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
-        BlockPayload,
+        BlockPayload, State,
     },
     HotShotConfig,
 };
@@ -957,6 +957,7 @@
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
+                    state: TYPES::StateType::genesis(),
                 },
             },
         );
@@ -1117,20 +1118,6 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Returns a copy of the state
-    ///
-    /// # Panics
-    ///
-    /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.inner
-            .consensus
-            .read()
-            .<span class="kw">await
-            </span>.get_decided_leaf()
-            .get_state();
-    }
-
     <span class="doccomment">/// Returns a copy of the consensus struct
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
@@ -1139,9 +1126,22 @@
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
-    /// Panics if internal state for consensus is inconsistent
+    /// Panics if internal leaf for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_decided_leaf()
+    }
+
+    <span class="doccomment">/// Returns a copy of the last decided validated state.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::StateType {
+        <span class="self">self</span>.inner
+            .consensus
+            .read()
+            .<span class="kw">await
+            </span>.get_decided_state()
+            .clone()
     }
 
     <span class="doccomment">/// Initializes a new hotshot and does the work of setting up all the background tasks

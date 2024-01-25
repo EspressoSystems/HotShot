@@ -565,8 +565,6 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -943,7 +941,7 @@
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),
             parent_commitment: fake_commitment(),
-            block_header,
+            block_header: block_header.clone(),
             block_payload: <span class="prelude-val">Some</span>(block_payload),
             rejected: Vec::new(),
             proposer_id: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
@@ -1012,9 +1010,7 @@
     </span><span class="kw">pub fn </span>get_payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
         <span class="self">self</span>.get_block_header().payload_commitment()
     }
-    <span class="doccomment">/// The blockchain state after appending this leaf.
-    </span><span class="comment">// The Sequencing Leaf doesn&#39;t have a state.
-    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+
     <span class="doccomment">/// Transactions rejected or invalidated by the application of this leaf.
     </span><span class="kw">pub fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt; {
         <span class="self">self</span>.rejected.clone()

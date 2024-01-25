@@ -310,8 +310,6 @@
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::NetworkReliability, types::SignatureKey};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -404,7 +402,6 @@
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">50</span>,
                 check_leaf: <span class="bool-val">true</span>,
-                check_state: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">15</span>,
                 transaction_threshold: <span class="number">0</span>,
@@ -432,7 +429,6 @@
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">20</span>,
                 check_leaf: <span class="bool-val">true</span>,
-                check_state: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">8</span>,
                 transaction_threshold: <span class="number">0</span>,

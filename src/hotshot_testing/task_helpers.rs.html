@@ -363,12 +363,21 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
     block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
+    state_types::TestState,
     test_builder::TestMetadata,
 };
 <span class="kw">use </span>commit::Committable;
@@ -392,7 +401,7 @@
         election::Membership,
         node_implementation::NodeType,
         state::{ConsensusTime, TestableBlock},
-        BlockPayload,
+        BlockPayload, State,
     },
     vote::HasViewNumber,
 };
@@ -561,6 +570,7 @@
 }
 
 <span class="doccomment">/// build a quorum proposal and signature
+</span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">async fn </span>build_quorum_proposal_and_signature(
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -613,6 +623,7 @@
         rejected: <span class="macro">vec!</span>[],
         proposer_id: <span class="kw-2">*</span>api.public_key(),
     };
+    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = &lt;TestState <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
 
     <span class="kw">let </span><span class="kw-2">mut </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref())
         .expect(<span class="string">&quot;Failed to sign leaf commitment!&quot;</span>);
@@ -626,6 +637,9 @@
 
     <span class="comment">// Only view 2 is tested, higher views are not tested
     </span><span class="kw">for </span>cur_view <span class="kw">in </span><span class="number">2</span>..=view {
+        <span class="kw">let </span>state_new_view = parent_state
+            .validate_and_apply_header(<span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>ViewNumber::new(cur_view - <span class="number">1</span>))
+            .unwrap();
         <span class="comment">// save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         </span>consensus.state_map.insert(
@@ -633,6 +647,7 @@
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: leaf.commit(),
+                    state: state_new_view.clone(),
                 },
             },
         );
@@ -678,6 +693,7 @@
         proposal = proposal_new_view;
         signature = signature_new_view;
         leaf = leaf_new_view;
+        parent_state = state_new_view;
     }
 
     (proposal, signature)

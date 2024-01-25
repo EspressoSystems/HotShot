@@ -306,6 +306,10 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -609,7 +613,11 @@
     </span><span class="kw">type </span>ElectionConfigType: ElectionConfig;
 
     <span class="doccomment">/// The state type that this hotshot setup is using.
-    </span><span class="kw">type </span>StateType: State&lt;BlockPayload = <span class="self">Self</span>::BlockPayload, Time = <span class="self">Self</span>::Time&gt;;
+    </span><span class="kw">type </span>StateType: State&lt;
+        BlockHeader = <span class="self">Self</span>::BlockHeader,
+        BlockPayload = <span class="self">Self</span>::BlockPayload,
+        Time = <span class="self">Self</span>::Time,
+    &gt;;
 
     <span class="doccomment">/// Membership used for this implementation
     </span><span class="kw">type </span>Membership: Membership&lt;<span class="self">Self</span>&gt;;

@@ -97,6 +97,17 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>commit::{Commitment, Committable};
 
@@ -159,6 +170,8 @@
 
     <span class="kw">type </span>Time = ViewNumber;
 
+    <span class="kw">type </span>Metadata = ();
+
     <span class="kw">fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _proposed_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
@@ -179,7 +192,16 @@
         })
     }
 
+    <span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            block_height: block_header.block_number,
+            ..Default::default()
+        }
+    }
+
     <span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Metadata {}
 }
 
 <span class="kw">impl </span>TestableState <span class="kw">for </span>TestState {
