@@ -244,8 +244,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message) = bincode_opts().deserialize::<RecvMsg<Message<TYPES>>>(&tx)
+        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx)
         {
+            let deserialized_message = RecvMsg { message: Some(deserialized_message_inner) };
             broadcast_poll_queue
                 .write()
                 .await
@@ -271,9 +272,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
-        if let Ok(deserialized_message) =
-            bincode_opts().deserialize::<RecvMsg<Message<TYPES>>>(&message)
+        if let Ok(deserialized_message_inner) =
+            bincode::deserialize::<Message<TYPES>>(&message)
         {
+            let deserialized_message = RecvMsg { message: Some(deserialized_message_inner) };
             match message_purpose {
                 MessagePurpose::Data => {
                     unreachable!("We should not receive transactions in this function");
