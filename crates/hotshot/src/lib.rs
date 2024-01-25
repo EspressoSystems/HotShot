@@ -42,7 +42,7 @@ use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 use hotshot_types::traits::node_implementation::ChannelMaps;
 
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, PayloadStore, View, ViewInner, ViewQueue},
+    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
     data::Leaf,
     error::StorageSnafu,
     event::EventType,
@@ -57,7 +57,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
-        BlockPayload,
+        BlockPayload, State,
     },
     HotShotConfig,
 };
@@ -212,16 +212,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
+                    state: TYPES::StateType::genesis(),
                 },
             },
         );
 
         let mut saved_leaves = HashMap::new();
-        let mut saved_payloads = PayloadStore::default();
+        let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
-        let payload_commitment = anchored_leaf.get_payload_commitment();
         if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns = match payload.encode() {
+            let encoded_txns: Vec<u8> = match payload.encode() {
                 // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
                 // <https://github.com/EspressoSystems/HotShot/issues/2115>
                 Ok(encoded) => encoded.into_iter().collect(),
@@ -229,7 +229,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(payload_commitment, encoded_txns);
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            saved_payloads.insert(TYPES::Time::new(1), encoded_txns);
         }
 
         let start_view = anchored_leaf.get_view_number();
@@ -372,20 +373,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(())
     }
 
-    /// Returns a copy of the state
-    ///
-    /// # Panics
-    ///
-    /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) {
-        self.inner
-            .consensus
-            .read()
-            .await
-            .get_decided_leaf()
-            .get_state();
-    }
-
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
@@ -394,7 +381,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
     /// Returns a copy of the last decided leaf
     /// # Panics
-    /// Panics if internal state for consensus is inconsistent
+    /// Panics if internal leaf for consensus is inconsistent
     pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.inner.consensus.read().await.get_decided_leaf()
     }
@@ -410,6 +397,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .consensus
             .try_read()
             .map(|guard| guard.get_decided_leaf())
+    }
+
+    /// Returns a copy of the last decided validated state.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_decided_state(&self) -> TYPES::StateType {
+        self.inner
+            .consensus
+            .read()
+            .await
+            .get_decided_state()
+            .clone()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
