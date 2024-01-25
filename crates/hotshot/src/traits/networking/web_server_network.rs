@@ -244,9 +244,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx)
-        {
-            let deserialized_message = RecvMsg { message: Some(deserialized_message_inner) };
+        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx) {
+            let deserialized_message = RecvMsg {
+                message: Some(deserialized_message_inner),
+            };
             broadcast_poll_queue
                 .write()
                 .await
@@ -272,10 +273,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
-        if let Ok(deserialized_message_inner) =
-            bincode::deserialize::<Message<TYPES>>(&message)
-        {
-            let deserialized_message = RecvMsg { message: Some(deserialized_message_inner) };
+        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&message) {
+            let deserialized_message = RecvMsg {
+                message: Some(deserialized_message_inner),
+            };
             match message_purpose {
                 MessagePurpose::Data => {
                     unreachable!("We should not receive transactions in this function");
@@ -464,25 +465,24 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         // It would be nice to do this with serde primitives, but I'm not sure how.
 
                         match tx_raw[0] {
-                           // 0 => {
-                           //     continue;
-                           // }
+                            // 0 => {
+                            //     continue;
+                            // }
                             _ => {
                                 let tx = tx_raw[1..].to_vec();
                                 let tx_version = read_version(&tx);
-                           //     if tx_version == version_0_1 {
-                                    self.handle_tx_0_1(tx, index, &mut tx_index).await;
-                          //      } else {
-                          //          error!(
-                          //      "Received message with unrecognized version: {:?}. Payload: {:?}",
-                          //      tx_version,
-                          //      bincode_opts().deserialize::<Message<TYPES>>(&tx)
-                          //  );
-                          //      }
-                            }
-                           // _ => {
-                           //     error!("Could not deserialize transaction: {:?}", tx_raw);
-                           // }
+                                //     if tx_version == version_0_1 {
+                                self.handle_tx_0_1(tx, index, &mut tx_index).await;
+                                //      } else {
+                                //          error!(
+                                //      "Received message with unrecognized version: {:?}. Payload: {:?}",
+                                //      tx_version,
+                                //      bincode_opts().deserialize::<Message<TYPES>>(&tx)
+                                //  );
+                                //      }
+                            } // _ => {
+                              //     error!("Could not deserialize transaction: {:?}", tx_raw);
+                              // }
                         }
                     }
                 } else {
@@ -514,41 +514,39 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         // It would be nice to do this with serde primitives, but I'm not sure how.
 
                         match message_raw[0] {
-                          //  0 => {
-                          //      continue;
-                          //  }
+                            //  0 => {
+                            //      continue;
+                            //  }
                             _ => {
                                 let message = message_raw[1..].to_vec();
                                 let message_version = read_version(&message);
 
-
                                 let should_return;
 
-                            //    if message_version == version_0_1 {
-                                    should_return = self
-                                        .handle_message_0_1(
-                                            message,
-                                            view_number,
-                                            message_purpose,
-                                            &mut vote_index,
-                                            &mut seen_proposals,
-                                            &mut proposal_seen,
-                                            &mut quorum_proposal_seen,
-                                            &mut dac_seen,
-                                            &mut vid_disperse_seen,
-                                        )
-                                        .await;
+                                //    if message_version == version_0_1 {
+                                should_return = self
+                                    .handle_message_0_1(
+                                        message,
+                                        view_number,
+                                        message_purpose,
+                                        &mut vote_index,
+                                        &mut seen_proposals,
+                                        &mut proposal_seen,
+                                        &mut quorum_proposal_seen,
+                                        &mut dac_seen,
+                                        &mut vid_disperse_seen,
+                                    )
+                                    .await;
 
-                                    if should_return {
-                                        return Ok(());
-                                    }
-                          //      } else {
-                          //        error!("Unexpected version {:?} for message: {:?}", message_version, message)
-                          //      }
-                          }
-                        //    _ => {
-                        //        error!("Could not deserialize message: {:?}", message_raw);
-                        //    }
+                                if should_return {
+                                    return Ok(());
+                                }
+                                //      } else {
+                                //        error!("Unexpected version {:?} for message: {:?}", message_version, message)
+                                //      }
+                            } //    _ => {
+                              //        error!("Could not deserialize message: {:?}", message_raw);
+                              //    }
                         }
                     }
                 } else {
