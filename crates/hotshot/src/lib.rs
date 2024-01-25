@@ -386,8 +386,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         self.inner.consensus.read().await.get_decided_leaf()
     }
 
-    /// Synchronously tries to return a copy of the last decided leaf,
-    /// if it is currently available for reading.
+    /// Instantly returns a copy of the last decided leaf if it is currently 
+    /// available for reading. If not, we will return.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
