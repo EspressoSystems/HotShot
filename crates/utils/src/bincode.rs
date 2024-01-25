@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 use bincode::{
     config::{
-        LittleEndian, RejectTrailing, FixintEncoding, WithOtherEndian, WithOtherIntEncoding,
+        FixintEncoding, LittleEndian, RejectTrailing, WithOtherEndian, WithOtherIntEncoding,
         WithOtherLimit, WithOtherTrailing,
     },
     DefaultOptions, Options,

@@ -65,6 +65,7 @@ pub const QC_TOPIC: &str = "global";
 /// Stubbed out Ack
 #[derive(Serialize)]
 pub struct Empty {
+    /// network protocol version number in use
     version: Version,
 }
 
@@ -569,17 +570,17 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         async_spawn(async move {
             while let Ok(message) = handle.inner.handle.receiver().recv().await {
                 let message_version = message.version();
-                //    if message_version == version_0_1 {
-                let _ = handle
-                    .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
-                    .await;
-                //   } else {
-                //       error!(
-                //           "Received message with unexpected version {:?}.",
-                //           message_version
-                //       );
-                //       error!("Message payload:\n{:?}", message);
-                //   }
+                if message_version == version_0_1 {
+                    let _ = handle
+                        .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
+                        .await;
+                } else {
+                    error!(
+                        "Received message with unexpected version {:?}.",
+                        message_version
+                    );
+                    error!("Message payload:\n{:?}", message);
+                }
             }
             error!("Network receiver shut down!");
         });

@@ -1,6 +1,5 @@
 //! Utilities for reading version number
 
-
 use hotshot_constants::Version;
 
 /// Read the version number from a message (passed a byte vector).

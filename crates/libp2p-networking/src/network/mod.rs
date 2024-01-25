@@ -186,11 +186,11 @@ impl Versioned for NetworkEvent {
             NetworkEvent::GossipMsg(msg, _)
             | NetworkEvent::DirectRequest(msg, _, _)
             | NetworkEvent::DirectResponse(msg, _) => {
-              if msg.len() < 4 {
-                PROGRAM_PROTOCOL_VERSION
-              } else {
-                read_version(msg)
-              }
+                if msg.len() < 4 {
+                    PROGRAM_PROTOCOL_VERSION
+                } else {
+                    read_version(msg)
+                }
             }
             NetworkEvent::IsBootstrapped => PROGRAM_PROTOCOL_VERSION,
         }

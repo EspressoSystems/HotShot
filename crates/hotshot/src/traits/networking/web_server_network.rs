@@ -50,7 +50,7 @@ use surf_disco::error::ClientError;
 use tracing::{debug, error, info, warn};
 
 /// convenience alias alias for the result of getting transactions from the web server
-pub type TxnResult<TYPES> = Result<Option<(u64, Vec<RecvMsg<Message<TYPES>>>)>, NetworkError>;
+pub type TxnResult = Result<Option<(u64, Vec<Vec<u8>>)>, ClientError>;
 
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
@@ -235,6 +235,7 @@ struct Inner<TYPES: NodeType> {
 impl<TYPES: NodeType> Inner<TYPES> {
     #![allow(clippy::too_many_lines)]
 
+    /// Handle version 0.1 transactions
     async fn handle_tx_0_1(&self, tx: Vec<u8>, index: u64, tx_index: &mut u64) {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         if index > *tx_index + 1 {
@@ -259,6 +260,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
         debug!("tx index is {}", tx_index);
     }
 
+    /// Handle version 0.1 messages
+    #[allow(clippy::too_many_arguments)]
     async fn handle_message_0_1(
         &self,
         message: Vec<u8>,
@@ -280,8 +283,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
             match message_purpose {
                 MessagePurpose::Data => {
                     unreachable!("We should not receive transactions in this function");
-
-                    return false;
                 }
                 MessagePurpose::Proposal => {
                     // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
@@ -402,7 +403,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             }
         }
 
-        return false;
+        false
     }
 
     /// Pull a web server.
@@ -444,8 +445,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
             let version_0_1 = Version { major: 0, minor: 1 };
             if let MessagePurpose::Data = message_purpose {
-                let possible_message: Result<Option<(u64, Vec<Vec<u8>>)>, ClientError> =
-                    self.client.get(&endpoint).send().await;
+                let possible_message: TxnResult = self.client.get(&endpoint).send().await;
                 // Deserialize and process transactions from the server.
                 // If something goes wrong at any point, we sleep for wait_between_polls
                 // then try again next time.
@@ -464,25 +464,26 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         //
                         // It would be nice to do this with serde primitives, but I'm not sure how.
 
-                        match tx_raw[0] {
-                            // 0 => {
-                            //     continue;
-                            // }
-                            _ => {
+                        match tx_raw.first() {
+                            Some(0) => {
+                                continue;
+                            }
+                            Some(1) => {
                                 let tx = tx_raw[1..].to_vec();
                                 let tx_version = read_version(&tx);
-                                //     if tx_version == version_0_1 {
-                                self.handle_tx_0_1(tx, index, &mut tx_index).await;
-                                //      } else {
-                                //          error!(
-                                //      "Received message with unrecognized version: {:?}. Payload: {:?}",
-                                //      tx_version,
-                                //      bincode_opts().deserialize::<Message<TYPES>>(&tx)
-                                //  );
-                                //      }
-                            } // _ => {
-                              //     error!("Could not deserialize transaction: {:?}", tx_raw);
-                              // }
+                                if tx_version == version_0_1 {
+                                    self.handle_tx_0_1(tx, index, &mut tx_index).await;
+                                } else {
+                                    error!(
+                                      "Received message with unrecognized version: {:?}. Payload: {:?}",
+                                      tx_version,
+                                      bincode_opts().deserialize::<Message<TYPES>>(&tx)
+                                  );
+                                }
+                            }
+                            _ => {
+                                error!("Could not deserialize transaction: {:?}", tx_raw);
+                            }
                         }
                     }
                 } else {
@@ -491,8 +492,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
             } else {
                 let possible_message: Result<Option<Vec<Vec<u8>>>, ClientError> =
                     self.client.get(&endpoint).send().await;
-                let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
-                let direct_poll_queue = &self.direct_poll_queue_0_1;
                 let mut proposal_seen = false;
                 let mut quorum_proposal_seen = false;
                 let mut dac_seen = false;
@@ -513,40 +512,44 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         //
                         // It would be nice to do this with serde primitives, but I'm not sure how.
 
-                        match message_raw[0] {
-                            //  0 => {
-                            //      continue;
-                            //  }
-                            _ => {
+                        match message_raw.first() {
+                            Some(0) => {
+                                continue;
+                            }
+                            Some(1) => {
                                 let message = message_raw[1..].to_vec();
                                 let message_version = read_version(&message);
 
                                 let should_return;
 
-                                //    if message_version == version_0_1 {
-                                should_return = self
-                                    .handle_message_0_1(
-                                        message,
-                                        view_number,
-                                        message_purpose,
-                                        &mut vote_index,
-                                        &mut seen_proposals,
-                                        &mut proposal_seen,
-                                        &mut quorum_proposal_seen,
-                                        &mut dac_seen,
-                                        &mut vid_disperse_seen,
-                                    )
-                                    .await;
+                                if message_version == version_0_1 {
+                                    should_return = self
+                                        .handle_message_0_1(
+                                            message,
+                                            view_number,
+                                            message_purpose,
+                                            &mut vote_index,
+                                            &mut seen_proposals,
+                                            &mut proposal_seen,
+                                            &mut quorum_proposal_seen,
+                                            &mut dac_seen,
+                                            &mut vid_disperse_seen,
+                                        )
+                                        .await;
 
-                                if should_return {
-                                    return Ok(());
+                                    if should_return {
+                                        return Ok(());
+                                    }
+                                } else {
+                                    error!(
+                                        "Unexpected version {:?} for message: {:?}",
+                                        message_version, message
+                                    );
                                 }
-                                //      } else {
-                                //        error!("Unexpected version {:?} for message: {:?}", message_version, message)
-                                //      }
-                            } //    _ => {
-                              //        error!("Could not deserialize message: {:?}", message_raw);
-                              //    }
+                            }
+                            _ => {
+                                error!("Could not deserialize message: {:?}", message_raw);
+                            }
                         }
                     }
                 } else {
