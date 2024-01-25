@@ -399,6 +399,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         self.inner.consensus.read().await.get_decided_leaf()
     }
 
+    /// Synchronously tries to return a copy of the last decided leaf,
+    /// if it is currently available for reading.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    #[must_use]
+    pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+        self.inner
+            .consensus
+            .try_read()
+            .map(|guard| guard.get_decided_leaf())
+    }
+
     /// Initializes a new hotshot and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.

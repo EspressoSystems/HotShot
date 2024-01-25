@@ -95,7 +95,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
                 let msgs = match network.recv_msgs(TransmitType::Direct).await {
                     Ok(msgs) => Messages(msgs),
                     Err(err) => {
-                        error!("failed to receive broadcast messages: {err}");
+                        error!("failed to receive direct messages: {err}");
 
                         // return zero messages so we sleep and try again
                         Messages(vec![])
