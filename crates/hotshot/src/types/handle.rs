@@ -1,18 +1,20 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
 use commit::Committable;
 use futures::Stream;
 
+use hotshot_task_impls::events::HotShotEvent;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     message::{MessageKind, SequencingMessage},
     traits::election::Membership,
 };
 
-use hotshot_types::simple_vote::QuorumData;
+use hotshot_types::{boxed_sync, simple_vote::QuorumData, BoxSyncFuture};
 use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -33,9 +35,9 @@ use tracing::error;
 #[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](ChannelStream) for the output stream from the background process
-    pub(crate) output_event_stream: ChannelStream<Event<TYPES>>,
+    pub(crate) output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
     /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
+    pub(crate) internal_event_stream: (Sender<HotShotEvent<TYPES>>, Receiver<HotShotEvent<TYPES>>),
     /// registry for controlling tasks
     pub(crate) registry: Arc<TaskRegistry>,
 
@@ -50,9 +52,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// obtains a stream to expose to the user
     pub async fn get_event_stream(
         &mut self,
-        filter: FilterEvent<Event<TYPES>>,
-    ) -> (impl Stream<Item = Event<TYPES>>, StreamId) {
-        self.output_event_stream.subscribe(filter).await
+    ) -> impl Stream<Item = Event<TYPES>> {
+        self.output_event_stream.1.clone()
     }
 
     /// HACK so we can know the types when running tests...
@@ -61,9 +62,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - type wrapper
     pub async fn get_event_stream_known_impl(
         &mut self,
-        filter: FilterEvent<Event<TYPES>>,
-    ) -> (UnboundedStream<Event<TYPES>>, StreamId) {
-        self.output_event_stream.subscribe(filter).await
+    ) -> Receiver<Event<TYPES>> {
+        self.output_event_stream.1.clone()
     }
 
     /// HACK so we can know the types when running tests...
@@ -73,9 +73,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// NOTE: this is only used for sanity checks in our tests
     pub async fn get_internal_event_stream_known_impl(
         &mut self,
-        filter: FilterEvent<HotShotEvent<TYPES>>,
-    ) -> (UnboundedStream<HotShotEvent<TYPES>>, StreamId) {
-        self.internal_event_stream.subscribe(filter).await
+    ) -> Receiver<HotShotEvent<TYPES>> {
+        self.internal_event_stream.1.clone()
     }
 
     /// Gets the current committed state of the [`SystemContext`] instance
@@ -128,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                         block_size: None,
                     },
                 };
-                self.output_event_stream.publish(event).await;
+                let _ = self.output_event_stream.0.broadcast(event).await;
             }
         } else {
             // TODO (justin) this seems bad. I think we should hard error in this case??

@@ -22,7 +22,7 @@ use hotshot_types::{
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
-    },
+    }, BoxSyncFuture, boxed_sync
 };
 use hotshot_web_server::{self, config};
 use lru::LruCache;

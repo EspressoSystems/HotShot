@@ -408,7 +408,7 @@ pub trait RunDA<
         error!("Starting HotShot example!");
         let start = Instant::now();
 
-        let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
+        let mut event_stream = context.get_event_stream().await;
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
 

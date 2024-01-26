@@ -156,9 +156,8 @@ impl SpinningTaskDescription {
                 for handle in &mut state.handles {
                     let s1 = handle
                         .handle
-                        .get_event_stream_known_impl(FilterEvent::default())
-                        .await
-                        .0;
+                        .get_event_stream_known_impl()
+                        .await;
                     streams.push(s1);
                 }
                 let builder = TaskBuilder::<SpinningTaskTypes<TYPES, I>>::new(

@@ -589,15 +589,13 @@ impl OverallSafetyPropertiesDescription {
                     let s1 =
                         handle
                             .handle
-                            .get_event_stream_known_impl(FilterEvent::default())
-                            .await
-                            .0;
+                            .get_event_stream_known_impl()
+                            .await;
                     let s2 =
                         handle
                             .handle
-                            .get_internal_event_stream_known_impl(FilterEvent::default())
-                            .await
-                            .0;
+                            .get_internal_event_stream_known_impl()
+                            .await;
                     streams.push(
                         Merge::new(s1, s2)
                     );

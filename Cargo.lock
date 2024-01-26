@@ -2688,6 +2688,7 @@ dependencies = [
 name = "hotshot"
 version = "0.3.3"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",

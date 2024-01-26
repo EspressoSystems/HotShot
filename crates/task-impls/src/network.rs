@@ -32,8 +32,9 @@ pub enum NetworkTaskKind {
 }
 
 /// the network message task state
+#[derive(Clone)]
 pub struct NetworkMessageTaskState<TYPES: NodeType> {
-    event_stream: Sender<HotShotEvent<TYPES>>,
+    pub event_stream: Sender<HotShotEvent<TYPES>>,
 }
 
 impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {

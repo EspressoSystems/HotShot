@@ -21,6 +21,7 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
     async_primitives::broadcast::BroadcastSender,
@@ -158,10 +159,10 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    output_event_stream: ChannelStream<Event<TYPES>>,
+    output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
-    internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
+    internal_event_stream: (Sender<HotShotEvent<TYPES>>, Receiver<HotShotEvent<TYPES>>),
 
     /// uid for instrumentation
     id: u64,
@@ -259,8 +260,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             memberships: Arc::new(memberships),
             event_sender: RwLock::default(),
             _metrics: consensus_metrics.clone(),
-            internal_event_stream: ChannelStream::new(),
-            output_event_stream: ChannelStream::new(),
+            internal_event_stream: broadcast(1024),
+            output_event_stream: broadcast(1024),
         });
 
         Ok(Self { inner })
@@ -269,8 +270,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// "Starts" consensus by sending a `QCFormed` event
     pub async fn start_consensus(&self) {
         self.inner
-            .internal_event_stream
-            .publish(HotShotEvent::QCFormed(either::Left(
+            .internal_event_stream.0
+            .broadcast(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
             .await;
@@ -422,7 +423,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
-            ChannelStream<HotShotEvent<TYPES>>,
+            Sender<HotShotEvent<TYPES>>,
+            Receiver<HotShotEvent<TYPES>>,
         ),
         HotShotError<TYPES>,
     > {
@@ -440,9 +442,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
-        let internal_event_stream = hotshot.inner.internal_event_stream.clone();
+        let (tx, rx) = hotshot.inner.internal_event_stream.clone();
 
-        Ok((handle, internal_event_stream))
+        Ok((handle, tx, rx))
     }
 
     /// Send a broadcast message.
@@ -566,7 +568,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
-        let task_runner = TaskRunner::new();
         let registry = Arc::new(TaskRegistry::default());
 
         let output_event_stream = self.inner.output_event_stream.clone();
@@ -579,76 +580,77 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let vid_membership = self.inner.memberships.vid_membership.clone();
         let view_sync_membership = self.inner.memberships.view_sync_membership.clone();
 
+        let (event_tx, event_rx) = internal_event_stream.clone();
+
         let handle = SystemContextHandle {
-            registry,
+            registry: registry.clone(),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
         };
 
-        let task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_message_task(
+            registry.clone(),
+            event_tx.clone(),
             quorum_network.clone(),
         )
         .await;
-        let task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_message_task(
+            registry.clone(),
+            event_tx.clone(),
             da_network.clone(),
         )
         .await;
 
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
             quorum_network.clone(),
             quorum_membership,
-            NetworkTaskKind::Quorum,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
             da_network.clone(),
             da_membership,
-            NetworkTaskKind::Committee,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
             quorum_network.clone(),
             view_sync_membership,
-            NetworkTaskKind::ViewSync,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
             quorum_network.clone(),
             vid_membership,
-            NetworkTaskKind::VID,
         )
         .await;
-        let task_runner = add_consensus_task(
-            task_runner,
-            internal_event_stream.clone(),
-            output_event_stream.clone(),
+        add_consensus_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
+            output_event_stream.0.clone(),
             &handle,
         )
         .await;
-        let task_runner = add_da_task(task_runner, internal_event_stream.clone(), &handle).await;
-        let task_runner = add_vid_task(task_runner, internal_event_stream.clone(), &handle).await;
-        let task_runner =
-            add_transaction_task(task_runner, internal_event_stream.clone(), &handle).await;
-        let task_runner =
-            add_view_sync_task(task_runner, internal_event_stream.clone(), &handle).await;
-        async_spawn(async move {
-            let _ = task_runner.launch().await;
-            info!("Task runner exited!");
-        });
+        add_da_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
+        add_vid_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
+        add_transaction_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
+        add_view_sync_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
+        // async_spawn(async move {
+        //     let _ = registry.join_all().await;
+        //     info!("Task runner exited!");
+        // });
         handle
     }
 }
