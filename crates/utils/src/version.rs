@@ -9,17 +9,16 @@ use hotshot_constants::Version;
 /// Panics if the message is too short.
 #[must_use]
 #[allow(clippy::module_name_repetitions)]
-pub fn read_version(message: &[u8]) -> Version {
-    let major = u16::from_le_bytes(
-        message[0..2]
-            .try_into()
-            .expect("Insufficient bytes; cannot read major version."),
-    );
-    let minor = u16::from_le_bytes(
-        message[2..4]
-            .try_into()
-            .expect("Insufficient bytes; cannot read minor version."),
-    );
+pub fn read_version(message: &[u8]) -> Option<Version> {
+    let maybe_bytes_major: Result<[u8; 2], _> = message[0..2].try_into();
+    let maybe_bytes_minor: Result<[u8; 2], _> = message[2..4].try_into();
 
-    Version { major, minor }
+    match (maybe_bytes_major, maybe_bytes_minor) {
+        (Ok(bytes_major), Ok(bytes_minor)) => {
+            let major = u16::from_le_bytes(bytes_major);
+            let minor = u16::from_le_bytes(bytes_minor);
+            Some(Version { major, minor })
+        }
+        _ => None,
+    }
 }

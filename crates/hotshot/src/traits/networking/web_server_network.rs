@@ -13,7 +13,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bincode::Options;
 use derive_more::{Deref, DerefMut};
-use hotshot_constants::Version;
+use hotshot_constants::VERSION_0_1;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     message::{Message, MessagePurpose},
@@ -443,7 +443,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 MessagePurpose::Upgrade => config::get_upgrade_route(view_number),
             };
 
-            let version_0_1 = Version { major: 0, minor: 1 };
             if let MessagePurpose::Data = message_purpose {
                 let possible_message: TxnResult = self.client.get(&endpoint).send().await;
                 // Deserialize and process transactions from the server.
@@ -471,14 +470,24 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             Some(1) => {
                                 let tx = tx_raw[1..].to_vec();
                                 let tx_version = read_version(&tx);
-                                if tx_version == version_0_1 {
-                                    self.handle_tx_0_1(tx, index, &mut tx_index).await;
-                                } else {
-                                    error!(
-                                      "Received message with unrecognized version: {:?}. Payload: {:?}",
-                                      tx_version,
-                                      bincode_opts().deserialize::<Message<TYPES>>(&tx)
+
+                                match tx_version {
+                                    Some(VERSION_0_1) => {
+                                        self.handle_tx_0_1(tx, index, &mut tx_index).await;
+                                    }
+                                    Some(version) => {
+                                        error!(
+                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                      version,
+                                      tx
                                   );
+                                    }
+                                    _ => {
+                                        error!(
+                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                                      tx
+                                  );
+                                    }
                                 }
                             }
                             _ => {
@@ -522,29 +531,39 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                                 let should_return;
 
-                                if message_version == version_0_1 {
-                                    should_return = self
-                                        .handle_message_0_1(
-                                            message,
-                                            view_number,
-                                            message_purpose,
-                                            &mut vote_index,
-                                            &mut seen_proposals,
-                                            &mut proposal_seen,
-                                            &mut quorum_proposal_seen,
-                                            &mut dac_seen,
-                                            &mut vid_disperse_seen,
-                                        )
-                                        .await;
+                                match message_version {
+                                    Some(VERSION_0_1) => {
+                                        should_return = self
+                                            .handle_message_0_1(
+                                                message,
+                                                view_number,
+                                                message_purpose,
+                                                &mut vote_index,
+                                                &mut seen_proposals,
+                                                &mut proposal_seen,
+                                                &mut quorum_proposal_seen,
+                                                &mut dac_seen,
+                                                &mut vid_disperse_seen,
+                                            )
+                                            .await;
 
-                                    if should_return {
-                                        return Ok(());
+                                        if should_return {
+                                            return Ok(());
+                                        }
                                     }
-                                } else {
-                                    error!(
-                                        "Unexpected version {:?} for message: {:?}",
-                                        message_version, message
-                                    );
+                                    Some(version) => {
+                                        error!(
+                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                      version,
+                                      message
+                                  );
+                                    }
+                                    _ => {
+                                        error!(
+                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                                      message
+                                  );
+                                    }
                                 }
                             }
                             _ => {

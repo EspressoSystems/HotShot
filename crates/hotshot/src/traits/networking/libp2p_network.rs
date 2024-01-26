@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_constants::{Version, LOOK_AHEAD};
+use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     data::ViewNumber,
@@ -63,6 +63,13 @@ pub type BootstrapAddrs = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 pub const QC_TOPIC: &str = "global";
 
 /// Stubbed out Ack
+///
+/// Note: as part of versioning for upgradability,
+/// all network messages must begin with a 4-byte version number.
+///
+/// Hence:
+///   * `Empty` *must* be a struct (enums are serialized with a leading byte for the variant), and
+///   * we must have an explicit version field.
 #[derive(Serialize)]
 pub struct Empty {
     /// network protocol version number in use
@@ -529,14 +536,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         .await
                         .map_err(|_| NetworkError::ChannelSend)?;
                 }
-                let version_0_1 = Version { major: 0, minor: 1 };
                 if self
                     .inner
                     .handle
                     .direct_response(
                         chan,
                         &Empty {
-                            version: version_0_1,
+                            version: VERSION_0_1,
                         },
                     )
                     .await
@@ -566,25 +572,37 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
-        let version_0_1 = Version { major: 0, minor: 1 };
         async_spawn(async move {
             while let Ok(message) = handle.inner.handle.receiver().recv().await {
                 let message_version = match &message {
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
                         read_version(raw)
                     }
-                    NetworkEvent::IsBootstrapped => version_0_1,
+                    NetworkEvent::IsBootstrapped => Some(VERSION_0_1),
                 };
-                if message_version == version_0_1 {
-                    let _ = handle
-                        .spawn_events_0_1(message, &is_bootstrapped, &direct_send, &broadcast_send)
-                        .await;
-                } else {
-                    error!(
-                        "Received message with unexpected version {:?}.",
-                        message_version
-                    );
-                    error!("Message payload:\n{:?}", message);
+                match message_version {
+                    Some(VERSION_0_1) => {
+                        let _ = handle
+                            .spawn_events_0_1(
+                                message,
+                                &is_bootstrapped,
+                                &direct_send,
+                                &broadcast_send,
+                            )
+                            .await;
+                    }
+                    Some(version) => {
+                        error!(
+                            "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                            version, message
+                        );
+                    }
+                    _ => {
+                        error!(
+                            "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                            message
+                        );
+                    }
                 }
             }
             warn!("Network receiver shut down!");
