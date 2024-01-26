@@ -476,14 +476,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                         self.handle_tx_0_1(tx, index, &mut tx_index).await;
                                     }
                                     Some(version) => {
-                                        error!(
+                                        warn!(
                                       "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                                       version,
                                       tx
                                   );
                                     }
                                     _ => {
-                                        error!(
+                                        warn!(
                                       "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
                                       tx
                                   );
@@ -491,7 +491,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 }
                             }
                             _ => {
-                                error!("Could not deserialize transaction: {:?}", tx_raw);
+                                warn!("Could not deserialize transaction: {:?}", tx_raw);
                             }
                         }
                     }
@@ -552,14 +552,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                         }
                                     }
                                     Some(version) => {
-                                        error!(
+                                        warn!(
                                       "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                                       version,
                                       message
                                   );
                                     }
                                     _ => {
-                                        error!(
+                                        warn!(
                                       "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
                                       message
                                   );
@@ -567,7 +567,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 }
                             }
                             _ => {
-                                error!("Could not deserialize message: {:?}", message_raw);
+                                warn!("Could not deserialize message: {:?}", message_raw);
                             }
                         }
                     }

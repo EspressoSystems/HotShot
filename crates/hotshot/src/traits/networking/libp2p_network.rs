@@ -592,13 +592,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                             .await;
                     }
                     Some(version) => {
-                        error!(
+                        warn!(
                             "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                             version, message
                         );
                     }
                     _ => {
-                        error!(
+                        warn!(
                             "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
                             message
                         );
