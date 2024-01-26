@@ -26,7 +26,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-use hotshot_utils::{version::read_version};
+use hotshot_utils::version::read_version;
 use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
@@ -260,6 +260,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Handle version 0.1 messages
+    ///
+    /// Returns `should_return` as a boolean, which is:
+    ///   * `true` if we've seen enough this round and the `poll_web_server` function should return
+    ///   * `false` if we want to receive further messages from the server.
     #[allow(clippy::too_many_arguments)]
     async fn handle_message_0_1(
         &self,

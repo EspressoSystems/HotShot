@@ -7,7 +7,7 @@ original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_examp
 
 run_ci: lint build test
 
-async := "async_std"
+async := "async-std"
 
 # Run arbitrary cargo commands, with e.g.
 #     just async=async-std cargo check
@@ -57,10 +57,6 @@ test_combined_network:
   echo Testing combined network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
 
-libp2p_network:
-  echo Testing combined network
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast libp2p_network -- --test-threads=1 --nocapture
-
 test_web_server:
   echo Testing web server
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
@@ -68,14 +64,6 @@ test_web_server:
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
-
-test_with_failures_2_web:
-  echo Testing nodes leaving the network with async std executor
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_2_web -- --test-threads=1 --nocapture
-
-test_combined_network_reup:
-  echo Testing nodes leaving the network with async std executor
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network_reup -- --test-threads=1 --nocapture
 
 test_network_task:
   echo Testing the DA task with async std executor
