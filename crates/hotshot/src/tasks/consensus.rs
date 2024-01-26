@@ -31,7 +31,7 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         state::ConsensusTime,
-        BlockPayload,
+        BlockPayload, State,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
@@ -205,14 +205,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some(parent) = parent else {
                     error!(
-                                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.get_data().leaf_commit,
-                                proposal.view_number,
-                            );
+                        "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
+                        justify_qc.get_data().leaf_commit,
+                        proposal.view_number,
+                    );
                     return false;
                 };
                 let parent_commitment = parent.commit();
-
                 let leaf: Leaf<_> = Leaf {
                     view_number: view,
                     justify_qc: proposal.justify_qc.clone(),
@@ -541,12 +540,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         rejected: Vec::new(),
                         proposer_id: sender,
                     };
+                    let state =
+                        <TYPES::StateType as State>::from_header(&proposal.data.block_header);
 
                     consensus.state_map.insert(
                         view,
                         View {
                             view_inner: ViewInner::Leaf {
                                 leaf: leaf.commit(),
+                                state,
                             },
                         },
                     );
@@ -585,6 +587,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                     warn!("Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", high_qc, proposal.data.clone(), locked_view);
 
+                    return;
+                };
+                let Some(parent_state) = consensus.get_state(parent.view_number) else {
+                    error!("Parent state not found! Consensus internally inconsistent");
+                    return;
+                };
+                let Ok(state) = parent_state.validate_and_apply_header(
+                    &proposal.data.block_header.clone(),
+                    &parent.block_header.clone(),
+                    &view,
+                ) else {
+                    error!("Block header doesn't extend the proposal",);
                     return;
                 };
                 let parent_commitment = parent.commit();
@@ -722,7 +736,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             true
                         },
                     ) {
-                        error!("publishing view error");
+                        error!("view publish error {e}");
                         self.output_event_stream
                             .publish(Event {
                                 view_number: view,
@@ -743,6 +757,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: leaf.commit(),
+                            state,
                         },
                     },
                 );
@@ -1203,15 +1218,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
+            let block_header = TYPES::BlockHeader::new(
+                commit_and_metadata.commitment,
+                commit_and_metadata.metadata.clone(),
+                &parent_header,
+            );
             let leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
-                block_header: TYPES::BlockHeader::new(
-                    commit_and_metadata.commitment,
-                    commit_and_metadata.metadata.clone(),
-                    &parent_header,
-                ),
+                block_header: block_header.clone(),
                 block_payload: None,
                 rejected: vec![],
                 proposer_id: self.api.public_key().clone(),
@@ -1225,7 +1241,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             };
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
-                block_header: leaf.block_header.clone(),
+                block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| None),

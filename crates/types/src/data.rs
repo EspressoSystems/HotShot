@@ -374,7 +374,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::<TYPES>::genesis(),
             parent_commitment: fake_commitment(),
-            block_header,
+            block_header: block_header.clone(),
             block_payload: Some(block_payload),
             rejected: Vec::new(),
             proposer_id: <<TYPES as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
@@ -443,9 +443,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_payload_commitment(&self) -> VidCommitment {
         self.get_block_header().payload_commitment()
     }
-    /// The blockchain state after appending this leaf.
-    // The Sequencing Leaf doesn't have a state.
-    pub fn get_state(&self) {}
+
     /// Transactions rejected or invalidated by the application of this leaf.
     pub fn get_rejected(&self) -> Vec<<TYPES::BlockPayload as BlockPayload>::Transaction> {
         self.rejected.clone()

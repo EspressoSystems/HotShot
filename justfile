@@ -27,10 +27,10 @@ async := "async_std"
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' && just {{target}} {{ARGS}}
 
 build:
-  cargo build --workspace --examples --bins --tests --lib --benches --release
+  cargo build --workspace --examples --bins --tests --lib --benches
 
 build_release:
-  cargo build --package hotshot --no-default-features --features="docs, doc-images"
+  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
@@ -99,10 +99,10 @@ default_test := ""
 test_name := "sequencing_libp2p_test"
 
 run_test test=default_test:
-  cargo test --verbose --release --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
 
 test_pkg_all pkg=test_pkg:
-  cargo test --verbose --release --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
