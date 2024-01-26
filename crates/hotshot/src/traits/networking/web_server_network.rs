@@ -11,7 +11,6 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use bincode::Options;
 use derive_more::{Deref, DerefMut};
 use hotshot_constants::VERSION_0_1;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
@@ -27,7 +26,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-use hotshot_utils::{bincode::bincode_opts, version::read_version};
+use hotshot_utils::{version::read_version};
 use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};

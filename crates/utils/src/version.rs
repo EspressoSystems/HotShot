@@ -2,11 +2,8 @@
 
 use hotshot_constants::Version;
 
-/// Read the version number from a message (passed a byte vector).
-///
-/// # Panics
-///
-/// Panics if the message is too short.
+/// Read the version number from a message (passed a byte vector),
+/// returning None if there are not enough bytes.
 #[must_use]
 #[allow(clippy::module_name_repetitions)]
 pub fn read_version(message: &[u8]) -> Option<Version> {
