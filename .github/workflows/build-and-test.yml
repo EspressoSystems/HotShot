@@ -60,15 +60,15 @@ jobs:
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: |
-            target/release/examples/counter
-            target/release/examples/multi-validator-libp2p
-            target/release/examples/orchestrator-libp2p
-            target/release/examples/validator-libp2p
-            target/release/examples/multi-validator-webserver
-            target/release/examples/multi-webserver
-            target/release/examples/webserver
-            target/release/examples/orchestrator-webserver
-            target/release/examples/validator-webserver
+            target/debug/examples/counter
+            target/debug/examples/multi-validator-libp2p
+            target/debug/examples/orchestrator-libp2p
+            target/debug/examples/validator-libp2p
+            target/debug/examples/multi-validator-webserver
+            target/debug/examples/multi-webserver
+            target/debug/examples/webserver
+            target/debug/examples/orchestrator-webserver
+            target/debug/examples/validator-webserver
 
   build-arm:
     strategy:
@@ -98,15 +98,15 @@ jobs:
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: |
-            target/release/examples/counter
-            target/release/examples/multi-validator-libp2p
-            target/release/examples/orchestrator-libp2p
-            target/release/examples/validator-libp2p
-            target/release/examples/multi-validator-webserver
-            target/release/examples/multi-webserver
-            target/release/examples/webserver
-            target/release/examples/orchestrator-webserver
-            target/release/examples/validator-webserver
+            target/debug/examples/counter
+            target/debug/examples/multi-validator-libp2p
+            target/debug/examples/orchestrator-libp2p
+            target/debug/examples/validator-libp2p
+            target/debug/examples/multi-validator-webserver
+            target/debug/examples/multi-webserver
+            target/debug/examples/webserver
+            target/debug/examples/orchestrator-webserver
+            target/debug/examples/validator-webserver
 
   build-dockers:
     strategy:
