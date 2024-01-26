@@ -29,12 +29,15 @@ async := "async-std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
+build_release:
+  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
+
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
-test:
-  echo Testing
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+test *ARGS:
+  echo Testing {{ARGS}}
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
@@ -96,10 +99,10 @@ default_test := ""
 test_name := "sequencing_libp2p_test"
 
 run_test test=default_test:
-  cargo test --verbose --release --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
 
 test_pkg_all pkg=test_pkg:
-  cargo test --verbose --release --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
@@ -113,7 +116,11 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
+
+lint_release: fmt
+  echo linting
+  cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt

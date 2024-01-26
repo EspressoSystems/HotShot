@@ -1843,18 +1843,18 @@ dependencies = [
 
 [[package]]
 name = "derive_builder"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d67778784b508018359cbc8696edb3db78160bab2c2a28ba7f56ef6932997f8"
+checksum = "660047478bc508c0fde22c868991eec0c40a63e48d610befef466d48e2bee574"
 dependencies = [
  "derive_builder_macro",
 ]
 
 [[package]]
 name = "derive_builder_core"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+checksum = "9b217e6dd1011a54d12f3b920a411b5abd44b1716ecfe94f5f2f2f7b52e08ab7"
 dependencies = [
  "darling 0.14.4",
  "proc-macro2",
@@ -1864,9 +1864,9 @@ dependencies = [
 
 [[package]]
 name = "derive_builder_macro"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebcda35c7a396850a55ffeac740804b40ffec779b98fffbb1738f4033f0ee79e"
+checksum = "7a5f77d7e20ac9153428f7ca14a88aba652adfc7a0ef0a06d654386310ef663b"
 dependencies = [
  "derive_builder_core",
  "syn 1.0.109",
@@ -3371,7 +3371,7 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 [[package]]
 name = "jf-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#bf1a6dfb63e2ce9b409a682d2793b836f1659097"
+source = "git+https://github.com/EspressoSystems/jellyfish#5a9a6a832b97b9b8f282b3cd98ea903d94096c6c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3400,7 +3400,7 @@ dependencies = [
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#bf1a6dfb63e2ce9b409a682d2793b836f1659097"
+source = "git+https://github.com/EspressoSystems/jellyfish#5a9a6a832b97b9b8f282b3cd98ea903d94096c6c"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3445,7 +3445,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#bf1a6dfb63e2ce9b409a682d2793b836f1659097"
+source = "git+https://github.com/EspressoSystems/jellyfish#5a9a6a832b97b9b8f282b3cd98ea903d94096c6c"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3471,7 +3471,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish#bf1a6dfb63e2ce9b409a682d2793b836f1659097"
+source = "git+https://github.com/EspressoSystems/jellyfish#5a9a6a832b97b9b8f282b3cd98ea903d94096c6c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -6190,9 +6190,9 @@ dependencies = [
 
 [[package]]
 name = "snow"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58021967fd0a5eeeb23b08df6cc244a4d4a5b4aec1d27c9e02fad1a58b4cd74e"
+checksum = "2e87c18a6608909007e75a60e04d03eda77b601c94de1c74d9a9dc2c04ab789a"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake2",

@@ -1,4 +1,4 @@
-use hotshot::types::SignatureKey;
+use hotshot::{traits::NetworkReliability, types::SignatureKey};
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -59,6 +59,8 @@ pub struct TestMetadata {
     pub min_transactions: usize,
     /// timing data
     pub timing_data: TimingData,
+    /// unrelabile networking metadata
+    pub unreliable_network: Option<Box<dyn NetworkReliability>>,
     /// view sync check task
     pub view_sync_properties: ViewSyncTaskDescription,
 }
@@ -82,13 +84,12 @@ impl TestMetadata {
     pub fn default_stress() -> Self {
         let num_nodes = 100;
         TestMetadata {
-            num_bootstrap_nodes: 15,
+            num_bootstrap_nodes: num_nodes,
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 50,
                 check_leaf: true,
-                check_state: true,
                 check_block: true,
                 num_failed_views: 15,
                 transaction_threshold: 0,
@@ -111,12 +112,14 @@ impl TestMetadata {
     pub fn default_multiple_rounds() -> TestMetadata {
         let num_nodes = 10;
         TestMetadata {
+            // TODO: remove once we have fixed the DHT timeout issue
+            // https://github.com/EspressoSystems/HotShot/issues/2088
+            num_bootstrap_nodes: num_nodes,
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
                 check_leaf: true,
-                check_state: true,
                 check_block: true,
                 num_failed_views: 8,
                 transaction_threshold: 0,
@@ -139,7 +142,7 @@ impl TestMetadata {
         TestMetadata {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            num_bootstrap_nodes: 20,
+            num_bootstrap_nodes: num_nodes,
             // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
@@ -174,8 +177,8 @@ impl Default for TestMetadata {
             min_transactions: 0,
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            num_bootstrap_nodes: 5,
-            da_committee_size: 5,
+            num_bootstrap_nodes: num_nodes,
+            da_committee_size: num_nodes,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
             },
@@ -188,6 +191,7 @@ impl Default for TestMetadata {
                     duration: Duration::from_millis(10000),
                 },
             ),
+            unreliable_network: None,
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
         }
     }
@@ -216,6 +220,7 @@ impl TestMetadata {
             completion_task_description,
             overall_safety_properties,
             spinning_properties,
+            unreliable_network,
             view_sync_properties,
             ..
         } = self.clone();
@@ -292,6 +297,7 @@ impl TestMetadata {
                     total_nodes,
                     num_bootstrap_nodes,
                     da_committee_size,
+                    unreliable_network,
                 ),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
