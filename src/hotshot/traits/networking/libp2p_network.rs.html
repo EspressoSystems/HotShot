@@ -1353,7 +1353,7 @@
                 is_ready: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 <span class="comment">// This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                </span>dht_timeout: Duration::from_secs(<span class="number">1</span>),
+                </span>dht_timeout: Duration::from_secs(<span class="number">2</span>),
                 is_bootstrapped: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 metrics,
                 topic_map,

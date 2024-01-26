@@ -528,6 +528,14 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
@@ -574,6 +582,7 @@
     sync::Arc,
     time::Duration,
 };
+<span class="kw">use </span>tracing::error;
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -597,12 +606,16 @@
         <span class="kw">let </span>network = net.clone();
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="kw">loop </span>{
-                <span class="kw">let </span>msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Broadcast)
-                        .<span class="kw">await
-                        </span>.expect(<span class="string">&quot;Failed to receive broadcast messages&quot;</span>),
-                );
+                <span class="kw">let </span>msgs = <span class="kw">match </span>network.recv_msgs(TransmitType::Broadcast).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(msgs) =&gt; Messages(msgs),
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">error!</span>(<span class="string">&quot;failed to receive broadcast messages: {err}&quot;</span>);
+
+                        <span class="comment">// return zero messages so we sleep and try again
+                        </span>Messages(<span class="macro">vec!</span>[])
+                    }
+                };
+
                 <span class="kw">if </span>msgs.<span class="number">0</span>.is_empty() {
                     async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
@@ -617,12 +630,15 @@
         <span class="kw">let </span>network = net.clone();
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="kw">loop </span>{
-                <span class="kw">let </span>msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Direct)
-                        .<span class="kw">await
-                        </span>.expect(<span class="string">&quot;Failed to receive direct messages&quot;</span>),
-                );
+                <span class="kw">let </span>msgs = <span class="kw">match </span>network.recv_msgs(TransmitType::Direct).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(msgs) =&gt; Messages(msgs),
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">error!</span>(<span class="string">&quot;failed to receive direct messages: {err}&quot;</span>);
+
+                        <span class="comment">// return zero messages so we sleep and try again
+                        </span>Messages(<span class="macro">vec!</span>[])
+                    }
+                };
                 <span class="kw">if </span>msgs.<span class="number">0</span>.is_empty() {
                     async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{

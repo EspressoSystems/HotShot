@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Node","TestRunner"]};
+window.SIDEBAR_ITEMS = {"struct":["LateStartNode","Node","TestRunner"]};

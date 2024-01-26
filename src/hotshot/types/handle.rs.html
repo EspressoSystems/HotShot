@@ -280,6 +280,15 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -394,6 +403,15 @@
     </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.hotshot.get_decided_leaf().<span class="kw">await
     </span>}
+
+    <span class="doccomment">/// Tries to get the most recent decided leaf, returning instantly
+    /// if we can&#39;t acquire the lock.
+    ///
+    /// # Panics
+    /// Panics if internal consensus is in an inconsistent state.
+    </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.hotshot.try_get_decided_leaf()
+    }
 
     <span class="doccomment">/// Submits a transaction to the backing [`SystemContext`] instance.
     ///

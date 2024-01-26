@@ -743,6 +743,19 @@
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 //! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
@@ -1129,6 +1142,19 @@
     /// Panics if internal leaf for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_decided_leaf()
+    }
+
+    <span class="doccomment">/// [Non-blocking] instantly returns a copy of the last decided leaf if
+    /// it is available to be read. If not, we return `None`.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.inner
+            .consensus
+            .try_read()
+            .map(|guard| guard.get_decided_leaf())
     }
 
     <span class="doccomment">/// Returns a copy of the last decided validated state.

@@ -384,7 +384,7 @@
             }
             Event::OutboundFailure {
                 peer,
-                request_id: <span class="kw">_</span>,
+                request_id,
                 error,
             } =&gt; {
                 <span class="macro">error!</span>(
@@ -393,11 +393,11 @@
                 );
                 <span class="comment">// RM TODO: make direct messages have n (and not infinite) retries
                 // issue: https://github.com/EspressoSystems/HotShot/issues/2003
-                // if let Some(mut req) = self.in_progress_rr.remove(&amp;request_id) {
-                //     req.backoff.start_next(false);
-                //     self.failed_rr.push_back(req);
-                // }
-            </span>}
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
+                    req.backoff.start_next(<span class="bool-val">false</span>);
+                    <span class="self">self</span>.failed_rr.push_back(req);
+                }
+            }
             Event::Message { message, peer, .. } =&gt; <span class="kw">match </span>message {
                 Message::Request {
                     request: DirectMessageRequest(msg),

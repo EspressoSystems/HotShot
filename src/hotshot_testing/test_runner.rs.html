@@ -306,6 +306,21 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -330,7 +345,7 @@
     HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
 };
 
@@ -340,12 +355,21 @@
 <span class="doccomment">/// a node participating in a test
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// the unique identifier of the node
+    <span class="doccomment">/// The node&#39;s unique identifier
     </span><span class="kw">pub </span>node_id: u64,
-    <span class="doccomment">/// the networks of the node
+    <span class="doccomment">/// The underlying networks belonging to the node
     </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
-    <span class="doccomment">/// the handle to the node&#39;s internals
+    <span class="doccomment">/// The handle to the node&#39;s internals
     </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
+}
+
+<span class="doccomment">/// A yet-to-be-started node that participates in tests
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// The underlying networks belonging to the node
+    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// The context to which we will use to launch HotShot when it&#39;s time
+    </span><span class="kw">pub </span>context: SystemContext&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
@@ -356,7 +380,7 @@
     <span class="doccomment">/// nodes in the test
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// nodes with a late start
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, SystemContext&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// the next node unique identifier
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
     <span class="doccomment">/// overarching test task
@@ -431,7 +455,7 @@
 
         <span class="comment">// add spinning task
         // map spinning to view
-        </span><span class="kw">let </span><span class="kw-2">mut </span>changes: HashMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt; = HashMap::new();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>changes: BTreeMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt; = BTreeMap::new();
         <span class="kw">for </span>(view, <span class="kw-2">mut </span>change) <span class="kw">in </span>spinning_changes {
             changes
                 .entry(TYPES::Time::new(view))
@@ -539,7 +563,13 @@
                 )
                 .<span class="kw">await</span>;
             <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
-                <span class="self">self</span>.late_start.insert(node_id, hotshot);
+                <span class="self">self</span>.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: hotshot,
+                    },
+                );
             } <span class="kw">else </span>{
                 <span class="self">self</span>.nodes.push(Node {
                     node_id,
