@@ -223,10 +223,12 @@ struct Inner<TYPES: NodeType> {
     view_sync_vote_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
+    #[allow(clippy::type_complexity)]
     /// A handle for cancelling the task polling for latest quorum propsal
     cancel_latest_quorum_proposal_task: Arc<
         RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
     >,
+    #[allow(clippy::type_complexity)]
     /// A handle for cancelling the task polling for the latest view sync certificate
     cancel_latest_view_sync_certificate_task: Arc<
         RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
