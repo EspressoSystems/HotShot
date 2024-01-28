@@ -93,5 +93,5 @@ async fn libp2p_network_all_to_all() {
         .gen_launcher::<TestTypes, Libp2pAllToAllImpl>(0)
         .launch()
         .run_test()
-        .await
+        .await;
 }

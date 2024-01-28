@@ -51,14 +51,15 @@ impl NodeType for TestTypes {
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryImpl;
 
-/// Libp2p network implementation
+/// Libp2p network implementation with gossip broadcast
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct Libp2pImpl;
 
-/// Web server network implementation
+/// libp2p implementation with all too all broadcast
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct Libp2pAllToAllImpl;
 
+/// Web server network implementation
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct WebImpl;
 

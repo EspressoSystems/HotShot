@@ -15,7 +15,9 @@ use bincode::Options;
 use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 #[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
+use hotshot_types::traits::network::{
+    NetworkReliability, TestableChannelImplementation, TestableNetworkingImplementation,
+};
 use hotshot_types::{
     data::ViewNumber,
     message::{Message, MessageKind},
@@ -23,7 +25,7 @@ use hotshot_types::{
         election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
-            NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
+            NetworkError, NetworkMsg, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -60,10 +62,6 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
-
-/// convienence alias for the type for bootstrap addresses
-/// concurrency primitives are needed for having tests
-pub type BootstrapAddrs = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
@@ -291,6 +289,7 @@ where
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     for Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>
 where
@@ -322,6 +321,7 @@ where
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     for Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>
 where
@@ -362,7 +362,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkRegular<M, K> {
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs: PeerInfoVec,
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
@@ -379,6 +379,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkRegular<M, K> {
             bootstrap_addrs_len,
             id,
             committee_pks,
+            #[cfg(feature = "hotshot-testing")]
             reliability_config,
             da_pks,
             is_da,
@@ -397,7 +398,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkAllToAll<M, K> {
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs: PeerInfoVec,
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
@@ -414,6 +415,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkAllToAll<M, K> {
             bootstrap_addrs_len,
             id,
             committee_pks,
+            #[cfg(feature = "hotshot-testing")]
             reliability_config,
             da_pks,
             is_da,
@@ -453,7 +455,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: BootstrapAddrs,
+        bootstrap_addrs: PeerInfoVec,
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
@@ -913,6 +915,40 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     .map_err(|_| NetworkError::ShutDown)?;
             }
 
+            // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
+            #[cfg(feature = "hotshot-testing")]
+            {
+                let metrics = self.inner.metrics.clone();
+                if let Some(ref config) = &self.inner.reliability_config {
+                    let handle = self.inner.handle.clone();
+
+                    let serialized_msg = bincode_opts()
+                        .serialize(&message)
+                        .context(FailedToSerializeSnafu)?;
+                    let fut = config.clone().chaos_send_msg(
+                        serialized_msg,
+                        Arc::new(move |msg: Vec<u8>| {
+                            let topic_2 = topic.clone();
+                            let handle_2 = handle.clone();
+                            let metrics_2 = metrics.clone();
+                            boxed_sync(async move {
+                                match handle_2.gossip_no_serialize(topic_2, msg).await {
+                                    Err(e) => {
+                                        metrics_2.message_failed_to_send.add(1);
+                                        warn!("Failed to broadcast to libp2p: {:?}", e);
+                                    }
+                                    Ok(()) => {
+                                        metrics_2.outgoing_direct_message_count.add(1);
+                                    }
+                                }
+                            })
+                        }),
+                    );
+                    async_spawn(fut);
+                    return Ok(());
+                }
+            }
+
             match self.inner.handle.gossip(topic, &message).await {
                 Ok(()) => {
                     self.inner.metrics.outgoing_broadcast_message_count.add(1);
@@ -1151,6 +1187,7 @@ where
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pAllToAllCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
@@ -1191,9 +1228,6 @@ where
     }
 }
 
-// FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
-// top
-// we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
 #[async_trait]
 impl<TYPES: NodeType> CommunicationChannel<TYPES> for Libp2pRegularCommChannel<TYPES>
 where
@@ -1277,6 +1311,7 @@ where
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for Libp2pRegularCommChannel<TYPES> {
     fn generate_network(
     ) -> Box<dyn Fn(Arc<Libp2pNetworkRegular<Message<TYPES>, TYPES::SignatureKey>>) -> Self + 'static>
@@ -1368,6 +1403,7 @@ where
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for Libp2pAllToAllCommChannel<TYPES> {
     fn generate_network() -> Box<
         dyn Fn(Arc<Libp2pNetworkAllToAll<Message<TYPES>, TYPES::SignatureKey>>) -> Self + 'static,
