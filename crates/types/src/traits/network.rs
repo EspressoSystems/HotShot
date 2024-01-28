@@ -502,7 +502,7 @@ pub struct AsynchronousNetwork {
 impl NetworkReliability for AsynchronousNetwork {
     fn sample_keep(&self) -> bool {
         Bernoulli::from_ratio(self.keep_numerator, self.keep_denominator)
-            .unwrap()
+            .expect("Invalid bernoulli ratio")
             .sample(&mut rand::thread_rng())
     }
     fn sample_delay(&self) -> Duration {
@@ -640,7 +640,7 @@ pub struct ChaosNetwork {
 impl NetworkReliability for ChaosNetwork {
     fn sample_keep(&self) -> bool {
         Bernoulli::from_ratio(self.keep_numerator, self.keep_denominator)
-            .unwrap()
+            .expect("Invalid bernoulli ratio")
             .sample(&mut rand::thread_rng())
     }
 

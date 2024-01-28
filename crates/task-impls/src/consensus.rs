@@ -432,13 +432,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }));
             let consensus = self.consensus.read().await;
-            consensus
-                .metrics
-                .current_view
-                .set(usize::try_from(self.cur_view.get_u64()).unwrap());
+            consensus.metrics.current_view.set(
+                usize::try_from(self.cur_view.get_u64()).expect("Failed to convert u64 to usize"),
+            );
             consensus.metrics.number_of_views_since_last_decide.set(
-                usize::try_from(self.cur_view.get_u64()).unwrap()
-                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                usize::try_from(self.cur_view.get_u64()).expect("Failed to convert u64 to usize")
+                    - usize::try_from(consensus.last_decided_view.get_u64())
+                        .expect("Failed to convert u64 to usize"),
             );
 
             return true;
@@ -572,7 +572,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         let should_propose = self.quorum_membership.get_leader(new_view)
                             == self.public_key
                             && high_qc.view_number
-                                == self.current_proposal.clone().unwrap().view_number;
+                                == self
+                                    .current_proposal
+                                    .clone()
+                                    .expect("Current proposal does not exist")
+                                    .view_number;
                         let qc = high_qc.clone();
                         if should_propose {
                             debug!(
@@ -775,8 +779,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         view_number: consensus.last_decided_view,
                         event: EventType::Decide {
                             leaf_chain: Arc::new(leaf_views),
-                            qc: Arc::new(new_decide_qc.unwrap()),
-                            block_size: Some(included_txns_set.len().try_into().unwrap()),
+                            qc: Arc::new(
+                                new_decide_qc.expect("The new QC we decided on does not exist"),
+                            ),
+                            block_size: Some(
+                                included_txns_set
+                                    .len()
+                                    .try_into()
+                                    .expect("Failed to convert usize into u64"),
+                            ),
                         },
                     });
                     let old_anchor_view = consensus.last_decided_view;
@@ -785,10 +796,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                     consensus.last_decided_view = new_anchor_view;
                     consensus.metrics.invalid_qc.set(0);
-                    consensus
-                        .metrics
-                        .last_decided_view
-                        .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
+                    consensus.metrics.last_decided_view.set(
+                        usize::try_from(consensus.last_decided_view.get_u64())
+                            .expect("Failed to convert u64 to usize"),
+                    );
                     let cur_number_of_views_per_decide_event =
                         *self.cur_view - consensus.last_decided_view.get_u64();
                     consensus
@@ -806,12 +817,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     decide_sent.await;
                 }
 
-                let new_view = self.current_proposal.clone().unwrap().view_number + 1;
+                let new_view = self
+                    .current_proposal
+                    .clone()
+                    .expect("Current proposal does not exist")
+                    .view_number
+                    + 1;
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                 let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
                     && consensus.high_qc.view_number
-                        == self.current_proposal.clone().unwrap().view_number;
+                        == self
+                            .current_proposal
+                            .clone()
+                            .expect("Current proposal does not exist.")
+                            .view_number;
                 // todo get rid of this clone
                 let qc = consensus.high_qc.clone();
 
@@ -851,7 +871,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let maybe_task = collector.take();
 
                 if maybe_task.is_none()
-                    || vote.get_view_number() > maybe_task.as_ref().unwrap().view
+                    || vote.get_view_number()
+                        > maybe_task.as_ref().expect("Collector task exited").view
                 {
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
@@ -869,7 +890,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     >(&info, vote.clone(), event)
                     .await;
                 } else {
-                    let result = maybe_task.unwrap().handle_event(event.clone()).await;
+                    let result = maybe_task
+                        .expect("Collector task exited")
+                        .handle_event(event.clone())
+                        .await;
 
                     if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                         // The protocol has finished
@@ -897,7 +921,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let maybe_task = collector.take();
 
                 if maybe_task.is_none()
-                    || vote.get_view_number() > maybe_task.as_ref().unwrap().view
+                    || vote.get_view_number()
+                        > maybe_task.as_ref().expect("Collector task exited.").view
                 {
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
@@ -915,7 +940,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     >(&info, vote.clone(), event)
                     .await;
                 } else {
-                    let result = maybe_task.unwrap().handle_event(event.clone()).await;
+                    let result = maybe_task
+                        .expect("Collector task exited.")
+                        .handle_event(event.clone())
+                        .await;
 
                     if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                         // The protocol has finished

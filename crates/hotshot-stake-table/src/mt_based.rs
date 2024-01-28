@@ -157,7 +157,7 @@ impl<K: Key> StakeTableScheme for StakeTable<K> {
         rng.fill_bytes(&mut bytes);
         let r = U512::from_big_endian(&bytes);
         let m = U512::from(self.last_epoch_start.total_stakes());
-        let pos: U256 = (r % m).try_into().unwrap(); // won't fail
+        let pos: U256 = (r % m).try_into().expect("Impossible"); // won't fail
         self.last_epoch_start.get_key_by_stake(pos)
     }
 
@@ -237,9 +237,10 @@ mod tests {
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(0));
 
         // Registering keys
-        keys.iter()
-            .take(4)
-            .for_each(|key| st.register(*key, U256::from(100), ()).unwrap());
+        keys.iter().take(4).for_each(|key| {
+            st.register(*key, U256::from(100), ())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(400));
         assert_eq!(st.total_stake(SnapshotVersion::EpochStart)?, U256::from(0));
         assert_eq!(
@@ -248,14 +249,15 @@ mod tests {
         );
         // set to zero for futher sampling test
         assert_eq!(
-            st.set_value(&keys[1], U256::from(0)).unwrap(),
+            st.set_value(&keys[1], U256::from(0))
+                .expect("Couldn't set a stake table value"),
             U256::from(100)
         );
         st.advance();
-        keys.iter()
-            .skip(4)
-            .take(3)
-            .for_each(|key| st.register(*key, U256::from(100), ()).unwrap());
+        keys.iter().skip(4).take(3).for_each(|key| {
+            st.register(*key, U256::from(100), ())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(600));
         assert_eq!(
             st.total_stake(SnapshotVersion::EpochStart)?,
@@ -266,9 +268,10 @@ mod tests {
             U256::from(0)
         );
         st.advance();
-        keys.iter()
-            .skip(7)
-            .for_each(|key| st.register(*key, U256::from(100), ()).unwrap());
+        keys.iter().skip(7).for_each(|key| {
+            st.register(*key, U256::from(100), ())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(900));
         assert_eq!(
             st.total_stake(SnapshotVersion::EpochStart)?,
@@ -292,7 +295,8 @@ mod tests {
 
         // Set value shall return the old value
         assert_eq!(
-            st.set_value(&keys[0], U256::from(101)).unwrap(),
+            st.set_value(&keys[0], U256::from(101))
+                .expect("Couldn't set a stake table value"),
             U256::from(100)
         );
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(901));
@@ -305,11 +309,13 @@ mod tests {
         assert!(st.update(&keys[0], U256::from(1000), true).is_err());
         // Update should return the updated stake
         assert_eq!(
-            st.update(&keys[0], U256::from(1), true).unwrap(),
+            st.update(&keys[0], U256::from(1), true)
+                .expect("Couldn't update stake table value"),
             U256::from(100)
         );
         assert_eq!(
-            st.update(&keys[0], U256::from(100), false).unwrap(),
+            st.update(&keys[0], U256::from(100), false)
+                .expect("Couldn't update stake table value"),
             U256::from(200)
         );
 
@@ -331,7 +337,9 @@ mod tests {
         // Random test for sampling keys
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(41u64);
         for _ in 0..100 {
-            let (_key, value) = st.sample(&mut rng).unwrap();
+            let (_key, value) = st
+                .sample(&mut rng)
+                .expect("Couldn't sample from stake table");
             // Sampled keys should have positive stake
             assert!(value > &U256::from(0));
         }

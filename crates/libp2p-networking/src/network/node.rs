@@ -249,7 +249,9 @@ impl NetworkNode {
                 .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC));
             let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
             kconfig
-                .set_parallelism(NonZeroUsize::new(1).unwrap())
+                .set_parallelism(
+                    NonZeroUsize::new(1).expect("Turning 1 usize into a nonzero usize panicked!"),
+                )
                 .set_provider_publication_interval(Some(record_republication_interval))
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
@@ -272,9 +274,9 @@ impl NetworkNode {
                 DHTBehaviour::new(
                     kadem,
                     peer_id,
-                    config
-                        .replication_factor
-                        .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
+                    config.replication_factor.unwrap_or_else(|| {
+                        NonZeroUsize::new(4).expect("Turning 4usize into a nonzero usize panicked!")
+                    }),
                     config.dht_cache_location.clone(),
                 )
                 .await,
@@ -370,7 +372,7 @@ impl NetworkNode {
                         self.swarm.behaviour_mut().get_record(
                             key,
                             notify,
-                            NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).expect("Turning {NUM_REPLICATED_TO_TRUST}usize into a nonzero usize panicked!"),
                             retry_count,
                         );
                     }

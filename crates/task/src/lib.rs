@@ -112,7 +112,8 @@ impl<T: Stream> Stream for MergeN<T> {
         let mut done = false;
 
         for i in iterator {
-            let stream = get_pin_mut_from_vec(me.streams.as_mut(), i).unwrap();
+            let stream = get_pin_mut_from_vec(me.streams.as_mut(), i)
+                .expect("lost a stream somehow? Shouldn't be possible.");
 
             match stream.poll_next(cx) {
                 Ready(Some(val)) => return Ready(Some((i, val))),

@@ -109,7 +109,9 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
             self.vote_commitment.as_ref(),
-            self.signatures.as_ref().unwrap(),
+            self.signatures
+                .as_ref()
+                .expect("Certificate has no signatures! Can't check validity."),
         )
     }
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {

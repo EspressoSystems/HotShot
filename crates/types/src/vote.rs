@@ -118,7 +118,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
         let vote_node_id = stake_table
             .iter()
             .position(|x| *x == stake_table_entry.clone())
-            .unwrap();
+            .expect("Vote node not in stake table");
 
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
             vote.get_signature();

@@ -297,7 +297,10 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
         let transmit_result = match transmit_type {
             TransmitType::Direct => {
                 self.channel
-                    .direct_message(message, recipient.unwrap())
+                    .direct_message(
+                        message,
+                        recipient.expect("Recipient of direct message doesn't exist."),
+                    )
                     .await
             }
             TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,

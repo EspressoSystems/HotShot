@@ -152,7 +152,7 @@ impl OrchestratorClient {
                 let result: Result<_, ClientError> = client
                     .post("api/ready")
                     .body_json(&node_index)
-                    .unwrap()
+                    .expect("Failed to construct post request for all clients ready")
                     .send()
                     .await;
                 result

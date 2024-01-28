@@ -165,6 +165,7 @@ all = "warn"
 pedantic = "warn"
 missing_docs_in_private_items = "warn"
 panic = "warn"
+unwrap_used = "warn"
 # allows
 module_name_repetitions = "allow"
 

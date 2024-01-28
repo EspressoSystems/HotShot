@@ -321,8 +321,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let proposals = self.view_sync_proposals.get(&view_number);
         let mut ret_proposals = vec![];
         if let Some(cert) = proposals {
-            for i in index..*self.view_sync_proposal_index.get(&view_number).unwrap() {
-                ret_proposals.push(cert[usize::try_from(i).unwrap()].1.clone());
+            for i in index
+                ..*self
+                    .view_sync_proposal_index
+                    .get(&view_number)
+                    .expect("The view sync proposal has no index when producing for get endpoint.")
+            {
+                ret_proposals.push(cert[usize::try_from(i).expect("index somehow does not fit in a usize. This is probably an overflow error.")].1.clone());
             }
         }
         if ret_proposals.is_empty() {

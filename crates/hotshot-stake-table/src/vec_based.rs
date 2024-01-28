@@ -217,7 +217,7 @@ where
         rng.fill_bytes(&mut bytes);
         let r = U512::from_big_endian(&bytes);
         let m = U512::from(self.last_epoch_start_total_stake);
-        let mut pos: U256 = (r % m).try_into().unwrap(); // won't fail
+        let mut pos: U256 = (r % m).try_into().expect("Impossible"); // won't fail
         let idx = 0;
         while pos > self.last_epoch_start.stake_amount[idx] {
             pos -= self.last_epoch_start.stake_amount[idx];
@@ -255,14 +255,15 @@ where
     #[must_use]
     pub fn new(capacity: usize) -> Self {
         let bls_comm_preimage = vec![F::default(); capacity * <K1 as ToFields<F>>::SIZE];
-        let default_bls_comm =
-            VariableLengthRescueCRHF::<F, 1>::evaluate(&bls_comm_preimage).unwrap()[0];
+        let default_bls_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(&bls_comm_preimage)
+            .expect("Couldn't evaluate bls commitment preimage")[0];
         let schnorr_comm_preimage = vec![F::default(); capacity * <K2 as ToFields<F>>::SIZE];
         let default_schnorr_comm =
-            VariableLengthRescueCRHF::<F, 1>::evaluate(&schnorr_comm_preimage).unwrap()[0];
+            VariableLengthRescueCRHF::<F, 1>::evaluate(&schnorr_comm_preimage)
+                .expect("Couldn't evaluate schnoor commitment preimage")[0];
         let stake_comm_preimage = vec![F::default(); capacity];
-        let default_stake_comm =
-            VariableLengthRescueCRHF::<F, 1>::evaluate(&stake_comm_preimage).unwrap()[0];
+        let default_stake_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(&stake_comm_preimage)
+            .expect("Couldn't evaluate stake table commitment preimage")[0];
         let default_comm = (default_bls_comm, default_schnorr_comm, default_stake_comm);
         Self {
             capacity,
@@ -319,7 +320,8 @@ where
             .flat_map(ToFields::to_fields)
             .collect::<Vec<_>>();
         bls_comm_preimage.resize(self.capacity * <K1 as ToFields<F>>::SIZE, F::default());
-        let bls_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(bls_comm_preimage).unwrap()[0];
+        let bls_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(bls_comm_preimage)
+            .expect("Couldn't compute bls commitment")[0];
 
         // Compute rescue hash for Schnorr keys
         let schnorr_comm_preimage = self
@@ -329,8 +331,8 @@ where
             .chain(ark_std::iter::repeat(&K2::default()).take(padding_len))
             .flat_map(ToFields::to_fields)
             .collect::<Vec<_>>();
-        let schnorr_comm =
-            VariableLengthRescueCRHF::<F, 1>::evaluate(schnorr_comm_preimage).unwrap()[0];
+        let schnorr_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(schnorr_comm_preimage)
+            .expect("Couldn't compute Schnorr commitment")[0];
 
         // Compute rescue hash for stake amounts
         let mut stake_comm_preimage = self
@@ -340,8 +342,8 @@ where
             .map(|x| u256_to_field(x))
             .collect::<Vec<_>>();
         stake_comm_preimage.resize(self.capacity, F::default());
-        let stake_comm =
-            VariableLengthRescueCRHF::<F, 1>::evaluate(stake_comm_preimage).unwrap()[0];
+        let stake_comm = VariableLengthRescueCRHF::<F, 1>::evaluate(stake_comm_preimage)
+            .expect("Couldn't compute stake commitment")[0];
         (bls_comm, schnorr_comm, stake_comm)
     }
 
@@ -389,6 +391,7 @@ mod tests {
     use jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
     use jf_primitives::signatures::{SchnorrSignatureScheme, SignatureScheme};
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn crypto_test_stake_table() -> Result<(), StakeTableError> {
         let mut st = StakeTable::<QCVerKey, StateVerKey, F>::default();
@@ -397,10 +400,10 @@ mod tests {
             .map(|_| {
                 (
                     BLSOverBN254CurveSignatureScheme::key_gen(&(), &mut pseudo_rng)
-                        .unwrap()
+                        .expect("Couldn't generate bls sigscheme")
                         .1,
                     SchnorrSignatureScheme::key_gen(&(), &mut pseudo_rng)
-                        .unwrap()
+                        .expect("Couldn't generate Schnorr sigscheme")
                         .1,
                 )
             })
@@ -408,9 +411,10 @@ mod tests {
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(0));
 
         // Registering keys
-        keys.iter()
-            .take(4)
-            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        keys.iter().take(4).for_each(|key| {
+            st.register(key.0, U256::from(100), key.1.clone())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(400));
         assert_eq!(st.total_stake(SnapshotVersion::EpochStart)?, U256::from(0));
         assert_eq!(
@@ -419,14 +423,15 @@ mod tests {
         );
         // set to zero for futher sampling test
         assert_eq!(
-            st.set_value(&keys[1].0, U256::from(0)).unwrap(),
+            st.set_value(&keys[1].0, U256::from(0))
+                .expect("Couldn't set a stake table value to zero"),
             U256::from(100)
         );
         st.advance();
-        keys.iter()
-            .skip(4)
-            .take(3)
-            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        keys.iter().skip(4).take(3).for_each(|key| {
+            st.register(key.0, U256::from(100), key.1.clone())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(600));
         assert_eq!(
             st.total_stake(SnapshotVersion::EpochStart)?,
@@ -437,9 +442,10 @@ mod tests {
             U256::from(0)
         );
         st.advance();
-        keys.iter()
-            .skip(7)
-            .for_each(|key| st.register(key.0, U256::from(100), key.1.clone()).unwrap());
+        keys.iter().skip(7).for_each(|key| {
+            st.register(key.0, U256::from(100), key.1.clone())
+                .expect("Couldn't register key {key}");
+        });
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(900));
         assert_eq!(
             st.total_stake(SnapshotVersion::EpochStart)?,
@@ -467,7 +473,8 @@ mod tests {
 
         // Set value shall return the old value
         assert_eq!(
-            st.set_value(&keys[0].0, U256::from(101)).unwrap(),
+            st.set_value(&keys[0].0, U256::from(101))
+                .expect("Couldn't set a stake table value"),
             U256::from(100)
         );
         assert_eq!(st.total_stake(SnapshotVersion::Head)?, U256::from(901));
@@ -480,11 +487,13 @@ mod tests {
         assert!(st.update(&keys[0].0, U256::from(1000), true).is_err());
         // Update should return the updated stake
         assert_eq!(
-            st.update(&keys[0].0, U256::from(1), true).unwrap(),
+            st.update(&keys[0].0, U256::from(1), true)
+                .expect("Couldn't update stake table value"),
             U256::from(100)
         );
         assert_eq!(
-            st.update(&keys[0].0, U256::from(100), false).unwrap(),
+            st.update(&keys[0].0, U256::from(100), false)
+                .expect("Couldn't update stake table value"),
             U256::from(200)
         );
 
@@ -496,13 +505,19 @@ mod tests {
         // Random test for sampling keys
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(41u64);
         for _ in 0..100 {
-            let (_key, value) = st.sample(&mut rng).unwrap();
+            let (_key, value) = st
+                .sample(&mut rng)
+                .expect("Couldn't sample from stake table");
             // Sampled keys should have positive stake
             assert!(value > &U256::from(0));
         }
 
         // Test for try_iter
-        for (i, (k1, _, k2)) in st.try_iter(SnapshotVersion::Head).unwrap().enumerate() {
+        for (i, (k1, _, k2)) in st
+            .try_iter(SnapshotVersion::Head)
+            .expect("No values in stake table")
+            .enumerate()
+        {
             assert_eq!((k1, k2), keys[i]);
         }
 

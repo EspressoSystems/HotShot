@@ -566,7 +566,8 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeerNum(s);
         self.send_request(req).await?;
-        Ok(r.await.unwrap())
+        Ok(r.await
+            .expect("Experienced a channel error. This should never happen."))
     }
 
     /// return hashset of PIDs this node is connected to
@@ -580,7 +581,8 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeers(s);
         self.send_request(req).await?;
-        Ok(r.await.unwrap())
+        Ok(r.await
+            .expect("Experienced a channel error. This should never happen."))
     }
 
     /// Get a reference to the network node handle's id.

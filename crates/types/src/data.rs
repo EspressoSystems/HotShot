@@ -194,9 +194,9 @@ pub fn test_srs(
     let mut rng = jf_utils::test_rng();
     UnivariateKzgPCS::<ark_bls12_381::Bls12_381>::gen_srs_for_testing(
         &mut rng,
-        checked_fft_size(num_storage_nodes).unwrap(),
+        checked_fft_size(num_storage_nodes).expect("Failed to get FFT size while generating srs"),
     )
-    .unwrap()
+    .expect("Failed to generate srs with {num_storage_nodes} nodes")
 }
 
 /// Proposal to append a block.
@@ -527,7 +527,12 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
             bytes.extend("genesis".as_bytes());
             bytes
         } else {
-            serialize_signature2::<TYPES>(self.justify_qc.signatures.as_ref().unwrap())
+            serialize_signature2::<TYPES>(
+                self.justify_qc
+                    .signatures
+                    .as_ref()
+                    .expect("Couldn't find signatures when signing the justify QC."),
+            )
         };
 
         // Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
