@@ -412,12 +412,6 @@ impl<
                     // Garbage collect old tasks
                     // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
                     // cancel poll for votes
-                    self.network
-                        .inject_consensus_info(
-                            ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate,
-                        )
-                        .await;
-
                     // run GC
                     for i in *self.last_garbage_collected_view..*self.current_view {
                         self.replica_task_map
@@ -742,13 +736,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForViewSyncCertificate(
                         *certificate.view_number,
                     ))
-                    .await;
-
-                // Cancel poll for future view sync certificates
-                self.network
-                    .inject_consensus_info(
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate,
-                    )
                     .await;
 
                 if certificate.get_data().relay > self.relay {
