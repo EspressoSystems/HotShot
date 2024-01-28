@@ -455,10 +455,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                         }
 
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate => {
-                            return Ok(());
-                        }
-
                         _ => {
                             unimplemented!()
                         }
@@ -1075,17 +1071,6 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     // If task already exited we expect an error
                     let _res = sender
                         .send(ConsensusIntentEvent::CancelPollForVotes(view_number))
-                        .await;
-                }
-            }
-
-            ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate => {
-                let mut latest_view_sync_certificate_task =
-                    self.inner.latest_view_sync_certificate_task.write().await;
-
-                if let Some(thing) = latest_view_sync_certificate_task.take() {
-                    let _res = thing
-                        .send(ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate)
                         .await;
                 }
             }
