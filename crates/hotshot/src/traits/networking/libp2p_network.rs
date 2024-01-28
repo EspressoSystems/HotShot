@@ -2,8 +2,10 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 use super::NetworkingMetricsValue;
+#[cfg(feature = "hotshot-testing")]
+use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
@@ -12,6 +14,8 @@ use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
     data::ViewNumber,
     message::{Message, MessageKind},
@@ -19,34 +23,36 @@ use hotshot_types::{
         election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
-            NetworkError, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType, ViewMessage,
+            NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
 };
+
 use hotshot_utils::bincode::bincode_opts;
 use libp2p_identity::PeerId;
+#[cfg(feature = "hotshot-testing")]
+use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
+
 use libp2p_networking::{
     network::{
-        MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     reexport::Multiaddr,
 };
 
 use serde::Serialize;
 use snafu::ResultExt;
+#[cfg(feature = "hotshot-testing")]
+use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
+
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::BTreeSet,
     fmt::Debug,
     marker::PhantomData,
-    num::NonZeroUsize,
-    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -54,6 +60,10 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
+
+/// convienence alias for the type for bootstrap addresses
+/// concurrency primitives are needed for having tests
+pub type BootstrapAddrs = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
@@ -116,6 +126,9 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
     latest_seen_view: Arc<AtomicU64>,
+    #[cfg(feature = "hotshot-testing")]
+    /// reliability_config
+    reliability_config: Option<Box<dyn NetworkReliability>>,
     /// if we're a member of the DA committee or not
     /// NOTE: *not* threadsafe. Do not write to this.
     is_da: bool,
@@ -141,6 +154,7 @@ pub struct Libp2pNetworkRegular<M: NetworkMsg, K: SignatureKey + 'static>(Libp2p
 #[derive(Clone, Debug)]
 pub struct Libp2pNetworkAllToAll<M: NetworkMsg, K: SignatureKey + 'static>(Libp2pNetwork<M, K>);
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
@@ -162,6 +176,7 @@ where
         da_committee_size: usize,
         _is_da: bool,
         all_to_all: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -247,6 +262,7 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let keys = all_keys.clone();
                 let da = da_keys.clone();
+                let reliability_config_dup = reliability_config.clone();
                 async_block_on(async move {
                     match Libp2pNetwork::new(
                         NetworkingMetricsValue::default(),
@@ -254,8 +270,10 @@ where
                         pubkey.clone(),
                         bootstrap_addrs_ref,
                         num_bootstrap,
-                        node_id as usize,
+                        usize::try_from(node_id).unwrap(),
                         keys,
+                        #[cfg(feature = "hotshot-testing")]
+                        reliability_config_dup,
                         da.clone(),
                         da.contains(&pubkey),
                         all_to_all,
@@ -285,6 +303,7 @@ where
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let gen = Libp2pNetwork::generator(
             expected_node_count,
@@ -293,6 +312,7 @@ where
             da_committee_size,
             is_da,
             false,
+            reliability_config,
         );
         Box::new(move |node_id| Libp2pNetworkRegular(gen(node_id)))
     }
@@ -314,6 +334,7 @@ where
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let gen = Libp2pNetwork::generator(
             expected_node_count,
@@ -321,7 +342,8 @@ where
             network_id,
             da_committee_size,
             is_da,
-            false,
+            true,
+            reliability_config,
         );
         Box::new(move |node_id| Libp2pNetworkAllToAll(gen(node_id)))
     }
@@ -345,6 +367,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkRegular<M, K> {
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
+        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetworkRegular<M, K>, NetworkError> {
@@ -356,6 +379,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkRegular<M, K> {
             bootstrap_addrs_len,
             id,
             committee_pks,
+            reliability_config,
             da_pks,
             is_da,
             false,
@@ -378,6 +402,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkAllToAll<M, K> {
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
+        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetworkAllToAll<M, K>, NetworkError> {
@@ -389,6 +414,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetworkAllToAll<M, K> {
             bootstrap_addrs_len,
             id,
             committee_pks,
+            reliability_config,
             da_pks,
             is_da,
             true,
@@ -427,11 +453,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs: BootstrapAddrs,
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
+        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
         all_to_all: bool,
@@ -483,7 +510,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                dht_timeout: Duration::from_secs(1),
+                dht_timeout: Duration::from_secs(2),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
                 topic_map,
@@ -492,6 +519,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // proposals on". We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don't need.
                 latest_seen_view: Arc::new(AtomicU64::new(0)),
+                #[cfg(feature = "hotshot-testing")]
+                reliability_config,
                 is_da,
                 all_to_all,
             }),
@@ -516,6 +545,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
                 /// defines lookahead threshold based on the constant
+                #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
 
                 info!("Performing lookup for peer {:?}", pk);
@@ -932,15 +962,41 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         };
 
+        #[cfg(feature = "hotshot-testing")]
+        {
+            let metrics = self.inner.metrics.clone();
+            if let Some(ref config) = &self.inner.reliability_config {
+                let handle = self.inner.handle.clone();
+
+                let serialized_msg = bincode_opts()
+                    .serialize(&message)
+                    .context(FailedToSerializeSnafu)?;
+                let fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(move |msg: Vec<u8>| {
+                        let handle_2 = handle.clone();
+                        let metrics_2 = metrics.clone();
+                        boxed_sync(async move {
+                            match handle_2.direct_request_no_serialize(pid, msg).await {
+                                Err(e) => {
+                                    metrics_2.message_failed_to_send.add(1);
+                                    warn!("Failed to broadcast to libp2p: {:?}", e);
+                                }
+                                Ok(()) => {
+                                    metrics_2.outgoing_direct_message_count.add(1);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                return Ok(());
+            }
+        }
+
         match self.inner.handle.direct_request(pid, &message).await {
-            Ok(()) => {
-                self.inner.metrics.outgoing_direct_message_count.add(1);
-                Ok(())
-            }
-            Err(e) => {
-                self.inner.metrics.message_failed_to_send.add(1);
-                Err(e.into())
-            }
+            Ok(()) => Ok(()),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -1054,6 +1110,7 @@ impl<TYPES: NodeType> Libp2pAllToAllCommChannel<TYPES> {
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pRegularCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
@@ -1073,6 +1130,7 @@ where
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetworkRegular<
             Message<TYPES>,
@@ -1082,7 +1140,8 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            is_da
+            is_da,
+            reliability_config
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
@@ -1111,6 +1170,7 @@ where
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetworkAllToAll<
             Message<TYPES>,
@@ -1120,7 +1180,8 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            is_da
+            is_da,
+            reliability_config
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

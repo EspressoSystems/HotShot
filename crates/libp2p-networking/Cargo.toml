@@ -18,7 +18,7 @@ async-trait = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
 custom_debug = { workspace = true }
-derive_builder = "0.12.0"
+derive_builder = "0.13.0"
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-constants = { path = "../constants" }
@@ -43,3 +43,6 @@ tokio-stream = "0.1.14"
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 libp2p = { workspace = true, features = ["async-std"] }
 async-std = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,16 +1,3 @@
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    rust_2018_idioms,
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::panic
-)]
-#![allow(clippy::module_name_repetitions)]
-// Temporary
-#![allow(clippy::cast_possible_truncation)]
-// Temporary, should be disabled after the completion of the NodeImplementation refactor
-#![allow(clippy::type_complexity)]
 //! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 //! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
@@ -51,8 +38,11 @@ use hotshot_task::{
 };
 use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
 
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::node_implementation::ChannelMaps;
+
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, PayloadStore, View, ViewInner, ViewQueue},
+    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
     data::Leaf,
     error::StorageSnafu,
     event::EventType,
@@ -67,7 +57,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
-        BlockPayload,
+        BlockPayload, State,
     },
     HotShotConfig,
 };
@@ -81,9 +71,6 @@ use std::{
 };
 use tasks::add_vid_task;
 use tracing::{debug, error, info, instrument, trace, warn};
-
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::node_implementation::ChannelMaps;
 
 // -- Rexports
 // External
@@ -225,16 +212,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
+                    state: TYPES::StateType::genesis(),
                 },
             },
         );
 
         let mut saved_leaves = HashMap::new();
-        let mut saved_payloads = PayloadStore::default();
+        let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
-        let payload_commitment = anchored_leaf.get_payload_commitment();
         if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns = match payload.encode() {
+            let encoded_txns: Vec<u8> = match payload.encode() {
                 // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
                 // <https://github.com/EspressoSystems/HotShot/issues/2115>
                 Ok(encoded) => encoded.into_iter().collect(),
@@ -242,7 +229,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(payload_commitment, encoded_txns);
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            saved_payloads.insert(TYPES::Time::new(1), encoded_txns);
         }
 
         let start_view = anchored_leaf.get_view_number();
@@ -385,20 +373,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(())
     }
 
-    /// Returns a copy of the state
-    ///
-    /// # Panics
-    ///
-    /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) {
-        self.inner
-            .consensus
-            .read()
-            .await
-            .get_decided_leaf()
-            .get_state();
-    }
-
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
@@ -407,9 +381,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
     /// Returns a copy of the last decided leaf
     /// # Panics
-    /// Panics if internal state for consensus is inconsistent
+    /// Panics if internal leaf for consensus is inconsistent
     pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.inner.consensus.read().await.get_decided_leaf()
+    }
+
+    /// [Non-blocking] instantly returns a copy of the last decided leaf if
+    /// it is available to be read. If not, we return `None`.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    #[must_use]
+    pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+        self.inner
+            .consensus
+            .try_read()
+            .map(|guard| guard.get_decided_leaf())
+    }
+
+    /// Returns a copy of the last decided validated state.
+    ///
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_decided_state(&self) -> TYPES::StateType {
+        self.inner
+            .consensus
+            .read()
+            .await
+            .get_decided_state()
+            .clone()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -664,7 +664,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let task_runner =
             add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
         async_spawn(async move {
-            task_runner.launch().await;
+            let _ = task_runner.launch().await;
             info!("Task runner exited!");
         });
         handle

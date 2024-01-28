@@ -95,7 +95,7 @@
 
           src = cargo-careful;
 
-          cargoSha256 = "sha256-mRfJwNzx0kcW1By6Yt0EijYujtq5KawaWiaPy1cubVs=";
+          cargoSha256 = "sha256-5H6Dp3YANVGYxvphTdnd92+0h0ddFX7u5SWT24YxzV4=";
 
           meta = {
             description = "A cargo undefined behaviour checker";
@@ -179,7 +179,7 @@
             openssl.out
           ] ++ lib.optionals stdenv.isDarwin [
             darwin.apple_sdk.frameworks.Security
-            darwin.apple_sdk.frameworks.CoreServices 
+            darwin.apple_sdk.frameworks.CoreServices
             pkgs.libiconv
             darwin.apple_sdk.frameworks.SystemConfiguration
           ];

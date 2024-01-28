@@ -60,6 +60,8 @@ impl State for TestState {
 
     type Time = ViewNumber;
 
+    type Metadata = ();
+
     fn validate_and_apply_header(
         &self,
         _proposed_header: &Self::BlockHeader,
@@ -80,7 +82,16 @@ impl State for TestState {
         })
     }
 
+    fn from_header(block_header: &Self::BlockHeader) -> Self {
+        Self {
+            block_height: block_header.block_number,
+            ..Default::default()
+        }
+    }
+
     fn on_commit(&self) {}
+
+    fn metadata(&self) -> Self::Metadata {}
 }
 
 impl TestableState for TestState {
@@ -91,6 +102,9 @@ impl TestableState for TestState {
     ) -> <Self::BlockPayload as BlockPayload>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
-        TestTransaction(vec![0; RANDOM_TX_BASE_SIZE + (padding as usize)])
+        TestTransaction(vec![
+            0;
+            RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
+        ])
     }
 }

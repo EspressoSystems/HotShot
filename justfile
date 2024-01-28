@@ -29,69 +29,72 @@ async := "async_std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
+build_release:
+  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
+
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
-test:
-  echo Testing
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+test *ARGS:
+  echo Testing {{ARGS}}
+  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
 test_catchup:
   echo Testing with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
 
 test_a2a:
   echo Testing a2a network on libp2p
   ASYNC_STD_THREAD_COUNT=1 cargo test --lib --bins --tests --benches --workspace --no-fail-fast libp2p_network_all_to_all -- --test-threads=1 --nocapture
 
 test_crypto:
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
 
 test_success:
   echo Testing success test
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
 test_timeout:
   echo Testing timeout test
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
 
 test_combined_network:
   echo Testing combined network
-  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_combined_network -- --test-threads=1 --nocapture
 
 test_web_server:
   echo Testing web server
-  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
 test_with_failures:
   echo Testing nodes leaving the network with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
 
 test_memory_network:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
 
 test_consensus_task:
   echo Testing with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_vid_task:
   echo Testing the VID task with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
 
 test_view_sync_task:
   echo Testing the view sync task with async std executor
-  ASYNC_STD_THREAD_COUNT=2 cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
@@ -100,10 +103,10 @@ default_test := ""
 test_name := "sequencing_libp2p_test"
 
 run_test test=default_test:
-  cargo test --verbose --release --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
 
 test_pkg_all pkg=test_pkg:
-  cargo test --verbose --release --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
@@ -117,7 +120,11 @@ check:
 
 lint: fmt
   echo linting
-  cargo clippy --workspace --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
+
+lint_release: fmt
+  echo linting
+  cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt
@@ -157,3 +164,7 @@ gen_key_pair:
 test_randomized_leader_election:
   echo Testing
   cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+
+code_coverage:
+  echo "Running code coverage"
+  cargo-llvm-cov llvm-cov --lib --bins --tests --benches --release --workspace --lcov --output-path lcov.info -- --test-threads=1

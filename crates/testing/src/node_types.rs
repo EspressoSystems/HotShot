@@ -33,6 +33,8 @@ use serde::{Deserialize, Serialize};
     serde::Serialize,
     serde::Deserialize,
 )]
+/// filler struct to implement node type and allow us
+/// to select our traits
 pub struct TestTypes;
 impl NodeType for TestTypes {
     type Time = ViewNumber;
@@ -45,41 +47,56 @@ impl NodeType for TestTypes {
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
 }
 
+/// Memory network implementation
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryImpl;
 
+/// Libp2p network implementation
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct Libp2pImpl;
 
+/// Web server network implementation
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct Libp2pAllToAllImpl;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct WebImpl;
 
+/// Combined Network implementation (libp2p + web sever)
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct CombinedImpl;
 
+/// static committee type alias
 pub type StaticMembership = StaticCommittee<TestTypes>;
 
+/// memory network
 pub type StaticMemoryDAComm = MemoryCommChannel<TestTypes>;
 
+/// libp2p network with gossip
 type StaticLibp2pDAComm = Libp2pRegularCommChannel<TestTypes>;
 
+/// web server network communication channel
 type StaticWebDAComm = WebCommChannel<TestTypes>;
 
+/// combined network
 type StaticCombinedDAComm = CombinedCommChannel<TestTypes>;
 
+/// memory comm channel
 pub type StaticMemoryQuorumComm = MemoryCommChannel<TestTypes>;
 
+/// libp2p comm channel with gossip
 type StaticLibp2pQuorumComm = Libp2pRegularCommChannel<TestTypes>;
 
+/// web server comm channel
 type StaticWebQuorumComm = WebCommChannel<TestTypes>;
 
+/// combined network (libp2p + web server)
 type StaticCombinedQuorumComm = CombinedCommChannel<TestTypes>;
 
+/// memory network
 pub type StaticMemoryViewSyncComm = MemoryCommChannel<TestTypes>;
 
+/// memory network
 pub type StaticMemoryVIDComm = MemoryCommChannel<TestTypes>;
 
 impl NodeImplementation<TestTypes> for Libp2pImpl {
