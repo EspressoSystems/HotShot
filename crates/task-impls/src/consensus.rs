@@ -364,7 +364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     async fn update_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.cur_view < *new_view {
-            error!(
+            debug!(
                 "Updating view from {} to {} in consensus task",
                 *self.cur_view, *new_view
             );
