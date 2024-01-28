@@ -150,7 +150,7 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     /// Poll for the most recent quorum proposal the webserver has
     PollForLatestQuorumProposal,
     /// Poll for the most recent view sync proposal the webserver has
-    PollForLatestViewSyncProposal,
+    PollForLatestViewSyncCertificate,
     /// Poll for a DAC for a particular view
     PollForDAC(u64),
     /// Poll for view sync votes starting at a particular view
@@ -176,7 +176,7 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     /// Cancel polling for transactions
     CancelPollForTransactions(u64),
     /// Cancel polling for most recent view sync proposal
-    CancelPollForLatestViewSyncProposal,
+    CancelPollForLatestViewSyncCertificate,
 }
 
 impl<K: SignatureKey> ConsensusIntentEvent<K> {
@@ -200,8 +200,8 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number,
             ConsensusIntentEvent::PollForLatestQuorumProposal
-            | ConsensusIntentEvent::PollForLatestViewSyncProposal
-            | ConsensusIntentEvent::CancelPollForLatestViewSyncProposal => 1,
+            | ConsensusIntentEvent::PollForLatestViewSyncCertificate
+            | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate => 1,
         }
     }
 }

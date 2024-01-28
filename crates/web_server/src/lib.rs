@@ -33,9 +33,9 @@ struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: HashMap<u64, (String, Vec<u8>)>,
     /// for view sync: view number -> (relay, certificate)
-    view_sync_proposals: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    view_sync_certificates: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> relay
-    view_sync_proposal_index: HashMap<u64, u64>,
+    view_sync_certificate_index: HashMap<u64, u64>,
     /// view number -> (secret, da_certificates)
     da_certificates: HashMap<u64, (String, Vec<u8>)>,
     /// view for oldest proposals in memory
@@ -43,11 +43,11 @@ struct WebServerState<KEY> {
     /// view for the most recent proposal to help nodes catchup
     latest_quorum_proposal: u64,
     /// view for the most recent view sync proposal
-    latest_view_sync_proposal: u64,
+    latest_view_sync_certificate: u64,
     /// view for the oldest DA certificate
     oldest_certificate: u64,
     /// view for the oldest view sync certificate
-    oldest_view_sync_proposal: u64,
+    oldest_view_sync_certificate: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view sync: view number -> Vec(relay, vote)
@@ -103,7 +103,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             oldest_vote: 0,
             oldest_proposal: 0,
             latest_quorum_proposal: 0,
-            latest_view_sync_proposal: 0,
+            latest_view_sync_certificate: 0,
             oldest_certificate: 0,
             shutdown: None,
             stake_table: Vec::new(),
@@ -111,7 +111,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             transactions: HashMap::new(),
             txn_lookup: HashMap::new(),
             _prng: StdRng::from_entropy(),
-            view_sync_proposals: HashMap::new(),
+            view_sync_certificates: HashMap::new(),
             view_sync_votes: HashMap::new(),
             view_sync_vote_index: HashMap::new(),
 
@@ -128,8 +128,8 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             vid_vote_index: HashMap::new(),
 
             oldest_view_sync_vote: 0,
-            oldest_view_sync_proposal: 0,
-            view_sync_proposal_index: HashMap::new(),
+            oldest_view_sync_certificate: 0,
+            view_sync_certificate_index: HashMap::new(),
         }
     }
     /// Provide a shutdown signal to the server
@@ -159,11 +159,11 @@ pub trait WebServerDataSource<KEY> {
     /// Get latest view sync proposal
     /// # Errors
     /// Error if unable to serve.
-    fn get_latest_view_sync_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_latest_view_sync_certificate(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get view sync proposal
     /// # Errors
     /// Error if unable to serve.
-    fn get_view_sync_proposal(
+    fn get_view_sync_certificate(
         &self,
         view_number: u64,
         index: u64,
@@ -207,7 +207,7 @@ pub trait WebServerDataSource<KEY> {
     /// Post view sync proposal
     /// # Errors
     /// Error if unable to serve.
-    fn post_view_sync_proposal(&mut self, view_number: u64, proposal: Vec<u8>)
+    fn post_view_sync_certificate(&mut self, view_number: u64, proposal: Vec<u8>)
         -> Result<(), Error>;
 
     /// Post data avaiability certificate
@@ -309,19 +309,19 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.get_proposal(self.latest_quorum_proposal)
     }
 
-    fn get_latest_view_sync_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        self.get_view_sync_proposal(self.latest_view_sync_proposal, 0)
+    fn get_latest_view_sync_certificate(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        self.get_view_sync_certificate(self.latest_view_sync_certificate, 0)
     }
 
-    fn get_view_sync_proposal(
+    fn get_view_sync_certificate(
         &self,
         view_number: u64,
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        let proposals = self.view_sync_proposals.get(&view_number);
+        let proposals = self.view_sync_certificates.get(&view_number);
         let mut ret_proposals = vec![];
         if let Some(cert) = proposals {
-            for i in index..*self.view_sync_proposal_index.get(&view_number).unwrap() {
+            for i in index..*self.view_sync_certificate_index.get(&view_number).unwrap() {
                 ret_proposals.push(cert[usize::try_from(i).unwrap()].1.clone());
             }
         }
@@ -593,35 +593,35 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_view_sync_proposal(
+    fn post_view_sync_certificate(
         &mut self,
         view_number: u64,
         proposal: Vec<u8>,
     ) -> Result<(), Error> {
-        if view_number > self.latest_view_sync_proposal {
-            self.latest_view_sync_proposal = view_number;
+        if view_number > self.latest_view_sync_certificate {
+            self.latest_view_sync_certificate = view_number;
         }
 
         // Only keep proposal history for MAX_VIEWS number of view
-        if self.view_sync_proposals.len() >= MAX_VIEWS {
-            self.view_sync_proposals
-                .remove(&self.oldest_view_sync_proposal);
+        if self.view_sync_certificates.len() >= MAX_VIEWS {
+            self.view_sync_certificates
+                .remove(&self.oldest_view_sync_certificate);
             while !self
-                .view_sync_proposals
-                .contains_key(&self.oldest_view_sync_proposal)
+                .view_sync_certificates
+                .contains_key(&self.oldest_view_sync_certificate)
             {
-                self.oldest_view_sync_proposal += 1;
+                self.oldest_view_sync_certificate += 1;
             }
         }
         let next_index = self
-            .view_sync_proposal_index
+            .view_sync_certificate_index
             .entry(view_number)
             .or_insert(0);
-        self.view_sync_proposals
+        self.view_sync_certificates
             .entry(view_number)
             .and_modify(|current_props| current_props.push((*next_index, proposal.clone())))
             .or_insert_with(|| vec![(*next_index, proposal)]);
-        self.view_sync_proposal_index
+        self.view_sync_certificate_index
             .entry(view_number)
             .and_modify(|index| *index += 1);
         Ok(())
@@ -796,14 +796,14 @@ where
     .get("get_latest_quorum_proposal", |_req, state| {
         async move { state.get_latest_quorum_proposal() }.boxed()
     })?
-    .get("get_latest_view_sync_proposal", |_req, state| {
-        async move { state.get_latest_view_sync_proposal() }.boxed()
+    .get("get_latest_view_sync_certificate", |_req, state| {
+        async move { state.get_latest_view_sync_certificate() }.boxed()
     })?
-    .get("getviewsyncproposal", |req, state| {
+    .get("getviewsynccertificate", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let index: u64 = req.integer_param("index")?;
-            state.get_view_sync_proposal(view_number, index)
+            state.get_view_sync_certificate(view_number, index)
         }
         .boxed()
     })?
@@ -871,11 +871,11 @@ where
         }
         .boxed()
     })?
-    .post("postviewsyncproposal", |req, state| {
+    .post("postviewsynccertificate", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
-            state.post_view_sync_proposal(view_number, proposal)
+            state.post_view_sync_certificate(view_number, proposal)
         }
         .boxed()
     })?
