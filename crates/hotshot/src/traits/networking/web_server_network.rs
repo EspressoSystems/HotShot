@@ -223,10 +223,14 @@ struct Inner<TYPES: NodeType> {
     view_sync_vote_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
-    /// Whether or not we have a task polling for latest quorum propsal
-    latest_quorum_proposal_poll_running: Arc<AtomicBool>,
-    /// Whether or not we have a task polling for the latest view sync certificate
-    latest_view_sync_certificate_poll_running: Arc<AtomicBool>,
+    /// A handle for cancelling the task polling for latest quorum propsal
+    cancel_latest_quorum_proposal_task: Arc<
+        RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
+    >,
+    /// A handle for cancelling the task polling for the latest view sync certificate
+    cancel_latest_view_sync_certificate_task: Arc<
+        RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
+    >,
 }
 
 impl<TYPES: NodeType> Inner<TYPES> {
@@ -453,6 +457,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
                         | ConsensusIntentEvent::CancelPollForVIDDisperse(event_view)
+                        | ConsensusIntentEvent::CancelPollForLatestProposal(event_view)
+                        | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(
+                            event_view,
+                        )
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number == event_view {
                                 debug!("Shutting down polling task for view {}", event_view);
@@ -618,8 +626,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            latest_quorum_proposal_poll_running: Arc::default(),
-            latest_view_sync_certificate_poll_running: Arc::default(),
+            cancel_latest_quorum_proposal_task: Arc::default(),
+            cancel_latest_view_sync_certificate_task: Arc::default(),
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -788,6 +796,25 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         Self: 'b,
     {
         let closure = async move {
+            // Cancel poll for latest quorum proposal on shutdown
+            if let Some(ref sender) = *self.inner.cancel_latest_quorum_proposal_task.read().await {
+                let _ = sender
+                    .send(ConsensusIntentEvent::CancelPollForLatestProposal(1))
+                    .await;
+            };
+
+            // Cancel poll for latest view sync certificate on shutdown
+            if let Some(ref sender) = *self
+                .inner
+                .cancel_latest_view_sync_certificate_task
+                .read()
+                .await
+            {
+                let _ = sender
+                    .send(ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(1))
+                    .await;
+            };
+
             self.inner.running.store(false, Ordering::Relaxed);
         };
         boxed_sync(closure)
@@ -970,22 +997,28 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             }
             ConsensusIntentEvent::PollForLatestQuorumProposal => {
                 // Only start this task if we haven't already started it.
-                if self
-                    .inner
-                    .latest_quorum_proposal_poll_running
-                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
+                let mut cancel_handle = self.inner.cancel_latest_quorum_proposal_task.write().await;
+                if cancel_handle.is_none() {
                     let inner = self.inner.clone();
+
+                    // Create sender and receiver for cancelling parent task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
                     // Create the new task
                     async_spawn(async move {
                         loop {
+                            // If someone cancelled us, return
+                            if receiver.try_recv().is_ok() {
+                                return;
+                            }
+
                             let inner = inner.clone();
                             // Create a new channel that we will not use (as we don't cancel)
-                            let (_, receiver) = unbounded();
+                            let (_, fake_receiver) = unbounded();
                             if let Err(e) = inner
                                 .poll_web_server(
-                                    receiver,
+                                    fake_receiver,
                                     MessagePurpose::LatestQuorumProposal,
                                     1,
                                     Duration::from_millis(500),
@@ -1006,22 +1039,32 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             }
             ConsensusIntentEvent::PollForLatestViewSyncCertificate => {
                 // Only start this task if we haven't already started it.
-                if self
+                let mut cancel_handle = self
                     .inner
-                    .latest_view_sync_certificate_poll_running
-                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
+                    .cancel_latest_view_sync_certificate_task
+                    .write()
+                    .await;
+                if cancel_handle.is_none() {
                     let inner = self.inner.clone();
+
+                    // Create sender and receiver for cancelling parent task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
                     // Create the new task
                     async_spawn(async move {
                         loop {
-                            let inner: Arc<Inner<TYPES>> = inner.clone();
+                            // If someone cancelled us, return
+                            if receiver.try_recv().is_ok() {
+                                return;
+                            }
+
+                            let inner = inner.clone();
                             // Create a new channel that we will not use (as we don't cancel)
-                            let (_, receiver) = unbounded();
+                            let (_, fake_receiver) = unbounded();
                             if let Err(e) = inner
                                 .poll_web_server(
-                                    receiver,
+                                    fake_receiver,
                                     MessagePurpose::LatestViewSyncCertificate,
                                     1,
                                     Duration::from_millis(500),
@@ -1029,7 +1072,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                 .await
                             {
                                 warn!(
-                                "Background receive latest view sync certificate polling encountered an error: {:?}",
+                                "Background receive view sync certificate polling encountered an error: {:?}",
                                 e
                             );
                             }
