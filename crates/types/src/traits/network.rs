@@ -166,6 +166,10 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     CancelPollForViewSyncVotes(u64),
     /// Cancel polling for proposals.
     CancelPollForProposal(u64),
+    /// Cancel polling for the latest proposal.
+    CancelPollForLatestProposal(u64),
+    /// Cancel polling for the latest view sync certificate
+    CancelPollForLatestViewSyncCertificate(u64),
     /// Cancal polling for DAC.
     CancelPollForDAC(u64),
     /// Cancel polling for view sync certificate.
@@ -188,6 +192,8 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForVotes(view_number)
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
