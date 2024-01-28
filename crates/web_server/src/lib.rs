@@ -204,11 +204,14 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
-    /// Post view sync proposal
+    /// Post view sync certificate
     /// # Errors
     /// Error if unable to serve.
-    fn post_view_sync_certificate(&mut self, view_number: u64, proposal: Vec<u8>)
-        -> Result<(), Error>;
+    fn post_view_sync_certificate(
+        &mut self,
+        view_number: u64,
+        certificate: Vec<u8>,
+    ) -> Result<(), Error>;
 
     /// Post data avaiability certificate
     /// # Errors

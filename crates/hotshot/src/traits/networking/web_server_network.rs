@@ -223,10 +223,10 @@ struct Inner<TYPES: NodeType> {
     view_sync_vote_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
-    /// Task polling for latest quorum propsal
-    latest_quorum_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
-    /// Task polling for latest view sync proposal
-    latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    /// Whether or not we have a task polling for latest quorum propsal
+    latest_quorum_proposal_poll_running: Arc<AtomicBool>,
+    /// Whether or not we have a task polling for the latest view sync certificate
+    latest_view_sync_certificate_poll_running: Arc<AtomicBool>,
 }
 
 impl<TYPES: NodeType> Inner<TYPES> {
@@ -237,6 +237,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
         receiver: UnboundedReceiver<ConsensusIntentEvent<TYPES::SignatureKey>>,
         message_purpose: MessagePurpose,
         view_number: u64,
+        additional_wait: Duration,
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
@@ -284,10 +285,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         debug!("tx index is {}", tx_index);
                     }
                     Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
+                        async_sleep(self.wait_between_polls + additional_wait).await;
                     }
                     Err(_e) => {
-                        async_sleep(self.wait_between_polls).await;
+                        async_sleep(self.wait_between_polls + additional_wait).await;
                     }
                 }
             } else {
@@ -617,8 +618,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            latest_quorum_proposal_task: Arc::default(),
-            latest_view_sync_certificate_task: Arc::default(),
+            latest_quorum_proposal_poll_running: Arc::default(),
+            latest_view_sync_certificate_poll_running: Arc::default(),
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -905,7 +906,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Proposal, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Proposal,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -938,7 +944,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::VidDisperse, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::VidDisperse,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -958,58 +969,73 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     .await;
             }
             ConsensusIntentEvent::PollForLatestQuorumProposal => {
-                let mut proposal_task = self.inner.latest_quorum_proposal_task.write().await;
-                if proposal_task.is_none() {
-                    // create new task
-                    let (sender, receiver) = unbounded();
-                    *proposal_task = Some(sender);
-
-                    async_spawn({
-                        let inner_clone = self.inner.clone();
-                        async move {
-                            if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::LatestQuorumProposal, 1)
+                // Only start this task if we haven't already started it.
+                if self
+                    .inner
+                    .latest_quorum_proposal_poll_running
+                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    let inner = self.inner.clone();
+                    // Create the new task
+                    async_spawn(async move {
+                        loop {
+                            let inner = inner.clone();
+                            // Create a new channel that we will not use (as we don't cancel)
+                            let (_, receiver) = unbounded();
+                            if let Err(e) = inner
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::LatestQuorumProposal,
+                                    1,
+                                    Duration::from_millis(500),
+                                )
                                 .await
                             {
                                 warn!(
-                                "Background receive proposal polling encountered an error: {:?}",
+                                "Background receive latest quorum proposal polling encountered an error: {:?}",
                                 e
                             );
                             }
-                            let mut proposal_task =
-                                inner_clone.latest_quorum_proposal_task.write().await;
-                            *proposal_task = None;
+
+                            // To prevent flooding the webserver
+                            async_sleep(Duration::from_secs(1)).await;
                         }
                     });
                 }
             }
             ConsensusIntentEvent::PollForLatestViewSyncCertificate => {
-                let mut latest_view_sync_certificate_task =
-                    self.inner.latest_view_sync_certificate_task.write().await;
-                if latest_view_sync_certificate_task.is_none() {
-                    // create new task
-                    let (sender, receiver) = unbounded();
-                    *latest_view_sync_certificate_task = Some(sender);
-
-                    async_spawn({
-                        let inner_clone = self.inner.clone();
-                        async move {
-                            if let Err(e) = inner_clone
+                // Only start this task if we haven't already started it.
+                if self
+                    .inner
+                    .latest_view_sync_certificate_poll_running
+                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    let inner = self.inner.clone();
+                    // Create the new task
+                    async_spawn(async move {
+                        loop {
+                            let inner: Arc<Inner<TYPES>> = inner.clone();
+                            // Create a new channel that we will not use (as we don't cancel)
+                            let (_, receiver) = unbounded();
+                            if let Err(e) = inner
                                 .poll_web_server(
                                     receiver,
                                     MessagePurpose::LatestViewSyncCertificate,
                                     1,
+                                    Duration::from_millis(500),
                                 )
                                 .await
                             {
                                 warn!(
-                                "Background receive proposal polling encountered an error: {:?}",
+                                "Background receive latest view sync certificate polling encountered an error: {:?}",
                                 e
                             );
                             }
-                            let mut latest_view_sync_certificate_task =
-                                inner_clone.latest_view_sync_certificate_task.write().await;
-                            *latest_view_sync_certificate_task = None;
+
+                            // To prevent flooding the webserver
+                            async_sleep(Duration::from_secs(1)).await;
                         }
                     });
                 }
@@ -1024,7 +1050,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Vote, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Vote,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -1054,7 +1085,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::DAC, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::DAC,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -1101,6 +1137,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                     receiver,
                                     MessagePurpose::ViewSyncCertificate,
                                     view_number,
+                                    Duration::ZERO,
                                 )
                                 .await
                             {
@@ -1137,6 +1174,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                     receiver,
                                     MessagePurpose::ViewSyncVote,
                                     view_number,
+                                    Duration::ZERO,
                                 )
                                 .await
                             {
@@ -1198,7 +1236,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Data, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Data,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
