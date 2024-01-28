@@ -62,14 +62,14 @@ pub enum MessagePurpose {
     Proposal,
     /// Message with most recent quorum proposal the server has
     LatestQuorumProposal,
-    /// Message with most recent view sync proposal the server has
-    LatestViewSyncProposal,
+    /// Message with most recent view sync certificate the server has
+    LatestViewSyncCertificate,
     /// Message with a quorum vote.
     Vote,
     /// Message with a view sync vote.
     ViewSyncVote,
-    /// Message with a view sync proposal.
-    ViewSyncProposal,
+    /// Message with a view sync certificate.
+    ViewSyncCertificate,
     /// Message with a DAC.
     DAC,
     /// Message for internal use
@@ -403,7 +403,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 GeneralConsensusMessage::ViewSyncPreCommitCertificate(_)
                 | GeneralConsensusMessage::ViewSyncCommitCertificate(_)
                 | GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => {
-                    MessagePurpose::ViewSyncProposal
+                    MessagePurpose::ViewSyncCertificate
                 }
             },
             Right(committee_message) => match committee_message {
