@@ -224,15 +224,11 @@ struct Inner<TYPES: NodeType> {
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     #[allow(clippy::type_complexity)]
-    /// A handle for cancelling the task polling for latest quorum propsal
-    cancel_latest_quorum_proposal_task: Arc<
-        RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
-    >,
+    /// A handle on the task polling for latest quorum propsal
+    latest_quorum_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
     #[allow(clippy::type_complexity)]
-    /// A handle for cancelling the task polling for the latest view sync certificate
-    cancel_latest_view_sync_certificate_task: Arc<
-        RwLock<Option<UnboundedSender<ConsensusIntentEvent<<TYPES as NodeType>::SignatureKey>>>>,
-    >,
+    /// A handle on the task polling for the latest view sync certificate
+    latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
 impl<TYPES: NodeType> Inner<TYPES> {
@@ -247,7 +243,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
-        let mut seen_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
+        let mut seen_quorum_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
+        let mut seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(100).unwrap());
 
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
@@ -308,10 +305,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                             MessagePurpose::Proposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
+                                let proposal = deserialized_messages[0].clone();
+                                let hash = hash(&proposal);
+                                // Only allow unseen proposals to be pushed to the queue
+                                if seen_quorum_proposals.put(hash, ()).is_none() {
+                                    self.broadcast_poll_queue.write().await.push(proposal);
+                                }
 
                                 return Ok(());
                                 // Wait for the view to change before polling for proposals again
@@ -325,12 +324,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                             MessagePurpose::LatestQuorumProposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
+                                let proposal = deserialized_messages[0].clone();
+                                let hash = hash(&proposal);
+                                // Only allow unseen proposals to be pushed to the queue
+                                if seen_quorum_proposals.put(hash, ()).is_none() {
+                                    self.broadcast_poll_queue.write().await.push(proposal);
+                                }
                             }
                             MessagePurpose::LatestViewSyncCertificate => {
                                 let mut broadcast_poll_queue =
@@ -338,13 +337,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                                 for cert in &deserialized_messages {
                                     let hash = hash(&cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
+                                    if seen_view_sync_certificates.put(hash, ()).is_none() {
                                         broadcast_poll_queue.push(cert.clone());
                                     }
                                 }
-
-                                // additional sleep to reduce load on web server
-                                async_sleep(Duration::from_millis(300)).await;
                             }
                             MessagePurpose::Vote => {
                                 // error!(
@@ -420,7 +416,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 for cert in &deserialized_messages {
                                     vote_index += 1;
                                     let hash = hash(cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
+                                    if seen_view_sync_certificates.put(hash, ()).is_none() {
                                         broadcast_poll_queue.push(cert.clone());
                                     }
                                 }
@@ -441,11 +437,11 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         }
                     }
                     Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
+                        async_sleep(self.wait_between_polls + additional_wait).await;
                     }
                     Err(_e) => {
                         // error!("error is {:?}", _e);
-                        async_sleep(self.wait_between_polls).await;
+                        async_sleep(self.wait_between_polls + additional_wait).await;
                     }
                 }
             }
@@ -628,8 +624,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            cancel_latest_quorum_proposal_task: Arc::default(),
-            cancel_latest_view_sync_certificate_task: Arc::default(),
+            latest_quorum_proposal_task: Arc::default(),
+            latest_view_sync_certificate_task: Arc::default(),
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -799,24 +795,18 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     {
         let closure = async move {
             // Cancel poll for latest quorum proposal on shutdown
-            if let Some(ref sender) = *self.inner.cancel_latest_quorum_proposal_task.read().await {
+            if let Some(ref sender) = *self.inner.latest_quorum_proposal_task.read().await {
                 let _ = sender
                     .send(ConsensusIntentEvent::CancelPollForLatestProposal(1))
                     .await;
             };
 
             // Cancel poll for latest view sync certificate on shutdown
-            if let Some(ref sender) = *self
-                .inner
-                .cancel_latest_view_sync_certificate_task
-                .read()
-                .await
-            {
+            if let Some(ref sender) = *self.inner.latest_view_sync_certificate_task.read().await {
                 let _ = sender
                     .send(ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(1))
                     .await;
             };
-
             self.inner.running.store(false, Ordering::Relaxed);
         };
         boxed_sync(closure)
@@ -999,88 +989,58 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             }
             ConsensusIntentEvent::PollForLatestQuorumProposal => {
                 // Only start this task if we haven't already started it.
-                let mut cancel_handle = self.inner.cancel_latest_quorum_proposal_task.write().await;
+                let mut cancel_handle = self.inner.latest_quorum_proposal_task.write().await;
                 if cancel_handle.is_none() {
                     let inner = self.inner.clone();
 
-                    // Create sender and receiver for cancelling parent task
+                    // Create sender and receiver for cancelling the task
                     let (sender, receiver) = unbounded();
                     *cancel_handle = Some(sender);
 
                     // Create the new task
                     async_spawn(async move {
-                        loop {
-                            // If someone cancelled us, return
-                            if receiver.try_recv().is_ok() {
-                                return;
-                            }
-
-                            let inner = inner.clone();
-                            // Create a new channel that we will not use (as we don't cancel)
-                            let (_, fake_receiver) = unbounded();
-                            if let Err(e) = inner
-                                .poll_web_server(
-                                    fake_receiver,
-                                    MessagePurpose::LatestQuorumProposal,
-                                    1,
-                                    Duration::from_millis(500),
-                                )
-                                .await
-                            {
-                                warn!(
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::LatestQuorumProposal,
+                                1,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
                                 "Background receive latest quorum proposal polling encountered an error: {:?}",
                                 e
                             );
-                            }
-
-                            // To prevent flooding the webserver
-                            async_sleep(Duration::from_secs(1)).await;
                         }
                     });
                 }
             }
             ConsensusIntentEvent::PollForLatestViewSyncCertificate => {
                 // Only start this task if we haven't already started it.
-                let mut cancel_handle = self
-                    .inner
-                    .cancel_latest_view_sync_certificate_task
-                    .write()
-                    .await;
+                let mut cancel_handle = self.inner.latest_view_sync_certificate_task.write().await;
                 if cancel_handle.is_none() {
                     let inner = self.inner.clone();
 
-                    // Create sender and receiver for cancelling parent task
+                    // Create sender and receiver for cancelling the task
                     let (sender, receiver) = unbounded();
                     *cancel_handle = Some(sender);
 
                     // Create the new task
                     async_spawn(async move {
-                        loop {
-                            // If someone cancelled us, return
-                            if receiver.try_recv().is_ok() {
-                                return;
-                            }
-
-                            let inner = inner.clone();
-                            // Create a new channel that we will not use (as we don't cancel)
-                            let (_, fake_receiver) = unbounded();
-                            if let Err(e) = inner
-                                .poll_web_server(
-                                    fake_receiver,
-                                    MessagePurpose::LatestViewSyncCertificate,
-                                    1,
-                                    Duration::from_millis(500),
-                                )
-                                .await
-                            {
-                                warn!(
-                                "Background receive view sync certificate polling encountered an error: {:?}",
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::LatestViewSyncCertificate,
+                                1,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
+                                "Background receive latest view sync certificate polling encountered an error: {:?}",
                                 e
                             );
-                            }
-
-                            // To prevent flooding the webserver
-                            async_sleep(Duration::from_secs(1)).await;
                         }
                     });
                 }
