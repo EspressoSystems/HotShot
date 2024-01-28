@@ -200,10 +200,8 @@ Choose an async runtime to use before launching a text editor. This may be done 
 ```
 export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' # export RUSTFLAGS so the editor is aware of extra flags
 nvim # launch text editor of choice. We choose neovim in this example
-unset RUSTFLAGS # Unset rustflags so we may continue to use the justfile without confusing it
+unset RUSTFLAGS # Unset rustflags so we may continue to use the justfile. The justfile sets these particular config options
 ```
-
-Be sure t
 
 # Debugging
 
