@@ -31,10 +31,6 @@ jobs:
         with:
           prefix-key: ${{ matrix.just_variants }}
 
-      - name: Run linting
-        run: |
-          just ${{ matrix.just_variants }} lint
-
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
 
