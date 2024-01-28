@@ -160,11 +160,14 @@ pub trait WebServerDataSource<KEY> {
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
 
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
-    /// Post view sync proposal
+    /// Post view sync certificate
     /// # Errors
     /// Error if unable to serve.
-    fn post_view_sync_certificate(&mut self, view_number: u64, proposal: Vec<u8>)
-        -> Result<(), Error>;
+    fn post_view_sync_certificate(
+        &mut self,
+        view_number: u64,
+        certificate: Vec<u8>,
+    ) -> Result<(), Error>;
 
     fn post_da_certificate(&mut self, view_number: u64, cert: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
