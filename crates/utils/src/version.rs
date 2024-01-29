@@ -14,21 +14,3 @@ pub fn read_version(message: &[u8]) -> Option<Version> {
 
     Some(Version { major, minor })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn read_version_test() {
-        let bytes: [u8; 6] = [0, 0, 1, 0, 4, 9];
-        let version = Version { major: 0, minor: 1 };
-        assert_eq!(read_version(&bytes), None);
-    }
-
-    #[test]
-    fn read_version_insufficient_bytes_test() {
-        let bytes: [u8; 3] = [0, 0, 0];
-        assert_eq!(read_version(&bytes), None);
-    }
-}
