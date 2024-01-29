@@ -197,7 +197,7 @@ The probability of being elected is proportional to the stake of each member.</p
 as in Hotstuff.
 Thus, our implementation of cryptographic sortition slightly differs from the Algorand’s one (in particular the VRF does not take the <em>role</em> as input).</p>
 <h2 id="appendices"><a href="#appendices">Appendices</a></h2><h3 id="definitions"><a href="#definitions">Definitions</a></h3><h4 id="quorum-certificate"><a href="#quorum-certificate">Quorum Certificate</a></h4>
-<p>A Quorum Certificate is a threshold signature of a <a href="../../hotshot_types/data/struct.Leaf.html" title="struct hotshot_types::data::Leaf"><code>Leaf</code></a>, composed of
+<p>A Quorum Certificate is a threshold signature of a <a href="hotshot_types::data::Leaf"><code>Leaf</code></a>, composed of
 signatures from at least <code>2f + 1</code> nodes.</p>
 <p>In the case of sequential HotShot, or pipelined HotShot without committee election, <code>f</code> is
 defined to be the maximum number of faulty nodes the network can tolerate.</p>
