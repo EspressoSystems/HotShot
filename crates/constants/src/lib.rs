@@ -26,5 +26,5 @@ pub struct Version {
     pub minor: u16,
 }
 
-/// Constants for the current version number used by the program
+/// Constant for protocol version 0.1.
 pub const VERSION_0_1: Version = Version { major: 0, minor: 1 };

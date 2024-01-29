@@ -207,10 +207,8 @@ struct Inner<TYPES: NodeType> {
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
     is_da: bool,
-
     /// The last tx_index we saw from the web server
     tx_index: Arc<RwLock<u64>>,
-
     /// Task map for quorum proposals.
     proposal_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for quorum votes.
@@ -236,8 +234,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
     /// Handle version 0.1 transactions
     ///
-    /// * `index` - the index of the first transaction received from the server.
-    /// * `tx_index` - the index of the last transaction handled.
+    /// * `index` - the index of the first transaction received from the server in the latest batch.
+    /// * `tx_index` - the last transaction index we saw from the web server.
     async fn handle_tx_0_1(&self, tx: Vec<u8>, index: u64, tx_index: &mut u64) {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         if index > *tx_index + 1 {

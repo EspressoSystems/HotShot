@@ -528,7 +528,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     async fn spawn_events_0_1(
         &self,
         msg: NetworkEvent,
-        is_bootstrapped: &Arc<AtomicBool>,
         direct_send: &UnboundedSender<M>,
         broadcast_send: &UnboundedSender<M>,
     ) -> Result<(), NetworkError> {
@@ -573,7 +572,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
-                is_bootstrapped.store(true, Ordering::Relaxed);
+                unreachable!("spawn_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
         }
         Ok::<(), NetworkError>(())
@@ -590,34 +589,35 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
             while let Ok(message) = handle.inner.handle.receiver().recv().await {
-                let message_version = match &message {
+                match &message {
+                    NetworkEvent::IsBootstrapped => {
+                        is_bootstrapped.store(true, Ordering::Relaxed);
+                    }
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
-                        read_version(raw)
-                    }
-                    NetworkEvent::IsBootstrapped => None,
-                };
-                match message_version {
-                    Some(VERSION_0_1) => {
-                        let _ = handle
-                            .spawn_events_0_1(
-                                message,
-                                &is_bootstrapped,
-                                &direct_send,
-                                &broadcast_send,
-                            )
-                            .await;
-                    }
-                    Some(version) => {
-                        warn!(
+                        let message_version = read_version(raw);
+                        match message_version {
+                            Some(VERSION_0_1) => {
+                                let _ = handle
+                                    .spawn_events_0_1(
+                                        message,
+                                        &direct_send,
+                                        &broadcast_send,
+                                    )
+                                    .await;
+                            }
+                            Some(version) => {
+                                warn!(
                             "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                             version, message
                         );
-                    }
-                    _ => {
-                        warn!(
+                            }
+                            _ => {
+                                warn!(
                             "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
                             message
                         );
+                            }
+                        }
                     }
                 }
             }
