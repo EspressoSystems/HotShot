@@ -235,6 +235,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
     #![allow(clippy::too_many_lines)]
 
     /// Handle version 0.1 transactions
+    ///
+    /// * `index` - the index of the first transaction received from the server.
+    /// * `tx_index` - the index of the last transaction handled.
     async fn handle_tx_0_1(&self, tx: Vec<u8>, index: u64, tx_index: &mut u64) {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         if index > *tx_index + 1 {
