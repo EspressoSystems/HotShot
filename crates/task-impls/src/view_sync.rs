@@ -408,7 +408,7 @@ impl<
                     // cancel poll for votes
                     self.network
                         .inject_consensus_info(
-                            ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
+                            ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate,
                         )
                         .await;
 
@@ -473,7 +473,7 @@ impl<
 
                     // Poll for future view sync certificates
                     self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncProposal)
+                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
                         .await;
 
                     // Spawn replica task
@@ -735,7 +735,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Cancel poll for future view sync certificates
                 self.network
                     .inject_consensus_info(
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
+                        ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate,
                     )
                     .await;
 
