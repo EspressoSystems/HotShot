@@ -594,7 +594,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
                         read_version(raw)
                     }
-                    NetworkEvent::IsBootstrapped => Some(VERSION_0_1),
+                    NetworkEvent::IsBootstrapped => None,
                 };
                 match message_version {
                     Some(VERSION_0_1) => {
