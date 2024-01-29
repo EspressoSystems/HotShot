@@ -92,6 +92,15 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use crate</span>::{
@@ -125,6 +134,15 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewInner&lt;TYPES&gt; {
+    <span class="doccomment">/// Return the underlying undecide leaf view if it exists.
+    </span><span class="kw">pub fn </span>get_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(Commitment&lt;Leaf&lt;TYPES&gt;&gt;, <span class="kw-2">&amp;</span>TYPES::StateType)&gt; {
+        <span class="kw">if let </span><span class="self">Self</span>::Leaf { leaf, state } = <span class="self">self </span>{
+            <span class="prelude-val">Some</span>((<span class="kw-2">*</span>leaf, state))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
+    }
+
     <span class="doccomment">/// return the underlying leaf hash if it exists
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Commitment&lt;Leaf&lt;TYPES&gt;&gt;&gt; {

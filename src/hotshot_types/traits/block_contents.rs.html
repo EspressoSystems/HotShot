@@ -123,12 +123,22 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait};
+</span><span class="kw">use crate</span>::{
+    data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
+    traits::State,
+};
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 
@@ -225,11 +235,15 @@
     <span class="doccomment">/// Block payload associated with the commitment.
     </span><span class="kw">type </span>Payload: BlockPayload;
 
-    <span class="doccomment">/// Build a header with the payload commitment, metadata, and parent header.
+    <span class="doccomment">/// Validated state.
+    </span><span class="kw">type </span>State: State&lt;BlockHeader = <span class="self">Self</span>&gt;;
+
+    <span class="doccomment">/// Build a header with the payload commitment, metadata, parent header, and parent state.
     </span><span class="kw">fn </span>new(
         payload_commitment: VidCommitment,
         metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        parent_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::State,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.

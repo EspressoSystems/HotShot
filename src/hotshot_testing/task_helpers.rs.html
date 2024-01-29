@@ -371,6 +371,11 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -612,7 +617,13 @@
             .quorum_membership
             .total_nodes(),
     );
-    <span class="kw">let </span>block_header = TestBlockHeader::new(payload_commitment, (), <span class="kw-2">&amp;</span>parent_leaf.block_header);
+    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = &lt;TestState <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
+    <span class="kw">let </span>block_header = TestBlockHeader::new(
+        payload_commitment,
+        (),
+        <span class="kw-2">&amp;</span>parent_leaf.block_header,
+        <span class="kw-2">&amp;</span>parent_state,
+    );
     <span class="comment">// current leaf that can be re-assigned everytime when entering a new view
     </span><span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf {
         view_number: ViewNumber::new(<span class="number">1</span>),
@@ -623,7 +634,6 @@
         rejected: <span class="macro">vec!</span>[],
         proposer_id: <span class="kw-2">*</span>api.public_key(),
     };
-    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = &lt;TestState <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
 
     <span class="kw">let </span><span class="kw-2">mut </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref())
         .expect(<span class="string">&quot;Failed to sign leaf commitment!&quot;</span>);

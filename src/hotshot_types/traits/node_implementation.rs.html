@@ -598,7 +598,7 @@
     /// This should be the same `Time` that `StateType::Time` is using.
     </span><span class="kw">type </span>Time: ConsensusTime;
     <span class="doccomment">/// The block header type that this hotshot setup is using.
-    </span><span class="kw">type </span>BlockHeader: BlockHeader&lt;Payload = <span class="self">Self</span>::BlockPayload&gt;;
+    </span><span class="kw">type </span>BlockHeader: BlockHeader&lt;Payload = <span class="self">Self</span>::BlockPayload, State = <span class="self">Self</span>::StateType&gt;;
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockPayload` is using.
