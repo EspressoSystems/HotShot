@@ -406,12 +406,6 @@ impl<
                     // Garbage collect old tasks
                     // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
                     // cancel poll for votes
-                    self.network
-                        .inject_consensus_info(
-                            ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
-                        )
-                        .await;
-
                     // run GC
                     for i in *self.last_garbage_collected_view..*self.current_view {
                         self.replica_task_map
@@ -471,11 +465,6 @@ impl<
                         ))
                         .await;
 
-                    // Poll for future view sync certificates
-                    self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncProposal)
-                        .await;
-
                     // Spawn replica task
                     let next_view = *view_number + 1;
                     // Subscribe to the view after we are leader since we know we won't propose in the next view if we are leader.
@@ -492,12 +481,6 @@ impl<
                             subscribe_view,
                         ))
                         .await;
-                    // Also subscribe to the latest view for the same reason. The GC will remove the above poll
-                    // in the case that one doesn't resolve but this one does.
-                    self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
-                        .await;
-
                     self.network
                         .inject_consensus_info(ConsensusIntentEvent::PollForDAC(subscribe_view))
                         .await;
@@ -732,13 +715,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                // Cancel poll for future view sync certificates
-                self.network
-                    .inject_consensus_info(
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
-                    )
-                    .await;
-
                 if certificate.get_data().relay > self.relay {
                     self.relay = certificate.get_data().relay;
                 }
@@ -800,10 +776,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     if let Some(timeout_task) = self.timeout_task.take() {
                         cancel_task(timeout_task).await;
                     }
-                    // Keep trying to get a more recent proposal to catch up to
-                    self.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
-                        .await;
                     self.relay += 1;
                     match last_seen_certificate {
                         ViewSyncPhase::None | ViewSyncPhase::PreCommit | ViewSyncPhase::Commit => {

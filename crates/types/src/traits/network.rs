@@ -149,7 +149,7 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     /// Poll for the most recent quorum proposal the webserver has
     PollForLatestQuorumProposal,
     /// Poll for the most recent view sync proposal the webserver has
-    PollForLatestViewSyncProposal,
+    PollForLatestViewSyncCertificate,
     /// Poll for a DAC for a particular view
     PollForDAC(u64),
     /// Poll for view sync votes starting at a particular view
@@ -166,6 +166,10 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     CancelPollForViewSyncVotes(u64),
     /// Cancel polling for proposals.
     CancelPollForProposal(u64),
+    /// Cancel polling for the latest proposal.
+    CancelPollForLatestProposal(u64),
+    /// Cancel polling for the latest view sync certificate
+    CancelPollForLatestViewSyncCertificate(u64),
     /// Cancal polling for DAC.
     CancelPollForDAC(u64),
     /// Cancel polling for view sync certificate.
@@ -174,8 +178,6 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     CancelPollForVIDDisperse(u64),
     /// Cancel polling for transactions
     CancelPollForTransactions(u64),
-    /// Cancel polling for most recent view sync proposal
-    CancelPollForLatestViewSyncProposal,
 }
 
 impl<K: SignatureKey> ConsensusIntentEvent<K> {
@@ -190,6 +192,8 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForVotes(view_number)
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
@@ -199,8 +203,7 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number,
             ConsensusIntentEvent::PollForLatestQuorumProposal
-            | ConsensusIntentEvent::PollForLatestViewSyncProposal
-            | ConsensusIntentEvent::CancelPollForLatestViewSyncProposal => 1,
+            | ConsensusIntentEvent::PollForLatestViewSyncCertificate => 1,
         }
     }
 }
