@@ -300,11 +300,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             MessagePurpose::Proposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                                 let proposal = deserialized_messages[0].clone();
-                                let hash = hash(&proposal);
-                                // Only allow unseen proposals to be pushed to the queue
-                                if seen_quorum_proposals.put(hash, ()).is_none() {
-                                    self.broadcast_poll_queue.write().await.push(proposal);
-                                }
+                                self.broadcast_poll_queue.write().await.push(proposal);
 
                                 return Ok(());
                                 // Wait for the view to change before polling for proposals again

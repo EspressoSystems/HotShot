@@ -8,7 +8,11 @@ use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
 use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    io,
+    path::PathBuf,
+};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -24,23 +28,19 @@ type Error = ServerError;
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
-    proposals: HashMap<u64, (String, Vec<u8>)>,
+    proposals: BTreeMap<u64, (String, Vec<u8>)>,
     /// for view sync: view number -> (relay, certificate)
-    view_sync_certificates: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    view_sync_certificates: BTreeMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> relay
     view_sync_certificate_index: HashMap<u64, u64>,
     /// view number -> (secret, da_certificates)
     da_certificates: HashMap<u64, (String, Vec<u8>)>,
-    /// view for oldest proposals in memory
-    oldest_proposal: u64,
     /// view for the most recent proposal to help nodes catchup
     latest_quorum_proposal: u64,
     /// view for the most recent view sync proposal
     latest_view_sync_certificate: u64,
     /// view for the oldest DA certificate
     oldest_certificate: u64,
-    /// view for the oldest view sync certificate
-    oldest_view_sync_certificate: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
 
@@ -84,12 +84,11 @@ struct WebServerState<KEY> {
 impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
-            proposals: HashMap::new(),
+            proposals: BTreeMap::new(),
             da_certificates: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
             oldest_vote: 0,
-            oldest_proposal: 0,
             latest_quorum_proposal: 0,
             latest_view_sync_certificate: 0,
             oldest_certificate: 0,
@@ -99,7 +98,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             transactions: HashMap::new(),
             txn_lookup: HashMap::new(),
             _prng: StdRng::from_entropy(),
-            view_sync_certificates: HashMap::new(),
+            view_sync_certificates: BTreeMap::new(),
             view_sync_votes: HashMap::new(),
             view_sync_vote_index: HashMap::new(),
 
@@ -116,7 +115,6 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             vid_vote_index: HashMap::new(),
 
             oldest_view_sync_vote: 0,
-            oldest_view_sync_certificate: 0,
             view_sync_certificate_index: HashMap::new(),
         }
     }
@@ -486,10 +484,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
-            self.proposals.remove(&self.oldest_proposal);
-            while !self.proposals.contains_key(&self.oldest_proposal) {
-                self.oldest_proposal += 1;
-            }
+            self.proposals.pop_first();
         }
         self.proposals
             .entry(view_number)
@@ -529,14 +524,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.view_sync_certificates.len() >= MAX_VIEWS {
-            self.view_sync_certificates
-                .remove(&self.oldest_view_sync_certificate);
-            while !self
-                .view_sync_certificates
-                .contains_key(&self.oldest_view_sync_certificate)
-            {
-                self.oldest_view_sync_certificate += 1;
-            }
+            self.view_sync_certificates.pop_first();
         }
         let next_index = self
             .view_sync_certificate_index
@@ -659,10 +647,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         // Only keep proposal history for MAX_VIEWS number of views
         if self.proposals.len() >= MAX_VIEWS {
-            self.proposals.remove(&self.oldest_proposal);
-            while !self.proposals.contains_key(&self.oldest_proposal) {
-                self.oldest_proposal += 1;
-            }
+            self.proposals.pop_first();
         }
         self.proposals
             .entry(view_number)
