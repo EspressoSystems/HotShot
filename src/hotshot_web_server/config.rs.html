@@ -183,8 +183,8 @@
 
 <span class="doccomment">/// get latest view sync proposal
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>get_latest_view_sync_proposal_route() -&gt; String {
-    <span class="string">&quot;api/view_sync_proposal/latest&quot;</span>.to_string()
+</span><span class="kw">pub fn </span>get_latest_view_sync_certificate_route() -&gt; String {
+    <span class="string">&quot;api/view_sync_certificate/latest&quot;</span>.to_string()
 }
 
 <span class="doccomment">/// get latest certificate
@@ -279,14 +279,14 @@
 
 <span class="doccomment">/// post view sync proposal
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>post_view_sync_proposal_route(view_number: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_proposal/{view_number}&quot;</span>)
+</span><span class="kw">pub fn </span>post_view_sync_certificate_route(view_number: u64) -&gt; String {
+    <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_certificate/{view_number}&quot;</span>)
 }
 
 <span class="doccomment">/// get view sync proposal
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>get_view_sync_proposal_route(view_number: u64, index: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_proposal/{view_number}/{index}&quot;</span>)
+</span><span class="kw">pub fn </span>get_view_sync_certificate_route(view_number: u64, index: u64) -&gt; String {
+    <span class="macro">format!</span>(<span class="string">&quot;api/view_sync_certificate/{view_number}/{index}&quot;</span>)
 }
 
 <span class="doccomment">/// post view sync vote

@@ -536,14 +536,14 @@
     </span>Proposal,
     <span class="doccomment">/// Message with most recent quorum proposal the server has
     </span>LatestQuorumProposal,
-    <span class="doccomment">/// Message with most recent view sync proposal the server has
-    </span>LatestViewSyncProposal,
+    <span class="doccomment">/// Message with most recent view sync certificate the server has
+    </span>LatestViewSyncCertificate,
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote,
     <span class="doccomment">/// Message with a view sync vote.
     </span>ViewSyncVote,
-    <span class="doccomment">/// Message with a view sync proposal.
-    </span>ViewSyncProposal,
+    <span class="doccomment">/// Message with a view sync certificate.
+    </span>ViewSyncCertificate,
     <span class="doccomment">/// Message with a DAC.
     </span>DAC,
     <span class="doccomment">/// Message for internal use
@@ -896,7 +896,7 @@
                 GeneralConsensusMessage::ViewSyncPreCommitCertificate(<span class="kw">_</span>)
                 | GeneralConsensusMessage::ViewSyncCommitCertificate(<span class="kw">_</span>)
                 | GeneralConsensusMessage::ViewSyncFinalizeCertificate(<span class="kw">_</span>) =&gt; {
-                    MessagePurpose::ViewSyncProposal
+                    MessagePurpose::ViewSyncCertificate
                 }
 
                 GeneralConsensusMessage::UpgradeCertificate(<span class="kw">_</span>)

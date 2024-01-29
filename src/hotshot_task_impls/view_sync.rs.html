@@ -847,34 +847,6 @@
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -1289,13 +1261,7 @@
                     <span class="comment">// Garbage collect old tasks
                     // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
                     // cancel poll for votes
-                    </span><span class="self">self</span>.network
-                        .inject_consensus_info(
-                            ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
-                        )
-                        .<span class="kw">await</span>;
-
-                    <span class="comment">// run GC
+                    // run GC
                     </span><span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.last_garbage_collected_view..<span class="kw-2">*</span><span class="self">self</span>.current_view {
                         <span class="self">self</span>.replica_task_map
                             .write()
@@ -1354,11 +1320,6 @@
                         ))
                         .<span class="kw">await</span>;
 
-                    <span class="comment">// Poll for future view sync certificates
-                    </span><span class="self">self</span>.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncProposal)
-                        .<span class="kw">await</span>;
-
                     <span class="comment">// Spawn replica task
                     </span><span class="kw">let </span>next_view = <span class="kw-2">*</span>view_number + <span class="number">1</span>;
                     <span class="comment">// Subscribe to the view after we are leader since we know we won&#39;t propose in the next view if we are leader.
@@ -1375,12 +1336,6 @@
                             subscribe_view,
                         ))
                         .<span class="kw">await</span>;
-                    <span class="comment">// Also subscribe to the latest view for the same reason. The GC will remove the above poll
-                    // in the case that one doesn&#39;t resolve but this one does.
-                    </span><span class="self">self</span>.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
-                        .<span class="kw">await</span>;
-
                     <span class="self">self</span>.network
                         .inject_consensus_info(ConsensusIntentEvent::PollForDAC(subscribe_view))
                         .<span class="kw">await</span>;
@@ -1621,13 +1576,6 @@
                     ))
                     .<span class="kw">await</span>;
 
-                <span class="comment">// Cancel poll for future view sync certificates
-                </span><span class="self">self</span>.network
-                    .inject_consensus_info(
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncProposal,
-                    )
-                    .<span class="kw">await</span>;
-
                 <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
                     <span class="self">self</span>.relay = certificate.get_data().relay;
                 }
@@ -1692,10 +1640,6 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
                         cancel_task(timeout_task).<span class="kw">await</span>;
                     }
-                    <span class="comment">// Keep trying to get a more recent proposal to catch up to
-                    </span><span class="self">self</span>.network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
-                        .<span class="kw">await</span>;
                     <span class="self">self</span>.relay += <span class="number">1</span>;
                     <span class="kw">match </span>last_seen_certificate {
                         ViewSyncPhase::None | ViewSyncPhase::PreCommit | ViewSyncPhase::Commit =&gt; {

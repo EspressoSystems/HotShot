@@ -655,6 +655,9 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -807,7 +810,7 @@
     <span class="doccomment">/// Poll for the most recent quorum proposal the webserver has
     </span>PollForLatestQuorumProposal,
     <span class="doccomment">/// Poll for the most recent view sync proposal the webserver has
-    </span>PollForLatestViewSyncProposal,
+    </span>PollForLatestViewSyncCertificate,
     <span class="doccomment">/// Poll for a DAC for a particular view
     </span>PollForDAC(u64),
     <span class="doccomment">/// Poll for view sync votes starting at a particular view
@@ -824,6 +827,10 @@
     </span>CancelPollForViewSyncVotes(u64),
     <span class="doccomment">/// Cancel polling for proposals.
     </span>CancelPollForProposal(u64),
+    <span class="doccomment">/// Cancel polling for the latest proposal.
+    </span>CancelPollForLatestProposal(u64),
+    <span class="doccomment">/// Cancel polling for the latest view sync certificate
+    </span>CancelPollForLatestViewSyncCertificate(u64),
     <span class="doccomment">/// Cancal polling for DAC.
     </span>CancelPollForDAC(u64),
     <span class="doccomment">/// Cancel polling for view sync certificate.
@@ -832,8 +839,6 @@
     </span>CancelPollForVIDDisperse(u64),
     <span class="doccomment">/// Cancel polling for transactions
     </span>CancelPollForTransactions(u64),
-    <span class="doccomment">/// Cancel polling for most recent view sync proposal
-    </span>CancelPollForLatestViewSyncProposal,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; ConsensusIntentEvent&lt;K&gt; {
@@ -848,6 +853,8 @@
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForVotes(view_number)
             | ConsensusIntentEvent::CancelPollForProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestProposal(view_number)
+            | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(view_number)
             | ConsensusIntentEvent::PollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForVIDDisperse(view_number)
             | ConsensusIntentEvent::CancelPollForDAC(view_number)
@@ -857,8 +864,7 @@
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
             ConsensusIntentEvent::PollForLatestQuorumProposal
-            | ConsensusIntentEvent::PollForLatestViewSyncProposal
-            | ConsensusIntentEvent::CancelPollForLatestViewSyncProposal =&gt; <span class="number">1</span>,
+            | ConsensusIntentEvent::PollForLatestViewSyncCertificate =&gt; <span class="number">1</span>,
         }
     }
 }

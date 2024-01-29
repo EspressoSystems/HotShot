@@ -536,6 +536,14 @@
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
@@ -794,10 +802,18 @@
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         committee_membership: c_api.inner.memberships.da_membership.clone().into(),
     };
-    consensus_state
+    <span class="comment">// Poll (forever) for the latest quorum proposal
+    </span>consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
         .<span class="kw">await</span>;
+
+    <span class="comment">// Poll (forever) for the latest view sync certificate
+    </span>consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
+        .<span class="kw">await</span>;
+
     <span class="kw">let </span>filter = FilterEvent(Arc::new(consensus_event_filter));
     <span class="kw">let </span>consensus_name = <span class="string">&quot;Consensus Task&quot;</span>;
     <span class="kw">let </span>consensus_event_handler = HandleEvent(Arc::new(
