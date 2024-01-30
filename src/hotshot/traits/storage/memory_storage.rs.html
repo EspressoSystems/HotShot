@@ -177,7 +177,6 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -327,7 +326,6 @@
             header,
             <span class="prelude-val">Some</span>(payload),
             dummy_leaf_commit,
-            Vec::new(),
             &lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
         )
     }

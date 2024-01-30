@@ -374,8 +374,6 @@
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -631,7 +629,6 @@
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: <span class="prelude-val">None</span>,
-        rejected: <span class="macro">vec!</span>[],
         proposer_id: <span class="kw-2">*</span>api.public_key(),
     };
 
@@ -687,7 +684,6 @@
             parent_commitment: parent_leaf.commit(),
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">None</span>,
-            rejected: <span class="macro">vec!</span>[],
             proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
         };
         <span class="kw">let </span>signature_new_view =

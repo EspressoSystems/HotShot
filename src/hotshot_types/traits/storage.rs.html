@@ -158,18 +158,10 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over on-disk storage of node state
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
-<span class="kw">use crate</span>::{
-    data::Leaf, simple_certificate::QuorumCertificate, traits::BlockPayload, vote::HasViewNumber,
-};
+<span class="kw">use crate</span>::{data::Leaf, simple_certificate::QuorumCertificate, vote::HasViewNumber};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>derivative::Derivative;
@@ -296,8 +288,6 @@
     ///
     /// It may be empty for nodes not in the DA committee.
     </span><span class="kw">pub </span>block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
-    <span class="doccomment">/// transactions rejected in this view
-    </span><span class="kw">pub </span>rejected: Vec&lt;TYPES::Transaction&gt;,
     <span class="doccomment">/// the proposer id
     </span><span class="attr">#[derivative(PartialEq = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
@@ -316,7 +306,6 @@
         block_header: TYPES::BlockHeader,
         block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
         parent_commitment: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
-        rejected: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
         proposer_id: TYPES::SignatureKey,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -325,7 +314,6 @@
             justify_qc: qc,
             block_header,
             block_payload,
-            rejected,
             proposer_id,
         }
     }

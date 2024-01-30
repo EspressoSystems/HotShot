@@ -553,18 +553,6 @@
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
 <a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -893,9 +881,6 @@
     /// It may be empty for nodes not in the DA committee.
     </span><span class="kw">pub </span>block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
 
-    <span class="doccomment">/// Transactions that were marked for rejection while collecting the block.
-    </span><span class="kw">pub </span>rejected: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt;,
-
     <span class="doccomment">/// the proposer id of the leaf
     </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
 }
@@ -906,7 +891,6 @@
             &amp;&amp; <span class="self">self</span>.justify_qc == other.justify_qc
             &amp;&amp; <span class="self">self</span>.parent_commitment == other.parent_commitment
             &amp;&amp; <span class="self">self</span>.block_header == other.block_header
-            &amp;&amp; <span class="self">self</span>.rejected == other.rejected
     }
 }
 
@@ -916,7 +900,6 @@
         <span class="self">self</span>.justify_qc.hash(state);
         <span class="self">self</span>.parent_commitment.hash(state);
         <span class="self">self</span>.block_header.hash(state);
-        <span class="self">self</span>.rejected.hash(state);
     }
 }
 
@@ -943,7 +926,6 @@
             parent_commitment: fake_commitment(),
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">Some</span>(block_payload),
-            rejected: Vec::new(),
             proposer_id: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
         }
     }
@@ -1011,10 +993,6 @@
         <span class="self">self</span>.get_block_header().payload_commitment()
     }
 
-    <span class="doccomment">/// Transactions rejected or invalidated by the application of this leaf.
-    </span><span class="kw">pub fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction&gt; {
-        <span class="self">self</span>.rejected.clone()
-    }
     <span class="doccomment">/// Identity of the network participant who proposed this leaf.
     </span><span class="kw">pub fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.proposer_id.clone()
@@ -1027,7 +1005,6 @@
             parent_commitment: stored_view.parent,
             block_header: stored_view.block_header,
             block_payload: stored_view.block_payload,
-            rejected: stored_view.rejected,
             proposer_id: stored_view.proposer_id,
         }
     }
@@ -1127,7 +1104,6 @@
             justify_qc: leaf.get_justify_qc(),
             block_header: leaf.get_block_header().clone(),
             block_payload: leaf.get_block_payload(),
-            rejected: leaf.get_rejected(),
             proposer_id: leaf.get_proposer_id(),
         }
     }
