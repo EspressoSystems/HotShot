@@ -1,0 +1,1 @@
+This directory contains documentation for the HotShot protocol.  `/diagrams` contains state diagrams representing the code logic of HotShot.  The implementation of this logic in the `hotshot` crate should match these diagrams. `espresso-sequencer-paper.pdf` is an academic description and analysis of the HotShot protocol. 
