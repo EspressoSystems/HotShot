@@ -52,7 +52,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSy
         }
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(_event: &Self::Event) -> bool {
         false
     }
 }

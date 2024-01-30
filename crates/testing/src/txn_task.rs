@@ -40,7 +40,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
             loop {
                 async_sleep(self.duration).await;
                 match self.shutdown_chan.try_recv() {
-                    Ok(event) => {
+                    Ok(_event) => {
                         return HotShotTaskCompleted::ShutDown;
                     }
                     Err(TryRecvError::Empty) => {}

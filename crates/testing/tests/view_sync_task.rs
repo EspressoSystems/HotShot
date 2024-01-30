@@ -11,7 +11,7 @@ use std::collections::HashMap;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_task() {
-    use hotshot::tasks::add_view_sync_task;
+    
     use hotshot_task_impls::harness::run_harness;
     use hotshot_task_impls::view_sync::ViewSyncTaskState;
     use hotshot_testing::task_helpers::build_system_handle;

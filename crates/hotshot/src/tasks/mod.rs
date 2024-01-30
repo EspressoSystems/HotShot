@@ -3,7 +3,7 @@
 use crate::{types::SystemContextHandle, HotShotConsensusApi};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use futures::FutureExt;
+
 use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,

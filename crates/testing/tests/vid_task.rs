@@ -1,4 +1,4 @@
-use hotshot::{tasks::add_vid_task, types::SignatureKey, HotShotConsensusApi};
+use hotshot::{types::SignatureKey, HotShotConsensusApi};
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::{
     block_types::TestTransaction,

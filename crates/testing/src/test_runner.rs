@@ -12,7 +12,7 @@ use crate::{
     view_sync_task::ViewSyncTask,
 };
 use async_broadcast::broadcast;
-use futures::{future::join_all, stream::FuturesUnordered};
+use futures::{future::join_all};
 use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
@@ -129,7 +129,7 @@ where
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
 
-        let txn_task =
+        let _txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
                     handles: nodes.clone(),

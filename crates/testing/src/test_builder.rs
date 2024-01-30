@@ -215,12 +215,12 @@ impl TestMetadata {
             min_transactions,
             timing_data,
             da_committee_size,
-            txn_description,
-            completion_task_description,
-            overall_safety_properties,
-            spinning_properties,
+            
+            
+            
+            
             unreliable_network,
-            view_sync_properties,
+            
             ..
         } = self.clone();
 

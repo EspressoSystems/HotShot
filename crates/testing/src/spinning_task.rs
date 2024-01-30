@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use hotshot::{traits::TestableNodeImplementation, SystemContext};
 
-use hotshot_types::event::EventType;
+
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
@@ -46,7 +46,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for Spinni
         None
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(_event: &Self::Event) -> bool {
         false
     }
 }
@@ -62,7 +62,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 
     async fn handle_message(
         message: Self::Message,
-        id: usize,
+        _id: usize,
         task: &mut task::task::TestTask<Self::State, Self>,
     ) -> Option<Self::Result> {
         let Event {

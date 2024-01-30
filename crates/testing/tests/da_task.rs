@@ -21,7 +21,7 @@ use std::{collections::HashMap, marker::PhantomData};
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_da_task() {
-    use hotshot::tasks::add_da_task;
+    
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::message::Proposal;

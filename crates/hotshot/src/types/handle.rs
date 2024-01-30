@@ -2,7 +2,7 @@
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::channel::UnboundedStream;
+
 use async_lock::RwLock;
 use commit::Committable;
 use futures::Stream;

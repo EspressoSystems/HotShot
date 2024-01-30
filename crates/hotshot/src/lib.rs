@@ -69,7 +69,7 @@ use std::{
 };
 use task::task::{Task, TaskRegistry};
 use tasks::add_vid_task;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 // -- Rexports
 // External

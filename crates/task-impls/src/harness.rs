@@ -2,7 +2,7 @@ use crate::events::{HotShotEvent, HotShotTaskCompleted};
 use async_broadcast::broadcast;
 
 use hotshot_types::traits::node_implementation::NodeType;
-use std::{collections::HashMap, future::Future, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use task::task::{Task, TaskRegistry, TaskState};
 
 /// The state for the test harness task. Keeps track of which events and how many we expect to get

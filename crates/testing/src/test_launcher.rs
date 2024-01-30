@@ -1,15 +1,14 @@
 use std::{collections::HashMap, sync::Arc};
 
-use futures::future::BoxFuture;
+
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
-use task::task::TaskRegistry;
 
-use crate::{spinning_task::SpinningTask, view_sync_task::ViewSyncTask};
+
+
 
 use super::{
-    completion_task::CompletionTask, overall_safety_task::OverallSafetyTask,
-    test_builder::TestMetadata, test_runner::TestRunner, txn_task::TxnTask, GlobalTestEvent,
+    test_builder::TestMetadata, test_runner::TestRunner,
 };
 
 /// convience type alias for the networks available

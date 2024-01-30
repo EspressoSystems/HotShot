@@ -88,13 +88,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
             GlobalTestEvent::ShutDown => {
                 let state = task.state_mut();
                 let OverallSafetyPropertiesDescription {
-                    check_leaf,
-                    check_state,
-                    check_block,
+                    check_leaf: _,
+                    check_state: _,
+                    check_block: _,
                     num_failed_views: num_failed_rounds_total,
                     num_successful_views,
-                    threshold_calculator,
-                    transaction_threshold,
+                    threshold_calculator: _,
+                    transaction_threshold: _,
                 }: OverallSafetyPropertiesDescription = state.properties.clone();
 
                 let num_incomplete_views = state.ctx.round_results.len()
@@ -123,7 +123,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
         }
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(_event: &Self::Event) -> bool {
         false
     }
 }
