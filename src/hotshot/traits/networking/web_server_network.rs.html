@@ -1370,6 +1370,7 @@
 <a href="#1370" id="1370">1370</a>
 <a href="#1371" id="1371">1371</a>
 <a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1624,6 +1625,8 @@
         };
 
         <span class="kw">while </span><span class="self">self</span>.running.load(Ordering::Relaxed) {
+            async_sleep(additional_wait).<span class="kw">await</span>;
+
             <span class="kw">let </span>endpoint = <span class="kw">match </span>message_purpose {
                 MessagePurpose::Proposal =&gt; config::get_proposal_route(view_number),
                 MessagePurpose::LatestQuorumProposal =&gt; config::get_latest_quorum_proposal_route(),
@@ -1809,7 +1812,6 @@
                         </span>async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
                     }
                 }
-                async_sleep(additional_wait).<span class="kw">await</span>;
             }
             <span class="kw">let </span>maybe_event = receiver.try_recv();
             <span class="kw">match </span>maybe_event {
