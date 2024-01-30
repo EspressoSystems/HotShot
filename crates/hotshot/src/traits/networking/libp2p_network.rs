@@ -598,11 +598,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         match message_version {
                             Some(VERSION_0_1) => {
                                 let _ = handle
-                                    .spawn_events_0_1(
-                                        message,
-                                        &direct_send,
-                                        &broadcast_send,
-                                    )
+                                    .spawn_events_0_1(message, &direct_send, &broadcast_send)
                                     .await;
                             }
                             Some(version) => {
