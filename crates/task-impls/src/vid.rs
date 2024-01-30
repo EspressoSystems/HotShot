@@ -130,7 +130,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                         self.public_key.clone(),
                     ))
-                    .await;
+                    .await
+                    .unwrap();
             }
 
             HotShotEvent::ViewChange(view) => {
@@ -187,8 +188,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         task.state_mut().handle(event, sender).await;
         None
     }
-    fn filter(event: &Self::Event) -> bool {
-        matches!(
+    fn filter(&self, event: &Self::Event) -> bool {
+        !matches!(
             event,
             HotShotEvent::Shutdown
                 | HotShotEvent::TransactionsSequenced(_, _, _)

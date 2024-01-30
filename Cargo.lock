@@ -6602,7 +6602,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "task"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/HotShotTasks.git#377aab77694bf01c92488f8bff1af70c6a857955"
+source = "git+https://github.com/EspressoSystems/HotShotTasks.git#a237e633587c7fe49fe1a45d5da9551cf5aab0a7"
 dependencies = [
  "async-broadcast",
  "async-std",

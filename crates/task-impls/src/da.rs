@@ -305,7 +305,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         message.clone(),
                         self.public_key.clone(),
                     ))
-                    .await;
+                    .await
+                    .unwrap();
             }
 
             HotShotEvent::Timeout(view) => {
@@ -324,19 +325,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
         None
     }
-
-    /// Filter the DA event.
-    pub fn filter(event: &HotShotEvent<TYPES>) -> bool {
-        matches!(
-            event,
-            HotShotEvent::DAProposalRecv(_, _)
-                | HotShotEvent::DAVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _)
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
 }
 
 /// task state implementation for DA Task
@@ -347,8 +335,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     type Result = HotShotTaskCompleted;
 
-    fn filter(event: &HotShotEvent<TYPES>) -> bool {
-        matches!(
+    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+        !matches!(
             event,
             HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)

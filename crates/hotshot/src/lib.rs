@@ -33,7 +33,8 @@ use commit::Committable;
 use custom_debug::Debug;
 use futures::join;
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
-use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
+use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::network;
 
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::node_implementation::ChannelMaps;
@@ -260,8 +261,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             memberships: Arc::new(memberships),
             event_sender: RwLock::default(),
             _metrics: consensus_metrics.clone(),
-            internal_event_stream: broadcast(1024),
-            output_event_stream: broadcast(1024),
+            internal_event_stream: broadcast(100024),
+            output_event_stream: broadcast(100024),
         });
 
         Ok(Self { inner })
@@ -269,6 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
     /// "Starts" consensus by sending a `QCFormed` event
     pub async fn start_consensus(&self) {
+        debug!("Starting Consensus");
         self.inner
             .internal_event_stream
             .0
@@ -600,6 +602,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.clone(),
             quorum_network.clone(),
             quorum_membership,
+            network::quorum_filter,
         )
         .await;
         add_network_event_task(
@@ -608,6 +611,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.clone(),
             da_network.clone(),
             da_membership,
+            network::committee_filter,
         )
         .await;
         add_network_event_task(
@@ -616,6 +620,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.clone(),
             quorum_network.clone(),
             view_sync_membership,
+            network::view_sync_filter,
         )
         .await;
         add_network_event_task(
@@ -624,6 +629,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.clone(),
             quorum_network.clone(),
             vid_membership,
+            network::vid_filter,
         )
         .await;
         let consensus_state = add_consensus_task(output_event_stream.0.clone(), &handle).await;

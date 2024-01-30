@@ -127,7 +127,8 @@ async fn test_consensus_task() {
 
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
     run_harness(input, output, consensus_state, false).await;
 }
@@ -175,7 +176,8 @@ async fn test_consensus_vote() {
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
     run_harness(input, output, consensus_state, false).await;
 }
@@ -303,7 +305,8 @@ async fn test_consensus_with_vid() {
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
     run_harness(input, output, consensus_state, false).await;
 }

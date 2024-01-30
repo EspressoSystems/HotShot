@@ -8,7 +8,7 @@ use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
     events::HotShotEvent,
-    network::{NetworkEventTaskState, NetworkMessageTaskState, NetworkTaskKind},
+    network::{NetworkEventTaskState, NetworkMessageTaskState},
     transactions::TransactionTaskState,
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
@@ -105,11 +105,13 @@ pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<T
     rx: Receiver<HotShotEvent<TYPES>>,
     channel: NET,
     membership: TYPES::Membership,
+    filter: fn(&HotShotEvent<TYPES>) -> bool,
 ) {
     let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
+        filter,
     };
     let task = Task::new(tx, rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;
@@ -126,6 +128,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
         inner: handle.hotshot.inner.clone(),
     };
+
     let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
     // Impossible for `unwrap` to fail on the genesis payload.
     let payload_commitment = vid_commitment(

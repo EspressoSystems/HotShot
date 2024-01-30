@@ -18,22 +18,56 @@ use task::task::{Task, TaskState};
 use tracing::error;
 use tracing::instrument;
 
-/// the type of network task
-#[derive(Clone, Copy, Debug)]
-pub enum NetworkTaskKind {
-    /// quorum: the normal "everyone" committee
-    Quorum,
-    /// da committee
-    Committee,
-    /// view sync
-    ViewSync,
-    /// vid
-    VID,
+/// quorum filter
+pub fn quorum_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
+    !matches!(
+        event,
+        HotShotEvent::QuorumProposalSend(_, _)
+            | HotShotEvent::QuorumVoteSend(_)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::DACSend(_, _)
+            | HotShotEvent::ViewChange(_)
+            | HotShotEvent::TimeoutVoteSend(_)
+    )
 }
 
+/// committee filter
+pub fn committee_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
+    !matches!(
+        event,
+        HotShotEvent::DAProposalSend(_, _)
+            | HotShotEvent::DAVoteSend(_)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::ViewChange(_)
+    )
+}
+
+/// vid filter
+pub fn vid_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
+    !matches!(
+        event,
+        HotShotEvent::Shutdown | HotShotEvent::VidDisperseSend(_, _) | HotShotEvent::ViewChange(_)
+    )
+}
+
+/// view sync filter
+pub fn view_sync_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
+    !matches!(
+        event,
+        HotShotEvent::ViewSyncPreCommitCertificate2Send(_, _)
+            | HotShotEvent::ViewSyncCommitCertificate2Send(_, _)
+            | HotShotEvent::ViewSyncFinalizeCertificate2Send(_, _)
+            | HotShotEvent::ViewSyncPreCommitVoteSend(_)
+            | HotShotEvent::ViewSyncCommitVoteSend(_)
+            | HotShotEvent::ViewSyncFinalizeVoteSend(_)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::ViewChange(_)
+    )
+}
 /// the network message task state
 #[derive(Clone)]
 pub struct NetworkMessageTaskState<TYPES: NodeType> {
+    /// Sender to send internal events this task generates to other tasks
     pub event_stream: Sender<HotShotEvent<TYPES>>,
 }
 
@@ -47,6 +81,10 @@ impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     {
         task.state_mut().handle_messages(event).await;
         None
+    }
+
+    fn filter(&self, _event: &Self::Event) -> bool {
+        return false;
     }
 
     fn should_shutdown(_event: &Self::Event) -> bool {
@@ -153,6 +191,8 @@ pub struct NetworkEventTaskState<TYPES: NodeType, COMMCHANNEL: CommunicationChan
     /// membership for the channel
     pub membership: TYPES::Membership,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
+    /// Filter which returns false for the events that this specific network task cares about
+    pub filter: fn(&HotShotEvent<TYPES>) -> bool,
 }
 
 impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> TaskState
@@ -171,16 +211,15 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> TaskState
     }
 
     fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event, HotShotEvent::Shutdown)
-    }
-
-    fn filter(_event: &Self::Event) -> bool {
-        // default doesn't filter
+        if matches!(event, HotShotEvent::Shutdown) {
+            error!("Network Task received Shutdown event");
+            return true;
+        }
         false
     }
 
-    fn shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send {
-        async {}
+    fn filter(&self, event: &Self::Event) -> bool {
+        (self.filter)(event)
     }
 }
 
@@ -317,8 +356,8 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                 error!("Networking task shutting down");
                 return Some(HotShotTaskCompleted);
             }
-            event => {
-                error!("Receieved unexpected message in network task {:?}", event);
+            _event => {
+                // error!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };

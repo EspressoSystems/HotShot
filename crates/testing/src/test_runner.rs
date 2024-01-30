@@ -86,20 +86,7 @@ where
     /// if the test fails
     #[allow(clippy::too_many_lines)]
     pub async fn run_test(mut self) {
-        let (tx, rx) = broadcast(1024);
-
-        let mut event_rxs = vec![];
-        let mut internal_event_rxs = vec![];
-
-        for node in &self.nodes {
-            let r = node.handle.get_event_stream_known_impl().await;
-            event_rxs.push(r);
-        }
-        for node in &self.nodes {
-            let r = node.handle.get_internal_event_stream_known_impl().await;
-            internal_event_rxs.push(r);
-        }
-
+        let (tx, rx) = broadcast(100024);
         let spinning_changes = self
             .launcher
             .metadata
@@ -116,10 +103,21 @@ where
             }
         }
 
-        let reg = Arc::new(TaskRegistry::default());
-
         self.add_nodes(self.launcher.metadata.total_nodes, &late_start_nodes)
             .await;
+        let mut event_rxs = vec![];
+        let mut internal_event_rxs = vec![];
+
+        for node in &self.nodes {
+            let r = node.handle.get_event_stream_known_impl().await;
+            event_rxs.push(r);
+        }
+        for node in &self.nodes {
+            let r = node.handle.get_internal_event_stream_known_impl().await;
+            internal_event_rxs.push(r);
+        }
+
+        let reg = Arc::new(TaskRegistry::default());
 
         let TestRunner {
             ref launcher,
@@ -131,28 +129,28 @@ where
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
 
-        if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
-            let txn_task = TxnTask {
-                handles: nodes.clone(),
-                next_node_idx: Some(0),
-                duration,
-                shutdown_chan: rx.clone(),
+        let txn_task =
+            if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
+                let txn_task = TxnTask {
+                    handles: nodes.clone(),
+                    next_node_idx: Some(0),
+                    duration,
+                    shutdown_chan: rx.clone(),
+                };
+                Some(txn_task)
+            } else {
+                None
             };
-            task_futs.push(txn_task.run());
-        }
 
         // add completion task
-        if let CompletionTaskDescription::TimeBasedCompletionTaskBuilder(time_based) =
-            meta.completion_task_description
-        {
-            let completion_task = CompletionTask {
-                tx: tx.clone(),
-                rx: rx.clone(),
-                handles: nodes.clone(),
-                duration: time_based.duration,
-            };
-            task_futs.push(completion_task.run());
-        }
+        let CompletionTaskDescription::TimeBasedCompletionTaskBuilder(time_based) =
+            meta.completion_task_description;
+        let completion_task = CompletionTask {
+            tx: tx.clone(),
+            rx: rx.clone(),
+            handles: nodes.clone(),
+            duration: time_based.duration,
+        };
 
         // add spinning task
         // map spinning to view
@@ -191,7 +189,6 @@ where
             ),
             event_rxs.clone(),
         );
-        task_futs.push(safety_task.run());
 
         // add view sync task
         let view_sync_task_state = ViewSyncTask {
@@ -204,7 +201,6 @@ where
             Task::new(tx.clone(), rx.clone(), reg.clone(), view_sync_task_state),
             internal_event_rxs,
         );
-        task_futs.push(view_sync_task.run());
 
         // wait for networks to be ready
         for node in &nodes {
@@ -217,10 +213,16 @@ where
                 node.handle.hotshot.start_consensus().await;
             }
         }
+        task_futs.push(safety_task.run());
+        task_futs.push(view_sync_task.run());
+        // if let Some(txn) = txn_task {
+        //     task_futs.push(txn.run());
+        // }
+        task_futs.push(completion_task.run());
 
         let results = join_all(task_futs).await;
         let mut error_list = vec![];
-        for (result) in results {
+        for result in results {
             match result.unwrap() {
                 HotShotTaskCompleted::ShutDown => {
                     info!("Task shut down successfully");

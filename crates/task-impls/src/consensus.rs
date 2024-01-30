@@ -1057,7 +1057,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             view_number: old_view_number,
                         },
                     })
-                    .await;
+                    .await
+                    .unwrap();
             }
             HotShotEvent::Timeout(view) => {
                 // NOTE: We may optionally have the timeout task listen for view change events
@@ -1094,7 +1095,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 event_stream
                     .broadcast(HotShotEvent::TimeoutVoteSend(vote))
-                    .await;
+                    .await
+                    .unwrap();
                 debug!(
                     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
                     *view
@@ -1104,7 +1106,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         view_number: view,
                         event: EventType::ReplicaViewTimeout { view_number: view },
                     })
-                    .await;
+                    .await
+                    .unwrap();
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
@@ -1257,7 +1260,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     message.clone(),
                     self.public_key.clone(),
                 ))
-                .await;
+                .await
+                .unwrap();
 
             self.payload_commitment_and_metadata = None;
             return true;
@@ -1272,8 +1276,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     type Event = HotShotEvent<TYPES>;
     type Result = ();
-    fn filter(event: &HotShotEvent<TYPES>) -> bool {
-        matches!(
+    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+        !matches!(
             event,
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)

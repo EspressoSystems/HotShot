@@ -16,9 +16,9 @@ async fn test_view_sync_task() {
     use hotshot_task_impls::view_sync::ViewSyncTaskState;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_vote::ViewSyncPreCommitData;
-    use std::time::Duration;
     use hotshot_types::traits::consensus_api::ConsensusApi;
-    
+    use std::time::Duration;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 

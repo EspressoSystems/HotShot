@@ -176,6 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return None;
             }
             HotShotEvent::ViewChange(view) => {
+                debug!("view change in transactions to view {:?}", view);
                 if *self.cur_view >= *view {
                     return None;
                 }
@@ -189,6 +190,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
                 if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
+                    debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
 
@@ -338,8 +340,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     type Result = HotShotTaskCompleted;
 
-    fn filter(event: &HotShotEvent<TYPES>) -> bool {
-        matches!(
+    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+        !matches!(
             event,
             HotShotEvent::TransactionsRecv(_)
                 | HotShotEvent::LeafDecided(_)

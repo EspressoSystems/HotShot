@@ -124,6 +124,22 @@ impl<
         None
     }
 
+    fn filter(&self, event: &Self::Event) -> bool {
+        !matches!(
+            event,
+            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
+                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
+                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
+                | HotShotEvent::ViewSyncCommitVoteRecv(_)
+                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
+                | HotShotEvent::Shutdown
+                | HotShotEvent::Timeout(_)
+                | HotShotEvent::ViewSyncTimeout(_, _, _)
+                | HotShotEvent::ViewChange(_)
+        )
+    }
+
     fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
@@ -176,8 +192,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         task.state_mut().handle(event, sender).await;
         None
     }
-    fn filter(event: &Self::Event) -> bool {
-        matches!(
+    fn filter(&self, event: &Self::Event) -> bool {
+        !matches!(
             event,
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
                 | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
@@ -538,23 +554,6 @@ impl<
 
             _ => {}
         }
-    }
-
-    /// Filter view sync related events.
-    pub fn filter(event: &HotShotEvent<TYPES>) -> bool {
-        matches!(
-            event,
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewSyncTimeout(_, _, _)
-                | HotShotEvent::ViewChange(_)
-        )
     }
 }
 

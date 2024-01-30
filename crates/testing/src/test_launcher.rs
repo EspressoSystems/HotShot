@@ -27,25 +27,6 @@ pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 /// Wrapper Type for view sync function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
-/// Wrapper type for a task generator.
-// pub type TaskGenerator<TASK> = Box<
-//     dyn FnOnce(
-//         TASK,
-//         GlobalRegistry,
-//         ChannelStream<GlobalTestEvent>,
-//     )
-//         -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-// >;
-
-// /// Wrapper type for a hook.
-// pub type Hook = Box<
-//     dyn FnOnce(
-//         GlobalRegistry,
-//         ChannelStream<GlobalTestEvent>,
-//     )
-//         -> BoxFuture<'static, (HotShotTaskId, BoxFuture<'static, HotShotTaskCompleted>)>,
-// >;
-
 /// generators for resources used by each node
 pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generate channels

@@ -301,7 +301,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        debug!(?message, "Broadcasting message");
+        trace!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()
             .serialize(&message)
@@ -349,7 +349,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
 
     #[instrument(name = "MemoryNetwork::direct_message")]
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
-        debug!(?message, ?recipient, "Sending direct message");
+        // debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
         let vec = bincode_opts()
             .serialize(&message)
