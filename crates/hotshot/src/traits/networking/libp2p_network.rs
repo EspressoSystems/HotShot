@@ -572,7 +572,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
-                unreachable!("spawn_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+                error!("spawn_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
         }
         Ok::<(), NetworkError>(())

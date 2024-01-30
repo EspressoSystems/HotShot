@@ -236,13 +236,17 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
     /// Handle version 0.1 transactions
     ///
-    /// * `index` - the index of the first transaction received from the server in the latest batch.
+    /// * `first_tx_index` - the index of the first transaction received from the server in the latest batch.
     /// * `tx_index` - the last transaction index we saw from the web server.
-    async fn handle_tx_0_1(&self, tx: Vec<u8>, index: u64, tx_index: &mut u64) {
+    async fn handle_tx_0_1(&self, tx: Vec<u8>, first_tx_index: u64, tx_index: &mut u64) {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
-        if index > *tx_index + 1 {
-            debug!("missed txns from {} to {}", *tx_index + 1, index - 1);
-            *tx_index = index - 1;
+        if first_tx_index > *tx_index + 1 {
+            debug!(
+                "missed txns from {} to {}",
+                *tx_index + 1,
+                first_tx_index - 1
+            );
+            *tx_index = first_tx_index - 1;
         }
 
         *tx_index += 1;
@@ -274,11 +278,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
         view_number: u64,
         message_purpose: MessagePurpose,
         vote_index: &mut u64,
-        seen_proposals: &mut LruCache<u64, ()>,
-        proposal_seen: &mut bool,
-        quorum_proposal_seen: &mut bool,
-        dac_seen: &mut bool,
-        vid_disperse_seen: &mut bool,
+        seen_quorum_proposals: &mut LruCache<u64, ()>,
+        seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
@@ -288,51 +289,38 @@ impl<TYPES: NodeType> Inner<TYPES> {
             };
             match message_purpose {
                 MessagePurpose::Data => {
-                    unreachable!("We should not receive transactions in this function");
+                    error!("We should not receive transactions in this function");
                 }
                 MessagePurpose::Proposal => {
+                    let proposal = deserialized_message.clone();
+                    broadcast_poll_queue.write().await.push(proposal);
+
                     // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    if !*proposal_seen {
-                        *proposal_seen = true;
-                        broadcast_poll_queue
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
-                    }
                     return true;
                 }
                 MessagePurpose::LatestQuorumProposal => {
-                    if !*quorum_proposal_seen {
-                        *quorum_proposal_seen = true;
-                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                        broadcast_poll_queue
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
+                    let proposal = deserialized_message.clone();
+                    let hash = hash(&proposal);
+                    // Only allow unseen proposals to be pushed to the queue
+                    if seen_quorum_proposals.put(hash, ()).is_none() {
+                        broadcast_poll_queue.write().await.push(proposal);
                     }
 
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     return true;
                 }
-                MessagePurpose::LatestViewSyncProposal => {
-                    let hash = hash(&deserialized_message);
-                    if seen_proposals.put(hash, ()).is_none() {
-                        broadcast_poll_queue
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
+                MessagePurpose::LatestViewSyncCertificate => {
+                    let cert = deserialized_message.clone();
+                    let hash = hash(&cert);
+                    if seen_view_sync_certificates.put(hash, ()).is_none() {
+                        broadcast_poll_queue.write().await.push(cert);
                     }
-
-                    // additional sleep to reduce load on web server
-                    async_sleep(Duration::from_millis(300)).await;
-
                     return false;
                 }
                 MessagePurpose::Vote => {
+                    let vote = deserialized_message.clone();
                     *vote_index += 1;
-                    direct_poll_queue
-                        .write()
-                        .await
-                        .push(deserialized_message.clone());
+                    direct_poll_queue.write().await.push(vote);
 
                     return false;
                 }
@@ -341,15 +329,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         "Received DAC from web server for view {} {}",
                         view_number, self.is_da
                     );
-                    if !*dac_seen {
-                        *dac_seen = true;
-                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                        self.broadcast_poll_queue_0_1
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
-                    }
+                    broadcast_poll_queue
+                        .write()
+                        .await
+                        .push(deserialized_message.clone());
 
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     // return if we found a DAC, since there will only be 1 per view
                     // In future we should check to make sure DAC is valid
                     return true;
@@ -357,37 +342,27 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 MessagePurpose::VidDisperse => {
                     // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
 
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    if !*vid_disperse_seen {
-                        *vid_disperse_seen = true;
-                        self.broadcast_poll_queue_0_1
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
-                    }
-
-                    return true;
-                }
-                MessagePurpose::ViewSyncVote => {
-                    *vote_index += 1;
-                    direct_poll_queue
+                    self.broadcast_poll_queue_0_1
                         .write()
                         .await
                         .push(deserialized_message.clone());
 
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                    return true;
+                }
+                MessagePurpose::ViewSyncVote => {
+                    let vote = deserialized_message.clone();
+                    *vote_index += 1;
+                    direct_poll_queue.write().await.push(vote);
+
                     return false;
                 }
-                MessagePurpose::ViewSyncProposal => {
+                MessagePurpose::ViewSyncCertificate => {
                     // TODO ED Special case this for view sync
                     // TODO ED Need to add vote indexing to web server for view sync certs
+                    let cert = deserialized_message.clone();
                     *vote_index += 1;
-                    let hash = hash(&deserialized_message);
-                    if seen_proposals.put(hash, ()).is_none() {
-                        broadcast_poll_queue
-                            .write()
-                            .await
-                            .push(deserialized_message.clone());
-                    }
+                    broadcast_poll_queue.write().await.push(cert);
 
                     return false;
                 }
@@ -456,7 +431,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 // Deserialize and process transactions from the server.
                 // If something goes wrong at any point, we sleep for wait_between_polls
                 // then try again next time.
-                if let Ok(Some((index, txs))) = possible_message {
+                if let Ok(Some((first_tx_index, txs))) = possible_message {
                     for tx_raw in txs {
                         // This is very hacky.
                         //
@@ -481,7 +456,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                                 match tx_version {
                                     Some(VERSION_0_1) => {
-                                        self.handle_tx_0_1(tx, index, &mut tx_index).await;
+                                        self.handle_tx_0_1(tx, first_tx_index, &mut tx_index).await;
                                     }
                                     Some(version) => {
                                         warn!(
@@ -504,16 +479,11 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         }
                     }
                 } else {
-                    async_sleep(self.wait_between_polls).await;
+                    async_sleep(self.wait_between_polls + additional_wait).await;
                 }
             } else {
                 let possible_message: Result<Option<Vec<Vec<u8>>>, ClientError> =
                     self.client.get(&endpoint).send().await;
-                let mut proposal_seen = false;
-                let mut quorum_proposal_seen = false;
-                let mut dac_seen = false;
-                let mut vid_disperse_seen = false;
-
                 if let Ok(Some(messages)) = possible_message {
                     for message_raw in messages {
                         // This is very hacky.
@@ -547,11 +517,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                                 view_number,
                                                 message_purpose,
                                                 &mut vote_index,
-                                                &mut seen_proposals,
-                                                &mut proposal_seen,
-                                                &mut quorum_proposal_seen,
-                                                &mut dac_seen,
-                                                &mut vid_disperse_seen,
+                                                &mut seen_quorum_proposals,
+                                                &mut seen_view_sync_certificates,
                                             )
                                             .await;
 
