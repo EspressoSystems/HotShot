@@ -1,5 +1,5 @@
 use hotshot::{tasks::add_vid_task, types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
@@ -112,7 +112,16 @@ async fn test_vid_task() {
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| add_vid_task(task_runner, event_stream, &handle);
-
-    run_harness(input, output, None, build_fn, false).await;
+    let vid_state = VIDTaskState {
+        api: api.clone(),
+        consensus: handle.hotshot.get_consensus(),
+        cur_view: ViewNumber::new(0),
+        vote_collector: None,
+        network: api.inner.networks.quorum_network.clone().into(),
+        membership: api.inner.memberships.vid_membership.clone().into(),
+        public_key: api.public_key().clone(),
+        private_key: api.private_key().clone(),
+        id: handle.hotshot.inner.id,
+    };
+    run_harness(input, output, vid_state, false).await;
 }

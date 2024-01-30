@@ -13,9 +13,12 @@ use std::collections::HashMap;
 async fn test_view_sync_task() {
     use hotshot::tasks::add_view_sync_task;
     use hotshot_task_impls::harness::run_harness;
+    use hotshot_task_impls::view_sync::ViewSyncTaskState;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_vote::ViewSyncPreCommitData;
-
+    use std::time::Duration;
+    use hotshot_types::traits::consensus_api::ConsensusApi;
+    
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -56,8 +59,22 @@ async fn test_view_sync_task() {
 
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn =
-        |task_runner, event_stream| add_view_sync_task(task_runner, event_stream, &handle);
-
-    run_harness(input, output, None, build_fn, false).await;
+    let view_sync_state = ViewSyncTaskState {
+        current_view: ViewNumber::new(0),
+        next_view: ViewNumber::new(0),
+        network: api.inner.networks.quorum_network.clone().into(),
+        membership: api.inner.memberships.view_sync_membership.clone().into(),
+        public_key: api.public_key().clone(),
+        private_key: api.private_key().clone(),
+        api,
+        num_timeouts_tracked: 0,
+        replica_task_map: HashMap::default().into(),
+        pre_commit_relay_map: HashMap::default().into(),
+        commit_relay_map: HashMap::default().into(),
+        finalize_relay_map: HashMap::default().into(),
+        view_sync_timeout: Duration::new(10, 0),
+        id: handle.hotshot.inner.id,
+        last_garbage_collected_view: ViewNumber::new(0),
+    };
+    run_harness(input, output, view_sync_state, false).await;
 }

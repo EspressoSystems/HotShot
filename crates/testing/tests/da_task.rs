@@ -1,5 +1,5 @@
 use hotshot::{types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::{da::DATaskState, events::HotShotEvent};
 use hotshot_testing::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
@@ -103,7 +103,17 @@ async fn test_da_task() {
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| add_da_task(task_runner, event_stream, &handle);
-
-    run_harness(input, output, None, build_fn, false).await;
+    let da_state = DATaskState {
+        api: api.clone(),
+        consensus: handle.hotshot.get_consensus(),
+        da_membership: api.inner.memberships.da_membership.clone().into(),
+        da_network: api.inner.networks.da_network.clone().into(),
+        quorum_membership: api.inner.memberships.quorum_membership.clone().into(),
+        cur_view: ViewNumber::new(0),
+        vote_collector: None.into(),
+        public_key: api.public_key().clone(),
+        private_key: api.private_key().clone(),
+        id: handle.hotshot.inner.id,
+    };
+    run_harness(input, output, da_state, false).await;
 }

@@ -127,11 +127,9 @@ async fn test_consensus_task() {
 
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), &handle)
-    };
+    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }
 
 #[cfg(test)]
@@ -177,11 +175,9 @@ async fn test_consensus_vote() {
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), &handle)
-    };
+    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }
 
 #[cfg(test)]
@@ -216,7 +212,7 @@ async fn test_consensus_with_vid() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let (handle, _event_stream) = build_system_handle(2).await;
+    let (handle, _tx, _rx) = build_system_handle(2).await;
     // We assign node's key pair rather than read from config file since it's a test
     // In view 2, node 2 is the leader.
     let (private_key_view2, public_key_view2) = key_pair_for_id(2);
@@ -307,9 +303,7 @@ async fn test_consensus_with_vid() {
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), &handle)
-    };
+    let consensus_state = add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }

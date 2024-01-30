@@ -41,7 +41,7 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
 /// # Panics
 /// Panics if any state the test expects is not set. Panicing causes a test failure
 #[allow(clippy::implicit_hasher)]
-pub async fn run_harness<TYPES, Fut, S: TaskState<Event = HotShotEvent<TYPES>>>(
+pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     input: Vec<HotShotEvent<TYPES>>,
     expected_output: HashMap<HotShotEvent<TYPES>, usize>,
     state: S,
@@ -49,7 +49,6 @@ pub async fn run_harness<TYPES, Fut, S: TaskState<Event = HotShotEvent<TYPES>>>(
 ) where
     TYPES: NodeType,
     S: Send + 'static,
-    Fut: Future<Output = Task<S>>,
 {
     let registry = Arc::new(TaskRegistry::default());
     // set up two broadcast channels so the test sends to the task and the task back to the test

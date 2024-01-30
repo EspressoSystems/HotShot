@@ -143,7 +143,7 @@ async fn test_network_task() {
     output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
     output.insert(HotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
 
-    let build_fn = |task_runner, _| async { task_runner };
+    // let build_fn = |task_runner, _| async { task_runner };
     // There may be extra outputs not in the expected set, e.g., a second `VidDisperseRecv` if the
     // VID task runs fast. All event types we want to test should be seen by this point, so waiting
     // for more events will not help us test more cases for now. Therefore, we set

@@ -66,7 +66,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use task::task::TaskRegistry;
+use task::task::{Task, TaskRegistry};
 use tasks::add_vid_task;
 use tracing::{debug, error, info, instrument, trace, warn};
 
@@ -130,7 +130,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
@@ -159,13 +159,13 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    pub output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
     internal_event_stream: (Sender<HotShotEvent<TYPES>>, Receiver<HotShotEvent<TYPES>>),
 
     /// uid for instrumentation
-    id: u64,
+    pub id: u64,
 }
 
 /// Thread safe, shared view of a `HotShot`
@@ -626,14 +626,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             vid_membership,
         )
         .await;
-        add_consensus_task(
-            registry.clone(),
+        let consensus_state = add_consensus_task(output_event_stream.0.clone(), &handle).await;
+        let task = Task::new(
             event_tx.clone(),
             event_rx.clone(),
-            output_event_stream.0.clone(),
-            &handle,
-        )
-        .await;
+            registry.clone(),
+            consensus_state,
+        );
+        registry.run_task(task).await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),

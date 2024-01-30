@@ -119,12 +119,9 @@ pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<T
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
     output_stream: Sender<Event<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
-) {
+) -> ConsensusTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>> {
     let consensus = handle.hotshot.get_consensus();
     let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
         inner: handle.hotshot.inner.clone(),
@@ -172,8 +169,9 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
         .await;
-    let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
-    task_reg.run_task(task).await;
+    consensus_state
+    // let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
+    // task_reg.run_task(task).await;
 }
 
 /// add the VID task
