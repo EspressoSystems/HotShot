@@ -5,17 +5,13 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use futures::FutureExt;
 use hotshot_task_impls::{
-    consensus::{
-        CommitmentAndMetadata, ConsensusTaskState,
-    },
-    da::{DATaskState},
+    consensus::{CommitmentAndMetadata, ConsensusTaskState},
+    da::DATaskState,
     events::HotShotEvent,
-    network::{
-        NetworkEventTaskState, NetworkMessageTaskState, NetworkTaskKind,
-    },
-    transactions::{TransactionTaskState},
-    vid::{VIDTaskState},
-    view_sync::{ViewSyncTaskState},
+    network::{NetworkEventTaskState, NetworkMessageTaskState, NetworkTaskKind},
+    transactions::TransactionTaskState,
+    vid::VIDTaskState,
+    view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::{election::Membership, stake_table::StakeTableScheme};
 use hotshot_types::{
@@ -30,13 +26,13 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use task::task::{Task, TaskRegistry};
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
     time::Duration,
 };
+use task::task::{Task, TaskRegistry};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -60,7 +56,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
         event_stream: event_stream.clone(),
     };
 
-    // TODO we don't need two async tasks for this, we should combine the 
+    // TODO we don't need two async tasks for this, we should combine the
     // by getting rid of `TransmitType`
     let network = net.clone();
     let mut state = network_state.clone();
@@ -81,7 +77,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
     });
     let network = net.clone();
     let mut state = network_state.clone();
-    let broadcast_handle  = async_spawn(async move {
+    let broadcast_handle = async_spawn(async move {
         loop {
             let msgs = Messages(
                 network
@@ -207,7 +203,6 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     let task = Task::new(tx, rx, task_reg.clone(), vid_state);
     task_reg.run_task(task).await;
-
 }
 
 /// add the Data Availability task
@@ -238,7 +233,6 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     let task = Task::new(tx, rx, task_reg.clone(), da_state);
     task_reg.run_task(task).await;
-
 }
 
 /// add the Transaction Handling task
@@ -269,7 +263,6 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
 
     let task = Task::new(tx, rx, task_reg.clone(), transactions_state);
     task_reg.run_task(task).await;
-
 }
 /// add the view sync task
 /// # Panics

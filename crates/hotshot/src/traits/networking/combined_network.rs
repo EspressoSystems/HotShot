@@ -22,14 +22,18 @@ use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
-    data::ViewNumber, message::Message, traits::{
+    boxed_sync,
+    data::ViewNumber,
+    message::Message,
+    traits::{
         election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
             TestableChannelImplementation, TransmitType, ViewMessage,
         },
         node_implementation::NodeType,
-    }, BoxSyncFuture, boxed_sync
+    },
+    BoxSyncFuture,
 };
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 

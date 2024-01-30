@@ -14,6 +14,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
+    boxed_sync,
     message::{Message, MessageKind},
     traits::{
         election::Membership,
@@ -23,7 +24,8 @@ use hotshot_types::{
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
-    }, BoxSyncFuture, boxed_sync
+    },
+    BoxSyncFuture,
 };
 use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;

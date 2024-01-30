@@ -270,7 +270,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// "Starts" consensus by sending a `QCFormed` event
     pub async fn start_consensus(&self) {
         self.inner
-            .internal_event_stream.0
+            .internal_event_stream
+            .0
             .broadcast(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
@@ -590,18 +591,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage: self.inner.storage.clone(),
         };
 
-        add_network_message_task(
-            registry.clone(),
-            event_tx.clone(),
-            quorum_network.clone(),
-        )
-        .await;
-        add_network_message_task(
-            registry.clone(),
-            event_tx.clone(),
-            da_network.clone(),
-        )
-        .await;
+        add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;
+        add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).await;
 
         add_network_event_task(
             registry.clone(),
@@ -643,10 +634,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
-        add_da_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
-        add_vid_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
-        add_transaction_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
-        add_view_sync_task(registry.clone(), event_tx.clone(), event_rx.clone(), &handle).await;
+        add_da_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
+            &handle,
+        )
+        .await;
+        add_vid_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
+            &handle,
+        )
+        .await;
+        add_transaction_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
+            &handle,
+        )
+        .await;
+        add_view_sync_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.clone(),
+            &handle,
+        )
+        .await;
         // async_spawn(async move {
         //     let _ = registry.join_all().await;
         //     info!("Task runner exited!");

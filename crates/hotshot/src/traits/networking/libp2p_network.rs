@@ -16,6 +16,7 @@ use hotshot_constants::LOOK_AHEAD;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
+    boxed_sync,
     data::ViewNumber,
     message::{Message, MessageKind},
     traits::{
@@ -27,7 +28,8 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::ConsensusTime,
-    }, BoxSyncFuture, boxed_sync
+    },
+    BoxSyncFuture,
 };
 
 use hotshot_utils::bincode::bincode_opts;
