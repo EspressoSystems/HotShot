@@ -1,14 +1,15 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use async_compatibility_layer::channel::UnboundedStream;
-use futures::FutureExt;
 use hotshot::{traits::TestableNodeImplementation, SystemContext};
 
+use hotshot_types::event::EventType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
+use task::task::{TaskState, TestTaskState};
 
-use crate::{test_launcher::TaskGenerator, test_runner::Node};
+use crate::test_runner::HotShotTaskCompleted;
+use crate::test_runner::Node;
 /// convience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -30,7 +31,91 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) latest_view: Option<TYPES::Time>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for SpinningTask<TYPES, I> {}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for SpinningTask<TYPES, I> {
+    type Event = GlobalTestEvent;
+
+    type Result = HotShotTaskCompleted;
+
+    async fn handle_event(
+        event: Self::Event,
+        _task: &mut task::task::Task<Self>,
+    ) -> Option<Self::Result> {
+        if matches!(event, GlobalTestEvent::ShutDown) {
+            return Some(HotShotTaskCompleted::ShutDown);
+        }
+        None
+    }
+
+    fn should_shutdown(event: &Self::Event) -> bool {
+        false
+    }
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
+    for SpinningTask<TYPES, I>
+{
+    type Message = Event<TYPES>;
+
+    type Result = HotShotTaskCompleted;
+
+    type State = Self;
+
+    async fn handle_message(
+        message: Self::Message,
+        id: usize,
+        task: &mut task::task::TestTask<Self::State, Self>,
+    ) -> Option<Self::Result> {
+        let Event {
+            view_number,
+            event: _,
+        } = message;
+
+        let state = &mut task.state_mut();
+
+        // if we have not seen this view before
+        if state.latest_view.is_none() || view_number > state.latest_view.unwrap() {
+            // perform operations on the nodes
+            if let Some(operations) = state.changes.remove(&view_number) {
+                for ChangeNode { idx, updown } in operations {
+                    match updown {
+                        UpDown::Up => {
+                            if let Some(node) = state.late_start.remove(&idx.try_into().unwrap()) {
+                                tracing::error!("Node {} spinning up late", idx);
+                                let handle = node.run_tasks().await;
+                                handle.hotshot.start_consensus().await;
+                            }
+                        }
+                        UpDown::Down => {
+                            if let Some(node) = state.handles.get_mut(idx) {
+                                tracing::error!("Node {} shutting down", idx);
+                                node.handle.shut_down().await;
+                            }
+                        }
+                        UpDown::NetworkUp => {
+                            if let Some(handle) = state.handles.get(idx) {
+                                tracing::error!("Node {} networks resuming", idx);
+                                handle.networks.0.resume();
+                                handle.networks.1.resume();
+                            }
+                        }
+                        UpDown::NetworkDown => {
+                            if let Some(handle) = state.handles.get(idx) {
+                                tracing::error!("Node {} networks pausing", idx);
+                                handle.networks.0.pause();
+                                handle.networks.1.pause();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // update our latest view
+            state.latest_view = Some(view_number);
+        }
+
+        None
+    }
+}
 
 /// Spin the node up or down
 #[derive(Clone, Debug)]
@@ -62,129 +147,126 @@ pub struct SpinningTaskDescription {
     pub node_changes: Vec<(u64, Vec<ChangeNode>)>,
 }
 
-impl SpinningTaskDescription {
-    /// build a task
-    /// # Panics
-    /// If there is no latest view
-    /// or if the node id is over `u32::MAX`
-    #[must_use]
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-        self,
-    ) -> TaskGenerator<SpinningTask<TYPES, I>> {
-        Box::new(move |mut state, mut registry, test_event_stream| {
-            async move {
-                let event_handler =
-                    HandleEvent::<SpinningTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
-                        async move {
-                            match event {
-                                GlobalTestEvent::ShutDown => (Some(HotShotTaskCompleted), state),
-                            }
-                        }
-                        .boxed()
-                    }));
+// impl SpinningTaskDescription {
+//     /// build a task
+//     /// # Panics
+//     /// If there is no latest view
+//     /// or if the node id is over `u32::MAX`
+//     #[must_use]
+//     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+//         self,
+//     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
+//         Box::new(move |mut state, mut registry, test_event_stream| {
+//             async move {
+//                 let event_handler =
+//                     HandleEvent::<SpinningTaskTypes<TYPES, I>>(Arc::new(move |event, state| {
+//                         async move {
+//                             match event {
+//                                 GlobalTestEvent::ShutDown => (Some(HotShotTaskCompleted), state),
+//                             }
+//                         }
+//                         .boxed()
+//                     }));
 
-                let message_handler = HandleMessage::<SpinningTaskTypes<TYPES, I>>(Arc::new(
-                    move |msg, mut state| {
-                        async move {
-                            let Event {
-                                view_number,
-                                event: _,
-                            } = msg.1;
+//                 let message_handler = HandleMessage::<SpinningTaskTypes<TYPES, I>>(Arc::new(
+//                     move |msg, mut state| {
+//                         async move {
+//                             let Event {
+//                                 view_number,
+//                                 event: _,
+//                             } = msg.1;
 
-                            // if we have not seen this view before
-                            if state.latest_view.is_none()
-                                || view_number > state.latest_view.unwrap()
-                            {
-                                // perform operations on the nodes
-                                if let Some(operations) = state.changes.remove(&view_number) {
-                                    for ChangeNode { idx, updown } in operations {
-                                        match updown {
-                                            UpDown::Up => {
-                                                if let Some(node) = state
-                                                    .late_start
-                                                    .remove(&idx.try_into().unwrap())
-                                                {
-                                                    tracing::error!(
-                                                        "Node {} spinning up late",
-                                                        idx
-                                                    );
-                                                    let handle = node.run_tasks().await;
-                                                    handle.hotshot.start_consensus().await;
-                                                }
-                                            }
-                                            UpDown::Down => {
-                                                if let Some(node) = state.handles.get_mut(idx) {
-                                                    tracing::error!("Node {} shutting down", idx);
-                                                    node.handle.shut_down().await;
-                                                }
-                                            }
-                                            UpDown::NetworkUp => {
-                                                if let Some(handle) = state.handles.get(idx) {
-                                                    tracing::error!(
-                                                        "Node {} networks resuming",
-                                                        idx
-                                                    );
-                                                    handle.networks.0.resume();
-                                                    handle.networks.1.resume();
-                                                }
-                                            }
-                                            UpDown::NetworkDown => {
-                                                if let Some(handle) = state.handles.get(idx) {
-                                                    tracing::error!(
-                                                        "Node {} networks pausing",
-                                                        idx
-                                                    );
-                                                    handle.networks.0.pause();
-                                                    handle.networks.1.pause();
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+//                             // if we have not seen this view before
+//                             if state.latest_view.is_none()
+//                                 || view_number > state.latest_view.unwrap()
+//                             {
+//                                 // perform operations on the nodes
+//                                 if let Some(operations) = state.changes.remove(&view_number) {
+//                                     for ChangeNode { idx, updown } in operations {
+//                                         match updown {
+//                                             UpDown::Up => {
+//                                                 if let Some(node) = state
+//                                                     .late_start
+//                                                     .remove(&idx.try_into().unwrap())
+//                                                 {
+//                                                     tracing::error!(
+//                                                         "Node {} spinning up late",
+//                                                         idx
+//                                                     );
+//                                                     let handle = node.run_tasks().await;
+//                                                     handle.hotshot.start_consensus().await;
+//                                                 }
+//                                             }
+//                                             UpDown::Down => {
+//                                                 if let Some(node) = state.handles.get_mut(idx) {
+//                                                     tracing::error!("Node {} shutting down", idx);
+//                                                     node.handle.shut_down().await;
+//                                                 }
+//                                             }
+//                                             UpDown::NetworkUp => {
+//                                                 if let Some(handle) = state.handles.get(idx) {
+//                                                     tracing::error!(
+//                                                         "Node {} networks resuming",
+//                                                         idx
+//                                                     );
+//                                                     handle.networks.0.resume();
+//                                                     handle.networks.1.resume();
+//                                                 }
+//                                             }
+//                                             UpDown::NetworkDown => {
+//                                                 if let Some(handle) = state.handles.get(idx) {
+//                                                     tracing::error!(
+//                                                         "Node {} networks pausing",
+//                                                         idx
+//                                                     );
+//                                                     handle.networks.0.pause();
+//                                                     handle.networks.1.pause();
+//                                                 }
+//                                             }
+//                                         }
+//                                     }
+//                                 }
 
-                                // update our latest view
-                                state.latest_view = Some(view_number);
-                            }
+//                                 // update our latest view
+//                                 state.latest_view = Some(view_number);
+//                             }
 
-                            (None, state)
-                        }
-                        .boxed()
-                    },
-                ));
+//                             (None, state)
+//                         }
+//                         .boxed()
+//                     },
+//                 ));
 
-                let mut streams = vec![];
-                for handle in &mut state.handles {
-                    let s1 = handle
-                        .handle
-                        .get_event_stream_known_impl()
-                        .await;
-                    streams.push(s1);
-                }
-                let builder = TaskBuilder::<SpinningTaskTypes<TYPES, I>>::new(
-                    "Test Spinning Task".to_string(),
-                )
-                .register_event_stream(test_event_stream, FilterEvent::default())
-                .await
-                .register_registry(&mut registry)
-                .await
-                .register_message_handler(message_handler)
-                .register_message_stream(MergeN::new(streams))
-                .register_event_handler(event_handler)
-                .register_state(state);
-                let task_id = builder.get_task_id().unwrap();
-                (task_id, SpinningTaskTypes::build(builder).launch())
-            }
-            .boxed()
-        })
-    }
-}
+//                 let mut streams = vec![];
+//                 for handle in &mut state.handles {
+//                     let s1 = handle.handle.get_event_stream_known_impl().await;
+//                     streams.push(s1);
+//                 }
+//                 let builder = TaskBuilder::<SpinningTaskTypes<TYPES, I>>::new(
+//                     "Test Spinning Task".to_string(),
+//                 )
+//                 .register_event_stream(test_event_stream, FilterEvent::default())
+//                 .await
+//                 .register_registry(&mut registry)
+//                 .await
+//                 .register_message_handler(message_handler)
+//                 .register_message_stream(MergeN::new(streams))
+//                 .register_event_handler(event_handler)
+//                 .register_state(state);
+//                 let task_id = builder.get_task_id().unwrap();
+//                 (task_id, SpinningTaskTypes::build(builder).launch())
+//             }
+//             .boxed()
+//         })
+//     }
+// }
 
-/// types for safety task
-pub type SpinningTaskTypes<TYPES, I> = HSTWithEventAndMessage<
-    SpinningTaskErr,
-    GlobalTestEvent,
-    ChannelStream<GlobalTestEvent>,
-    (usize, Event<TYPES>),
-    MergeN<UnboundedStream<Event<TYPES>>>,
-    SpinningTask<TYPES, I>,
->;
+// /// types for safety task
+// pub type SpinningTaskTypes<TYPES, I> = HSTWithEventAndMessage<
+//     SpinningTaskErr,
+//     GlobalTestEvent,
+//     ChannelStream<GlobalTestEvent>,
+//     (usize, Event<TYPES>),
+//     MergeN<UnboundedStream<Event<TYPES>>>,
+//     SpinningTask<TYPES, I>,
+// >;

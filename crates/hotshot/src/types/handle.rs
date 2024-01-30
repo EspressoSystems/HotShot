@@ -51,7 +51,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// obtains a stream to expose to the user
     pub async fn get_event_stream(
-        &mut self,
+        &self,
     ) -> impl Stream<Item = Event<TYPES>> {
         self.output_event_stream.1.clone()
     }
@@ -61,7 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     pub async fn get_event_stream_known_impl(
-        &mut self,
+        &self,
     ) -> Receiver<Event<TYPES>> {
         self.output_event_stream.1.clone()
     }
@@ -72,7 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
     pub async fn get_internal_event_stream_known_impl(
-        &mut self,
+        &self,
     ) -> Receiver<HotShotEvent<TYPES>> {
         self.internal_event_stream.1.clone()
     }

@@ -28,7 +28,7 @@ async fn test_network_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let (handle, event_stream) = build_system_handle(2).await;
+    let (handle, tx, rx) = build_system_handle(2).await;
     let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
         inner: handle.hotshot.inner.clone(),
     };

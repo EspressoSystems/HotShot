@@ -5,10 +5,14 @@ use super::{
     txn_task::TxnTask,
 };
 use crate::{
-    spinning_task::{ChangeNode, UpDown},
+    completion_task::CompletionTaskDescription,
+    spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Networks, TestLauncher},
+    txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
 };
+use async_broadcast::broadcast;
+use futures::{future::join_all, stream::FuturesUnordered};
 use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
@@ -22,7 +26,9 @@ use hotshot_types::{
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
+    sync::Arc,
 };
+use task::task::{Task, TaskRegistry, TestTask};
 
 #[allow(deprecated)]
 use tracing::info;
@@ -49,9 +55,27 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) late_start: HashMap<u64, SystemContext<TYPES, I>>,
     /// the next node unique identifier
     pub(crate) next_node_id: u64,
-    /// overarching test task
-    pub(crate) task_runner: TaskRunner,
 }
+
+/// enum describing how the tasks completed
+pub enum HotShotTaskCompleted {
+    /// the task shut down successfully
+    ShutDown,
+    /// the task encountered an error
+    Error(Box<dyn TaskErr>),
+    /// the streams the task was listening for died
+    StreamsDied,
+    /// we somehow lost the state
+    /// this is definitely a bug.
+    LostState,
+    /// lost the return value somehow
+    LostReturnValue,
+    /// Stream exists but missing handler
+    MissingHandler,
+}
+
+pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
+impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
@@ -62,6 +86,20 @@ where
     /// if the test fails
     #[allow(clippy::too_many_lines)]
     pub async fn run_test(mut self) {
+        let (tx, rx) = broadcast(1024);
+
+        let mut event_rxs = vec![];
+        let mut internal_event_rxs = vec![];
+
+        for node in &self.nodes {
+            let r = node.handle.get_event_stream_known_impl().await;
+            event_rxs.push(r);
+        }
+        for node in &self.nodes {
+            let r = node.handle.get_internal_event_stream_known_impl().await;
+            internal_event_rxs.push(r);
+        }
+
         let spinning_changes = self
             .launcher
             .metadata
@@ -78,46 +116,43 @@ where
             }
         }
 
+        let reg = Arc::new(TaskRegistry::default());
+
         self.add_nodes(self.launcher.metadata.total_nodes, &late_start_nodes)
             .await;
 
         let TestRunner {
-            launcher,
+            ref launcher,
             nodes,
             late_start,
             next_node_id: _,
-            mut task_runner,
         } = self;
-        let registry = GlobalRegistry::default();
-        let test_event_stream = ChannelStream::new();
 
-        // add transaction task
-        let txn_task_state = TxnTask {
-            handles: nodes.clone(),
-            next_node_idx: Some(0),
-        };
-        let (id, task) = (launcher.txn_task_generator)(
-            txn_task_state,
-            registry.clone(),
-            test_event_stream.clone(),
-        )
-        .await;
-        task_runner =
-            task_runner.add_task(id, "Test Transaction Submission Task".to_string(), task);
+        let mut task_futs = vec![];
+        let meta = launcher.metadata.clone();
+
+        if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
+            let txn_task = TxnTask {
+                handles: nodes.clone(),
+                next_node_idx: Some(0),
+                duration,
+                shutdown_chan: rx.clone(),
+            };
+            task_futs.push(txn_task.run());
+        }
 
         // add completion task
-        let completion_task_state = CompletionTask {
-            handles: nodes.clone(),
-            test_event_stream: test_event_stream.clone(),
-        };
-        let (id, task) = (launcher.completion_task_generator)(
-            completion_task_state,
-            registry.clone(),
-            test_event_stream.clone(),
-        )
-        .await;
-
-        task_runner = task_runner.add_task(id, "Test Completion Task".to_string(), task);
+        if let CompletionTaskDescription::TimeBasedCompletionTaskBuilder(time_based) =
+            meta.completion_task_description
+        {
+            let completion_task = CompletionTask {
+                tx: tx.clone(),
+                rx: rx.clone(),
+                handles: nodes.clone(),
+                duration: time_based.duration,
+            };
+            task_futs.push(completion_task.run());
+        }
 
         // add spinning task
         // map spinning to view
@@ -129,48 +164,47 @@ where
                 .append(&mut change);
         }
 
-        let spinning_task_state = crate::spinning_task::SpinningTask {
+        let spinning_task_state = SpinningTask {
             handles: nodes.clone(),
             late_start,
             latest_view: None,
             changes,
         };
-
-        let (id, task) = (launcher.spinning_task_generator)(
-            spinning_task_state,
-            registry.clone(),
-            test_event_stream.clone(),
-        )
-        .await;
-        task_runner = task_runner.add_task(id, "Test Spinning Task".to_string(), task);
-
+        let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
+            Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
+            event_rxs.clone(),
+        );
+        task_futs.push(spinning_task.run());
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
             handles: nodes.clone(),
             ctx: RoundCtx::default(),
-            test_event_stream: test_event_stream.clone(),
+            properties: self.launcher.metadata.overall_safety_properties,
         };
-        let (id, task) = (launcher.overall_safety_task_generator)(
-            overall_safety_task_state,
-            registry.clone(),
-            test_event_stream.clone(),
-        )
-        .await;
-        task_runner = task_runner.add_task(id, "Test Overall Safety Task".to_string(), task);
+
+        let safety_task = TestTask::<OverallSafetyTask<TYPES, I>, OverallSafetyTask<TYPES, I>>::new(
+            Task::new(
+                tx.clone(),
+                rx.clone(),
+                reg.clone(),
+                overall_safety_task_state,
+            ),
+            event_rxs.clone(),
+        );
+        task_futs.push(safety_task.run());
 
         // add view sync task
         let view_sync_task_state = ViewSyncTask {
             handles: nodes.clone(),
             hit_view_sync: HashSet::new(),
+            description: self.launcher.metadata.view_sync_properties,
         };
 
-        let (id, task) = (launcher.view_sync_task_generator)(
-            view_sync_task_state,
-            registry.clone(),
-            test_event_stream.clone(),
-        )
-        .await;
-        task_runner = task_runner.add_task(id, "View Sync Task".to_string(), task);
+        let view_sync_task = TestTask::<ViewSyncTask<TYPES, I>, ViewSyncTask<TYPES, I>>::new(
+            Task::new(tx.clone(), rx.clone(), reg.clone(), view_sync_task_state),
+            internal_event_rxs,
+        );
+        task_futs.push(view_sync_task.run());
 
         // wait for networks to be ready
         for node in &nodes {
@@ -184,15 +218,14 @@ where
             }
         }
 
-        let results = task_runner.launch().await;
-
+        let results = join_all(task_futs).await;
         let mut error_list = vec![];
-        for (name, result) in results {
-            match result {
-                hotshot_task::task::HotShotTaskCompleted => {
-                    info!("Task {} shut down successfully", name);
+        for (result) in results {
+            match result.unwrap() {
+                HotShotTaskCompleted::ShutDown => {
+                    info!("Task shut down successfully");
                 }
-                hotshot_task::task::HotShotTaskCompleted::Error(e) => error_list.push((name, e)),
+                HotShotTaskCompleted::Error(e) => error_list.push(e),
                 _ => {
                     panic!("Future impl for task abstraction failed! This should never happen");
                 }

@@ -48,15 +48,3 @@ pub enum GlobalTestEvent {
     /// the test is shutting down
     ShutDown,
 }
-
-/// the reason for shutting down the test
-pub enum ShutDownReason {
-    /// the test is shutting down because of a safety violation
-    SafetyViolation,
-    /// the test is shutting down because the test has completed successfully
-    SuccessfullyCompleted,
-}
-
-/// type alias for the type of tasks created in testing
-pub type TestTask<ERR, STATE> =
-    HSTWithEvent<ERR, GlobalTestEvent, ChannelStream<GlobalTestEvent>, STATE>;
