@@ -45,7 +45,7 @@ serde = { workspace = true }
 ethereum-types = { workspace = true }
 bitvec = { workspace = true }
 sha2 = { workspace = true }
-common = { path = "../../../cdn/common" }
+common = { path = "../../push-cdn-poc/common" }
 
 [dev-dependencies]
 async-lock = { workspace = true }

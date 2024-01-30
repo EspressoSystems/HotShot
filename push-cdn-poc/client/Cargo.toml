@@ -1,0 +1,22 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+local-testing = ["rustls/dangerous_configuration"]
+default = ["local-testing"]
+
+[dependencies]
+quinn.workspace = true
+jf-primitives = { workspace = true }
+common = { path = "../common" }
+tracing.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+rustls.workspace = true 
+ark-serialize.workspace = true 
+anyhow.workspace = true
+clap.workspace = true
+tracing-subscriber.workspace = true
+derive_more.workspace = true

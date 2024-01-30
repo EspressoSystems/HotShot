@@ -1,0 +1,17 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio.workspace = true
+client = { path = "../client" }
+common = { path = "../common" }
+server = { path = "../server" }
+jf-primitives = { workspace = true }
+portpicker = "0.1.1"
+rand = "0.8.5"
+ark-serialize.workspace = true
+tracing-subscriber.workspace = true

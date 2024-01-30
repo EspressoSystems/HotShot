@@ -1,0 +1,2 @@
+pub const STREAM_DATA_LIMIT: usize = 1024 * 1024 * 1024;
+pub const MAX_CONCURRENT_STREAMS: u64 = 10;

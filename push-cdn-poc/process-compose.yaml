@@ -1,0 +1,31 @@
+version: "0.5"
+
+environment:
+  - BROKER_REDIS_URL=redis://127.0.0.1:6379
+  - BROKER_REDIS_PASSWORD=changeme!
+
+processes:
+  redis:
+    command: echo 'requirepass changeme!' | keydb-server - --save "" --appendonly no
+  broker_0:
+    command: cargo run --bin server
+    environment:
+        - BROKER_BIND_ADDRESS=0.0.0.0:8080
+        - BROKER_ADVERTISE_ADDRESS=127.0.0.1:8080
+    depends_on:
+      redis:
+        condition: process_started
+  client_0:
+    command: cargo run --bin client
+    environment:
+        - INDEX=0
+    depends_on:
+      broker_0:
+        condition: process_started
+  client_1:
+    command: cargo run --bin client
+    environment:
+        - INDEX=1
+    depends_on:
+      broker_0:
+        condition: process_started

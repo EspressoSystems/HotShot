@@ -290,7 +290,10 @@ async fn pushcdn_network_from_config<TYPES: NodeType>(
         }
     };
 
-    let privkey: BLSPrivKey = if TypeId::of::<<<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey>() == TypeId::of::<BLSPrivKey>() {
+    let privkey: BLSPrivKey = if TypeId::of::<
+        <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
+    >() == TypeId::of::<BLSPrivKey>()
+    {
         unsafe { std::mem::transmute_copy(&privkey) }
     } else {
         panic!(

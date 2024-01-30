@@ -179,10 +179,7 @@ pub struct TestBlockHeader {
 impl BlockHeader for TestBlockHeader {
     type Payload = TestBlockPayload;
 
-    fn new(
-        payload_commitment: VidCommitment,
-        parent_header: &Self,
-    ) -> Self {
+    fn new(payload_commitment: VidCommitment, parent_header: &Self) -> Self {
         Self {
             block_number: parent_header.block_number + 1,
             payload_commitment,

@@ -1,0 +1,20 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[example]]
+name = "random_key"
+path = "examples/random_key.rs"
+
+[dependencies]
+thiserror = "1.0.56"
+rkyv = { version = "0.7.43", features = ["validation"] }
+quinn.workspace = true
+rand = "0.8.5"
+derive_more.workspace = true
+jf-primitives.workspace = true
+ark-serialize.workspace = true
+hex = "0.4.3"

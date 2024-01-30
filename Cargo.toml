@@ -29,6 +29,14 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+chrono = "0.4.31"
+quinn = "0.10.2"
+rustls = "0.21.10"
+pem = "3.0.3"
+clap = { version = "4.4.12", features = ["derive", "env"] }
+anyhow = "1.0.79"
+tracing-subscriber = "0.3.18"
+derive_more = "0.99.17"
 ark-bls12-381 = "0.4"
 ark-bn254 = "0.4"
 ark-ec = "0.4"

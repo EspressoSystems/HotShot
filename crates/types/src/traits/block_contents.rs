@@ -98,10 +98,7 @@ pub trait BlockHeader:
     type Payload: BlockPayload;
 
     /// Build a header with the payload commitment, metadata, and parent header.
-    fn new(
-        payload_commitment: VidCommitment,
-        parent_header: &Self,
-    ) -> Self;
+    fn new(payload_commitment: VidCommitment, parent_header: &Self) -> Self;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis() -> (
