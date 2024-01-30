@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["VoteAccumulator"],"trait":["Certificate","HasViewNumber","Vote"],"type":["VoteMap2"]};
+window.SIDEBAR_ITEMS = {"struct":["VoteAccumulator"],"trait":["Certificate","HasViewNumber","Vote"],"type":["SignersMap","VoteMap2"]};

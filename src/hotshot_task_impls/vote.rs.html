@@ -450,13 +450,10 @@
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -656,8 +653,7 @@
     }
     <span class="kw">let </span>new_accumulator = VoteAccumulator {
         vote_outcomes: HashMap::new(),
-        sig_lists: Vec::new(),
-        signers: <span class="macro">bitvec!</span>[<span class="number">0</span>;info. membership.total_nodes()],
+        signers: HashMap::new(),
         phantom: PhantomData,
     };
 

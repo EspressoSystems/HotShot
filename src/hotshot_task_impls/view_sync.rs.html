@@ -841,12 +841,6 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -890,7 +884,7 @@
     },
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::BTreeMap, collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
@@ -911,9 +905,9 @@
 </span><span class="doccomment">/// Stub of a view sync error
 </span><span class="kw">pub struct </span>ViewSyncTaskError {}
 
-<span class="doccomment">/// Type alias for a map from View Number to Vote Task
+<span class="doccomment">/// Type alias for a map from View Number to Relay to Vote Task
 </span><span class="kw">type </span>RelayMap&lt;TYPES, VOTE, CERT&gt; =
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, BTreeMap&lt;u64, VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;&gt;;
 
 <span class="doccomment">/// Main view sync task state
 </span><span class="kw">pub struct </span>ViewSyncTaskState&lt;
@@ -1047,11 +1041,12 @@
     ) {
         <span class="comment">// This certificate is old, we can throw it away
         // If next view = cert round, then that means we should already have a task running for it
-        </span><span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.replica_task_map.write().<span class="kw">await</span>;
-        <span class="kw">if </span><span class="self">self</span>.current_view &gt; view {
+        </span><span class="kw">if </span><span class="self">self</span>.current_view &gt; view {
             <span class="macro">debug!</span>(<span class="string">&quot;Already in a higher view than the view sync message&quot;</span>);
             <span class="kw">return</span>;
         }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.replica_task_map.write().<span class="kw">await</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(replica_task) = task_map.remove(<span class="kw-2">&amp;</span>view) {
             <span class="comment">// Forward event then return
@@ -1126,7 +1121,9 @@
             HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.pre_commit_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.remove(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
                     <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
 
@@ -1134,17 +1131,12 @@
                         <span class="comment">// The protocol has finished
                         </span><span class="kw">return</span>;
                     }
-
-                    map.insert(vote_view, result.<span class="number">1</span>);
+                    relay_map.insert(relay, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .get_leader(vote_view + vote.get_data().relay)
-                    != <span class="self">self</span>.public_key
-                {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">&quot;View sync vote sent to wrong leader&quot;</span>);
                     <span class="kw">return</span>;
@@ -1160,14 +1152,16 @@
                 };
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
-                    map.insert(vote_view, vote_task);
+                    relay_map.insert(relay, vote_task);
                 }
             }
 
             HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.commit_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.remove(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
                     <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
 
@@ -1176,16 +1170,12 @@
                         </span><span class="kw">return</span>;
                     }
 
-                    map.insert(vote_view, result.<span class="number">1</span>);
+                    relay_map.insert(relay, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .get_leader(vote_view + vote.get_data().relay)
-                    != <span class="self">self</span>.public_key
-                {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">&quot;View sync vote sent to wrong leader&quot;</span>);
                     <span class="kw">return</span>;
@@ -1201,14 +1191,16 @@
                 };
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
-                    map.insert(vote_view, vote_task);
+                    relay_map.insert(relay, vote_task);
                 }
             }
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.finalize_relay_map.write().<span class="kw">await</span>;
                 <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = map.remove(<span class="kw-2">&amp;</span>vote_view) {
+                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.remove(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">&quot;Forwarding message&quot;</span>);
                     <span class="kw">let </span>result = relay_task.handle_event(event.clone()).<span class="kw">await</span>;
 
@@ -1217,16 +1209,12 @@
                         </span><span class="kw">return</span>;
                     }
 
-                    map.insert(vote_view, result.<span class="number">1</span>);
+                    relay_map.insert(relay, result.<span class="number">1</span>);
                     <span class="kw">return</span>;
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .get_leader(vote_view + vote.get_data().relay)
-                    != <span class="self">self</span>.public_key
-                {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">&quot;View sync vote sent to wrong leader&quot;</span>);
                     <span class="kw">return</span>;
@@ -1242,7 +1230,7 @@
                 };
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, vote.clone(), event).<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
-                    map.insert(vote_view, vote_task);
+                    relay_map.insert(relay, vote_task);
                 }
             }
 

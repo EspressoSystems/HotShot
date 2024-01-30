@@ -172,6 +172,15 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote, Accumulator, and Certificate Types
 
 </span><span class="kw">use </span>std::{
@@ -179,7 +188,7 @@
     marker::PhantomData,
 };
 
-<span class="kw">use </span>bitvec::vec::BitVec;
+<span class="kw">use </span>bitvec::{bitvec, vec::BitVec};
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>ethereum_types::U256;
@@ -247,7 +256,14 @@ The votes all must be over the `Commitment` associated type.
     <span class="doccomment">/// Get the vote commitment which the votes commit to
     </span><span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Voteable&gt;;
 }
-
+<span class="doccomment">/// Mapping of vote commitment to sigatures and bitvec
+</span><span class="kw">type </span>SignersMap&lt;COMMITMENT, KEY&gt; = HashMap&lt;
+    COMMITMENT,
+    (
+        BitVec,
+        Vec&lt;&lt;KEY <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
+    ),
+&gt;;
 <span class="doccomment">/// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 </span><span class="kw">pub struct </span>VoteAccumulator&lt;
     TYPES: NodeType,
@@ -260,10 +276,9 @@ The votes all must be over the `Commitment` associated type.
         TYPES::SignatureKey,
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     &gt;,
-    <span class="doccomment">/// A list of valid signatures for certificate aggregation
-    </span><span class="kw">pub </span>sig_lists: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt;,
     <span class="doccomment">/// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
-    </span><span class="kw">pub </span>signers: BitVec,
+    /// And a list of valid signatures for certificate aggregation
+    </span><span class="kw">pub </span>signers: SignersMap&lt;Commitment&lt;VOTE::Commitment&gt;, TYPES::SignatureKey&gt;,
     <span class="doccomment">/// Phantom data to specify the types this accumulator is for
     </span><span class="kw">pub </span>phantom: PhantomData&lt;(TYPES, VOTE, CERT)&gt;,
 }
@@ -306,13 +321,16 @@ The votes all must be over the `Commitment` associated type.
         </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>key) {
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
-
-        <span class="kw">if </span><span class="self">self</span>.signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
+        <span class="kw">let </span>(signers, sig_list) = <span class="self">self
+            </span>.signers
+            .entry(vote_commitment)
+            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; membership.total_nodes()], Vec::new()));
+        <span class="kw">if </span>signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
             <span class="macro">error!</span>(<span class="string">&quot;Node id is already in signers list&quot;</span>);
             <span class="kw">return </span>Either::Left(<span class="self">self</span>);
         }
-        <span class="self">self</span>.signers.set(vote_node_id, <span class="bool-val">true</span>);
-        <span class="self">self</span>.sig_lists.push(original_signature);
+        signers.set(vote_node_id, <span class="bool-val">true</span>);
+        sig_list.push(original_signature);
 
         <span class="comment">// TODO: Get the stake from the stake table entry.
         </span><span class="kw-2">*</span>total_stake_casted += stake_table_entry.get_stake();
@@ -328,8 +346,8 @@ The votes all must be over the `Commitment` associated type.
 
             <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(
                 <span class="kw-2">&amp;</span>real_qc_pp,
-                <span class="self">self</span>.signers.as_bitslice(),
-                <span class="kw-2">&amp;</span><span class="self">self</span>.sig_lists[..],
+                signers.as_bitslice(),
+                <span class="kw-2">&amp;</span>sig_list[..],
             );
 
             <span class="kw">let </span>cert = CERT::create_signed_certificate(
