@@ -127,7 +127,7 @@
         <span class="doccomment">/// Proposed leaf
         </span>leaf: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Validated state.
-        </span>state: TYPES::StateType,
+        </span>state: TYPES::ValidatedState,
     },
     <span class="doccomment">/// Leaf has failed
     </span>Failed,
@@ -135,7 +135,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewInner&lt;TYPES&gt; {
     <span class="doccomment">/// Return the underlying undecide leaf view if it exists.
-    </span><span class="kw">pub fn </span>get_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(Commitment&lt;Leaf&lt;TYPES&gt;&gt;, <span class="kw-2">&amp;</span>TYPES::StateType)&gt; {
+    </span><span class="kw">pub fn </span>get_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(Commitment&lt;Leaf&lt;TYPES&gt;&gt;, <span class="kw-2">&amp;</span>TYPES::ValidatedState)&gt; {
         <span class="kw">if let </span><span class="self">Self</span>::Leaf { leaf, state } = <span class="self">self </span>{
             <span class="prelude-val">Some</span>((<span class="kw-2">*</span>leaf, state))
         } <span class="kw">else </span>{
@@ -155,7 +155,7 @@
 
     <span class="doccomment">/// return the underlying validated state if it exists
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::StateType&gt; {
+    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::ValidatedState&gt; {
         <span class="kw">if let </span><span class="self">Self</span>::Leaf { state, .. } = <span class="self">self </span>{
             <span class="prelude-val">Some</span>(state)
         } <span class="kw">else </span>{

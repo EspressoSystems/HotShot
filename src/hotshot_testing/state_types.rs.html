@@ -100,18 +100,14 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>commit::{Commitment, Committable};
 
 <span class="kw">use </span>hotshot_types::{
     data::{fake_commitment, BlockError, ViewNumber},
     traits::{
-        state::{ConsensusTime, TestableState},
-        BlockPayload, State,
+        states::{InstanceState, TestableState, ValidatedState},
+        BlockPayload,
     },
 };
 
@@ -122,22 +118,25 @@
 <span class="kw">use </span><span class="kw">crate</span>::block_types::{TestBlockHeader, TestBlockPayload};
 <span class="kw">pub use </span><span class="kw">crate</span>::node_types::TestTypes;
 
-<span class="doccomment">/// sequencing demo entry state
+<span class="doccomment">/// Instance-level state implementation for testing purposes.
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>TestInstanceState {}
+
+<span class="kw">impl </span>InstanceState <span class="kw">for </span>TestInstanceState {}
+
+<span class="doccomment">/// Validated state implementation for testing purposes.
 </span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>TestState {
+</span><span class="kw">pub struct </span>TestValidatedState {
     <span class="doccomment">/// the block height
     </span>block_height: u64,
-    <span class="doccomment">/// the view number
-    </span>view_number: ViewNumber,
     <span class="doccomment">/// the previous state commitment
     </span>prev_state_commitment: Commitment&lt;<span class="self">Self</span>&gt;,
 }
 
-<span class="kw">impl </span>Committable <span class="kw">for </span>TestState {
+<span class="kw">impl </span>Committable <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         commit::RawCommitmentBuilder::new(<span class="string">&quot;Test State Commit&quot;</span>)
             .u64_field(<span class="string">&quot;block_height&quot;</span>, <span class="self">self</span>.block_height)
-            .u64_field(<span class="string">&quot;view_number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
             .field(<span class="string">&quot;prev_state_commitment&quot;</span>, <span class="self">self</span>.prev_state_commitment)
             .finalize()
     }
@@ -147,18 +146,19 @@
     }
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>TestState {
+<span class="kw">impl </span>Default <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             block_height: <span class="number">0</span>,
-            view_number: ViewNumber::genesis(),
             prev_state_commitment: fake_commitment(),
         }
     }
 }
 
-<span class="kw">impl </span>State <span class="kw">for </span>TestState {
+<span class="kw">impl </span>ValidatedState <span class="kw">for </span>TestValidatedState {
     <span class="kw">type </span>Error = BlockError;
+
+    <span class="kw">type </span>Instance = TestInstanceState;
 
     <span class="kw">type </span>BlockHeader = TestBlockHeader;
 
@@ -168,20 +168,12 @@
 
     <span class="kw">fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _proposed_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
+        _instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
         _parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
-        view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time,
+        _proposed_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">if </span>view_number == <span class="kw-2">&amp;</span>ViewNumber::genesis() {
-            <span class="kw">if </span><span class="kw-2">&amp;</span><span class="self">self</span>.view_number != view_number {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidBlockHeader);
-            }
-        } <span class="kw">else if </span><span class="self">self</span>.view_number &gt;= <span class="kw-2">*</span>view_number {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidBlockHeader);
-        }
-        <span class="prelude-val">Ok</span>(TestState {
+        <span class="prelude-val">Ok</span>(TestValidatedState {
             block_height: <span class="self">self</span>.block_height + <span class="number">1</span>,
-            view_number: <span class="kw-2">*</span>view_number,
             prev_state_commitment: <span class="self">self</span>.commit(),
         })
     }
@@ -196,7 +188,7 @@
     <span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 }
 
-<span class="kw">impl </span>TestableState <span class="kw">for </span>TestState {
+<span class="kw">impl </span>TestableState <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>create_random_transaction(
         _state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         _rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,

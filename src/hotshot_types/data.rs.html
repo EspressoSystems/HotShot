@@ -553,6 +553,7 @@
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
 <a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -562,14 +563,13 @@
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::UpgradeProposalData,
     traits::{
-        block_contents::vid_commitment,
-        block_contents::BlockHeader,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock},
         election::Membership,
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::{ConsensusTime, TestableBlock, TestableState},
+        states::{TestableState, ValidatedState},
         storage::StoredView,
-        BlockPayload, State,
+        BlockPayload,
     },
     vote::{Certificate, HasViewNumber},
 };
@@ -661,9 +661,10 @@
     }
 }
 
-<span class="doccomment">/// The `Transaction` type associated with a `State`, as a syntactic shortcut
-</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; = &lt;&lt;STATE <span class="kw">as </span>State&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
-<span class="doccomment">/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
+<span class="doccomment">/// The `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
+</span><span class="kw">pub type </span>Transaction&lt;STATE&gt; =
+    &lt;&lt;STATE <span class="kw">as </span>ValidatedState&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
+<span class="doccomment">/// `Commitment` to the `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
 </span><span class="kw">pub type </span>TxnCommitment&lt;STATE&gt; = Commitment&lt;Transaction&lt;STATE&gt;&gt;;
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
@@ -918,8 +919,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
     <span class="doccomment">/// Create a new leaf from its components.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(block_header, block_payload, <span class="kw">_</span>) = TYPES::BlockHeader::genesis();
+    </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(block_header, block_payload, <span class="kw">_</span>) = TYPES::BlockHeader::genesis(instance_state);
         <span class="self">Self </span>{
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),
@@ -997,6 +998,7 @@
     </span><span class="kw">pub fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.proposer_id.clone()
     }
+
     <span class="doccomment">/// Create a leaf from information stored about a view.
     </span><span class="kw">pub fn </span>from_stored_view(stored_view: StoredView&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -1012,7 +1014,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableLeaf <span class="kw">for </span>Leaf&lt;TYPES&gt;
 <span class="kw">where
-    </span>TYPES::StateType: TestableState,
+    </span>TYPES::ValidatedState: TestableState,
     TYPES::BlockPayload: TestableBlock,
 {
     <span class="kw">type </span>NodeType = TYPES;
@@ -1022,7 +1024,7 @@
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
-        TYPES::StateType::create_random_transaction(<span class="prelude-val">None</span>, rng, padding)
+        TYPES::ValidatedState::create_random_transaction(<span class="prelude-val">None</span>, rng, padding)
     }
 }
 <span class="doccomment">/// Fake the thing a genesis block points to. Needed to avoid infinite recursion

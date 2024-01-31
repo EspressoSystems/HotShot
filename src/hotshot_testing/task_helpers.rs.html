@@ -374,13 +374,14 @@
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use crate</span>::{
     block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestState,
+    state_types::{TestInstanceState, TestValidatedState},
     test_builder::TestMetadata,
 };
 <span class="kw">use </span>commit::Committable;
@@ -398,13 +399,12 @@
     simple_certificate::QuorumCertificate,
     simple_vote::SimpleVote,
     traits::{
-        block_contents::vid_commitment,
-        block_contents::BlockHeader,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock},
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::NodeType,
-        state::{ConsensusTime, TestableBlock},
-        BlockPayload, State,
+        node_implementation::{ConsensusTime, NodeType},
+        states::ValidatedState,
+        BlockPayload,
     },
     vote::HasViewNumber,
 };
@@ -438,7 +438,7 @@
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis().unwrap();
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {}).unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
@@ -593,7 +593,7 @@
     <span class="comment">// parent_view_number should be equal to 0
     </span><span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.get_view_number();
     <span class="macro">assert_eq!</span>(parent_view_number.get_u64(), <span class="number">0</span>);
-    <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
+    <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.validated_state_map.get(parent_view_number) <span class="kw">else </span>{
         <span class="macro">panic!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
     };
     <span class="kw">let </span><span class="prelude-val">Some</span>(leaf_view_0) = parent_view.get_leaf_commitment() <span class="kw">else </span>{
@@ -615,12 +615,14 @@
             .quorum_membership
             .total_nodes(),
     );
-    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = &lt;TestState <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
+    <span class="kw">let </span><span class="kw-2">mut </span>parent_state =
+        &lt;TestValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
     <span class="kw">let </span>block_header = TestBlockHeader::new(
+        <span class="kw-2">&amp;</span>parent_state,
+        <span class="kw-2">&amp;</span>TestInstanceState {},
+        <span class="kw-2">&amp;</span>parent_leaf.block_header,
         payload_commitment,
         (),
-        <span class="kw-2">&amp;</span>parent_leaf.block_header,
-        <span class="kw-2">&amp;</span>parent_state,
     );
     <span class="comment">// current leaf that can be re-assigned everytime when entering a new view
     </span><span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf {
@@ -645,11 +647,11 @@
     <span class="comment">// Only view 2 is tested, higher views are not tested
     </span><span class="kw">for </span>cur_view <span class="kw">in </span><span class="number">2</span>..=view {
         <span class="kw">let </span>state_new_view = parent_state
-            .validate_and_apply_header(<span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>ViewNumber::new(cur_view - <span class="number">1</span>))
+            .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header)
             .unwrap();
         <span class="comment">// save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
-        </span>consensus.state_map.insert(
+        </span>consensus.validated_state_map.insert(
             ViewNumber::new(cur_view - <span class="number">1</span>),
             View {
                 view_inner: ViewInner::Leaf {

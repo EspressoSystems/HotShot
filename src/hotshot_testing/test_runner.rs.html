@@ -321,6 +321,12 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -329,6 +335,7 @@
 };
 <span class="kw">use crate</span>::{
     spinning_task::{ChangeNode, UpDown},
+    state_types::TestInstanceState,
     test_launcher::{Networks, TestLauncher},
     view_sync_task::ViewSyncTask,
 };
@@ -341,7 +348,10 @@
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    traits::{election::Membership, node_implementation::NodeType, state::ConsensusTime},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
+    },
     HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>std::{
@@ -387,7 +397,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) task_runner: TaskRunner,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
+    TestRunner&lt;TYPES, I&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
 {
@@ -548,7 +559,8 @@
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
-            <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis().unwrap();
+            <span class="kw">let </span>initializer =
+                HotShotInitializer::&lt;TYPES&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {}).unwrap();
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id);
             <span class="comment">// We assign node&#39;s public key and stake value rather than read from config file since it&#39;s a test
             </span><span class="kw">let </span>validator_config =

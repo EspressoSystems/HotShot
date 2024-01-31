@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TestState"]};
+window.SIDEBAR_ITEMS = {"struct":["TestInstanceState","TestValidatedState"]};

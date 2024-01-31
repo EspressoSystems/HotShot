@@ -1320,6 +1320,8 @@
 <a href="#1320" id="1320">1320</a>
 <a href="#1321" id="1321">1321</a>
 <a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::cancel_task,
@@ -1350,10 +1352,10 @@
         consensus_api::ConsensusApi,
         election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
-        BlockPayload, State,
+        states::ValidatedState,
+        BlockPayload,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
@@ -1476,7 +1478,7 @@
     </span><span class="kw">async fn </span>genesis_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(genesis_view) = consensus.state_map.get(<span class="kw-2">&amp;</span>TYPES::Time::genesis()) <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(genesis_view) = consensus.validated_state_map.get(<span class="kw-2">&amp;</span>TYPES::Time::genesis()) <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Couldn&#39;t find genesis view in state map.&quot;</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
@@ -1860,10 +1862,11 @@
                         block_payload: <span class="prelude-val">None</span>,
                         proposer_id: sender,
                     };
-                    <span class="kw">let </span>state =
-                        &lt;TYPES::StateType <span class="kw">as </span>State&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header);
+                    <span class="kw">let </span>state = &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(
+                        <span class="kw-2">&amp;</span>proposal.data.block_header,
+                    );
 
-                    consensus.state_map.insert(
+                    consensus.validated_state_map.insert(
                         view,
                         View {
                             view_inner: ViewInner::Leaf {
@@ -1914,9 +1917,9 @@
                     <span class="kw">return</span>;
                 };
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(state) = parent_state.validate_and_apply_header(
-                    <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
+                    <span class="kw-2">&amp;</span>consensus.instance_state,
                     <span class="kw-2">&amp;</span>parent.block_header.clone(),
-                    <span class="kw-2">&amp;</span>view,
+                    <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
                 ) <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">&quot;Block header doesn&#39;t extend the proposal&quot;</span>,);
                     <span class="kw">return</span>;
@@ -2071,7 +2074,7 @@
                     HashSet::new()
                 };
 
-                consensus.state_map.insert(
+                consensus.validated_state_map.insert(
                     view,
                     View {
                         view_inner: ViewInner::Leaf {
@@ -2486,7 +2489,7 @@
         <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.get_view_number();
         <span class="kw">let </span><span class="kw-2">mut </span>reached_decided = <span class="bool-val">false</span>;
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.validated_state_map.get(parent_view_number) <span class="kw">else </span>{
             <span class="comment">// This should have been added by the replica?
             </span><span class="macro">error!</span>(<span class="string">&quot;Couldn&#39;t find parent view in state map, waiting for replica to see proposal\n parent view number: {}&quot;</span>, <span class="kw-2">**</span>parent_view_number);
             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -2538,10 +2541,11 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
             <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
+                state,
+                <span class="kw-2">&amp;</span>consensus.instance_state,
+                <span class="kw-2">&amp;</span>parent_header,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
-                <span class="kw-2">&amp;</span>parent_header,
-                state,
             );
             <span class="kw">let </span>leaf = Leaf {
                 view_number: view,

@@ -289,6 +289,9 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -317,7 +320,10 @@
     error::HotShotError,
     event::EventType,
     simple_certificate::QuorumCertificate,
-    traits::{node_implementation::NodeType, state::ConsensusTime, storage::Storage},
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        storage::Storage,
+    },
 };
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::error;
@@ -392,7 +398,7 @@
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::StateType {
+    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::ValidatedState {
         <span class="self">self</span>.hotshot.get_decided_state().<span class="kw">await
     </span>}
 

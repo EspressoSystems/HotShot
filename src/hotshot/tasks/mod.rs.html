@@ -543,7 +543,6 @@
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
@@ -579,8 +578,7 @@
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
-        node_implementation::{NodeImplementation, NodeType},
-        state::ConsensusTime,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
 };

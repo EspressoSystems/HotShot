@@ -130,6 +130,19 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -137,7 +150,7 @@
 
 </span><span class="kw">use crate</span>::{
     data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
-    traits::State,
+    traits::ValidatedState,
 };
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
@@ -211,6 +224,15 @@
     ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt;;
 }
 
+<span class="doccomment">/// extra functions required on block to be usable by hotshot-testing
+</span><span class="kw">pub trait </span>TestableBlock: BlockPayload + Debug {
+    <span class="doccomment">/// generate a genesis block
+    </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self</span>;
+
+    <span class="doccomment">/// the number of transactions in this block
+    </span><span class="kw">fn </span>txn_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
+}
+
 <span class="doccomment">/// Compute the VID payload commitment.
 /// # Panics
 /// If the VID computation fails.
@@ -236,18 +258,22 @@
     </span><span class="kw">type </span>Payload: BlockPayload;
 
     <span class="doccomment">/// Validated state.
-    </span><span class="kw">type </span>State: State&lt;BlockHeader = <span class="self">Self</span>&gt;;
+    </span><span class="kw">type </span>State: ValidatedState&lt;BlockHeader = <span class="self">Self</span>&gt;;
 
-    <span class="doccomment">/// Build a header with the payload commitment, metadata, parent header, and parent state.
+    <span class="doccomment">/// Build a header with the payload commitment, metadata, instance-level state, parent header,
+    /// and parent state.
     </span><span class="kw">fn </span>new(
+        parent_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::State,
+        instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
+        parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
         payload_commitment: VidCommitment,
         metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-        parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
-        parent_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::State,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
-    </span><span class="kw">fn </span>genesis() -&gt; (
+    </span><span class="kw">fn </span>genesis(
+        instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
+    ) -&gt; (
         <span class="self">Self</span>,
         <span class="self">Self</span>::Payload,
         &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,

@@ -361,6 +361,8 @@
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">pub use crate</span>::{
@@ -395,9 +397,11 @@
 /// This will contain the state of all rounds.
 </span><span class="attr">#[derive(custom_debug::Debug)]
 </span><span class="kw">pub struct </span>Consensus&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The phases that are currently loaded in memory
-    </span><span class="comment">// TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    </span><span class="kw">pub </span>state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// Immutable instance-level state.
+    </span><span class="kw">pub </span>instance_state: TYPES::InstanceState,
+
+    <span class="doccomment">/// The validated states that are currently loaded in memory.
+    </span><span class="kw">pub </span>validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// All the DA certs we&#39;ve received for current and future views.
     /// view -&gt; DA cert
@@ -616,7 +620,7 @@
     <span class="kw">where
         </span>F: FnMut(<span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;) -&gt; bool,
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>next_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = <span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>start_from) {
+        <span class="kw">let </span><span class="kw-2">mut </span>next_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>start_from) {
             view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: <span class="macro">format!</span>(
@@ -655,7 +659,7 @@
     }
 
     <span class="doccomment">/// Garbage collects based on state change right now, this removes from both the
-    /// `saved_payloads` and `state_map` fields of `Consensus`.
+    /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
@@ -666,7 +670,7 @@
     ) {
         <span class="comment">// state check
         </span><span class="kw">let </span>anchor_entry = <span class="self">self
-            </span>.state_map
+            </span>.validated_state_map
             .iter()
             .next()
             .expect(<span class="string">&quot;INCONSISTENT STATE: anchor leaf not in state map!&quot;</span>);
@@ -678,13 +682,13 @@
         <span class="comment">// perform gc
         </span><span class="self">self</span>.saved_da_certs
             .retain(|view_number, <span class="kw">_</span>| <span class="kw-2">*</span>view_number &gt;= old_anchor_view);
-        <span class="self">self</span>.state_map
+        <span class="self">self</span>.validated_state_map
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
                 <span class="self">self</span>.saved_leaves.remove(<span class="kw-2">&amp;</span>leaf);
             });
-        <span class="self">self</span>.state_map = <span class="self">self</span>.state_map.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
+        <span class="self">self</span>.validated_state_map = <span class="self">self</span>.validated_state_map.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
         <span class="self">self</span>.saved_payloads = <span class="self">self</span>.saved_payloads.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
     }
 
@@ -696,7 +700,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
-        <span class="kw">let </span>view = <span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>decided_view_num).unwrap();
+        <span class="kw">let </span>view = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>decided_view_num).unwrap();
         <span class="kw">let </span>leaf = view
             .get_leaf_commitment()
             .expect(<span class="string">&quot;Decided leaf not found! Consensus internally inconsistent&quot;</span>);
@@ -705,8 +709,8 @@
 
     <span class="doccomment">/// Gets the validated state with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::StateType&gt; {
-        <span class="kw">match </span><span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>view_number) {
+    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::ValidatedState&gt; {
+        <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
             <span class="prelude-val">Some</span>(view) =&gt; view.get_state(),
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         }
@@ -718,7 +722,7 @@
     /// If the last decided view&#39;s state does not exist in the state map, which should never
     /// happen.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::StateType {
+    </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::ValidatedState {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
         <span class="self">self</span>.get_state(decided_view_num)
             .expect(<span class="string">&quot;Decided state not found! Consensus internally inconsistent&quot;</span>)

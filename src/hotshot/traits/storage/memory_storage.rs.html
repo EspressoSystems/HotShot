@@ -177,6 +177,7 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -297,7 +298,8 @@
         data::{fake_commitment, Leaf},
         simple_certificate::QuorumCertificate,
         traits::{
-            node_implementation::NodeType, signature_key::SignatureKey, state::ConsensusTime,
+            node_implementation::{ConsensusTime, NodeType},
+            signature_key::SignatureKey,
         },
     };
     <span class="kw">use </span>std::marker::PhantomData;

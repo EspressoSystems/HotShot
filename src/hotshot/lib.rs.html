@@ -738,6 +738,23 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 //! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
@@ -792,11 +809,11 @@
     traits::{
         consensus_api::ConsensusApi,
         network::{CommunicationChannel, NetworkError},
-        node_implementation::{NodeType, SendToTasks},
+        node_implementation::{ConsensusTime, NodeType, SendToTasks},
         signature_key::SignatureKey,
-        state::ConsensusTime,
+        states::ValidatedState,
         storage::StoredView,
-        BlockPayload, State,
+        BlockPayload,
     },
     HotShotConfig,
 };
@@ -913,8 +930,11 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
+    <span class="doccomment">/// Creates a new [`SystemContext`] with the given configuration options and sets it up with the given
     /// genesis block
+    ///
+    /// To do a full initialization, use `fn init` instead, which will set up background tasks as
+    /// well.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, storage, memberships, networks, initializer, metrics))]
     </span><span class="kw">pub async fn </span>new(
@@ -932,6 +952,7 @@
 
         <span class="kw">let </span>consensus_metrics = Arc::new(metrics);
         <span class="kw">let </span>anchored_leaf = initializer.inner;
+        <span class="kw">let </span>instance_state = initializer.instance_state;
 
         <span class="comment">// insert to storage
         </span>storage
@@ -940,13 +961,14 @@
             </span>.context(StorageSnafu)<span class="question-mark">?</span>;
 
         <span class="comment">// insert genesis (or latest block) to state map
-        </span><span class="kw">let </span><span class="kw-2">mut </span>state_map = BTreeMap::default();
-        state_map.insert(
+        </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
+        <span class="kw">let </span>validated_state = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
+        validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: TYPES::StateType::genesis(),
+                    state: validated_state,
                 },
             },
         );
@@ -970,7 +992,8 @@
         <span class="kw">let </span>start_view = anchored_leaf.get_view_number();
 
         <span class="kw">let </span>consensus = Consensus {
-            state_map,
+            instance_state,
+            validated_state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
@@ -1131,7 +1154,7 @@
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::StateType {
+    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::ValidatedState {
         <span class="self">self</span>.inner
             .consensus
             .read()
@@ -1140,7 +1163,7 @@
             .clone()
     }
 
-    <span class="doccomment">/// Initializes a new hotshot and does the work of setting up all the background tasks
+    <span class="doccomment">/// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
@@ -1148,6 +1171,8 @@
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
     /// the `HotShot` instance will log the error and shut down.
+    ///
+    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
     ///
     /// # Errors
     ///
@@ -1461,21 +1486,30 @@
 </span><span class="kw">pub struct </span>HotShotInitializer&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the leaf specified initialization
     </span>inner: Leaf&lt;TYPES&gt;,
+
+    <span class="doccomment">/// Instance-level state.
+    </span>instance_state: TYPES::InstanceState,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
     <span class="doccomment">/// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    </span><span class="kw">pub fn </span>from_genesis() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>from_genesis(
+        instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf::genesis(),
+            inner: Leaf::genesis(instance_state),
+            instance_state: instance_state.clone(),
         })
     }
 
-    <span class="doccomment">/// reload previous state based on most recent leaf
-    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ inner: anchor_leaf }
+    <span class="doccomment">/// reload previous state based on most recent leaf and the instance-level state.
+    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;TYPES&gt;, instance_state: TYPES::InstanceState) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            inner: anchor_leaf,
+            instance_state,
+        }
     }
 }
 </code></pre></div></section></main></body></html>

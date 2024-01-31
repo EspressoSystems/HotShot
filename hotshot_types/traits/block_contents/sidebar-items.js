@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","Transaction"]};
+window.SIDEBAR_ITEMS = {"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","TestableBlock","Transaction"]};

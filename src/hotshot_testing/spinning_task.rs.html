@@ -235,6 +235,8 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -250,8 +252,10 @@
     MergeN,
 };
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
-<span class="kw">use </span>hotshot_types::{event::Event, traits::node_implementation::NodeType};
+<span class="kw">use </span>hotshot_types::{
+    event::Event,
+    traits::node_implementation::{ConsensusTime, NodeType},
+};
 <span class="kw">use </span>snafu::Snafu;
 
 <span class="kw">use crate</span>::{
