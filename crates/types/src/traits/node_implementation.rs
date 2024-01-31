@@ -22,12 +22,11 @@ use async_trait::async_trait;
 use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
     fmt::Debug,
     hash::Hash,
     ops,
     ops::{Deref, Sub},
-    sync::{atomic::AtomicBool, Arc},
+    sync::Arc,
 };
 /// Node implementation aggregate trait
 ///

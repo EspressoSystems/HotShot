@@ -32,7 +32,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tracing::error;
 
 /// event for global event stream
 #[derive(Clone, Debug)]

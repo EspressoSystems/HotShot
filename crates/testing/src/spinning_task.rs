@@ -1,16 +1,13 @@
 use std::collections::HashMap;
 
-use hotshot::{traits::TestableNodeImplementation, SystemContext};
+use hotshot::traits::TestableNodeImplementation;
 
 use crate::test_runner::HotShotTaskCompleted;
 use crate::test_runner::LateStartNode;
 use crate::test_runner::Node;
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{
-    event::Event,
-    traits::node_implementation::{ConsensusTime, NodeType},
-};
+use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
 use std::collections::BTreeMap;
 /// convience type for state and block
