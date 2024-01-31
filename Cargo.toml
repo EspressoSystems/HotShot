@@ -15,7 +15,6 @@ members = [
         "crates/constants",
         "crates/hotshot",
         "crates/hotshot-stake-table",
-        "crates/hotshot-state-prover",
         "crates/libp2p-networking",
         "crates/testing-macros",
         "crates/task",

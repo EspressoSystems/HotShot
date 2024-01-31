@@ -3,9 +3,12 @@
 use ark_ed_on_bn254::EdwardsConfig as Config;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ethereum_types::U256;
 use jf_primitives::signatures::schnorr;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tagged_base64::tagged;
 
 /// A light client state
@@ -22,7 +25,7 @@ use tagged_base64::tagged;
     Ord,
     Hash,
 )]
-pub struct LightClientState<F: PrimeField> {
+pub struct GenericLightClientState<F: PrimeField> {
     /// Current view number
     pub view_number: usize,
     /// Current block height
@@ -35,8 +38,8 @@ pub struct LightClientState<F: PrimeField> {
     pub stake_table_comm: (F, F, F),
 }
 
-impl<F: PrimeField> From<LightClientState<F>> for [F; 7] {
-    fn from(state: LightClientState<F>) -> Self {
+impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 7] {
+    fn from(state: GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
@@ -48,8 +51,8 @@ impl<F: PrimeField> From<LightClientState<F>> for [F; 7] {
         ]
     }
 }
-impl<F: PrimeField> From<&LightClientState<F>> for [F; 7] {
-    fn from(state: &LightClientState<F>) -> Self {
+impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 7] {
+    fn from(state: &GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
@@ -62,6 +65,13 @@ impl<F: PrimeField> From<&LightClientState<F>> for [F; 7] {
     }
 }
 
+/// Concrete type for light client state
+pub type LightClientState = GenericLightClientState<ark_ed_on_bn254::Fq>;
+/// Base field in the prover circuit
+pub type CircuitField = ark_ed_on_bn254::Fq;
+/// Signature scheme
+pub type StateSignatureScheme =
+    jf_primitives::signatures::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
 /// Signatures
 pub type StateSignature = schnorr::Signature<Config>;
 /// Verification key for verifying state signatures
@@ -107,5 +117,102 @@ impl StateKeyPair {
 impl From<schnorr::KeyPair<Config>> for StateKeyPair {
     fn from(value: schnorr::KeyPair<Config>) -> Self {
         StateKeyPair(value)
+    }
+}
+
+/// Request body to send to the state relay server
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
+pub struct StateSignatureRequestBody {
+    /// The public key associated with this request
+    pub key: StateVerKey,
+    /// The associated light client state
+    pub state: LightClientState,
+    /// The associated signature of the light client state
+    pub signature: StateSignature,
+}
+
+/// The state signatures bundle is a light client state and its signatures collected
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StateSignaturesBundle {
+    /// The state for this signatures bundle
+    pub state: LightClientState,
+    /// The collected signatures
+    pub signatures: HashMap<StateVerKey, StateSignature>,
+    /// Total stakes associated with the signer
+    pub accumulated_weight: U256,
+}
+
+/// Public input to the light client state prover service
+#[derive(Clone, Debug)]
+pub struct GenericPublicInput<F: PrimeField>(Vec<F>);
+
+/// Concrete public input type
+pub type PublicInput = GenericPublicInput<CircuitField>;
+
+impl<F: PrimeField> AsRef<[F]> for GenericPublicInput<F> {
+    fn as_ref(&self) -> &[F] {
+        &self.0
+    }
+}
+
+impl<F: PrimeField> From<Vec<F>> for GenericPublicInput<F> {
+    fn from(v: Vec<F>) -> Self {
+        Self(v)
+    }
+}
+
+impl<F: PrimeField> GenericPublicInput<F> {
+    /// Return the threshold
+    #[must_use]
+    pub fn threshold(&self) -> F {
+        self.0[0]
+    }
+
+    /// Return the view number of the light client state
+    #[must_use]
+    pub fn view_number(&self) -> F {
+        self.0[1]
+    }
+
+    /// Return the block height of the light client state
+    #[must_use]
+    pub fn block_height(&self) -> F {
+        self.0[2]
+    }
+
+    /// Return the block commitment root of the light client state
+    #[must_use]
+    pub fn block_comm_root(&self) -> F {
+        self.0[3]
+    }
+
+    /// Return the fee ledger commitment of the light client state
+    #[must_use]
+    pub fn fee_ledger_comm(&self) -> F {
+        self.0[4]
+    }
+
+    /// Return the stake table commitment of the light client state
+    #[must_use]
+    pub fn stake_table_comm(&self) -> (F, F, F) {
+        (self.0[5], self.0[6], self.0[7])
+    }
+
+    /// Return the qc key commitment of the light client state
+    #[must_use]
+    pub fn qc_key_comm(&self) -> F {
+        self.0[5]
+    }
+
+    /// Return the state key commitment of the light client state
+    #[must_use]
+    pub fn state_key_comm(&self) -> F {
+        self.0[6]
+    }
+
+    /// Return the stake amount commitment of the light client state
+    #[must_use]
+    pub fn stake_amount_comm(&self) -> F {
+        self.0[7]
     }
 }
