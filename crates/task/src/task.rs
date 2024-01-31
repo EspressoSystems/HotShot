@@ -8,10 +8,13 @@ use async_std::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
-use futures::{
-    future::{select_all, try_join_all},
-    Future,
-};
+use futures::{future::select_all, Future};
+
+#[cfg(async_executor_impl = "async-std")]
+use futures::future::join_all;
+
+#[cfg(async_executor_impl = "tokio")]
+use futures::future::try_join_all;
 
 #[cfg(async_executor_impl = "tokio")]
 use tokio::{
@@ -359,7 +362,15 @@ mod tests {
         let handle2 = test2.run();
         sleep(Duration::from_millis(30)).await;
         msg_tx.broadcast("done".into()).await.unwrap();
-        handle.await.unwrap();
-        handle2.await.unwrap();
+        #[cfg(async_executor_impl = "tokio")]
+        {
+            handle.await.unwrap();
+            handle2.await.unwrap();
+        }
+        #[cfg(async_executor_impl = "async-std")]
+        {
+            handle.await;
+            handle2.await;
+        }
     }
 }

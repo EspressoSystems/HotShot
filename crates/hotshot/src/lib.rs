@@ -246,7 +246,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Arc::new(RwLock::new(consensus));
 
         let (internal_tx, internal_rx) = broadcast(100_000);
-        let (external_tx, external_rx) = broadcast(100_000);
+        let (mut external_tx, external_rx) = broadcast(100_000);
+
+        // This makes it so we won't block on broadcasting if there is not a receiver
+        // Our own copy of the receiver is inactive so it doesn't count.
+        external_tx.set_await_active(false);
 
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             id: nonce,

@@ -1307,6 +1307,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     where
         Self: Sized,
     {
+        tracing::error!("consensus get event {:?}", event);
         // TODO: Don't clone the sender
         let sender = task.clone_sender();
         info!("sender queue len {}", sender.len());

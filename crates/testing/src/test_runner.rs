@@ -233,13 +233,14 @@ where
         }
         task_futs.push(completion_task.run());
         task_futs.push(spinning_task.run());
-
-        let results = join_all(task_futs).await;
-        tracing::error!("test tasks joined");
         let mut error_list = vec![];
-        for result in results {
-            match result {
-                Ok(res) => match res {
+
+        #[cfg(async_executor_impl = "async-std")]
+        {
+            let results = join_all(task_futs).await;
+            tracing::error!("test tasks joined");
+            for result in results {
+                match result {
                     HotShotTaskCompleted::ShutDown => {
                         info!("Task shut down successfully");
                     }
@@ -247,12 +248,35 @@ where
                     _ => {
                         panic!("Future impl for task abstraction failed! This should never happen");
                     }
-                },
-                Err(e) => {
-                    panic!("Error Joining the test task {:?}", e);
                 }
             }
         }
+
+        #[cfg(async_executor_impl = "tokio")]
+        {
+            let results = join_all(task_futs).await;
+
+            tracing::error!("test tasks joined");
+            for result in results {
+                match result {
+                    Ok(res) => {
+                        match res {
+                            HotShotTaskCompleted::ShutDown => {
+                                info!("Task shut down successfully");
+                            }
+                            HotShotTaskCompleted::Error(e) => error_list.push(e),
+                            _ => {
+                                panic!("Future impl for task abstraction failed! This should never happen");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        panic!("Error Joining the test task {:?}", e);
+                    }
+                }
+            }
+        }
+
         assert!(
             error_list.is_empty(),
             "TEST FAILED! Results: {error_list:?}"

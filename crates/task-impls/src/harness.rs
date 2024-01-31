@@ -70,11 +70,11 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     );
     let task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
-    tasks.push(task.run());
     tasks.push(test_task.run());
+    tasks.push(task.run());
 
     for event in input {
-        let _ = to_task.broadcast(event).await.unwrap();
+        to_task.broadcast_direct(event).await.unwrap();
     }
 
     if async_timeout(Duration::from_secs(2), futures::future::join_all(tasks))
@@ -100,6 +100,7 @@ pub fn handle_event<TYPES: NodeType>(
     task: &mut Task<TestHarnessState<TYPES>>,
     allow_extra_output: bool,
 ) -> Option<HotShotTaskCompleted> {
+    tracing::error!("got event {:?}", event);
     let state = task.state_mut();
     // Check the output in either case:
     // * We allow outputs only in our expected output set.
@@ -119,6 +120,7 @@ pub fn handle_event<TYPES: NodeType>(
     }
 
     if state.expected_output.is_empty() {
+        tracing::error!("test harness task completed");
         return Some(HotShotTaskCompleted);
     }
 
