@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["LightClientState","StateKeyPair"],"type":["StateSignKey","StateSignature","StateVerKey"]};
+window.SIDEBAR_ITEMS = {"struct":["GenericLightClientState","GenericPublicInput","StateKeyPair","StateSignatureRequestBody","StateSignaturesBundle"],"type":["CircuitField","LightClientState","PublicInput","StateSignKey","StateSignature","StateSignatureScheme","StateVerKey"]};

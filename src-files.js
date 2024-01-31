@@ -7,7 +7,6 @@ var srcIndex = JSON.parse('{\
 "hotshot_constants":["",[],["lib.rs"]],\
 "hotshot_orchestrator":["",[],["client.rs","config.rs","lib.rs"]],\
 "hotshot_stake_table":["",[["mt_based",[],["config.rs","internal.rs"]],["vec_based",[],["config.rs"]]],["config.rs","lib.rs","mt_based.rs","utils.rs","vec_based.rs"]],\
-"hotshot_state_prover":["",[],["circuit.rs","lib.rs"]],\
 "hotshot_task":["",[],["event_stream.rs","global_registry.rs","lib.rs","task.rs","task_impls.rs","task_launcher.rs","task_state.rs"]],\
 "hotshot_task_impls":["",[],["consensus.rs","da.rs","events.rs","harness.rs","helpers.rs","lib.rs","network.rs","transactions.rs","vid.rs","view_sync.rs","vote.rs"]],\
 "hotshot_testing":["",[],["block_types.rs","completion_task.rs","lib.rs","node_types.rs","overall_safety_task.rs","spinning_task.rs","state_types.rs","task_helpers.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs","view_sync_task.rs"]],\
