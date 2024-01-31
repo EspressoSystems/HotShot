@@ -18,7 +18,6 @@ members = [
         "crates/hotshot-state-prover",
         "crates/libp2p-networking",
         "crates/testing-macros",
-        "crates/task",
         "crates/task-impls",
         "crates/testing",
         "crates/types",

@@ -39,7 +39,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES
                 .is_err()
             {
                 // We hit the time limit, notify other test tasks to shutdown
-                self.tx.broadcast(GlobalTestEvent::ShutDown).await;
+                tracing::error!("Test Timed out waiting for completetion");
+                self.tx
+                    .broadcast_direct(GlobalTestEvent::ShutDown)
+                    .await
+                    .unwrap();
             }
             for node in &self.handles {
                 node.handle.clone().shut_down().await;
@@ -48,8 +52,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES
         })
     }
     async fn wait_for_shutdown(&mut self) {
-        while let Ok(event) = self.rx.recv().await {
+        while let Ok(event) = self.rx.recv_direct().await {
             if matches!(event, GlobalTestEvent::ShutDown) {
+                tracing::error!("Completion Task shutting down");
                 return;
             }
         }

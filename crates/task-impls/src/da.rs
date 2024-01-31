@@ -169,7 +169,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // self.cur_view = view;
 
                 debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
-                event_stream.broadcast(HotShotEvent::DAVoteSend(vote)).await;
+                event_stream
+                    .broadcast_direct(HotShotEvent::DAVoteSend(vote))
+                    .await
+                    .unwrap();
                 let mut consensus = self.consensus.write().await;
 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
@@ -301,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 event_stream
-                    .broadcast(HotShotEvent::DAProposalSend(
+                    .broadcast_direct(HotShotEvent::DAProposalSend(
                         message.clone(),
                         self.public_key.clone(),
                     ))

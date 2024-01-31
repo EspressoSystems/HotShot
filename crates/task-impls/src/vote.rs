@@ -95,8 +95,9 @@ impl<
             Either::Right(cert) => {
                 debug!("Certificate Formed! {:?}", cert);
                 event_stream
-                    .broadcast(VOTE::make_cert_event(cert, &self.public_key))
-                    .await;
+                    .broadcast_direct(VOTE::make_cert_event(cert, &self.public_key))
+                    .await
+                    .unwrap();
                 self.accumulator = None;
                 Some(HotShotTaskCompleted)
             }

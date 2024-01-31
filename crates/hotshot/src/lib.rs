@@ -274,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         self.inner
             .internal_event_stream
             .0
-            .broadcast(HotShotEvent::QCFormed(either::Left(
+            .broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
             .await;

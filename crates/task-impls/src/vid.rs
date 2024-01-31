@@ -96,20 +96,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let vid_disperse = vid_disperse.unwrap();
                 // send the commitment and metadata to consensus for block building
                 event_stream
-                    .broadcast(HotShotEvent::SendPayloadCommitmentAndMetadata(
+                    .broadcast_direct(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,
                         metadata,
                         view_number,
                     ))
-                    .await;
+                    .await
+                    .unwrap();
 
                 // send the block to the VID dispersal function
                 event_stream
-                    .broadcast(HotShotEvent::BlockReady(
+                    .broadcast_direct(HotShotEvent::BlockReady(
                         VidDisperse::from_membership(view_number, vid_disperse, &self.membership),
                         view_number,
                     ))
-                    .await;
+                    .await
+                    .unwrap();
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
@@ -122,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
                 debug!("publishing VID disperse for view {}", *view_number);
                 event_stream
-                    .broadcast(HotShotEvent::VidDisperseSend(
+                    .broadcast_direct(HotShotEvent::VidDisperseSend(
                         Proposal {
                             signature,
                             data: vid_disperse,

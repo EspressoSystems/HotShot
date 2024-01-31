@@ -909,17 +909,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "atomic_enum"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6227a8d6fdb862bcb100c4314d0d9579e5cd73fa6df31a2e6f6e1acd3c5f1207"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "attohttpc"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2792,24 +2781,6 @@ dependencies = [
  "jf-primitives",
  "jf-relation",
  "jf-utils",
-]
-
-[[package]]
-name = "hotshot-task"
-version = "0.1.0"
-dependencies = [
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "atomic_enum",
- "either",
- "futures",
- "pin-project",
- "serde",
- "snafu",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6602,7 +6573,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "task"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/HotShotTasks.git#a237e633587c7fe49fe1a45d5da9551cf5aab0a7"
+source = "git+https://github.com/EspressoSystems/HotShotTasks.git#c55751758da8899d868cfc28bc95cd4e4d71584d"
 dependencies = [
  "async-broadcast",
  "async-std",

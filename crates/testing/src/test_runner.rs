@@ -12,7 +12,7 @@ use crate::{
     view_sync_task::ViewSyncTask,
 };
 use async_broadcast::broadcast;
-use futures::{future::join_all};
+use futures::future::join_all;
 use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
@@ -172,7 +172,6 @@ where
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
             event_rxs.clone(),
         );
-        task_futs.push(spinning_task.run());
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
             handles: nodes.clone(),
@@ -214,13 +213,15 @@ where
             }
         }
         task_futs.push(safety_task.run());
-        task_futs.push(view_sync_task.run());
+        // task_futs.push(view_sync_task.run());
         // if let Some(txn) = txn_task {
         //     task_futs.push(txn.run());
         // }
         task_futs.push(completion_task.run());
+        task_futs.push(spinning_task.run());
 
         let results = join_all(task_futs).await;
+        tracing::error!("test tasks joined");
         let mut error_list = vec![];
         for result in results {
             match result.unwrap() {

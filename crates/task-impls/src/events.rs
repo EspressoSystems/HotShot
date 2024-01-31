@@ -15,6 +15,7 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
 };
 
+/// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct HotShotTaskCompleted;
 

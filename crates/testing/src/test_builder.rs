@@ -215,12 +215,8 @@ impl TestMetadata {
             min_transactions,
             timing_data,
             da_committee_size,
-            
-            
-            
-            
+
             unreliable_network,
-            
             ..
         } = self.clone();
 

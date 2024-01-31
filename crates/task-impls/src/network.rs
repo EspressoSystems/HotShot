@@ -84,7 +84,7 @@ impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     }
 
     fn filter(&self, _event: &Self::Event) -> bool {
-        return false;
+        false
     }
 
     fn should_shutdown(_event: &Self::Event) -> bool {
@@ -165,7 +165,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
                     // <https://github.com/EspressoSystems/HotShot/issues/1428>
-                    self.event_stream.broadcast(event).await;
+                    self.event_stream.broadcast(event).await.unwrap();
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
@@ -176,8 +176,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
         }
         if !transactions.is_empty() {
             self.event_stream
-                .broadcast(HotShotEvent::TransactionsRecv(transactions))
-                .await;
+                .broadcast_direct(HotShotEvent::TransactionsRecv(transactions))
+                .await
+                .unwrap();
         }
     }
 }

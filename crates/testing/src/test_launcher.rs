@@ -1,15 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
-
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
 
-
-
-
-use super::{
-    test_builder::TestMetadata, test_runner::TestRunner,
-};
+use super::{test_builder::TestMetadata, test_runner::TestRunner};
 
 /// convience type alias for the networks available
 pub type Networks<TYPES, I> = (

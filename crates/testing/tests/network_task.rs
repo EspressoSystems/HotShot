@@ -20,7 +20,6 @@ use std::{collections::HashMap, marker::PhantomData};
 #[ignore]
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
-    
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::{data::VidDisperse, message::Proposal};
 

@@ -246,12 +246,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
                 event_stream
-                    .broadcast(HotShotEvent::TransactionsSequenced(
+                    .broadcast_direct(HotShotEvent::TransactionsSequenced(
                         encoded_transactions,
                         metadata,
                         block_view,
                     ))
-                    .await;
+                    .await
+                    .unwrap();
 
                 return None;
             }

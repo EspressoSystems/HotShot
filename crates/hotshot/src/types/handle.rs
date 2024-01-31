@@ -121,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                         block_size: None,
                     },
                 };
-                let _ = self.output_event_stream.0.broadcast(event).await;
+                let _ = self.output_event_stream.0.broadcast_direct(event).await;
             }
         } else {
             // TODO (justin) this seems bad. I think we should hard error in this case??
