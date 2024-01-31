@@ -2,13 +2,17 @@ use std::collections::HashMap;
 
 use hotshot::{traits::TestableNodeImplementation, SystemContext};
 
+use crate::test_runner::HotShotTaskCompleted;
+use crate::test_runner::LateStartNode;
+use crate::test_runner::Node;
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{event::Event, traits::node_implementation::NodeType};
+use hotshot_types::{
+    event::Event,
+    traits::node_implementation::{ConsensusTime, NodeType},
+};
 use snafu::Snafu;
-
-use crate::test_runner::HotShotTaskCompleted;
-use crate::test_runner::Node;
+use std::collections::BTreeMap;
 /// convience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -23,9 +27,9 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handle to the nodes
     pub(crate) handles: Vec<Node<TYPES, I>>,
     /// late start nodes
-    pub(crate) late_start: HashMap<u64, SystemContext<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// time based changes
-    pub(crate) changes: HashMap<TYPES::Time, Vec<ChangeNode>>,
+    pub(crate) changes: BTreeMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
     pub(crate) latest_view: Option<TYPES::Time>,
 }
@@ -77,7 +81,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                         UpDown::Up => {
                             if let Some(node) = state.late_start.remove(&idx.try_into().unwrap()) {
                                 tracing::error!("Node {} spinning up late", idx);
-                                let handle = node.run_tasks().await;
+                                let handle = node.context.run_tasks().await;
                                 handle.hotshot.start_consensus().await;
                             }
                         }

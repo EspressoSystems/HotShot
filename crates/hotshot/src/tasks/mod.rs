@@ -22,8 +22,7 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
-        node_implementation::{NodeImplementation, NodeType},
-        state::ConsensusTime,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
 };
@@ -33,6 +32,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tracing::error;
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -168,9 +168,14 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         committee_membership: c_api.inner.memberships.da_membership.clone().into(),
     };
+    // Poll (forever) for the latest quorum proposal
     consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
+        .await;
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
         .await;
     consensus_state
     // let task = Task::new(tx, rx, task_reg.clone(), consensus_state);

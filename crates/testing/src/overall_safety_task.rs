@@ -86,7 +86,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
                 let state = task.state_mut();
                 let OverallSafetyPropertiesDescription {
                     check_leaf: _,
-                    check_state: _,
                     check_block: _,
                     num_failed_views: num_failed_rounds_total,
                     num_successful_views,
@@ -141,7 +140,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
     ) -> Option<Self::Result> {
         let OverallSafetyPropertiesDescription {
             check_leaf,
-            check_state,
             check_block,
             num_failed_views,
             num_successful_views,
@@ -205,7 +203,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 len,
                 &key,
                 check_leaf,
-                check_state,
                 check_block,
                 transaction_threshold,
             );
@@ -280,12 +277,6 @@ pub struct RoundResult<TYPES: NodeType> {
     /// block -> # entries decided on that block
     pub block_map: HashMap<VidCommitment, usize>,
 
-    // TODO should we delete this?
-    // state is empty now
-    /// state -> # entries decided on that state
-    /// <https://github.com/EspressoSystems/HotShot/issues/2435>
-    pub state_map: HashMap<(), usize>,
-
     /// node idx -> number transactions
     pub num_txns_map: HashMap<u64, usize>,
 }
@@ -297,7 +288,6 @@ impl<TYPES: NodeType> Default for RoundResult<TYPES> {
             failed_nodes: HashMap::default(),
             leaf_map: HashMap::default(),
             block_map: HashMap::default(),
-            state_map: HashMap::default(),
             num_txns_map: HashMap::default(),
             status: ViewStatus::InProgress,
         }
@@ -379,16 +369,8 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                 }
             }
 
-            let (state, payload_commitment) = (leaf.get_state(), leaf.get_payload_commitment());
+            let payload_commitment = leaf.get_payload_commitment();
 
-            match self.state_map.entry(state) {
-                std::collections::hash_map::Entry::Occupied(mut o) => {
-                    *o.get_mut() += 1;
-                }
-                std::collections::hash_map::Entry::Vacant(v) => {
-                    v.insert(1);
-                }
-            }
             match self.block_map.entry(payload_commitment) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
                     *o.get_mut() += 1;
@@ -429,7 +411,6 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         total_num_nodes: usize,
         key: &Leaf<TYPES>,
         check_leaf: bool,
-        check_state: bool,
         check_block: bool,
         transaction_threshold: u64,
     ) {
@@ -440,11 +421,6 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         if check_leaf && self.leaf_map.len() != 1 {
             error!("LEAF MAP (that is mismatched) IS: {:?}", self.leaf_map);
             self.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
-            return;
-        }
-
-        if check_state && self.state_map.len() != 1 {
-            self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentStates);
             return;
         }
 
@@ -473,11 +449,9 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
             // if not, return error
             // if neither, continue through
 
-            let state_key = key.get_state();
             let block_key = key.get_payload_commitment();
 
             if *self.block_map.get(&block_key).unwrap() == threshold
-                && *self.state_map.get(&state_key).unwrap() == threshold
                 && *self.leaf_map.get(key).unwrap() == threshold
             {
                 self.status = ViewStatus::Ok;
@@ -520,8 +494,6 @@ pub struct OverallSafetyPropertiesDescription {
     pub num_successful_views: usize,
     /// whether or not to check the leaf
     pub check_leaf: bool,
-    /// whether or not to check the state
-    pub check_state: bool,
     /// whether or not to check the block
     pub check_block: bool,
     /// whether or not to check that we have threshold amounts of transactions each block
@@ -541,7 +513,6 @@ impl std::fmt::Debug for OverallSafetyPropertiesDescription {
         f.debug_struct("OverallSafetyPropertiesDescription")
             .field("num successful views", &self.num_successful_views)
             .field("check leaf", &self.check_leaf)
-            .field("check_state", &self.check_state)
             .field("check_block", &self.check_block)
             .field("num_failed_rounds_total", &self.num_failed_views)
             .field("transaction_threshold", &self.transaction_threshold)
@@ -554,7 +525,6 @@ impl Default for OverallSafetyPropertiesDescription {
         Self {
             num_successful_views: 50,
             check_leaf: false,
-            check_state: true,
             check_block: true,
             num_failed_views: 0,
             transaction_threshold: 0,

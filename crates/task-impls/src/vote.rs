@@ -6,7 +6,6 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_trait::async_trait;
-use bitvec::prelude::*;
 use either::Either::{self, Left, Right};
 
 use hotshot_task::task::{Task, TaskState};
@@ -200,8 +199,7 @@ where
     }
     let new_accumulator = VoteAccumulator {
         vote_outcomes: HashMap::new(),
-        sig_lists: Vec::new(),
-        signers: bitvec![0;info. membership.total_nodes()],
+        signers: HashMap::new(),
         phantom: PhantomData,
     };
 

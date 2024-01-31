@@ -22,7 +22,10 @@ use hotshot_types::{
     error::HotShotError,
     event::EventType,
     simple_certificate::QuorumCertificate,
-    traits::{node_implementation::NodeType, state::ConsensusTime, storage::Storage},
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        storage::Storage,
+    },
 };
 use std::sync::Arc;
 use tracing::error;
@@ -74,21 +77,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.internal_event_stream.1.activate_cloned()
     }
 
-    /// Gets the current committed state of the [`SystemContext`] instance
+    /// Get the last decided validated state of the [`SystemContext`] instance.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) {
-        self.hotshot.get_state().await;
+    /// # Panics
+    /// If the internal consensus is in an inconsistent state.
+    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+        self.hotshot.get_decided_state().await
     }
 
-    /// Gets most recent decided leaf
-    /// # Panics
+    /// Get the last decided leaf of the [`SystemContext`] instance.
     ///
-    /// Panics if internal consensus is in an inconsistent state.
+    /// # Panics
+    /// If the internal consensus is in an inconsistent state.
     pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.hotshot.get_decided_leaf().await
+    }
+
+    /// Tries to get the most recent decided leaf, returning instantly
+    /// if we can't acquire the lock.
+    ///
+    /// # Panics
+    /// Panics if internal consensus is in an inconsistent state.
+    pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+        self.hotshot.try_get_decided_leaf()
     }
 
     /// Submits a transaction to the backing [`SystemContext`] instance.

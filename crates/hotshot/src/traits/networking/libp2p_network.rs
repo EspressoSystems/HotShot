@@ -25,9 +25,8 @@ use hotshot_types::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
             NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
         },
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
     },
     BoxSyncFuture,
 };
@@ -363,7 +362,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                dht_timeout: Duration::from_secs(1),
+                dht_timeout: Duration::from_secs(2),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
                 topic_map,

@@ -7,14 +7,13 @@ use crate::{
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::UpgradeProposalData,
     traits::{
-        block_contents::vid_commitment,
-        block_contents::BlockHeader,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock},
         election::Membership,
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::{ConsensusTime, TestableBlock, TestableState},
+        states::{TestableState, ValidatedState},
         storage::StoredView,
-        BlockPayload, State,
+        BlockPayload,
     },
     vote::{Certificate, HasViewNumber},
 };
@@ -106,9 +105,10 @@ impl std::ops::Sub<u64> for ViewNumber {
     }
 }
 
-/// The `Transaction` type associated with a `State`, as a syntactic shortcut
-pub type Transaction<STATE> = <<STATE as State>::BlockPayload as BlockPayload>::Transaction;
-/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
+/// The `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
+pub type Transaction<STATE> =
+    <<STATE as ValidatedState>::BlockPayload as BlockPayload>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// A proposal to start providing data availability for a block.
@@ -326,9 +326,6 @@ pub struct Leaf<TYPES: NodeType> {
     /// It may be empty for nodes not in the DA committee.
     pub block_payload: Option<TYPES::BlockPayload>,
 
-    /// Transactions that were marked for rejection while collecting the block.
-    pub rejected: Vec<<TYPES::BlockPayload as BlockPayload>::Transaction>,
-
     /// the proposer id of the leaf
     pub proposer_id: TYPES::SignatureKey,
 }
@@ -339,7 +336,6 @@ impl<TYPES: NodeType> PartialEq for Leaf<TYPES> {
             && self.justify_qc == other.justify_qc
             && self.parent_commitment == other.parent_commitment
             && self.block_header == other.block_header
-            && self.rejected == other.rejected
     }
 }
 
@@ -349,7 +345,6 @@ impl<TYPES: NodeType> Hash for Leaf<TYPES> {
         self.justify_qc.hash(state);
         self.parent_commitment.hash(state);
         self.block_header.hash(state);
-        self.rejected.hash(state);
     }
 }
 
@@ -368,15 +363,14 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 impl<TYPES: NodeType> Leaf<TYPES> {
     /// Create a new leaf from its components.
     #[must_use]
-    pub fn genesis() -> Self {
-        let (block_header, block_payload, _) = TYPES::BlockHeader::genesis();
+    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+        let (block_header, block_payload, _) = TYPES::BlockHeader::genesis(instance_state);
         Self {
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::<TYPES>::genesis(),
             parent_commitment: fake_commitment(),
-            block_header,
+            block_header: block_header.clone(),
             block_payload: Some(block_payload),
-            rejected: Vec::new(),
             proposer_id: <<TYPES as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
         }
     }
@@ -443,17 +437,12 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_payload_commitment(&self) -> VidCommitment {
         self.get_block_header().payload_commitment()
     }
-    /// The blockchain state after appending this leaf.
-    // The Sequencing Leaf doesn't have a state.
-    pub fn get_state(&self) {}
-    /// Transactions rejected or invalidated by the application of this leaf.
-    pub fn get_rejected(&self) -> Vec<<TYPES::BlockPayload as BlockPayload>::Transaction> {
-        self.rejected.clone()
-    }
+
     /// Identity of the network participant who proposed this leaf.
     pub fn get_proposer_id(&self) -> TYPES::SignatureKey {
         self.proposer_id.clone()
     }
+
     /// Create a leaf from information stored about a view.
     pub fn from_stored_view(stored_view: StoredView<TYPES>) -> Self {
         Self {
@@ -462,7 +451,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             parent_commitment: stored_view.parent,
             block_header: stored_view.block_header,
             block_payload: stored_view.block_payload,
-            rejected: stored_view.rejected,
             proposer_id: stored_view.proposer_id,
         }
     }
@@ -470,7 +458,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
-    TYPES::StateType: TestableState,
+    TYPES::ValidatedState: TestableState,
     TYPES::BlockPayload: TestableBlock,
 {
     type NodeType = TYPES;
@@ -480,7 +468,7 @@ where
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
-        TYPES::StateType::create_random_transaction(None, rng, padding)
+        TYPES::ValidatedState::create_random_transaction(None, rng, padding)
     }
 }
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -562,7 +550,6 @@ where
             justify_qc: leaf.get_justify_qc(),
             block_header: leaf.get_block_header().clone(),
             block_payload: leaf.get_block_payload(),
-            rejected: leaf.get_rejected(),
             proposer_id: leaf.get_proposer_id(),
         }
     }

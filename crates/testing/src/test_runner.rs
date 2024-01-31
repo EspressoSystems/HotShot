@@ -7,6 +7,7 @@ use super::{
 use crate::{
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
+    state_types::TestInstanceState,
     test_launcher::{Networks, TestLauncher},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
@@ -21,11 +22,14 @@ use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    traits::{election::Membership, node_implementation::NodeType, state::ConsensusTime},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
+    },
     HotShotConfig, ValidatorConfig,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
@@ -36,12 +40,21 @@ use tracing::info;
 /// a node participating in a test
 #[derive(Clone)]
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// the unique identifier of the node
+    /// The node's unique identifier
     pub node_id: u64,
-    /// the networks of the node
+    /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
-    /// the handle to the node's internals
+    /// The handle to the node's internals
     pub handle: SystemContextHandle<TYPES, I>,
+}
+
+/// A yet-to-be-started node that participates in tests
+#[derive(Clone)]
+pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The underlying networks belonging to the node
+    pub networks: Networks<TYPES, I>,
+    /// The context to which we will use to launch HotShot when it's time
+    pub context: SystemContext<TYPES, I>,
 }
 
 /// The runner of a test network
@@ -52,7 +65,7 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
     /// nodes with a late start
-    pub(crate) late_start: HashMap<u64, SystemContext<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier
     pub(crate) next_node_id: u64,
 }
@@ -77,7 +90,8 @@ pub enum HotShotTaskCompleted {
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType<InstanceState = TestInstanceState>, I: TestableNodeImplementation<TYPES>>
+    TestRunner<TYPES, I>
 where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
 {
@@ -154,7 +168,7 @@ where
 
         // add spinning task
         // map spinning to view
-        let mut changes: HashMap<TYPES::Time, Vec<ChangeNode>> = HashMap::new();
+        let mut changes: BTreeMap<TYPES::Time, Vec<ChangeNode>> = BTreeMap::new();
         for (view, mut change) in spinning_changes {
             changes
                 .entry(TYPES::Time::new(view))
@@ -255,7 +269,8 @@ where
             let node_id = self.next_node_id;
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
-            let initializer = HotShotInitializer::<TYPES>::from_genesis().unwrap();
+            let initializer =
+                HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             // We assign node's public key and stake value rather than read from config file since it's a test
             let validator_config =
@@ -270,7 +285,13 @@ where
                 )
                 .await;
             if late_start.contains(&node_id) {
-                self.late_start.insert(node_id, hotshot);
+                self.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: hotshot,
+                    },
+                );
             } else {
                 self.nodes.push(Node {
                     node_id,
