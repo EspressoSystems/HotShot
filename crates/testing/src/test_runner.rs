@@ -213,7 +213,7 @@ where
             }
         }
         task_futs.push(safety_task.run());
-        // task_futs.push(view_sync_task.run());
+        task_futs.push(view_sync_task.run());
         // if let Some(txn) = txn_task {
         //     task_futs.push(txn.run());
         // }

@@ -277,7 +277,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
-            .await;
+            .await
+            .unwrap();
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
