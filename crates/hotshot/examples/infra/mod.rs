@@ -388,7 +388,7 @@ pub trait RunDA<
     /// Starts HotShot consensus, returns when consensus has finished
     async fn run_hotshot(
         &self,
-        mut context: SystemContextHandle<TYPES, NODE>,
+        context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
     ) {
