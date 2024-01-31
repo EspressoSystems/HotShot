@@ -14,7 +14,7 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::traits::{election::Membership, stake_table::StakeTableScheme};
+use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     event::Event,
     message::Messages,

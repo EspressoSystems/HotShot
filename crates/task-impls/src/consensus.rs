@@ -1,6 +1,6 @@
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::cancel_task,
+    helpers::{broadcast_event, cancel_task},
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -235,10 +235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
-                    event_stream
-                        .broadcast_direct(HotShotEvent::QuorumVoteSend(vote))
-                        .await
-                        .unwrap();
+                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).await;
                     if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
                         if commit_and_metadata.is_genesis {
                             self.payload_commitment_and_metadata = None;
@@ -340,10 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
-                    event_stream
-                        .broadcast_direct(HotShotEvent::QuorumVoteSend(vote))
-                        .await
-                        .unwrap();
+                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).await;
                     return true;
                 }
             }
@@ -413,10 +407,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
             }
 
-            event_stream
-                .broadcast_direct(HotShotEvent::ViewChange(new_view))
-                .await
-                .unwrap();
+            broadcast_event(HotShotEvent::ViewChange(new_view), event_stream).await;
 
             // Spawn a timeout task if we did actually update view
             let timeout = self.timeout;
@@ -427,10 +418,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view_number = self.cur_view + 1;
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
-                    stream
-                        .broadcast_direct(HotShotEvent::Timeout(TYPES::Time::new(*view_number)))
-                        .await
-                        .unwrap();
+                    broadcast_event(
+                        HotShotEvent::Timeout(TYPES::Time::new(*view_number)),
+                        &stream,
+                    )
+                    .await;
                 }
             }));
             let consensus = self.consensus.read().await;
@@ -729,13 +721,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                     ) {
                         error!("publishing view error");
-                        self.output_event_stream
-                            .broadcast_direct(Event {
+                        broadcast_event(
+                            Event {
                                 view_number: view,
                                 event: EventType::Error { error: e.into() },
-                            })
-                            .await
-                            .unwrap();
+                            },
+                            &self.output_event_stream,
+                        )
+                        .await;
                     }
                 }
 
@@ -759,18 +752,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 #[allow(clippy::cast_precision_loss)]
                 if new_decide_reached {
-                    event_stream
-                        .broadcast_direct(HotShotEvent::LeafDecided(leaf_views.clone()))
-                        .await
-                        .unwrap();
-                    let decide_sent = self.output_event_stream.broadcast_direct(Event {
-                        view_number: consensus.last_decided_view,
-                        event: EventType::Decide {
-                            leaf_chain: Arc::new(leaf_views),
-                            qc: Arc::new(new_decide_qc.unwrap()),
-                            block_size: Some(included_txns_set.len().try_into().unwrap()),
+                    let decide_sent = broadcast_event(
+                        Event {
+                            view_number: consensus.last_decided_view,
+                            event: EventType::Decide {
+                                leaf_chain: Arc::new(leaf_views),
+                                qc: Arc::new(new_decide_qc.unwrap()),
+                                block_size: Some(included_txns_set.len().try_into().unwrap()),
+                            },
                         },
-                    });
+                        &self.output_event_stream,
+                    );
                     let old_anchor_view = consensus.last_decided_view;
                     consensus
                         .collect_garbage(old_anchor_view, new_anchor_view)
@@ -795,7 +787,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     debug!("Sending Decide for view {:?}", consensus.last_decided_view);
                     debug!("Decided txns len {:?}", included_txns_set.len());
-                    decide_sent.await.unwrap();
+                    decide_sent.await;
                     debug!("decide send succeeded");
                 }
 
@@ -1058,15 +1050,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                self.output_event_stream
-                    .broadcast_direct(Event {
+                broadcast_event(
+                    Event {
                         view_number: old_view_number,
                         event: EventType::ViewFinished {
                             view_number: old_view_number,
                         },
-                    })
-                    .await
-                    .unwrap();
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
             }
             HotShotEvent::Timeout(view) => {
                 // NOTE: We may optionally have the timeout task listen for view change events
@@ -1101,21 +1094,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                event_stream
-                    .broadcast_direct(HotShotEvent::TimeoutVoteSend(vote))
-                    .await
-                    .unwrap();
+                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
                 debug!(
                     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
                     *view
                 );
-                self.output_event_stream
-                    .broadcast_direct(Event {
+
+                broadcast_event(
+                    Event {
                         view_number: view,
                         event: EventType::ReplicaViewTimeout { view_number: view },
-                    })
-                    .await
-                    .unwrap();
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
@@ -1263,13 +1255,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 leaf.view_number, ""
             );
 
-            event_stream
-                .broadcast_direct(HotShotEvent::QuorumProposalSend(
-                    message.clone(),
-                    self.public_key.clone(),
-                ))
-                .await
-                .unwrap();
+            broadcast_event(
+                HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
+                event_stream,
+            )
+            .await;
 
             self.payload_commitment_and_metadata = None;
             return true;

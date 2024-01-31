@@ -1,7 +1,7 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
-use async_broadcast::{Receiver, Sender};
+use async_broadcast::{InactiveReceiver, Receiver, Sender};
 
 use async_lock::RwLock;
 use commit::Committable;
@@ -35,9 +35,12 @@ use tracing::error;
 #[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](ChannelStream) for the output stream from the background process
-    pub(crate) output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    pub(crate) output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
     /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: (Sender<HotShotEvent<TYPES>>, Receiver<HotShotEvent<TYPES>>),
+    pub(crate) internal_event_stream: (
+        Sender<HotShotEvent<TYPES>>,
+        InactiveReceiver<HotShotEvent<TYPES>>,
+    ),
     /// registry for controlling tasks
     pub(crate) registry: Arc<TaskRegistry>,
 
@@ -50,16 +53,16 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// obtains a stream to expose to the user
-    pub async fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
-        self.output_event_stream.1.clone()
+    pub fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
+        self.output_event_stream.1.activate_cloned()
     }
 
     /// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
-    pub async fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
-        self.output_event_stream.1.clone()
+    pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
+        self.output_event_stream.1.activate_cloned()
     }
 
     /// HACK so we can know the types when running tests...
@@ -67,8 +70,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
-    pub async fn get_internal_event_stream_known_impl(&self) -> Receiver<HotShotEvent<TYPES>> {
-        self.internal_event_stream.1.clone()
+    pub fn get_internal_event_stream_known_impl(&self) -> Receiver<HotShotEvent<TYPES>> {
+        self.internal_event_stream.1.activate_cloned()
     }
 
     /// Gets the current committed state of the [`SystemContext`] instance
@@ -121,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
                         block_size: None,
                     },
                 };
-                let _ = self.output_event_stream.0.broadcast_direct(event).await;
+                crate::broadcast_event(event, &self.output_event_stream.0).await;
             }
         } else {
             // TODO (justin) this seems bad. I think we should hard error in this case??

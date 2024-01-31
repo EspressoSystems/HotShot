@@ -7,6 +7,7 @@ use tokio::task::JoinHandle;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
 use hotshot::traits::TestableNodeImplementation;
+use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 
@@ -38,15 +39,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES
                 .await
                 .is_err()
             {
-                self.tx
-                    .broadcast_direct(GlobalTestEvent::ShutDown)
-                    .await
-                    .unwrap();
+                broadcast_event(GlobalTestEvent::ShutDown, &self.tx).await;
             }
             for node in &self.handles {
                 node.handle.clone().shut_down().await;
             }
-            return HotShotTaskCompleted::ShutDown;
+            HotShotTaskCompleted::ShutDown
         })
     }
     async fn wait_for_shutdown(&mut self) {

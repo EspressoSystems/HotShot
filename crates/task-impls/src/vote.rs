@@ -1,6 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 use async_broadcast::Sender;
 use async_trait::async_trait;
 use bitvec::prelude::*;
@@ -73,7 +76,7 @@ impl<
     pub async fn accumulate_vote(
         &mut self,
         vote: &VOTE,
-        event_stream: &&Sender<HotShotEvent<TYPES>>,
+        event_stream: &Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         if vote.get_leader(&self.membership) != self.public_key {
             return None;
@@ -94,10 +97,8 @@ impl<
             Either::Left(()) => None,
             Either::Right(cert) => {
                 debug!("Certificate Formed! {:?}", cert);
-                event_stream
-                    .broadcast_direct(VOTE::make_cert_event(cert, &self.public_key))
-                    .await
-                    .unwrap();
+
+                broadcast_event(VOTE::make_cert_event(cert, &self.public_key), event_stream).await;
                 self.accumulator = None;
                 Some(HotShotTaskCompleted)
             }
@@ -344,7 +345,7 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, QuorumVote<TYPES>, QuorumCertificat
         sender: &Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::QuorumVoteRecv(vote) => self.accumulate_vote(&vote, &sender).await,
+            HotShotEvent::QuorumVoteRecv(vote) => self.accumulate_vote(&vote, sender).await,
             _ => None,
         }
     }
@@ -363,7 +364,7 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, DAVote<TYPES>, DACertificate<TYPES>
         sender: &Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::DAVoteRecv(vote) => self.accumulate_vote(&vote, &sender).await,
+            HotShotEvent::DAVoteRecv(vote) => self.accumulate_vote(&vote, sender).await,
             _ => None,
         }
     }
@@ -382,7 +383,7 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, TimeoutVote<TYPES>, TimeoutCertific
         sender: &Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::TimeoutVoteRecv(vote) => self.accumulate_vote(&vote, &sender).await,
+            HotShotEvent::TimeoutVoteRecv(vote) => self.accumulate_vote(&vote, sender).await,
             _ => None,
         }
     }
@@ -403,7 +404,7 @@ impl<TYPES: NodeType>
     ) -> Option<HotShotTaskCompleted> {
         match event {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) => {
-                self.accumulate_vote(&vote, &sender).await
+                self.accumulate_vote(&vote, sender).await
             }
             _ => None,
         }
@@ -424,9 +425,7 @@ impl<TYPES: NodeType>
         sender: &Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::ViewSyncCommitVoteRecv(vote) => {
-                self.accumulate_vote(&vote, &sender).await
-            }
+            HotShotEvent::ViewSyncCommitVoteRecv(vote) => self.accumulate_vote(&vote, sender).await,
             _ => None,
         }
     }
@@ -447,7 +446,7 @@ impl<TYPES: NodeType>
     ) -> Option<HotShotTaskCompleted> {
         match event {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
-                self.accumulate_vote(&vote, &sender).await
+                self.accumulate_vote(&vote, sender).await
             }
             _ => None,
         }

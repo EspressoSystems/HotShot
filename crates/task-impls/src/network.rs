@@ -1,4 +1,7 @@
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 use async_broadcast::Sender;
 use either::Either::{self, Left, Right};
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
@@ -165,7 +168,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
                     // <https://github.com/EspressoSystems/HotShot/issues/1428>
-                    self.event_stream.broadcast(event).await.unwrap();
+                    broadcast_event(event, &self.event_stream).await;
                 }
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
@@ -175,10 +178,11 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
             };
         }
         if !transactions.is_empty() {
-            self.event_stream
-                .broadcast_direct(HotShotEvent::TransactionsRecv(transactions))
-                .await
-                .unwrap();
+            broadcast_event(
+                HotShotEvent::TransactionsRecv(transactions),
+                &self.event_stream,
+            )
+            .await;
         }
     }
 }

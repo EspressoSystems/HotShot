@@ -100,7 +100,7 @@ async fn test_da_task() {
         quorum_membership: api.inner.memberships.quorum_membership.clone().into(),
         cur_view: ViewNumber::new(0),
         vote_collector: None.into(),
-        public_key: api.public_key().clone(),
+        public_key: *api.public_key(),
         private_key: api.private_key().clone(),
         id: handle.hotshot.inner.id,
     };

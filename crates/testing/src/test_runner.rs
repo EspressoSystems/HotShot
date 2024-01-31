@@ -86,7 +86,7 @@ where
     /// if the test fails
     #[allow(clippy::too_many_lines)]
     pub async fn run_test(mut self) {
-        let (tx, rx) = broadcast(100024);
+        let (tx, rx) = broadcast(100_000);
         let spinning_changes = self
             .launcher
             .metadata
@@ -109,11 +109,11 @@ where
         let mut internal_event_rxs = vec![];
 
         for node in &self.nodes {
-            let r = node.handle.get_event_stream_known_impl().await;
+            let r = node.handle.get_event_stream_known_impl();
             event_rxs.push(r);
         }
         for node in &self.nodes {
-            let r = node.handle.get_internal_event_stream_known_impl().await;
+            let r = node.handle.get_internal_event_stream_known_impl();
             internal_event_rxs.push(r);
         }
 
@@ -193,7 +193,7 @@ where
         let view_sync_task_state = ViewSyncTask {
             hit_view_sync: HashSet::new(),
             description: self.launcher.metadata.view_sync_properties,
-            _pd: PhantomData::default(),
+            _pd: PhantomData,
         };
 
         let view_sync_task = TestTask::<ViewSyncTask<TYPES, I>, ViewSyncTask<TYPES, I>>::new(

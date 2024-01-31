@@ -1,4 +1,3 @@
-use futures::FutureExt;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 use hotshot_task::task::{Task, TaskState, TestTaskState};

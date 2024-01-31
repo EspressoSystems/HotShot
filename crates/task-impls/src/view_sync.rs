@@ -1,7 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::cancel_task,
+    helpers::{broadcast_event, cancel_task},
     vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
 };
 use async_broadcast::Sender;
@@ -544,12 +544,11 @@ impl<
                 } else {
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view = view_number;
-                    event_stream
-                        .broadcast_direct(HotShotEvent::ViewChange(TYPES::Time::new(
-                            *self.current_view,
-                        )))
-                        .await
-                        .unwrap();
+                    broadcast_event(
+                        HotShotEvent::ViewChange(TYPES::Time::new(*self.current_view)),
+                        &event_stream,
+                    )
+                    .await;
                 }
             }
 
@@ -611,10 +610,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncCommitVote(vote);
 
                 if let GeneralConsensusMessage::ViewSyncCommitVote(vote) = message {
-                    event_stream
-                        .broadcast_direct(HotShotEvent::ViewSyncCommitVoteSend(vote))
-                        .await
-                        .unwrap();
+                    broadcast_event(HotShotEvent::ViewSyncCommitVoteSend(vote), &event_stream)
+                        .await;
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
@@ -630,14 +627,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     async move {
                         async_sleep(timeout).await;
                         info!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
-                        stream
-                            .broadcast_direct(HotShotEvent::ViewSyncTimeout(
+
+                        broadcast_event(
+                            HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(*next_view),
                                 relay,
                                 phase,
-                            ))
-                            .await
-                            .unwrap();
+                            ),
+                            &stream,
+                        )
+                        .await;
                     }
                 }));
             }
@@ -684,10 +683,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncFinalizeVote(vote);
 
                 if let GeneralConsensusMessage::ViewSyncFinalizeVote(vote) = message {
-                    event_stream
-                        .broadcast_direct(HotShotEvent::ViewSyncFinalizeVoteSend(vote))
-                        .await
-                        .unwrap();
+                    broadcast_event(HotShotEvent::ViewSyncFinalizeVoteSend(vote), &event_stream)
+                        .await;
                 }
 
                 info!(
@@ -695,15 +692,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *self.next_view
                 );
 
-                event_stream
-                    .broadcast_direct(HotShotEvent::ViewChange(self.next_view - 1))
-                    .await
-                    .unwrap();
+                broadcast_event(HotShotEvent::ViewChange(self.next_view - 1), &event_stream).await;
 
-                event_stream
-                    .broadcast_direct(HotShotEvent::ViewChange(self.next_view))
-                    .await
-                    .unwrap();
+                broadcast_event(HotShotEvent::ViewChange(self.next_view), &event_stream).await;
 
                 if let Some(timeout_task) = self.timeout_task.take() {
                     cancel_task(timeout_task).await;
@@ -720,14 +711,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
                         );
-                        stream
-                            .broadcast_direct(HotShotEvent::ViewSyncTimeout(
+                        broadcast_event(
+                            HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(*next_view),
                                 relay,
                                 phase,
-                            ))
-                            .await
-                            .unwrap();
+                            ),
+                            &stream,
+                        )
+                        .await;
                     }
                 }));
             }
@@ -782,10 +774,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     cancel_task(timeout_task).await;
                 }
 
-                event_stream
-                    .broadcast_direct(HotShotEvent::ViewChange(self.next_view))
-                    .await
-                    .unwrap();
+                broadcast_event(HotShotEvent::ViewChange(self.next_view), &event_stream).await;
                 return Some(HotShotTaskCompleted);
             }
 
@@ -810,10 +799,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncPreCommitVote(vote);
 
                 if let GeneralConsensusMessage::ViewSyncPreCommitVote(vote) = message {
-                    event_stream
-                        .broadcast_direct(HotShotEvent::ViewSyncPreCommitVoteSend(vote))
-                        .await
-                        .unwrap();
+                    broadcast_event(HotShotEvent::ViewSyncPreCommitVoteSend(vote), &event_stream)
+                        .await;
                 }
 
                 self.timeout_task = Some(async_spawn({
@@ -824,14 +811,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     async move {
                         async_sleep(timeout).await;
                         info!("Vote sending timed out in ViewSyncTrigger");
-                        stream
-                            .broadcast_direct(HotShotEvent::ViewSyncTimeout(
+                        broadcast_event(
+                            HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(*next_view),
                                 relay,
                                 ViewSyncPhase::None,
-                            ))
-                            .await
-                            .unwrap();
+                            ),
+                            &stream,
+                        )
+                        .await;
                     }
                 }));
 
@@ -867,10 +855,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 GeneralConsensusMessage::<TYPES>::ViewSyncPreCommitVote(vote);
 
                             if let GeneralConsensusMessage::ViewSyncPreCommitVote(vote) = message {
-                                event_stream
-                                    .broadcast_direct(HotShotEvent::ViewSyncPreCommitVoteSend(vote))
-                                    .await
-                                    .unwrap();
+                                broadcast_event(
+                                    HotShotEvent::ViewSyncPreCommitVoteSend(vote),
+                                    &event_stream,
+                                )
+                                .await;
                             }
                         }
                         ViewSyncPhase::Finalize => {
@@ -890,14 +879,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 "Vote sending timed out in ViewSyncTimeout relay = {}",
                                 relay
                             );
-                            stream
-                                .broadcast_direct(HotShotEvent::ViewSyncTimeout(
+                            broadcast_event(
+                                HotShotEvent::ViewSyncTimeout(
                                     TYPES::Time::new(*next_view),
                                     relay,
                                     last_seen_certificate,
-                                ))
-                                .await
-                                .unwrap();
+                                ),
+                                &stream,
+                            )
+                            .await;
                         }
                     }));
 

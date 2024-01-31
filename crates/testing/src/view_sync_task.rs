@@ -4,10 +4,7 @@ use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplement
 use snafu::Snafu;
 use std::{collections::HashSet, marker::PhantomData};
 
-use crate::{
-    test_runner::{HotShotTaskCompleted, Node},
-    GlobalTestEvent,
-};
+use crate::{test_runner::HotShotTaskCompleted, GlobalTestEvent};
 
 /// `ViewSync` Task error
 #[derive(Snafu, Debug, Clone)]

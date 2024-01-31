@@ -29,4 +29,4 @@ pub mod vid;
 pub mod vote;
 
 /// Helper functions used by any task
-mod helpers;
+pub mod helpers;

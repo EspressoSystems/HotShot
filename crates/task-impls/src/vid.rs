@@ -1,4 +1,5 @@
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use crate::helpers::broadcast_event;
 use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -95,23 +96,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
                 let vid_disperse = vid_disperse.unwrap();
                 // send the commitment and metadata to consensus for block building
-                event_stream
-                    .broadcast_direct(HotShotEvent::SendPayloadCommitmentAndMetadata(
+                broadcast_event(
+                    HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,
                         metadata,
                         view_number,
-                    ))
-                    .await
-                    .unwrap();
+                    ),
+                    &event_stream,
+                )
+                .await;
 
                 // send the block to the VID dispersal function
-                event_stream
-                    .broadcast_direct(HotShotEvent::BlockReady(
+                broadcast_event(
+                    HotShotEvent::BlockReady(
                         VidDisperse::from_membership(view_number, vid_disperse, &self.membership),
                         view_number,
-                    ))
-                    .await
-                    .unwrap();
+                    ),
+                    &event_stream,
+                )
+                .await;
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
@@ -123,17 +126,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 };
                 debug!("publishing VID disperse for view {}", *view_number);
-                event_stream
-                    .broadcast_direct(HotShotEvent::VidDisperseSend(
+                broadcast_event(
+                    HotShotEvent::VidDisperseSend(
                         Proposal {
                             signature,
                             data: vid_disperse,
                             _pd: PhantomData,
                         },
                         self.public_key.clone(),
-                    ))
-                    .await
-                    .unwrap();
+                    ),
+                    &event_stream,
+                )
+                .await;
             }
 
             HotShotEvent::ViewChange(view) => {

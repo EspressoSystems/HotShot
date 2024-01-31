@@ -21,7 +21,7 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use async_broadcast::{broadcast, Receiver, Sender};
+use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
     channel::UnboundedSender,
@@ -33,6 +33,7 @@ use custom_debug::Debug;
 use futures::join;
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
 
 use hotshot_task::task::{Task, TaskRegistry};
@@ -65,7 +66,7 @@ use std::{
     time::Duration,
 };
 use tasks::add_vid_task;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, instrument, trace, warn};
 
 // -- Rexports
 // External
@@ -146,10 +147,13 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    pub output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
-    internal_event_stream: (Sender<HotShotEvent<TYPES>>, Receiver<HotShotEvent<TYPES>>),
+    internal_event_stream: (
+        Sender<HotShotEvent<TYPES>>,
+        InactiveReceiver<HotShotEvent<TYPES>>,
+    ),
 
     /// uid for instrumentation
     pub id: u64,
@@ -234,6 +238,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
         let consensus = Arc::new(RwLock::new(consensus));
 
+        let (internal_tx, internal_rx) = broadcast(100_000);
+        let (external_tx, external_rx) = broadcast(100_000);
+
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             id: nonce,
             #[cfg(feature = "hotshot-testing")]
@@ -245,14 +252,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
-            internal_event_stream: broadcast(100024),
-            output_event_stream: broadcast(100024),
+            internal_event_stream: (internal_tx, internal_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx.deactivate()),
         });
 
         Ok(Self { inner })
     }
 
     /// "Starts" consensus by sending a `QCFormed` event
+    ///
+    /// # Panics
+    /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
         debug!("Starting Consensus");
         self.inner
@@ -262,7 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 QuorumCertificate::genesis(),
             )))
             .await
-            .unwrap();
+            .expect("Genesis Broadcast failed");
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -301,15 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        if let Err(e) = self
-            .inner
-            .output_event_stream
-            .0
-            .broadcast_direct(event)
-            .await
-        {
-            error!(?e, "Could not send event to event_sender");
-        }
+        broadcast_event(event, &self.inner.output_event_stream.0).await;
     }
 
     /// Publishes a transaction asynchronously to the network
@@ -434,7 +436,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let handle = hotshot.clone().run_tasks().await;
         let (tx, rx) = hotshot.inner.internal_event_stream.clone();
 
-        Ok((handle, tx, rx))
+        Ok((handle, tx, rx.activate()))
     }
 
     /// Send a broadcast message.
@@ -551,7 +553,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             quorum_membership,
             network::quorum_filter,
@@ -560,7 +562,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             da_network.clone(),
             da_membership,
             network::committee_filter,
@@ -569,7 +571,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             view_sync_membership,
             network::view_sync_filter,
@@ -578,7 +580,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             vid_membership,
             network::vid_filter,
@@ -587,7 +589,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus_state = add_consensus_task(output_event_stream.0.clone(), &handle).await;
         let task = Task::new(
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             registry.clone(),
             consensus_state,
         );
@@ -595,35 +597,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_da_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_vid_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_transaction_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_view_sync_task(
             registry.clone(),
             event_tx.clone(),
-            event_rx.clone(),
+            event_rx.activate_cloned(),
             &handle,
         )
         .await;
-        // async_spawn(async move {
-        //     let _ = registry.join_all().await;
-        //     info!("Task runner exited!");
-        // });
         handle
     }
 }
@@ -661,15 +659,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        if let Err(e) = self
-            .inner
-            .output_event_stream
-            .0
-            .broadcast_direct(event)
-            .await
-        {
-            error!(?e, "Could not send event to event_sender");
-        }
+        broadcast_event(event, &self.inner.output_event_stream.0).await;
     }
 
     fn public_key(&self) -> &TYPES::SignatureKey {

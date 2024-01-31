@@ -13,22 +13,14 @@ use super::{
 };
 use crate::{
     data::{Leaf, TestableLeaf},
-    message::ProcessedSequencingMessage,
     traits::{
         election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
         storage::Storage, BlockPayload,
     },
 };
-use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
-use async_lock::Mutex;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    hash::Hash,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 /// Node implementation aggregate trait
 ///

@@ -57,7 +57,7 @@ async fn test_view_sync_task() {
         next_view: ViewNumber::new(0),
         network: api.inner.networks.quorum_network.clone().into(),
         membership: api.inner.memberships.view_sync_membership.clone().into(),
-        public_key: api.public_key().clone(),
+        public_key: *api.public_key(),
         private_key: api.private_key().clone(),
         api,
         num_timeouts_tracked: 0,

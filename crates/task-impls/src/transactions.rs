@@ -1,4 +1,7 @@
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 use async_broadcast::Sender;
 use async_compatibility_layer::{
     art::async_timeout,
@@ -245,14 +248,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
-                event_stream
-                    .broadcast_direct(HotShotEvent::TransactionsSequenced(
-                        encoded_transactions,
-                        metadata,
-                        block_view,
-                    ))
-                    .await
-                    .unwrap();
+                broadcast_event(
+                    HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, block_view),
+                    &event_stream,
+                )
+                .await;
 
                 return None;
             }

@@ -108,7 +108,7 @@ async fn test_vid_task() {
         vote_collector: None,
         network: api.inner.networks.quorum_network.clone().into(),
         membership: api.inner.memberships.vid_membership.clone().into(),
-        public_key: api.public_key().clone(),
+        public_key: *api.public_key(),
         private_key: api.private_key().clone(),
         id: handle.hotshot.inner.id,
     };

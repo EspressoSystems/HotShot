@@ -1,7 +1,7 @@
 use crate::infra::Libp2pDARun;
 use hotshot::traits::implementations::{Libp2pCommChannel, MemoryStorage};
 use hotshot_testing::state_types::TestTypes;
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

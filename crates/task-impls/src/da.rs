@@ -1,5 +1,6 @@
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 use async_broadcast::Sender;
@@ -169,10 +170,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // self.cur_view = view;
 
                 debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
-                event_stream
-                    .broadcast_direct(HotShotEvent::DAVoteSend(vote))
-                    .await
-                    .unwrap();
+
+                broadcast_event(HotShotEvent::DAVoteSend(vote), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
@@ -303,13 +302,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     _pd: PhantomData,
                 };
 
-                event_stream
-                    .broadcast_direct(HotShotEvent::DAProposalSend(
-                        message.clone(),
-                        self.public_key.clone(),
-                    ))
-                    .await
-                    .unwrap();
+                broadcast_event(
+                    HotShotEvent::DAProposalSend(message.clone(), self.public_key.clone()),
+                    &event_stream,
+                )
+                .await;
             }
 
             HotShotEvent::Timeout(view) => {

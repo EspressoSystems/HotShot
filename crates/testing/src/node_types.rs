@@ -13,9 +13,7 @@ use hotshot::traits::{
     NodeImplementation,
 };
 use hotshot_types::{
-    data::ViewNumber,
-    signature_key::BLSPubKey,
-    traits::node_implementation::NodeType,
+    data::ViewNumber, signature_key::BLSPubKey, traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};
 
