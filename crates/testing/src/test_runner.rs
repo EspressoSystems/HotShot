@@ -129,7 +129,7 @@ where
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
 
-        let _txn_task =
+        let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
                     handles: nodes.clone(),
@@ -191,9 +191,9 @@ where
 
         // add view sync task
         let view_sync_task_state = ViewSyncTask {
-            handles: nodes.clone(),
             hit_view_sync: HashSet::new(),
             description: self.launcher.metadata.view_sync_properties,
+            _pd: PhantomData::default(),
         };
 
         let view_sync_task = TestTask::<ViewSyncTask<TYPES, I>, ViewSyncTask<TYPES, I>>::new(
@@ -214,9 +214,9 @@ where
         }
         task_futs.push(safety_task.run());
         task_futs.push(view_sync_task.run());
-        // if let Some(txn) = txn_task {
-        //     task_futs.push(txn.run());
-        // }
+        if let Some(txn) = txn_task {
+            task_futs.push(txn.run());
+        }
         task_futs.push(completion_task.run());
         task_futs.push(spinning_task.run());
 

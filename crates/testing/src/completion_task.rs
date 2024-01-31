@@ -38,8 +38,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES
                 .await
                 .is_err()
             {
-                // We hit the time limit, notify other test tasks to shutdown
-                tracing::error!("Test Timed out waiting for completetion");
                 self.tx
                     .broadcast_direct(GlobalTestEvent::ShutDown)
                     .await

@@ -2,7 +2,7 @@ use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use snafu::Snafu;
-use std::collections::HashSet;
+use std::{collections::HashSet, marker::PhantomData};
 
 use crate::{
     test_runner::{HotShotTaskCompleted, Node},
@@ -18,12 +18,12 @@ pub struct ViewSyncTaskErr {
 
 /// `ViewSync` task state
 pub struct ViewSyncTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// the node handles
-    pub(crate) handles: Vec<Node<TYPES, I>>,
     /// nodes that hit view sync
     pub(crate) hit_view_sync: HashSet<usize>,
     /// properties of task
     pub(crate) description: ViewSyncTaskDescription,
+    /// Phantom data for TYPES and I
+    pub(crate) _pd: PhantomData<(TYPES, I)>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSyncTask<TYPES, I> {

@@ -142,11 +142,6 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Memberships used by consensus
     pub memberships: Arc<Memberships<TYPES>>,
 
-    // pub quorum_network: Arc<I::QuorumNetwork>;
-    // pub committee_network: Arc<I::CommitteeNetwork>;
-    /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<TYPES>>>>,
-
     /// the metrics that the implementor is using.
     _metrics: Arc<ConsensusMetricsValue>,
 
@@ -259,7 +254,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            event_sender: RwLock::default(),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: broadcast(100024),
             output_event_stream: broadcast(100024),
@@ -317,12 +311,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
+        if let Err(e) = self
+            .inner
+            .output_event_stream
+            .0
+            .broadcast_direct(event)
+            .await
+        {
+            error!(?e, "Could not send event to event_sender");
         }
     }
 
@@ -710,12 +706,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
+        if let Err(e) = self
+            .inner
+            .output_event_stream
+            .0
+            .broadcast_direct(event)
+            .await
+        {
+            error!(?e, "Could not send event to event_sender");
         }
     }
 
