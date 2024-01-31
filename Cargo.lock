@@ -2755,24 +2755,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-state-prover"
-version = "0.3.3"
-dependencies = [
- "ark-bn254",
- "ark-ec",
- "ark-ed-on-bn254",
- "ark-ff",
- "ark-std",
- "ethereum-types",
- "hotshot-stake-table",
- "hotshot-types",
- "jf-plonk",
- "jf-primitives",
- "jf-relation",
- "jf-utils",
-]
-
-[[package]]
 name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
