@@ -738,24 +738,6 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 //! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
@@ -781,7 +763,6 @@
 };
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_spawn, async_spawn_local},
-    async_primitives::broadcast::BroadcastSender,
     channel::UnboundedSender,
 };
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -828,7 +809,7 @@
     time::Duration,
 };
 <span class="kw">use </span>tasks::add_vid_task;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
+<span class="kw">use </span>tracing::{debug, info, instrument, trace, warn};
 
 <span class="comment">// -- Rexports
 // External
@@ -900,11 +881,6 @@
 
     <span class="doccomment">/// Memberships used by consensus
     </span><span class="kw">pub </span>memberships: Arc&lt;Memberships&lt;TYPES&gt;&gt;,
-
-    <span class="comment">// pub quorum_network: Arc&lt;I::QuorumNetwork&gt;;
-    // pub committee_network: Arc&lt;I::CommitteeNetwork&gt;;
-    </span><span class="doccomment">/// Sender for [`Event`]s
-    </span>event_sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;BroadcastSender&lt;Event&lt;TYPES&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// the metrics that the implementor is using.
     </span>_metrics: Arc&lt;ConsensusMetricsValue&gt;,
@@ -1019,7 +995,6 @@
             storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            event_sender: RwLock::default(),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: ChannelStream::new(),
             output_event_stream: ChannelStream::new(),
@@ -1074,13 +1049,8 @@
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_external_event&quot;</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>event_sender = <span class="self">self</span>.inner.event_sender.write().<span class="kw">await</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="kw-2">&amp;*</span>event_sender {
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = sender.send_async(event).<span class="kw">await </span>{
-                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not send event to event_sender&quot;</span>);
-                <span class="kw-2">*</span>event_sender = <span class="prelude-val">None</span>;
-            }
-        }
+        <span class="self">self</span>.inner.output_event_stream.publish(event).<span class="kw">await</span>;
+
     }
 
     <span class="doccomment">/// Publishes a transaction asynchronously to the network
@@ -1462,13 +1432,7 @@
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_event&quot;</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>event_sender = <span class="self">self</span>.inner.event_sender.write().<span class="kw">await</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="kw-2">&amp;*</span>event_sender {
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = sender.send_async(event).<span class="kw">await </span>{
-                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not send event to event_sender&quot;</span>);
-                <span class="kw-2">*</span>event_sender = <span class="prelude-val">None</span>;
-            }
-        }
+        <span class="self">self</span>.inner.output_event_stream.publish(event).<span class="kw">await</span>;
     }
 
     <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {
