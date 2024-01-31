@@ -11,6 +11,47 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tagged_base64::tagged;
 
+/// Base field in the prover circuit
+pub type CircuitField = ark_ed_on_bn254::Fq;
+/// Concrete type for light client state
+pub type LightClientState = GenericLightClientState<CircuitField>;
+/// Signature scheme
+pub type StateSignatureScheme =
+    jf_primitives::signatures::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
+/// Signatures
+pub type StateSignature = schnorr::Signature<Config>;
+/// Verification key for verifying state signatures
+pub type StateVerKey = schnorr::VerKey<Config>;
+/// Signing key for signing a light client state
+pub type StateSignKey = schnorr::SignKey<ark_ed_on_bn254::Fr>;
+/// Concrete for circuit's public input
+pub type PublicInput = GenericPublicInput<CircuitField>;
+/// Key pairs for signing/verifying a light client state
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StateKeyPair(schnorr::KeyPair<Config>);
+
+/// Request body to send to the state relay server
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
+pub struct StateSignatureRequestBody {
+    /// The public key associated with this request
+    pub key: StateVerKey,
+    /// The associated light client state
+    pub state: LightClientState,
+    /// The associated signature of the light client state
+    pub signature: StateSignature,
+}
+
+/// The state signatures bundle is a light client state and its signatures collected
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StateSignaturesBundle {
+    /// The state for this signatures bundle
+    pub state: LightClientState,
+    /// The collected signatures
+    pub signatures: HashMap<StateVerKey, StateSignature>,
+    /// Total stakes associated with the signer
+    pub accumulated_weight: U256,
+}
+
 /// A light client state
 #[tagged("LIGHT_CLIENT_STATE")]
 #[derive(
@@ -65,23 +106,6 @@ impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 7] {
     }
 }
 
-/// Concrete type for light client state
-pub type LightClientState = GenericLightClientState<ark_ed_on_bn254::Fq>;
-/// Base field in the prover circuit
-pub type CircuitField = ark_ed_on_bn254::Fq;
-/// Signature scheme
-pub type StateSignatureScheme =
-    jf_primitives::signatures::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
-/// Signatures
-pub type StateSignature = schnorr::Signature<Config>;
-/// Verification key for verifying state signatures
-pub type StateVerKey = schnorr::VerKey<Config>;
-/// Signing key for signing a light client state
-pub type StateSignKey = schnorr::SignKey<ark_ed_on_bn254::Fr>;
-/// Key pairs for signing/verifying a light client state
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
-pub struct StateKeyPair(schnorr::KeyPair<Config>);
-
 impl std::ops::Deref for StateKeyPair {
     type Target = schnorr::KeyPair<Config>;
 
@@ -120,34 +144,9 @@ impl From<schnorr::KeyPair<Config>> for StateKeyPair {
     }
 }
 
-/// Request body to send to the state relay server
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
-pub struct StateSignatureRequestBody {
-    /// The public key associated with this request
-    pub key: StateVerKey,
-    /// The associated light client state
-    pub state: LightClientState,
-    /// The associated signature of the light client state
-    pub signature: StateSignature,
-}
-
-/// The state signatures bundle is a light client state and its signatures collected
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StateSignaturesBundle {
-    /// The state for this signatures bundle
-    pub state: LightClientState,
-    /// The collected signatures
-    pub signatures: HashMap<StateVerKey, StateSignature>,
-    /// Total stakes associated with the signer
-    pub accumulated_weight: U256,
-}
-
 /// Public input to the light client state prover service
 #[derive(Clone, Debug)]
 pub struct GenericPublicInput<F: PrimeField>(Vec<F>);
-
-/// Concrete public input type
-pub type PublicInput = GenericPublicInput<CircuitField>;
 
 impl<F: PrimeField> AsRef<[F]> for GenericPublicInput<F> {
     fn as_ref(&self) -> &[F] {
