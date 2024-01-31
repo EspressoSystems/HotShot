@@ -8,6 +8,7 @@ use async_lock::RwLock;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
 
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -28,7 +29,6 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use task::task::{Task, TaskState};
 use tracing::{debug, error, instrument, warn};
 
 /// A type alias for `HashMap<Commitment<T>, T>`

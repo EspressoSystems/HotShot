@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use bitvec::prelude::*;
 use either::Either::{self, Left, Right};
 
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncCommitCertificate2,
@@ -19,7 +20,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
 use snafu::Snafu;
-use task::task::TaskState;
 use tracing::{debug, error};
 
 #[derive(Snafu, Debug)]
@@ -125,10 +125,7 @@ where
 
     type Result = HotShotTaskCompleted;
 
-    async fn handle_event(
-        event: Self::Event,
-        task: &mut task::task::Task<Self>,
-    ) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
         let sender = task.clone_sender();
         task.state_mut().handle_event(event, &sender).await
     }

@@ -25,6 +25,7 @@ use hotshot_types::{
 
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     message::GeneralConsensusMessage,
     traits::{
@@ -37,7 +38,6 @@ use hotshot_types::{
 };
 use snafu::Snafu;
 use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
-use task::task::TaskState;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -118,7 +118,7 @@ impl<
 
     type Result = ();
 
-    async fn handle_event(event: Self::Event, task: &mut task::task::Task<Self>) -> Option<()> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
         let sender = task.clone_sender();
         task.state_mut().handle(event, sender).await;
         None
@@ -187,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     type Result = ();
 
-    async fn handle_event(event: Self::Event, task: &mut task::task::Task<Self>) -> Option<()> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
         let sender = task.clone_sender();
         task.state_mut().handle(event, sender).await;
         None

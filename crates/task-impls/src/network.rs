@@ -3,6 +3,7 @@ use async_broadcast::Sender;
 use either::Either::{self, Left, Right};
 use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
 
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
@@ -14,7 +15,6 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use task::task::{Task, TaskState};
 use tracing::error;
 use tracing::instrument;
 

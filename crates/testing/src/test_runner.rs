@@ -17,6 +17,7 @@ use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
+use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -28,7 +29,6 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
-use task::task::{Task, TaskRegistry, TestTask};
 
 #[allow(deprecated)]
 use tracing::info;

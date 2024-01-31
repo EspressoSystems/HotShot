@@ -5,6 +5,7 @@ use crate::{
 use async_broadcast::Sender;
 use async_lock::RwLock;
 
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
@@ -25,7 +26,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-use task::task::{Task, TaskState};
 
 use crate::vote::HandleVoteEvent;
 use snafu::Snafu;

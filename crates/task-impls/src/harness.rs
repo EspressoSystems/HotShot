@@ -1,9 +1,9 @@
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
 use async_broadcast::broadcast;
 
+use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{collections::HashMap, sync::Arc};
-use task::task::{Task, TaskRegistry, TaskState};
 
 /// The state for the test harness task. Keeps track of which events and how many we expect to get
 pub struct TestHarnessState<TYPES: NodeType> {
@@ -19,7 +19,7 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
 
     async fn handle_event(
         event: Self::Event,
-        task: &mut task::task::Task<Self>,
+        task: &mut Task<Self>,
     ) -> Option<HotShotTaskCompleted> {
         let extra = task.state_mut().allow_extra_output;
         handle_event(event, task, extra)

@@ -1,0 +1,17 @@
+[package]
+name = "hotshot-task"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+futures = "0.3.30"
+async-broadcast = "0.6.0"
+tracing = { workspace = true }
+
+[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+tokio = { version = "1.35.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
+[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
+async-std = { version = "1.12.0", features = ["attributes"] }

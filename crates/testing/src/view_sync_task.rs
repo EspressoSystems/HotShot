@@ -1,8 +1,8 @@
+use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use snafu::Snafu;
 use std::collections::HashSet;
-use task::task::{TaskState, TestTaskState};
 
 use crate::{
     test_runner::{HotShotTaskCompleted, Node},
@@ -31,10 +31,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSy
 
     type Result = HotShotTaskCompleted;
 
-    async fn handle_event(
-        event: Self::Event,
-        task: &mut task::task::Task<Self>,
-    ) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
         let state = task.state_mut();
         match event {
             GlobalTestEvent::ShutDown => match state.description.clone() {
@@ -69,7 +66,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
     async fn handle_message(
         message: Self::Message,
         id: usize,
-        task: &mut task::task::TestTask<Self::State, Self>,
+        task: &mut hotshot_task::task::TestTask<Self::State, Self>,
     ) -> Option<HotShotTaskCompleted> {
         match message {
             // all the view sync events

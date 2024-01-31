@@ -33,7 +33,7 @@ sha2 = { workspace = true }
 async-lock = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
-task = { workspace = true }
+hotshot-task = { path = "../task" }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

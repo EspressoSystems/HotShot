@@ -21,7 +21,7 @@ commit = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 sha2 = { workspace = true }
-task = { workspace = true }
+hotshot-task = { path = "../task" }
 async-broadcast = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]

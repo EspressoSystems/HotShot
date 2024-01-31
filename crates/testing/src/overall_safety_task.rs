@@ -1,6 +1,7 @@
 use futures::FutureExt;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 
+use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
     data::{Leaf, VidCommitment},
     error::RoundTimedoutState,
@@ -13,7 +14,6 @@ use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
 };
-use task::task::{TaskState, TestTaskState};
 use tracing::error;
 
 use crate::test_runner::{HotShotTaskCompleted, Node};
@@ -80,12 +80,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
 
     type Result = HotShotTaskCompleted;
 
-    async fn handle_event(
-        event: Self::Event,
-        task: &mut task::task::Task<Self>,
-    ) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
         match event {
             GlobalTestEvent::ShutDown => {
+                tracing::error!("Shutting down SafetyTask");
                 let state = task.state_mut();
                 let OverallSafetyPropertiesDescription {
                     check_leaf: _,
@@ -140,7 +138,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
     async fn handle_message(
         message: Self::Message,
         idx: usize,
-        task: &mut task::task::TestTask<Self::State, Self>,
+        task: &mut hotshot_task::task::TestTask<Self::State, Self>,
     ) -> Option<Self::Result> {
         let OverallSafetyPropertiesDescription {
             check_leaf,

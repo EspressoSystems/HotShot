@@ -2695,6 +2695,7 @@ dependencies = [
  "futures",
  "hotshot-constants",
  "hotshot-orchestrator",
+ "hotshot-task",
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
@@ -2709,7 +2710,6 @@ dependencies = [
  "serde",
  "snafu",
  "surf-disco",
- "task",
  "time 0.3.31",
  "tokio",
  "toml 0.8.8",
@@ -2784,6 +2784,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-task"
+version = "0.1.0"
+dependencies = [
+ "async-broadcast",
+ "async-std",
+ "futures",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hotshot-task-impls"
 version = "0.1.0"
 dependencies = [
@@ -2798,11 +2809,11 @@ dependencies = [
  "either",
  "futures",
  "hotshot-constants",
+ "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
  "sha2 0.10.8",
  "snafu",
- "task",
  "time 0.3.31",
  "tokio",
  "tracing",
@@ -2825,6 +2836,7 @@ dependencies = [
  "hotshot",
  "hotshot-constants",
  "hotshot-orchestrator",
+ "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "rand 0.8.5",
@@ -2832,7 +2844,6 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "snafu",
- "task",
  "tokio",
  "tracing",
 ]
@@ -6569,17 +6580,6 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
-
-[[package]]
-name = "task"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/HotShotTasks.git#7eab11eaea7083e9fb31a9a202f5b95c673c50ad"
-dependencies = [
- "async-broadcast",
- "async-std",
- "futures",
- "tokio",
-]
 
 [[package]]
 name = "tempfile"

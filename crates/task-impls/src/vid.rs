@@ -4,6 +4,7 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 
+use hotshot_task::task::{Task, TaskState};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     consensus::Consensus,
@@ -20,7 +21,6 @@ use hotshot_types::{
     data::{test_srs, VidScheme, VidSchemeTrait},
     traits::network::ConsensusIntentEvent,
 };
-use task::task::TaskState;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
@@ -183,7 +183,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     async fn handle_event(
         event: Self::Event,
-        task: &mut task::task::Task<Self>,
+        task: &mut Task<Self>,
     ) -> Option<HotShotTaskCompleted> {
         // TODO: Don't clone the sender
         let sender = task.clone_sender();

@@ -4,6 +4,7 @@ use crate::{types::SystemContextHandle, HotShotConsensusApi};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 
+use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
@@ -32,7 +33,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use task::task::{Task, TaskRegistry};
 
 /// event for global event stream
 #[derive(Clone, Debug)]

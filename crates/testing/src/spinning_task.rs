@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use hotshot::{traits::TestableNodeImplementation, SystemContext};
 
+use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{event::Event, traits::node_implementation::NodeType};
 use snafu::Snafu;
-use task::task::{TaskState, TestTaskState};
 
 use crate::test_runner::HotShotTaskCompleted;
 use crate::test_runner::Node;
@@ -35,10 +35,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for Spinni
 
     type Result = HotShotTaskCompleted;
 
-    async fn handle_event(
-        event: Self::Event,
-        _task: &mut task::task::Task<Self>,
-    ) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, _task: &mut Task<Self>) -> Option<Self::Result> {
         if matches!(event, GlobalTestEvent::ShutDown) {
             return Some(HotShotTaskCompleted::ShutDown);
         }
@@ -62,7 +59,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
     async fn handle_message(
         message: Self::Message,
         _id: usize,
-        task: &mut task::task::TestTask<Self::State, Self>,
+        task: &mut hotshot_task::task::TestTask<Self::State, Self>,
     ) -> Option<Self::Result> {
         let Event {
             view_number,

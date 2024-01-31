@@ -10,7 +10,7 @@ use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
 use hotshot_constants::LOOK_AHEAD;
-use task::task::{Task, TaskState};
+use hotshot_task::task::{Task, TaskState};
 
 use async_broadcast::Sender;
 

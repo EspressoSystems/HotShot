@@ -14,6 +14,7 @@ use hotshot_types::{
     traits::election::Membership,
 };
 
+use hotshot_task::task::TaskRegistry;
 use hotshot_types::{boxed_sync, simple_vote::QuorumData, BoxSyncFuture};
 use hotshot_types::{
     consensus::Consensus,
@@ -24,7 +25,6 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, state::ConsensusTime, storage::Storage},
 };
 use std::sync::Arc;
-use task::task::TaskRegistry;
 use tracing::error;
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
