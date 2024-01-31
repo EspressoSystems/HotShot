@@ -36,8 +36,8 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
     pub fn run(mut self) -> JoinHandle<HotShotTaskCompleted> {
-        async_sleep(Duration::from_millis(100));
         async_spawn(async move {
+            async_sleep(Duration::from_millis(100)).await;
             loop {
                 async_sleep(self.duration).await;
                 match self.shutdown_chan.try_recv() {
@@ -65,7 +65,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
                     unimplemented!()
                 }
                 Some(node) => {
-                    tracing::error!("sending txn to node {}", idx);
                     // use rand::seq::IteratorRandom;
                     // we're assuming all nodes have the same leaf.
                     // If they don't match, this is probably fine since
@@ -76,7 +75,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
                         .submit_transaction(txn.clone())
                         .await
                         .expect("Could not send transaction");
-                    tracing::error!("txn sent");
                 }
             }
         }

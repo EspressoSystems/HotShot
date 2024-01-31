@@ -51,6 +51,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     S: Send + 'static,
 {
     let registry = Arc::new(TaskRegistry::default());
+    let mut tasks = vec![];
     // set up two broadcast channels so the test sends to the task and the task back to the test
     let (to_task, from_test) = broadcast(1024);
     let (to_test, from_task) = broadcast(1024);
@@ -66,14 +67,15 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         test_state,
     );
     let task = Task::new(to_task.clone(), from_test.clone(), registry.clone(), state);
-    registry.run_task(test_task).await;
-    registry.run_task(task).await;
+
+    tasks.push(task.run());
+    tasks.push(test_task.run());
 
     for event in input {
         let _ = to_task.broadcast(event).await.unwrap();
     }
 
-    let _ = Arc::into_inner(registry).unwrap().join_all().await;
+    let _ = futures::future::join_all(tasks).await;
 }
 
 /// Handles an event for the Test Harness Task.  If the event is expected, remove it from

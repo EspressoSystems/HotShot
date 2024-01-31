@@ -224,13 +224,18 @@ where
         tracing::error!("test tasks joined");
         let mut error_list = vec![];
         for result in results {
-            match result.unwrap() {
-                HotShotTaskCompleted::ShutDown => {
-                    info!("Task shut down successfully");
-                }
-                HotShotTaskCompleted::Error(e) => error_list.push(e),
-                _ => {
-                    panic!("Future impl for task abstraction failed! This should never happen");
+            match result {
+                Ok(res) => match res {
+                    HotShotTaskCompleted::ShutDown => {
+                        info!("Task shut down successfully");
+                    }
+                    HotShotTaskCompleted::Error(e) => error_list.push(e),
+                    _ => {
+                        panic!("Future impl for task abstraction failed! This should never happen");
+                    }
+                },
+                Err(e) => {
+                    panic!("Error Joining the test task {:?}", e);
                 }
             }
         }

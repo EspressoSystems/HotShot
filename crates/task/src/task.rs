@@ -1,7 +1,8 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_broadcast::{Receiver, SendError, Sender};
-
+use async_compatibility_layer::art::async_timeout;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::{
     sync::RwLock,
@@ -86,7 +87,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
             state,
         }
     }
-    fn run(mut self) -> JoinHandle<()> {
+    pub fn run(mut self) -> JoinHandle<()> {
         spawn(async move {
             loop {
                 let event = self.event_receiver.recv_direct().await;
@@ -153,14 +154,11 @@ impl<
         spawn(async move {
             loop {
                 let mut futs = vec![];
-                for rx in self.message_receivers.iter_mut() {
-                    futs.push(rx.recv());
-                }
-                let (msg, id, _) = select_all(futs).await;
+
                 if let Ok(event) = self.task.event_receiver.try_recv() {
                     if S::should_shutdown(&event) {
                         self.task.state.shutdown().await;
-                        // tracing::error!("Shutting down test task TODO!");
+                        tracing::error!("Shutting down test task TODO!");
                         todo!();
                     }
                     if !self.state().filter(&event) {
@@ -172,10 +170,17 @@ impl<
                     }
                 }
 
-                if let Some(res) = T::handle_message(msg.unwrap(), id, &mut self).await {
-                    self.task.state.handle_result(&res).await;
-                    self.task.state.shutdown().await;
-                    return res;
+                for rx in self.message_receivers.iter_mut() {
+                    futs.push(rx.recv());
+                }
+                if let Ok((Ok(msg), id, _)) =
+                    async_timeout(Duration::from_secs(1), select_all(futs)).await
+                {
+                    if let Some(res) = T::handle_message(msg, id, &mut self).await {
+                        self.task.state.handle_result(&res).await;
+                        self.task.state.shutdown().await;
+                        return res;
+                    }
                 }
             }
         })
