@@ -383,7 +383,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             }),
         };
 
-        result.spawn_event_generator(direct_send, broadcast_send);
+        result.handle_event_generator(direct_send, broadcast_send);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -525,7 +525,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     }
 
     /// Handle events for Version 0.1 of the protocol.
-    async fn spawn_events_0_1(
+    async fn handle_recvd_events_0_1(
         &self,
         msg: NetworkEvent,
         direct_send: &UnboundedSender<M>,
@@ -572,7 +572,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
-                error!("spawn_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+                error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
         }
         Ok::<(), NetworkError>(())
@@ -580,7 +580,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
     /// task to propagate messages to handlers
     /// terminates on shut down of network
-    fn spawn_event_generator(
+    fn handle_event_generator(
         &self,
         direct_send: UnboundedSender<M>,
         broadcast_send: UnboundedSender<M>,
@@ -598,7 +598,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         match message_version {
                             Some(VERSION_0_1) => {
                                 let _ = handle
-                                    .spawn_events_0_1(message, &direct_send, &broadcast_send)
+                                    .handle_recvd_events_0_1(message, &direct_send, &broadcast_send)
                                     .await;
                             }
                             Some(version) => {
