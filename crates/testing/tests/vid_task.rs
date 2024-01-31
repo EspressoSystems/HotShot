@@ -68,7 +68,6 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
 
-    // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
@@ -88,15 +87,9 @@ async fn test_vid_task() {
     input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-    output.insert(
-        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
-        1,
-    );
-
     output.insert(
         HotShotEvent::BlockReady(vid_disperse, ViewNumber::new(2)),
-        2,
+        1,
     );
 
     output.insert(
@@ -105,12 +98,8 @@ async fn test_vid_task() {
     );
     output.insert(
         HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
-        2, // 2 occurrences: 1 from `input`, 1 from the DA task
+        1,
     );
-
-    output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let vid_state = VIDTaskState {
         api: api.clone(),

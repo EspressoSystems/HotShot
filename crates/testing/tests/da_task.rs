@@ -80,11 +80,6 @@ async fn test_da_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-    output.insert(
-        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
-        1,
-    );
     output.insert(HotShotEvent::DAProposalSend(message.clone(), pub_key), 1);
     let da_vote = DAVote::create_signed_vote(
         DAData {
@@ -96,11 +91,6 @@ async fn test_da_task() {
     )
     .expect("Failed to sign DAData");
     output.insert(HotShotEvent::DAVoteSend(da_vote), 1);
-
-    output.insert(HotShotEvent::DAProposalRecv(message, pub_key), 1);
-
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let da_state = DATaskState {
         api: api.clone(),

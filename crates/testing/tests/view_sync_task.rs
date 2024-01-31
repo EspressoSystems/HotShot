@@ -41,7 +41,6 @@ async fn test_view_sync_task() {
 
     tracing::error!("Vote in test is {:?}", vote.clone());
 
-    // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
@@ -50,13 +49,8 @@ async fn test_view_sync_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::Timeout(ViewNumber::new(2)), 1);
-    output.insert(HotShotEvent::Timeout(ViewNumber::new(3)), 1);
-
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()), 1);
-
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let view_sync_state = ViewSyncTaskState {
         current_view: ViewNumber::new(0),
