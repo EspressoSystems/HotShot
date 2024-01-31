@@ -1,9 +1,10 @@
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
 use async_broadcast::broadcast;
 
+use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// The state for the test harness task. Keeps track of which events and how many we expect to get
 pub struct TestHarnessState<TYPES: NodeType> {
@@ -66,7 +67,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         registry.clone(),
         test_state,
     );
-    let task = Task::new(to_task.clone(), from_test.clone(), registry.clone(), state);
+    let task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     tasks.push(task.run());
     tasks.push(test_task.run());
@@ -75,7 +76,12 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         let _ = to_task.broadcast(event).await.unwrap();
     }
 
-    let _ = futures::future::join_all(tasks).await;
+    if async_timeout(Duration::from_secs(2), futures::future::join_all(tasks))
+        .await
+        .is_err()
+    {
+        panic!("Test timeout out before all all expected outputs received");
+    }
 }
 
 /// Handles an event for the Test Harness Task.  If the event is expected, remove it from

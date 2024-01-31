@@ -108,24 +108,17 @@ async fn test_consensus_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::QCFormed(either::Left(qc)), 1);
     output.insert(
         HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
         1,
     );
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal.clone(), public_key),
-        1,
-    );
+
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal.data).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
         input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
-        output.insert(HotShotEvent::QuorumVoteRecv(vote), 1);
     }
-
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let consensus_state =
         add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
@@ -160,21 +153,16 @@ async fn test_consensus_vote() {
         proposal.clone(),
         public_key,
     ));
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal.clone(), public_key),
-        1,
-    );
+
     let proposal = proposal.data;
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
         input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
-        output.insert(HotShotEvent::QuorumVoteRecv(vote), 1);
     }
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
     input.push(HotShotEvent::Shutdown);
-    output.insert(HotShotEvent::Shutdown, 1);
 
     let consensus_state =
         add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
@@ -282,25 +270,12 @@ async fn test_consensus_with_vid() {
         public_key_view2,
     ));
 
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal_view2.clone(), public_key_view2),
-        1,
-    );
-    output.insert(HotShotEvent::DACRecv(created_dac_view2), 1);
-    output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
-
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal_view2.data).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
     }
 
-    output.insert(
-        HotShotEvent::ViewChange(ViewNumber::new(1)),
-        2, // 2 occurrences: 1 from `QuorumProposalRecv`, 1 from input
-    );
-    output.insert(
-        HotShotEvent::ViewChange(ViewNumber::new(2)),
-        2, // 2 occurrences: 1 from `QuorumProposalRecv`?, 1 from input
-    );
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
 
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
