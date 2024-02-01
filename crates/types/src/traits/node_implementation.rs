@@ -28,6 +28,7 @@ use std::{
     ops::{Deref, Sub},
     sync::Arc,
 };
+
 /// Node implementation aggregate trait
 ///
 /// This trait exists to collect multiple behavior implementations into one type, to allow
