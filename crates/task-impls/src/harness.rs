@@ -100,7 +100,6 @@ pub fn handle_event<TYPES: NodeType>(
     task: &mut Task<TestHarnessState<TYPES>>,
     allow_extra_output: bool,
 ) -> Option<HotShotTaskCompleted> {
-    tracing::error!("got event {:?}", event);
     let state = task.state_mut();
     // Check the output in either case:
     // * We allow outputs only in our expected output set.

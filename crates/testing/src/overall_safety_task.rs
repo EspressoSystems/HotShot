@@ -113,7 +113,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
                         },
                     )));
                 }
-                // TODO check if we got enough successful views
                 Some(HotShotTaskCompleted::ShutDown)
             }
         }
