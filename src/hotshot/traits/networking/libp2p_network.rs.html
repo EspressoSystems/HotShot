@@ -1253,7 +1253,7 @@
                     </span>{
                         <span class="prelude-val">Ok</span>(network) =&gt; network,
                         <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">panic!</span>(<span class="string">&quot;Failed to create network: {err}&quot;</span>);
+                            <span class="macro">panic!</span>(<span class="string">&quot;Failed to create libp2p network: {err:?}&quot;</span>);
                         }
                     }
                 })
