@@ -37,9 +37,11 @@ use tracing::error;
 /// the underlying storage.
 #[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// The [sender](ChannelStream) for the output stream from the background process
+    /// The [sender](Sender) and an `InactiveReceiver` to keep the channel open.
+    /// The Channel will output all the events.  Subscribers will get an activated
+    /// clone of the `Receiver` when they get output stream.
     pub(crate) output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
-    /// access to the internal ev ent stream, in case we need to, say, shut something down
+    /// access to the internal event stream, in case we need to, say, shut something down
     pub(crate) internal_event_stream: (
         Sender<HotShotEvent<TYPES>>,
         InactiveReceiver<HotShotEvent<TYPES>>,
