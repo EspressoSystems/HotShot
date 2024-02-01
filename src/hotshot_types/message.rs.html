@@ -440,33 +440,6 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -601,15 +574,6 @@
     }
 }
 
-<span class="doccomment">/// Internal triggers sent by consensus messages.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>InternalTrigger&lt;TYPES: NodeType&gt; {
-    <span class="comment">// May add other triggers if necessary.
-    </span><span class="doccomment">/// Internal timeout at the specified view number.
-    </span>Timeout(TYPES::Time),
-}
-
 <span class="doccomment">/// A processed consensus message for both validating and sequencing consensus.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
@@ -618,9 +582,6 @@
     </span>Proposal(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote(QuorumVote&lt;TYPES&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
-    </span><span class="attr">#[serde(skip)]
-    </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;ProcessedGeneralConsensusMessage&lt;TYPES&gt;&gt;
@@ -632,9 +593,6 @@
                 GeneralConsensusMessage::Proposal(p)
             }
             ProcessedGeneralConsensusMessage::Vote(v, <span class="kw">_</span>) =&gt; GeneralConsensusMessage::Vote(v),
-            ProcessedGeneralConsensusMessage::InternalTrigger(a) =&gt; {
-                GeneralConsensusMessage::InternalTrigger(a)
-            }
         }
     }
 }
@@ -649,9 +607,6 @@
                 ProcessedGeneralConsensusMessage::Proposal(p, sender)
             }
             GeneralConsensusMessage::Vote(v) =&gt; ProcessedGeneralConsensusMessage::Vote(v, sender),
-            GeneralConsensusMessage::InternalTrigger(a) =&gt; {
-                ProcessedGeneralConsensusMessage::InternalTrigger(a)
-            }
             <span class="comment">// ED NOTE These are deprecated
             </span>GeneralConsensusMessage::TimeoutVote(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
             GeneralConsensusMessage::ViewSyncPreCommitVote(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
@@ -782,10 +737,6 @@
 
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
-
-    <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
-    </span><span class="attr">#[serde(skip)]
-    </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -829,10 +780,6 @@
                         </span>p.data.get_view_number()
                     }
                     GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.get_view_number(),
-                    GeneralConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
-                        InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
-                    },
-
                     GeneralConsensusMessage::TimeoutVote(message) =&gt; message.get_view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) =&gt; {
                         message.get_view_number()
@@ -888,7 +835,6 @@
                 GeneralConsensusMessage::Vote(<span class="kw">_</span>) | GeneralConsensusMessage::TimeoutVote(<span class="kw">_</span>) =&gt; {
                     MessagePurpose::Vote
                 }
-                GeneralConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; MessagePurpose::Internal,
                 GeneralConsensusMessage::ViewSyncPreCommitVote(<span class="kw">_</span>)
                 | GeneralConsensusMessage::ViewSyncCommitVote(<span class="kw">_</span>)
                 | GeneralConsensusMessage::ViewSyncFinalizeVote(<span class="kw">_</span>) =&gt; MessagePurpose::ViewSyncVote,

@@ -519,41 +519,6 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -797,41 +762,6 @@
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
-}
-
-<span class="doccomment">/// A state change encoded in a leaf.
-///
-/// [`DeltasType`] represents a [block](NodeType::BlockPayload), but it may not contain the block in
-/// full. It is guaranteed to contain, at least, a cryptographic commitment to the block, and it
-/// provides an interface for resolving the commitment to a full block if the full block is
-/// available.
-</span><span class="kw">pub trait </span>DeltasType&lt;PAYLOAD: BlockPayload&gt;:
-    Clone + Debug + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync
-{
-    <span class="doccomment">/// Errors reported by this type.
-    </span><span class="kw">type </span>Error: std::error::Error;
-
-    <span class="doccomment">/// Get a cryptographic commitment to the block represented by this delta.
-    </span><span class="kw">fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment;
-
-    <span class="doccomment">/// Get the full block if it is available, otherwise return this object unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Returns the original [`DeltasType`], unchanged, in an [`Err`] variant in the case where the
-    /// full block is not currently available.
-    </span><span class="kw">fn </span>try_resolve(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PAYLOAD, <span class="self">Self</span>&gt;;
-
-    <span class="doccomment">/// Fill this [`DeltasType`] by providing a complete block.
-    ///
-    /// After this function succeeds, [`try_resolve`](Self::try_resolve) is guaranteed to return
-    /// `Ok(block)`.
-    ///
-    /// # Errors
-    ///
-    /// Fails if `block` does not match `self.payload_commitment()`, or if the block is not able to be
-    /// stored for some implementation-defined reason.
-    </span><span class="kw">fn </span>fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: PAYLOAD) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
 }
 
 <span class="doccomment">/// The error type for block and its transactions.
