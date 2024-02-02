@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["QC_TOPIC"],"enum":["Empty"],"struct":["Libp2pCommChannel","Libp2pNetwork","Libp2pNetworkInner"],"type":["BootstrapAddrs","PeerInfoVec"]};
+window.SIDEBAR_ITEMS = {"constant":["QC_TOPIC"],"struct":["Empty","Libp2pCommChannel","Libp2pNetwork","Libp2pNetworkInner"],"type":["BootstrapAddrs","PeerInfoVec"]};

@@ -389,7 +389,7 @@
 <a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>hotshot_constants::PROGRAM_PROTOCOL_VERSION;
+<span class="kw">use </span>hotshot_constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task::{FilterEvent, HotShotTaskCompleted, TS},
@@ -675,7 +675,7 @@
             }
         };
         <span class="kw">let </span>message = Message {
-            version: PROGRAM_PROTOCOL_VERSION,
+            version: VERSION_0_1,
             sender,
             kind: message_kind,
         };

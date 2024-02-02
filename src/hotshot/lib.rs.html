@@ -637,7 +637,7 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>custom_debug::Debug;
 <span class="kw">use </span>futures::join;
-<span class="kw">use </span>hotshot_constants::PROGRAM_PROTOCOL_VERSION;
+<span class="kw">use </span>hotshot_constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_task::{
     event_stream::{ChannelStream, EventStream},
     task_launcher::TaskRunner,
@@ -913,7 +913,7 @@
                     .da_network
                     .broadcast_message(
                         Message {
-                            version: PROGRAM_PROTOCOL_VERSION,
+                            version: VERSION_0_1,
                             sender: api.inner.public_key.clone(),
                             kind: MessageKind::from(message),
                         },

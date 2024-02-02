@@ -29,7 +29,7 @@
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::type_complexity)]
 </span><span class="kw">use </span>bincode::{
     config::{
-        LittleEndian, RejectTrailing, VarintEncoding, WithOtherEndian, WithOtherIntEncoding,
+        FixintEncoding, LittleEndian, RejectTrailing, WithOtherEndian, WithOtherIntEncoding,
         WithOtherLimit, WithOtherTrailing,
     },
     DefaultOptions, Options,
@@ -44,14 +44,14 @@
 </span><span class="kw">pub fn </span>bincode_opts() -&gt; WithOtherTrailing&lt;
     WithOtherIntEncoding&lt;
         WithOtherEndian&lt;WithOtherLimit&lt;DefaultOptions, bincode::config::Infinite&gt;, LittleEndian&gt;,
-        VarintEncoding,
+        FixintEncoding,
     &gt;,
     RejectTrailing,
 &gt; {
     bincode::DefaultOptions::new()
         .with_no_limit()
         .with_little_endian()
-        .with_varint_encoding()
+        .with_fixint_encoding()
         .reject_trailing_bytes()
 }
 </code></pre></div></section></main></body></html>

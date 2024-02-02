@@ -47,7 +47,7 @@
 <span class="doccomment">/// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
 </span><span class="kw">pub const </span>COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = <span class="number">5</span>;
 
-<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Type for protocol version number
 </span><span class="kw">pub struct </span>Version {
     <span class="doccomment">/// major version number
@@ -56,6 +56,6 @@
     </span><span class="kw">pub </span>minor: u16,
 }
 
-<span class="doccomment">/// Constants for the current version number used by the program
-</span><span class="kw">pub const </span>PROGRAM_PROTOCOL_VERSION: Version = Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>};
+<span class="doccomment">/// Constant for protocol version 0.1.
+</span><span class="kw">pub const </span>VERSION_0_1: Version = Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>};
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["bincode"]};
+window.SIDEBAR_ITEMS = {"mod":["bincode","version"]};
