@@ -126,6 +126,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     reliability_config: Option<Box<dyn NetworkReliability>>,
     /// if we're a member of the DA committee or not
     is_da: bool,
+    /// id of the node for logging
+    id: usize
 }
 
 /// Networking implementation that uses libp2p
@@ -155,7 +157,7 @@ where
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        _network_id: usize,
+        network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
@@ -361,7 +363,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                dht_timeout: Duration::from_secs(2),
+                dht_timeout: Duration::from_secs(1),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
                 topic_map,
@@ -373,6 +375,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 #[cfg(feature = "hotshot-testing")]
                 reliability_config,
                 is_da,
+                id,
             }),
         };
 
@@ -389,6 +392,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
         let latest_seen_view = self.inner.latest_seen_view.clone();
+        let id = self.inner.id;
 
         // deals with handling lookup queue. should be infallible
         async_spawn(async move {
@@ -404,10 +408,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
                     if let Err(err) = handle.lookup_node::<K>(pk.clone(), dht_timeout).await {
-                        error!("Failed to perform lookup for key {:?}: {}", pk, err);
+                        // error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
             }
+            error!("Shutting down lookup task id: {}", id);
         });
     }
 
@@ -499,7 +504,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 );
 
                 is_ready.store(true, Ordering::Relaxed);
-                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
+                error!("STARTING CONSENSUS ON {:?}", id);
                 Ok::<(), NetworkError>(())
             }
         });
@@ -526,6 +531,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
+        let id = self.inner.id;
         async_spawn(async move {
             while let Ok(msg) = handle.inner.handle.receiver().recv().await {
                 match msg {
@@ -568,7 +574,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     }
                 }
             }
-            warn!("Network receiever shut down!");
+            error!("Network receiever shut down! ID: {}", id);
             Ok::<(), NetworkError>(())
         });
     }
@@ -680,6 +686,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
             Err(e) => {
                 self.inner.metrics.message_failed_to_send.add(1);
+                error!("Failed to broadcast, ID: {},  error: {:?}", self.inner.id, e);
                 Err(e.into())
             }
         }
@@ -713,10 +720,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.message_failed_to_send.add(1);
-                error!(
-                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
-                    message, recipient
-                );
+                // error!(
+                //     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                //     message, recipient
+                // );
                 return Err(NetworkError::Libp2p { source: err });
             }
         };
@@ -941,7 +948,9 @@ where
             membership,
             message.kind.get_view_number(),
         );
-        self.0.broadcast_message(message, recipients).await
+        let comm = self.0.clone();
+        async_spawn(async move {comm.broadcast_message(message, recipients).await });
+        Ok(())
     }
 
     async fn direct_message(
@@ -949,7 +958,9 @@ where
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        self.0.direct_message(message, recipient).await
+        let comm = self.0.clone();
+        async_spawn(async move {comm.direct_message(message, recipient).await });
+        Ok(())
     }
 
     fn recv_msgs<'a, 'b>(

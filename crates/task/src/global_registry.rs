@@ -210,5 +210,6 @@ impl GlobalRegistry {
         while let Some((_uid, task)) = task_list.pop_last() {
             task.0.set_state(TaskStatus::Completed);
         }
+        tracing::error!("shutdown all tasks");
     }
 }
