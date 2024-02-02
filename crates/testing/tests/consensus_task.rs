@@ -15,7 +15,7 @@ use hotshot_types::vote::Certificate;
 use hotshot_types::{
     data::{Leaf, QuorumProposal, ViewNumber},
     message::GeneralConsensusMessage,
-    traits::state::ConsensusTime,
+    traits::node_implementation::ConsensusTime,
 };
 use hotshot_types::{
     simple_vote::QuorumData,
@@ -38,7 +38,7 @@ async fn build_vote(
     let justify_qc = proposal.justify_qc.clone();
     let view = ViewNumber::new(*proposal.view_number);
     let parent = if justify_qc.is_genesis {
-        let Some(genesis_view) = consensus.state_map.get(&ViewNumber::new(0)) else {
+        let Some(genesis_view) = consensus.validated_state_map.get(&ViewNumber::new(0)) else {
             panic!("Couldn't find genesis view in state map.");
         };
         let Some(leaf) = genesis_view.get_leaf_commitment() else {
@@ -64,7 +64,6 @@ async fn build_vote(
         parent_commitment,
         block_header: proposal.block_header,
         block_payload: None,
-        rejected: Vec::new(),
         proposer_id: membership.get_leader(view),
     };
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
@@ -198,7 +197,7 @@ async fn test_consensus_vote() {
 // issue: https://github.com/EspressoSystems/HotShot/issues/2236
 #[ignore]
 async fn test_consensus_with_vid() {
-    use hotshot::{tasks::harness::run_harness, types::SignatureKey};
+    use hotshot::{tasks::harness::run_harness, traits::BlockPayload, types::SignatureKey};
     use hotshot_testing::block_types::TestBlockPayload;
     use hotshot_testing::block_types::TestTransaction;
     use hotshot_testing::task_helpers::build_cert;
@@ -208,9 +207,7 @@ async fn test_consensus_with_vid() {
     use hotshot_types::simple_certificate::DACertificate;
     use hotshot_types::simple_vote::DAData;
     use hotshot_types::simple_vote::DAVote;
-    use hotshot_types::traits::block_contents::vid_commitment;
-    use hotshot_types::traits::state::TestableBlock;
-    use hotshot_types::traits::BlockPayload;
+    use hotshot_types::traits::block_contents::{vid_commitment, TestableBlock};
     use hotshot_types::{
         data::VidDisperse, message::Proposal, traits::node_implementation::NodeType,
     };

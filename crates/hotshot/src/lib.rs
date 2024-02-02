@@ -21,12 +21,8 @@ use crate::{
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
-use async_compatibility_layer::{
-    art::{async_spawn, async_spawn_local},
-    async_primitives::broadcast::BroadcastSender,
-    channel::UnboundedSender,
-};
-use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_compatibility_layer::art::async_spawn;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use custom_debug::Debug;
@@ -37,26 +33,21 @@ use hotshot_task::{
     task_launcher::TaskRunner,
 };
 
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::node_implementation::ChannelMaps;
-
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner, ViewQueue},
+    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
     error::StorageSnafu,
     event::EventType,
-    message::{
-        DataMessage, InternalTrigger, Message, MessageKind, ProcessedGeneralConsensusMessage,
-    },
+    message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
         consensus_api::ConsensusApi,
-        network::{CommunicationChannel, NetworkError},
-        node_implementation::{NodeType, SendToTasks},
+        network::CommunicationChannel,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
+        states::ValidatedState,
         storage::StoredView,
-        BlockPayload, State,
+        BlockPayload,
     },
     HotShotConfig,
 };
@@ -69,7 +60,7 @@ use std::{
     time::Duration,
 };
 use tasks::add_vid_task;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, info, instrument, trace};
 
 // -- Rexports
 // External
@@ -142,21 +133,11 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Memberships used by consensus
     pub memberships: Arc<Memberships<TYPES>>,
 
-    // pub quorum_network: Arc<I::QuorumNetwork>;
-    // pub committee_network: Arc<I::CommitteeNetwork>;
-    /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<TYPES>>>>,
-
     /// the metrics that the implementor is using.
     _metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
-
-    /// Channels for sending/recv-ing proposals and votes for quorum and committee exchanges, the
-    /// latter of which is only applicable for sequencing consensus.
-    #[cfg(feature = "hotshot-testing")]
-    channel_maps: (ChannelMaps<TYPES>, Option<ChannelMaps<TYPES>>),
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
@@ -178,8 +159,11 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Creates a new hotshot with the given configuration options and sets it up with the given
+    /// Creates a new [`SystemContext`] with the given configuration options and sets it up with the given
     /// genesis block
+    ///
+    /// To do a full initialization, use `fn init` instead, which will set up background tasks as
+    /// well.
     #[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, storage, memberships, networks, initializer, metrics))]
     pub async fn new(
@@ -197,6 +181,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
+        let instance_state = initializer.instance_state;
 
         // insert to storage
         storage
@@ -205,13 +190,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
-        let mut state_map = BTreeMap::default();
-        state_map.insert(
+        let mut validated_state_map = BTreeMap::default();
+        let validated_state = TYPES::ValidatedState::genesis(&instance_state);
+        validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: TYPES::StateType::genesis(),
+                    state: validated_state,
                 },
             },
         );
@@ -235,7 +221,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let start_view = anchored_leaf.get_view_number();
 
         let consensus = Consensus {
-            state_map,
+            instance_state,
+            validated_state_map,
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
@@ -252,7 +239,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             id: nonce,
             #[cfg(feature = "hotshot-testing")]
-            channel_maps: I::new_channel_maps(start_view),
             consensus,
             public_key,
             private_key,
@@ -260,7 +246,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            event_sender: RwLock::default(),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: ChannelStream::new(),
             output_event_stream: ChannelStream::new(),
@@ -279,49 +264,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .await;
     }
 
-    /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
-    ///
-    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
-    /// # Panics
-    /// Panics if the current view is not in the channel map
-    #[instrument(
-        skip_all,
-        fields(id = self.inner.id, view = *current_view),
-        name = "Timeout consensus tasks",
-        level = "warn"
-    )]
-    pub async fn timeout_view(
-        &self,
-        current_view: TYPES::Time,
-        send_replica: UnboundedSender<ProcessedGeneralConsensusMessage<TYPES>>,
-        send_next_leader: Option<UnboundedSender<ProcessedGeneralConsensusMessage<TYPES>>>,
-    ) {
-        let msg = ProcessedGeneralConsensusMessage::<TYPES>::InternalTrigger(
-            InternalTrigger::Timeout(current_view),
-        );
-        if let Some(chan) = send_next_leader {
-            if chan.send(msg.clone()).await.is_err() {
-                debug!("Error timing out next leader task");
-            }
-        };
-        // NOTE this should always exist
-        if send_replica.send(msg).await.is_err() {
-            debug!("Error timing out replica task");
-        };
-    }
-
     /// Emit an external event
     // A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
-        }
+        self.inner.output_event_stream.publish(event).await;
     }
 
     /// Publishes a transaction asynchronously to the network
@@ -402,7 +350,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_state(&self) -> TYPES::StateType {
+    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
         self.inner
             .consensus
             .read()
@@ -411,7 +359,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .clone()
     }
 
-    /// Initializes a new hotshot and does the work of setting up all the background tasks
+    /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
@@ -419,6 +367,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
     /// the `HotShot` instance will log the error and shut down.
+    ///
+    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
     ///
     /// # Errors
     ///
@@ -460,111 +410,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok((handle, internal_event_stream))
     }
 
-    /// Send a broadcast message.
-    ///
-    /// This is an alias for `hotshot.inner.networking.broadcast_message(msg.into())`.
-    ///
-    /// # Errors
-    ///
-    /// Will return any errors that the underlying `broadcast_message` can return.
-    // this clippy lint is silly. This is async by requirement of the trait.
-    #[allow(clippy::unused_async)]
-    pub async fn send_broadcast_message(
-        &self,
-        kind: impl Into<MessageKind<TYPES>>,
-    ) -> std::result::Result<(), NetworkError> {
-        let inner = self.inner.clone();
-        let pk = self.inner.public_key.clone();
-        let kind = kind.into();
-
-        async_spawn_local(async move {
-            if inner
-                .networks
-                .quorum_network
-                .broadcast_message(
-                    Message {
-                        version: PROGRAM_PROTOCOL_VERSION,
-                        sender: pk,
-                        kind,
-                    },
-                    // TODO this is morally wrong
-                    &inner.memberships.quorum_membership.clone(),
-                )
-                .await
-                .is_err()
-            {
-                warn!("Failed to broadcast message");
-            };
-        });
-        Ok(())
-    }
-
-    /// Send a direct message to a given recipient.
-    ///
-    /// This is an alias for `hotshot.inner.networking.message_node(msg.into(), recipient)`.
-    ///
-    /// # Errors
-    ///
-    /// Will return any errors that the underlying `message_node` can return.
-    pub async fn send_direct_message(
-        &self,
-        kind: impl Into<MessageKind<TYPES>>,
-        recipient: TYPES::SignatureKey,
-    ) -> std::result::Result<(), NetworkError> {
-        self.inner
-            .networks
-            .quorum_network
-            .direct_message(
-                Message {
-                    version: PROGRAM_PROTOCOL_VERSION,
-                    sender: self.inner.public_key.clone(),
-                    kind: kind.into(),
-                },
-                recipient,
-            )
-            .await?;
-        Ok(())
-    }
-
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
-    }
-
-    /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
-    /// doesn't exist, or creates entry. Then returns a clone of the entry
-    pub async fn create_or_obtain_chan_from_read(
-        view_num: TYPES::Time,
-        channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES>>,
-    ) -> ViewQueue<TYPES> {
-        // check if we have the entry
-        // if we don't, insert
-        if let Some(vq) = channel_map.channel_map.get(&view_num) {
-            vq.clone()
-        } else {
-            let mut channel_map =
-                RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES>>::upgrade(channel_map).await;
-            let new_view_queue = ViewQueue::default();
-            let vq = new_view_queue.clone();
-            // NOTE: the read lock is held until all other read locks are DROPPED and
-            // the read lock may be turned into a write lock.
-            // This means that the `channel_map` will not change. So we don't need
-            // to check again to see if a channel was added
-
-            channel_map.channel_map.insert(view_num, new_view_queue);
-            vq
-        }
-    }
-
-    /// given a view number and a write lock on a channel map, inserts entry into map if it
-    /// doesn't exist, or creates entry. Then returns a clone of the entry
-    #[allow(clippy::unused_async)] // async for API compatibility reasons
-    pub async fn create_or_obtain_chan_from_write(
-        view_num: TYPES::Time,
-        mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES>>,
-    ) -> ViewQueue<TYPES> {
-        channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
 
@@ -703,13 +552,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
-        }
+        self.inner.output_event_stream.publish(event).await;
     }
 
     fn public_key(&self) -> &TYPES::SignatureKey {
@@ -738,20 +581,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 pub struct HotShotInitializer<TYPES: NodeType> {
     /// the leaf specified initialization
     inner: Leaf<TYPES>,
+
+    /// Instance-level state.
+    instance_state: TYPES::InstanceState,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis() -> Result<Self, HotShotError<TYPES>> {
+    pub fn from_genesis(
+        instance_state: &TYPES::InstanceState,
+    ) -> Result<Self, HotShotError<TYPES>> {
         Ok(Self {
-            inner: Leaf::genesis(),
+            inner: Leaf::genesis(instance_state),
+            instance_state: instance_state.clone(),
         })
     }
 
-    /// reload previous state based on most recent leaf
-    pub fn from_reload(anchor_leaf: Leaf<TYPES>) -> Self {
-        Self { inner: anchor_leaf }
+    /// reload previous state based on most recent leaf and the instance-level state.
+    pub fn from_reload(anchor_leaf: Leaf<TYPES>, instance_state: TYPES::InstanceState) -> Self {
+        Self {
+            inner: anchor_leaf,
+            instance_state,
+        }
     }
 }

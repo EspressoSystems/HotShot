@@ -25,9 +25,8 @@ use hotshot_types::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
             NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
         },
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
     },
 };
 
@@ -264,7 +263,7 @@ where
                     {
                         Ok(network) => network,
                         Err(err) => {
-                            panic!("Failed to create network: {err}");
+                            panic!("Failed to create libp2p network: {err:?}");
                         }
                     }
                 })
