@@ -1001,7 +1001,7 @@
     <span class="doccomment">/// view number -&gt; (secret, da_certificates)
     </span>da_certificates: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
     <span class="doccomment">/// view for the most recent proposal to help nodes catchup
-    </span>latest_quorum_proposal: u64,
+    </span>latest_proposal: u64,
     <span class="doccomment">/// view for the most recent view sync proposal
     </span>latest_view_sync_certificate: u64,
     <span class="doccomment">/// view for the oldest DA certificate
@@ -1059,7 +1059,7 @@
             votes: HashMap::new(),
             num_txns: <span class="number">0</span>,
             oldest_vote: <span class="number">0</span>,
-            latest_quorum_proposal: <span class="number">0</span>,
+            latest_proposal: <span class="number">0</span>,
             latest_view_sync_certificate: <span class="number">0</span>,
             oldest_certificate: <span class="number">0</span>,
             shutdown: <span class="prelude-val">None</span>,
@@ -1111,7 +1111,7 @@
     <span class="doccomment">/// Get latest quanrum proposal
     /// # Errors
     /// Error if unable to serve.
-    </span><span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
+    </span><span class="kw">fn </span>get_latest_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt;;
     <span class="doccomment">/// Get latest view sync proposal
     /// # Errors
     /// Error if unable to serve.
@@ -1264,8 +1264,8 @@
         }
     }
 
-    <span class="kw">fn </span>get_latest_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
-        <span class="self">self</span>.get_proposal(<span class="self">self</span>.latest_quorum_proposal)
+    <span class="kw">fn </span>get_latest_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
+        <span class="self">self</span>.get_proposal(<span class="self">self</span>.latest_proposal)
     }
 
     <span class="kw">fn </span>get_latest_view_sync_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
@@ -1514,8 +1514,8 @@
     </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
 
-        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.latest_quorum_proposal {
-            <span class="self">self</span>.latest_quorum_proposal = view_number;
+        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.latest_proposal {
+            <span class="self">self</span>.latest_proposal = view_number;
         }
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
@@ -1739,8 +1739,8 @@
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;get_latest_quorum_proposal&quot;</span>, |_req, state| {
-        <span class="kw">async move </span>{ state.get_latest_quorum_proposal() }.boxed()
+    </span>.get(<span class="string">&quot;get_latest_proposal&quot;</span>, |_req, state| {
+        <span class="kw">async move </span>{ state.get_latest_proposal() }.boxed()
     })<span class="question-mark">?
     </span>.get(<span class="string">&quot;get_latest_view_sync_certificate&quot;</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_latest_view_sync_certificate() }.boxed()

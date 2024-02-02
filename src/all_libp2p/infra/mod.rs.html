@@ -956,7 +956,6 @@
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1432,8 +1431,7 @@
                         EventType::NextLeaderViewTimeout { view_number } =&gt; {
                             <span class="macro">warn!</span>(<span class="string">&quot;Timed out as the next leader in view {:?}&quot;</span>, view_number);
                         }
-                        EventType::ViewFinished { view_number: <span class="kw">_ </span>} =&gt; {}
-                        <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
+                        <span class="kw">_ </span>=&gt; {}
                     }
                 }
             }

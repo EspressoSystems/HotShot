@@ -505,10 +505,10 @@
 <span class="doccomment">/// A message type agnostic description of a message&#39;s purpose
 </span><span class="attr">#[derive(PartialEq, Copy, Clone)]
 </span><span class="kw">pub enum </span>MessagePurpose {
-    <span class="doccomment">/// Message with a quorum proposal.
+    <span class="doccomment">/// Message with a [quorum/DA] proposal.
     </span>Proposal,
-    <span class="doccomment">/// Message with most recent quorum proposal the server has
-    </span>LatestQuorumProposal,
+    <span class="doccomment">/// Message with most recent [quorum/DA] proposal the server has
+    </span>LatestProposal,
     <span class="doccomment">/// Message with most recent view sync certificate the server has
     </span>LatestViewSyncCertificate,
     <span class="doccomment">/// Message with a quorum vote.

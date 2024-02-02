@@ -1662,7 +1662,7 @@
     </span>txn_task_map: Arc&lt;RwLock&lt;TaskMap&lt;TYPES::SignatureKey&gt;&gt;&gt;,
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// A handle on the task polling for latest quorum propsal
-    </span>latest_quorum_proposal_task: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;TaskChannel&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;,
+    </span>latest_proposal_task: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;TaskChannel&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;,
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// A handle on the task polling for the latest view sync certificate
     </span>latest_view_sync_certificate_task: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;TaskChannel&lt;TYPES::SignatureKey&gt;&gt;&gt;&gt;,
@@ -1715,7 +1715,7 @@
         view_number: u64,
         message_purpose: MessagePurpose,
         vote_index: <span class="kw-2">&amp;mut </span>u64,
-        seen_quorum_proposals: <span class="kw-2">&amp;mut </span>LruCache&lt;u64, ()&gt;,
+        seen_proposals: <span class="kw-2">&amp;mut </span>LruCache&lt;u64, ()&gt;,
         seen_view_sync_certificates: <span class="kw-2">&amp;mut </span>LruCache&lt;u64, ()&gt;,
     ) -&gt; bool {
         <span class="kw">let </span>broadcast_poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.broadcast_poll_queue_0_1;
@@ -1735,11 +1735,11 @@
                     <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     </span><span class="kw">return </span><span class="bool-val">true</span>;
                 }
-                MessagePurpose::LatestQuorumProposal =&gt; {
+                MessagePurpose::LatestProposal =&gt; {
                     <span class="kw">let </span>proposal = deserialized_message.clone();
                     <span class="kw">let </span>hash = hash(<span class="kw-2">&amp;</span>proposal);
                     <span class="comment">// Only allow unseen proposals to be pushed to the queue
-                    </span><span class="kw">if </span>seen_quorum_proposals.put(hash, ()).is_none() {
+                    </span><span class="kw">if </span>seen_proposals.put(hash, ()).is_none() {
                         broadcast_poll_queue.write().<span class="kw">await</span>.push(proposal);
                     }
 
@@ -1834,7 +1834,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>vote_index = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>tx_index = <span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>seen_quorum_proposals = LruCache::new(NonZeroUsize::new(<span class="number">100</span>).unwrap());
+        <span class="kw">let </span><span class="kw-2">mut </span>seen_proposals = LruCache::new(NonZeroUsize::new(<span class="number">100</span>).unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(<span class="number">100</span>).unwrap());
 
         <span class="kw">if </span>message_purpose == MessagePurpose::Data {
@@ -1847,7 +1847,7 @@
 
             <span class="kw">let </span>endpoint = <span class="kw">match </span>message_purpose {
                 MessagePurpose::Proposal =&gt; config::get_proposal_route(view_number),
-                MessagePurpose::LatestQuorumProposal =&gt; config::get_latest_quorum_proposal_route(),
+                MessagePurpose::LatestProposal =&gt; config::get_latest_proposal_route(),
                 MessagePurpose::LatestViewSyncCertificate =&gt; {
                     config::get_latest_view_sync_certificate_route()
                 }
@@ -1956,7 +1956,7 @@
                                                 view_number,
                                                 message_purpose,
                                                 <span class="kw-2">&amp;mut </span>vote_index,
-                                                <span class="kw-2">&amp;mut </span>seen_quorum_proposals,
+                                                <span class="kw-2">&amp;mut </span>seen_proposals,
                                                 <span class="kw-2">&amp;mut </span>seen_view_sync_certificates,
                                             )
                                             .<span class="kw">await</span>;
@@ -2120,7 +2120,7 @@
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            latest_quorum_proposal_task: Arc::default(),
+            latest_proposal_task: Arc::default(),
             latest_view_sync_certificate_task: Arc::default(),
         });
 
@@ -2144,7 +2144,7 @@
             MessagePurpose::Vote =&gt; config::post_vote_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::Data =&gt; config::post_transactions_route(),
             MessagePurpose::Internal
-            | MessagePurpose::LatestQuorumProposal
+            | MessagePurpose::LatestProposal
             | MessagePurpose::LatestViewSyncCertificate =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError)
             }
@@ -2290,8 +2290,8 @@
         <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="comment">// Cancel poll for latest quorum proposal on shutdown
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>sender) = <span class="kw-2">*</span><span class="self">self</span>.inner.latest_quorum_proposal_task.read().<span class="kw">await </span>{
+            <span class="comment">// Cancel poll for latest proposal on shutdown
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>sender) = <span class="kw-2">*</span><span class="self">self</span>.inner.latest_proposal_task.read().<span class="kw">await </span>{
                 <span class="kw">let _ </span>= sender
                     .send(ConsensusIntentEvent::CancelPollForLatestProposal(<span class="number">1</span>))
                     .<span class="kw">await</span>;
@@ -2483,9 +2483,9 @@
                     .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
                     .<span class="kw">await</span>;
             }
-            ConsensusIntentEvent::PollForLatestQuorumProposal =&gt; {
+            ConsensusIntentEvent::PollForLatestProposal =&gt; {
                 <span class="comment">// Only start this task if we haven&#39;t already started it.
-                </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_quorum_proposal_task.write().<span class="kw">await</span>;
+                </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_proposal_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
                     <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
 
@@ -2498,7 +2498,7 @@
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner
                             .poll_web_server(
                                 receiver,
-                                MessagePurpose::LatestQuorumProposal,
+                                MessagePurpose::LatestProposal,
                                 <span class="number">1</span>,
                                 Duration::from_millis(<span class="number">500</span>),
                             )

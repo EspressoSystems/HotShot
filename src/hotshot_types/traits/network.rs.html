@@ -809,8 +809,8 @@
     </span>PollForProposal(u64),
     <span class="doccomment">/// Poll for VID disperse data for a particular view
     </span>PollForVIDDisperse(u64),
-    <span class="doccomment">/// Poll for the most recent quorum proposal the webserver has
-    </span>PollForLatestQuorumProposal,
+    <span class="doccomment">/// Poll for the most recent [quorum/da] proposal the webserver has
+    </span>PollForLatestProposal,
     <span class="doccomment">/// Poll for the most recent view sync proposal the webserver has
     </span>PollForLatestViewSyncCertificate,
     <span class="doccomment">/// Poll for a DAC for a particular view
@@ -865,7 +865,7 @@
             | ConsensusIntentEvent::PollForTransactions(view_number)
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
-            ConsensusIntentEvent::PollForLatestQuorumProposal
+            ConsensusIntentEvent::PollForLatestProposal
             | ConsensusIntentEvent::PollForLatestViewSyncCertificate =&gt; <span class="number">1</span>,
         }
     }
