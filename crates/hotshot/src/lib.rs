@@ -160,8 +160,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Creates a new [`SystemContext`] with the given configuration options and sets it up with the given
-    /// genesis block
+    /// Creates a new [`SystemContext`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
@@ -216,10 +215,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 }
             };
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            // View 1 doesn't have DA which is responsible for saving the payloads, so we store the
+            // payload for view 1 manually during the intialization.
             saved_payloads.insert(TYPES::Time::new(1), encoded_txns);
         }
 
-        let start_view = anchored_leaf.get_view_number();
+        let start_view = initializer.start_view;
 
         let consensus = Consensus {
             instance_state,
@@ -585,6 +586,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Instance-level state.
     instance_state: TYPES::InstanceState,
+
+    /// Starting view number.
+    start_view: TYPES::Time,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -597,14 +601,24 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         Ok(Self {
             inner: Leaf::genesis(instance_state),
             instance_state: instance_state.clone(),
+            start_view: TYPES::Time::new(0),
         })
     }
 
-    /// reload previous state based on most recent leaf and the instance-level state.
-    pub fn from_reload(anchor_leaf: Leaf<TYPES>, instance_state: TYPES::InstanceState) -> Self {
+    /// Reload previous state based on most recent leaf and the instance-level state.
+    ///
+    /// # Arguments
+    /// *  `start_view` - The minimum view number that we are confident won't lead to a double
+    /// vote after restart.
+    pub fn from_reload(
+        anchor_leaf: Leaf<TYPES>,
+        instance_state: TYPES::InstanceState,
+        start_view: TYPES::Time,
+    ) -> Self {
         Self {
             inner: anchor_leaf,
             instance_state,
+            start_view,
         }
     }
 }
