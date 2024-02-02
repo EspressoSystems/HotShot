@@ -278,7 +278,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
         view_number: u64,
         message_purpose: MessagePurpose,
         vote_index: &mut u64,
-        seen_quorum_proposals: &mut LruCache<u64, ()>,
+        seen_proposals: &mut LruCache<u64, ()>,
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
@@ -302,7 +302,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     let proposal = deserialized_message.clone();
                     let hash = hash(&proposal);
                     // Only allow unseen proposals to be pushed to the queue
-                    if seen_quorum_proposals.put(hash, ()).is_none() {
+                    if seen_proposals.put(hash, ()).is_none() {
                         broadcast_poll_queue.write().await.push(proposal);
                     }
 
@@ -397,7 +397,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
-        let mut seen_quorum_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
+        let mut seen_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
         let mut seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(100).unwrap());
 
         if message_purpose == MessagePurpose::Data {
@@ -519,7 +519,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                                 view_number,
                                                 message_purpose,
                                                 &mut vote_index,
-                                                &mut seen_quorum_proposals,
+                                                &mut seen_proposals,
                                                 &mut seen_view_sync_certificates,
                                             )
                                             .await;
