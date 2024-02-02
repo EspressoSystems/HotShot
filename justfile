@@ -7,7 +7,7 @@ original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_examp
 
 run_ci: lint build test
 
-async := "async_std"
+async := "async-std"
 
 # Run arbitrary cargo commands, with e.g.
 #     just async=async-std cargo check
@@ -30,7 +30,7 @@ build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
 build_release:
-  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
+  cargo build --package hotshot --profile=release --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
