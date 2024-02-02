@@ -216,6 +216,7 @@ impl TaskRegistry {
             #[cfg(async_executor_impl = "tokio")]
             handle.abort();
         }
+        tracing::error!("shut down all tasks");
     }
     pub async fn run_task<S>(&self, task: Task<S>)
     where

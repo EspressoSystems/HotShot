@@ -109,10 +109,14 @@ where
             .clone();
 
         let mut late_start_nodes: HashSet<u64> = HashSet::new();
+        let mut down_nodes = 0;
         for (_, changes) in &spinning_changes {
             for change in changes {
                 if matches!(change.updown, UpDown::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
+                }
+                if matches!(change.updown, UpDown::Down) {
+                    down_nodes = down_nodes + 1;
                 }
             }
         }
@@ -146,7 +150,7 @@ where
         let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
-                    handles: nodes.clone(),
+                    handles: nodes[0..(meta.total_nodes - down_nodes)].to_vec(),
                     next_node_idx: Some(0),
                     duration,
                     shutdown_chan: rx.clone(),

@@ -721,6 +721,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.message_failed_to_send.add(1);
+                error!("ID {} failed to message peer {:?}", self.inner.id, recipient);
                 // error!(
                 //     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                 //     message, recipient
