@@ -607,7 +607,6 @@
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 //! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
@@ -849,8 +848,7 @@
 
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
             id: nonce,
-            <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-            </span>consensus,
+            consensus,
             public_key,
             private_key,
             config,
