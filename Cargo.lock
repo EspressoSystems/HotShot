@@ -534,6 +534,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-broadcast"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "334d75cf09b33bede6cbc20e52515853ae7bee3d4eadd9540e13ce92af983d34"
+dependencies = [
+ "event-listener 3.1.0",
+ "event-listener-strategy 0.1.0",
+ "futures-core",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -552,7 +563,7 @@ checksum = "1ca33f4bc4ed1babef42cad36cc1f51fa88be00420404e5b1e80ab1b18f7678c"
 dependencies = [
  "concurrent-queue",
  "event-listener 4.0.3",
- "event-listener-strategy",
+ "event-listener-strategy 0.4.0",
  "futures-core",
  "pin-project-lite 0.2.13",
 ]
@@ -700,7 +711,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d034b430882f8381900d3fe6f0aaa3ad94f2cb4ac519b429692a1bc2dda4ae7b"
 dependencies = [
  "event-listener 4.0.3",
- "event-listener-strategy",
+ "event-listener-strategy 0.4.0",
  "pin-project-lite 0.2.13",
 ]
 
@@ -896,17 +907,6 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-
-[[package]]
-name = "atomic_enum"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6227a8d6fdb862bcb100c4314d0d9579e5cd73fa6df31a2e6f6e1acd3c5f1207"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "attohttpc"
@@ -2155,6 +2155,16 @@ dependencies = [
 
 [[package]]
 name = "event-listener-strategy"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15c97b4e30ea7e4b7e7b429d6e2d8510433ba8cee4e70dfb3243794e539d29fd"
+dependencies = [
+ "event-listener 3.1.0",
+ "pin-project-lite 0.2.13",
+]
+
+[[package]]
+name = "event-listener-strategy"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "958e4d70b6d5e81971bebec42271ec641e7ff4e170a6fa605f2b8a8b65cb97d3"
@@ -2667,6 +2677,7 @@ dependencies = [
 name = "hotshot"
 version = "0.3.3"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
@@ -2758,16 +2769,10 @@ dependencies = [
 name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
- "async-lock 2.8.0",
  "async-std",
- "async-trait",
- "atomic_enum",
- "either",
  "futures",
- "pin-project",
- "serde",
- "snafu",
  "tokio",
  "tracing",
 ]
@@ -2776,6 +2781,7 @@ dependencies = [
 name = "hotshot-task-impls"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
@@ -2800,6 +2806,7 @@ dependencies = [
 name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
@@ -2879,7 +2886,6 @@ dependencies = [
  "ethereum-types",
  "generic-array",
  "hotshot-constants",
- "hotshot-task",
  "hotshot-utils",
  "jf-plonk",
  "jf-primitives",

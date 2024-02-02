@@ -1,7 +1,6 @@
 #![allow(clippy::panic)]
 use commit::Committable;
 use hotshot::{tasks::add_consensus_task, types::SystemContextHandle, HotShotConsensusApi};
-use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
@@ -108,30 +107,22 @@ async fn test_consensus_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::QCFormed(either::Left(qc)), 1);
     output.insert(
         HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
         1,
     );
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal.clone(), public_key),
-        1,
-    );
+
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal.data).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
         input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
-        output.insert(HotShotEvent::QuorumVoteRecv(vote), 1);
     }
 
-    output.insert(HotShotEvent::Shutdown, 1);
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
-
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }
 
 #[cfg(test)]
@@ -161,27 +152,21 @@ async fn test_consensus_vote() {
         proposal.clone(),
         public_key,
     ));
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal.clone(), public_key),
-        1,
-    );
+
     let proposal = proposal.data;
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
         input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
-        output.insert(HotShotEvent::QuorumVoteRecv(vote), 1);
     }
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
     input.push(HotShotEvent::Shutdown);
-    output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }
 
 #[cfg(test)]
@@ -215,7 +200,7 @@ async fn test_consensus_with_vid() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let (handle, _event_stream) = build_system_handle(2).await;
+    let (handle, _tx, _rx) = build_system_handle(2).await;
     // We assign node's key pair rather than read from config file since it's a test
     // In view 2, node 2 is the leader.
     let (private_key_view2, public_key_view2) = key_pair_for_id(2);
@@ -283,32 +268,18 @@ async fn test_consensus_with_vid() {
         public_key_view2,
     ));
 
-    output.insert(
-        HotShotEvent::QuorumProposalRecv(proposal_view2.clone(), public_key_view2),
-        1,
-    );
-    output.insert(HotShotEvent::DACRecv(created_dac_view2), 1);
-    output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
-
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal_view2.data).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
     }
 
-    output.insert(
-        HotShotEvent::ViewChange(ViewNumber::new(1)),
-        2, // 2 occurrences: 1 from `QuorumProposalRecv`, 1 from input
-    );
-    output.insert(
-        HotShotEvent::ViewChange(ViewNumber::new(2)),
-        2, // 2 occurrences: 1 from `QuorumProposalRecv`?, 1 from input
-    );
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
 
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let build_fn = |task_runner, event_stream| {
-        add_consensus_task(task_runner, event_stream, ChannelStream::new(), handle)
-    };
+    let consensus_state =
+        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
-    run_harness(input, output, None, build_fn, false).await;
+    run_harness(input, output, consensus_state, false).await;
 }

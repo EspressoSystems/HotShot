@@ -13,10 +13,10 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::LOOK_AHEAD;
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
+    boxed_sync,
     data::ViewNumber,
     message::{Message, MessageKind},
     traits::{
@@ -28,6 +28,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 
 use hotshot_utils::bincode::bincode_opts;
