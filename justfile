@@ -30,7 +30,7 @@ build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
 build_release:
-  cargo build --package hotshot --profile-=release --no-default-features --features="docs, doc-images"
+  cargo build --package hotshot --profile=release --no-default-features --features="docs, doc-images"
 
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
