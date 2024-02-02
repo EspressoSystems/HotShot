@@ -225,7 +225,7 @@ struct Inner<TYPES: NodeType> {
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     #[allow(clippy::type_complexity)]
     /// A handle on the task polling for latest quorum propsal
-    latest_quorum_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    latest_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
     #[allow(clippy::type_complexity)]
     /// A handle on the task polling for the latest view sync certificate
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
@@ -256,7 +256,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
             let endpoint = match message_purpose {
                 MessagePurpose::Proposal => config::get_proposal_route(view_number),
-                MessagePurpose::LatestQuorumProposal => config::get_latest_quorum_proposal_route(),
+                MessagePurpose::LatestProposal => config::get_latest_proposal_route(),
                 MessagePurpose::LatestViewSyncCertificate => {
                     config::get_latest_view_sync_certificate_route()
                 }
@@ -320,7 +320,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                 //     }
                                 // }
                             }
-                            MessagePurpose::LatestQuorumProposal => {
+                            MessagePurpose::LatestProposal => {
                                 // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                                 let proposal = deserialized_messages[0].clone();
                                 let hash = hash(&proposal);
@@ -619,7 +619,7 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            latest_quorum_proposal_task: Arc::default(),
+            latest_proposal_task: Arc::default(),
             latest_view_sync_certificate_task: Arc::default(),
         });
 
@@ -643,7 +643,7 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             MessagePurpose::Vote => config::post_vote_route(*view_number),
             MessagePurpose::Data => config::post_transactions_route(),
             MessagePurpose::Internal
-            | MessagePurpose::LatestQuorumProposal
+            | MessagePurpose::LatestProposal
             | MessagePurpose::LatestViewSyncCertificate => {
                 return Err(WebServerNetworkError::EndpointError)
             }
@@ -789,8 +789,8 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         Self: 'b,
     {
         let closure = async move {
-            // Cancel poll for latest quorum proposal on shutdown
-            if let Some(ref sender) = *self.inner.latest_quorum_proposal_task.read().await {
+            // Cancel poll for latest proposal on shutdown
+            if let Some(ref sender) = *self.inner.latest_proposal_task.read().await {
                 let _ = sender
                     .send(ConsensusIntentEvent::CancelPollForLatestProposal(1))
                     .await;
@@ -982,9 +982,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
                     .await;
             }
-            ConsensusIntentEvent::PollForLatestQuorumProposal => {
+            ConsensusIntentEvent::PollForLatestProposal => {
                 // Only start this task if we haven't already started it.
-                let mut cancel_handle = self.inner.latest_quorum_proposal_task.write().await;
+                let mut cancel_handle = self.inner.latest_proposal_task.write().await;
                 if cancel_handle.is_none() {
                     let inner = self.inner.clone();
 
@@ -997,7 +997,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         if let Err(e) = inner
                             .poll_web_server(
                                 receiver,
-                                MessagePurpose::LatestQuorumProposal,
+                                MessagePurpose::LatestProposal,
                                 1,
                                 Duration::from_millis(500),
                             )
