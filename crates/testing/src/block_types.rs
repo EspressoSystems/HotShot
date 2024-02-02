@@ -99,6 +99,30 @@ impl TestableBlock for TestBlockPayload {
     }
 }
 
+/// <div class="warning">
+///
+/// **DO NOT** use [`BlockPayload`]'s implementation of [`Committable`] for DA commitment!
+///
+/// [`Committable`] bound here is needed by builders to sign advertised blocks and is not used
+/// outside of PBS context. For VID commitment used in DA see [`vid_commitment`] instead.
+///
+/// </div>
+impl Committable for TestBlockPayload {
+    fn commit(&self) -> Commitment<Self> {
+        let builder = commit::RawCommitmentBuilder::new("Block Payload Comm");
+        let mut hasher = Keccak256::new();
+        for txn in &self.transactions {
+            hasher.update(&txn.0);
+        }
+        let generic_array = hasher.finalize();
+        builder.generic_byte_array(&generic_array).finalize()
+    }
+
+    fn tag() -> String {
+        "TEST_BLOCK_PAYLOAD".to_string()
+    }
+}
+
 impl BlockPayload for TestBlockPayload {
     type Error = BlockError;
     type Transaction = TestTransaction;

@@ -24,14 +24,41 @@ pub trait Transaction:
 
 /// Abstraction over the full contents of a block
 ///
+/// <div class="warning">
+///
+/// **DO NOT** use [`BlockPayload`]'s implementation of [`Committable`] for DA commitment!
+///
+/// [`Committable`] bound here is needed by builders to sign advertised blocks and is not used
+/// outside of PBS context. For VID commitment used in DA see [`vid_commitment`] instead.
+///
+/// </div>
+///
+/// <div class="warning">
+///
+/// Please include the previous warning above `impl` block for [`Committable`] when implementing it for
+/// your block payload types.
+///
+/// </div>
+///
 /// This trait encapsulates the behaviors that the transactions of a block must have in order to be
 /// used by consensus
 ///   * Must have a predefined error type ([`BlockPayload::Error`])
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
+///
 pub trait BlockPayload:
-    Serialize + Clone + Debug + Display + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Display
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + DeserializeOwned
+    + Committable
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
