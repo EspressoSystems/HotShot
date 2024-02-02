@@ -7,7 +7,7 @@ original_rustdocflags := env_var_or_default('RUSTDOCFLAGS', '--cfg hotshot_examp
 
 run_ci: lint build test
 
-async := "async_std"
+async := "async-std"
 
 # Run arbitrary cargo commands, with e.g.
 #     just async=async-std cargo check
