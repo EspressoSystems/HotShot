@@ -22,7 +22,7 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Nix Caching
-        uses: cachix/cachix-action@v13
+        uses: cachix/cachix-action@v14
         with:
           name: espresso-systems-private
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
