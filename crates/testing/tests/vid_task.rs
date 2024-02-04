@@ -38,8 +38,11 @@ async fn test_vid_task() {
 
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let encoded_transactions =
+        TestTransaction::encode(transactions.clone()).expect("Failed to encode transactions");
+    let vid_disperse = vid
+        .disperse(&encoded_transactions)
+        .expect("Failed to disperse transactions");
     let payload_commitment = vid_disperse.commit;
 
     let signature =

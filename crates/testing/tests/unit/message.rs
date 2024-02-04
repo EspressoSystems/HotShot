@@ -52,10 +52,20 @@ fn version_number_at_start_of_serialization() {
             GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
         ))),
     };
-    let serialized_message: Vec<u8> = bincode_opts().serialize(&message).unwrap();
+    let serialized_message: Vec<u8> = bincode_opts()
+        .serialize(&message)
+        .expect("Failed to serialize message");
     // The versions we've read from the message
-    let major_version_read = u16::from_le_bytes(serialized_message[..2].try_into().unwrap());
-    let minor_version_read = u16::from_le_bytes(serialized_message[2..4].try_into().unwrap());
+    let major_version_read = u16::from_le_bytes(
+        serialized_message[..2]
+            .try_into()
+            .expect("Failed to convert major version"),
+    );
+    let minor_version_read = u16::from_le_bytes(
+        serialized_message[2..4]
+            .try_into()
+            .expect("Failed to convert minor version "),
+    );
 
     assert_eq!(version.major, major_version_read);
     assert_eq!(version.minor, minor_version_read);
