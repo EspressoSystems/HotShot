@@ -322,7 +322,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let proposals = self.view_sync_certificates.get(&view_number);
         let mut ret_proposals = vec![];
         if let Some(cert) = proposals {
-            for i in index..*self.view_sync_certificate_index.get(&view_number).expect("The view sync proposal has no index for view {view_number} when producing for get endpoint.") {
+            for i in index..*self.view_sync_certificate_index.get(&view_number).expect("The view sync proposal has no value for view {view_number} when producing for get endpoint.") {
                 ret_proposals.push(cert[usize::try_from(i).expect("index {i} somehow does not fit in a usize. This is probably an overflow error.")].1.clone());
             }
         }
@@ -338,8 +338,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let votes = self.votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
-            for i in index..*self.vote_index.get(&view_number).unwrap() {
-                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
+            for i in index..*self.vote_index.get(&view_number).expect("") {
+                ret_votes.push(votes[usize::try_from(i).expect("index {i} somehow does not fit in a usize. This is probably an overflow error.")].1.clone());
             }
         }
         if ret_votes.is_empty() {
@@ -354,8 +354,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let vid_votes = self.vid_votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(vid_votes) = vid_votes {
-            for i in index..*self.vid_vote_index.get(&view_number).unwrap() {
-                ret_votes.push(vid_votes[usize::try_from(i).unwrap()].1.clone());
+            for i in index..*self.vid_vote_index.get(&view_number).expect("The VID votes has no value for view {view_number} when producing for get endpoint.") {
+                ret_votes.push(vid_votes[usize::try_from(i).expect("index {i} somehow does not fit in a usize. This is probably an overflow error.")].1.clone());
             }
         }
         if ret_votes.is_empty() {
@@ -373,8 +373,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let votes = self.view_sync_votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
-            for i in index..*self.view_sync_vote_index.get(&view_number).unwrap() {
-                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
+            for i in index..*self.view_sync_vote_index.get(&view_number).expect("The view sync votes has no value for view {view_number} when producing for get endpoint.") {
+                ret_votes.push(votes[usize::try_from(i).expect("index {i} somehow does not fit in a usize. This is probably an overflow error.")].1.clone());
             }
         }
         if ret_votes.is_empty() {
@@ -390,23 +390,42 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error> {
         let mut txns_to_return = vec![];
 
-        let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
+        let lowest_in_memory_txs = if self.num_txns
+            < MAX_TXNS
+                .try_into()
+                .expect("Max Txns overflowed. Impossible.")
+        {
             0
         } else {
-            usize::try_from(self.num_txns).unwrap() - MAX_TXNS
+            usize::try_from(self.num_txns)
+                .expect("Couldn't convert {self.num_txns} to a usize. Is the architecture 64 bit?")
+                - MAX_TXNS
         };
 
-        let starting_index = if (usize::try_from(index).unwrap()) < lowest_in_memory_txs {
+        let starting_index = if (usize::try_from(index)
+            .expect("Couldn't convert {index} to a usize. Is the architecture 64 bit?"))
+            < lowest_in_memory_txs
+        {
             lowest_in_memory_txs
         } else {
-            usize::try_from(index).unwrap()
+            usize::try_from(index)
+                .expect("Couldn't convert {index} to a usize. Is the architecture 64 bit?")
         };
 
-        for idx in starting_index..=self.num_txns.try_into().unwrap() {
+        for idx in starting_index
+            ..=self
+                .num_txns
+                .try_into()
+                .expect("Couldn't convert {self.num_txns} to a usize. Is the architecture 64 bit?")
+        {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
                 txns_to_return.push(txn.clone());
             }
-            if txns_to_return.len() >= usize::try_from(TX_BATCH_SIZE).unwrap() {
+            if txns_to_return.len()
+                >= usize::try_from(TX_BATCH_SIZE).expect(
+                    "Couldn't convert {TX_BATCH_SIZE} to a usize. Is the architecture 64 bit?",
+                )
+            {
                 break;
             }
         }
@@ -946,11 +965,12 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 ) -> io::Result<()> {
     let options = Options::default();
 
-    let web_api = define_api(&options).unwrap();
+    let web_api = define_api(&options).expect("Couldn't define the api");
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
-    app.register_module("api", web_api).unwrap();
+    app.register_module("api", web_api)
+        .expect("Couldn't register the api");
 
     let app_future = app.serve(url);
 

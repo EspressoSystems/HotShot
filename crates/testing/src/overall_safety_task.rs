@@ -268,7 +268,14 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                 });
                 return;
             }
-            if *self.num_txns_map.iter().last().unwrap().0 < transaction_threshold {
+            if *self
+                .num_txns_map
+                .iter()
+                .last()
+                .expect("num_txns_map empty")
+                .0
+                < transaction_threshold
+            {
                 self.status = ViewStatus::Failed;
                 return;
             }
@@ -283,8 +290,12 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
 
             let block_key = key.get_payload_commitment();
 
-            if *self.block_map.get(&block_key).unwrap() == threshold
-                && *self.leaf_map.get(key).unwrap() == threshold
+            if *self
+                .block_map
+                .get(&block_key)
+                .expect("block_key not in block_map")
+                == threshold
+                && *self.leaf_map.get(key).expect("block_key not in block_map") == threshold
             {
                 self.status = ViewStatus::Ok;
                 return;
@@ -479,7 +490,7 @@ impl OverallSafetyPropertiesDescription {
                                 let threshold =
                                     (threshold_calculator)(state.handles.len(), state.handles.len());
 
-                                let view = state.ctx.round_results.get_mut(&view_number).unwrap();
+                                let view = state.ctx.round_results.get_mut(&view_number).expect("view number {view_number} missing from round results");
 
                                 if let Some(key) = key {
                                     view.update_status(
@@ -590,7 +601,7 @@ impl OverallSafetyPropertiesDescription {
                 .register_message_stream(MergeN::new(streams))
                 .register_event_handler(event_handler)
                 .register_state(state);
-                let task_id = builder.get_task_id().unwrap();
+                let task_id = builder.get_task_id().expect("Task id does not exist. Shouldn't be possible.");
                 (task_id, OverallSafetyTaskTypes::build(builder).launch())
             }
             .boxed()

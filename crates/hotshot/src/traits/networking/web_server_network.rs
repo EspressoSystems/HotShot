@@ -92,7 +92,8 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
             .client
             .post(&message.get_endpoint())
             .body_binary(&message.get_message())
-            .unwrap()
+            // TODO is this an okay place to panic?
+            .expect("Couldn't post to web server")
             .send()
             .await;
         // error!("POST message error for endpoint {} is {:?}", &message.get_endpoint(), result.clone());
@@ -397,8 +398,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
-        let mut seen_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
-        let mut seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(100).unwrap());
+        let mut seen_proposals = LruCache::new(
+            NonZeroUsize::new(100).expect("Turning 100 usize into a nonzero usize panicked!"),
+        );
+        let mut seen_view_sync_certificates = LruCache::new(
+            NonZeroUsize::new(100).expect("Turning 100 usize into a nonzero usize panicked!"),
+        );
 
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
@@ -938,7 +943,10 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         .drain(..)
                         .collect::<Vec<_>>()
                         .iter()
-                        .map(|x| x.get_message().unwrap())
+                        .map(|x| {
+                            x.get_message()
+                                .expect("Unable to get the direct message in recv_msgs")
+                        })
                         .collect())
                 }
                 TransmitType::Broadcast => {
@@ -947,7 +955,10 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         .drain(..)
                         .collect::<Vec<_>>()
                         .iter()
-                        .map(|x| x.get_message().unwrap())
+                        .map(|x| {
+                            x.get_message()
+                                .expect("Unable to get the broadcast message in recv_msgs")
+                        })
                         .collect())
                 }
             }
@@ -1359,7 +1370,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         // pick random, unused port
         let port = portpicker::pick_unused_port().expect("Could not find an open port");
 
-        let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
+        let url = Url::parse(format!("http://localhost:{port}").as_str())
+            .expect("Couldn't parse the webserver url");
         info!("Launching web server on port {port}");
         // Start web server
         async_spawn(async {
@@ -1386,11 +1398,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         // Start each node's web server client
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
-            let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
+            let url = Url::parse(format!("http://localhost:{port}").as_str())
+                .expect("Couldn't parse the webserver url");
             let mut network = WebServerNetwork::create(
                 url,
                 Duration::from_millis(100),
-                known_nodes[usize::try_from(id).unwrap()].clone(),
+                known_nodes[usize::try_from(id)
+                    .expect("Couldn't convert {id} to usize. Is the architecture 64 bit?")]
+                .clone(),
                 is_da,
             );
             network.server_shutdown_signal = Some(sender);

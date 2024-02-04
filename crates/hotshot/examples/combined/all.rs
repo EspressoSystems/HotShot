@@ -46,14 +46,15 @@ async fn main() {
     let _sender = Arc::new(server_shutdown_sender_cdn);
     let _sender = Arc::new(server_shutdown_sender_da);
 
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+    let orchestrator_url =
+        Url::parse("http://localhost:4444").expect("Couldn't parse orchestrator url");
 
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_cdn),
-            Url::parse("http://localhost:9000").unwrap(),
+            Url::parse("http://localhost:9000").expect("Couldn't parse web server url"),
         )
         .await
         {
@@ -65,7 +66,7 @@ async fn main() {
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_da),
-            Url::parse("http://localhost:9001").unwrap(),
+            Url::parse("http://localhost:9001").expect("Couldn't parse DA url"),
         )
         .await
         {

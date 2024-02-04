@@ -61,7 +61,8 @@ pub async fn build_system_handle(
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TestTypes>::from_genesis(&TestInstanceState {}).unwrap();
+    let initializer = HotShotInitializer::<TestTypes>::from_genesis(&TestInstanceState {})
+        .expect("Couldn't generate genesis block");
 
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
@@ -173,7 +174,11 @@ pub fn build_assembled_sig<
 
     // assemble the vote
     for node_id in 0..total_nodes {
-        let (private_key_i, public_key_i) = key_pair_for_id(node_id.try_into().unwrap());
+        let (private_key_i, public_key_i) = key_pair_for_id(
+            node_id
+                .try_into()
+                .expect("Couldn't convert node id {node_id} into a keypair"),
+        );
         let vote: SimpleVote<TYPES, DATAType> = SimpleVote::<TYPES, DATAType>::create_signed_vote(
             data.clone(),
             view,
@@ -230,7 +235,7 @@ async fn build_quorum_proposal_and_signature(
     // every event input is seen on the event stream in the output.
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let payload_commitment = vid_commitment(
-        &block.encode().unwrap().collect(),
+        &block.encode().expect("Couldn't encode block").collect(),
         handle
             .hotshot
             .inner
@@ -271,7 +276,7 @@ async fn build_quorum_proposal_and_signature(
     for cur_view in 2..=view {
         let state_new_view = parent_state
             .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
-            .unwrap();
+            .expect("Couldn't validate and apply header {block_header}");
         // save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         consensus.validated_state_map.insert(
@@ -373,5 +378,5 @@ pub fn vid_init<TYPES: NodeType>(
     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
     let srs = hotshot_types::data::test_srs(num_committee);
 
-    VidScheme::new(chunk_size, num_committee, srs).unwrap()
+    VidScheme::new(chunk_size, num_committee, srs).expect("Couldn't construct vid scheme")
 }

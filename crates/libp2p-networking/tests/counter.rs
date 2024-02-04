@@ -146,7 +146,7 @@ async fn run_request_response_increment<'a>(
 
         let requestee_pid = requestee_handle.peer_id();
 
-        match stream.next().await.unwrap() {
+        match stream.next().await.expect("Stream empty") {
             Ok(()) => {}
             Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state: {e}");
             std::process::exit(-1)},
@@ -155,7 +155,7 @@ async fn run_request_response_increment<'a>(
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)
             .await
             .context(HandleSnafu)?;
-        match stream.next().await.unwrap() {
+        match stream.next().await.expect("Stream empty") {
             Ok(()) => {}
             Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state: {e}");
             std::process::exit(-1)},        }
@@ -211,7 +211,7 @@ async fn run_gossip_round(
     // make sure all are ready/listening
     for i in 0..len - 1 {
         // unwrap is okay because stream must have 2 * (len - 1) elements
-        match merged_streams.next().await.unwrap() {
+        match merged_streams.next().await.expect("stream empty") {
             Ok(()) => {}
             Err(e) => {
                 error!("timed out waiting for handle {i:?} to subscribe to state events: {e}");
@@ -251,7 +251,7 @@ async fn run_intersperse_many_rounds(
     handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
     timeout: Duration,
 ) {
-    for i in 0..u32::try_from(NUM_ROUNDS).unwrap() {
+    for i in 0..u32::try_from(NUM_ROUNDS).expect("Impossible") {
         if i % 2 == 0 {
             run_request_response_increment_all(&handles, timeout).await;
         } else {
@@ -259,7 +259,10 @@ async fn run_intersperse_many_rounds(
         }
     }
     for h in handles {
-        assert_eq!(h.state().await, u32::try_from(NUM_ROUNDS).unwrap());
+        assert_eq!(
+            h.state().await,
+            u32::try_from(NUM_ROUNDS).expect("Impossible")
+        );
     }
 }
 
@@ -282,7 +285,10 @@ async fn run_request_response_many_rounds(
         run_request_response_increment_all(&handles, timeout).await;
     }
     for h in handles {
-        assert_eq!(h.state().await, u32::try_from(NUM_ROUNDS).unwrap());
+        assert_eq!(
+            h.state().await,
+            u32::try_from(NUM_ROUNDS).expect("Impossible")
+        );
     }
 }
 
@@ -333,13 +339,16 @@ async fn run_dht_rounds(
         debug!("begin round {}", i);
         let msg_handle = get_random_handle(handles, &mut rng);
         let mut key = vec![0; DHT_KV_PADDING];
-        let inc_val = u8::try_from(starting_val + i).unwrap();
+        let inc_val = u8::try_from(starting_val + i).expect("Impossible");
         key.push(inc_val);
         let mut value = vec![0; DHT_KV_PADDING];
         value.push(inc_val);
 
         // put the key
-        msg_handle.put_record(&key, &value).await.unwrap();
+        msg_handle
+            .put_record(&key, &value)
+            .await
+            .expect("Failed to put {msg_handle:?} into the dht");
 
         // get the key from the other nodes
         for handle in handles {
@@ -375,7 +384,7 @@ async fn run_gossip_rounds(
         };
         run_gossip_round(handles, msg, new_state, timeout)
             .await
-            .unwrap();
+            .expect("Couldn't run gossip round");
         old_state = new_state;
     }
 }
@@ -418,7 +427,7 @@ async fn run_request_response_increment_all(
     let len = futs.len();
 
     for _ in 0..futs.len() {
-        let fut = futs.pop().unwrap();
+        let fut = futs.pop().expect("Impossible");
         let results = results.clone();
         async_spawn(async move {
             let res = fut.await;

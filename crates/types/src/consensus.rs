@@ -335,7 +335,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     #[must_use]
     pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
-        let view = self.validated_state_map.get(&decided_view_num).expect("Decided leaf state is missing! Consensus internally inconsistent.");
+        let view = self
+            .validated_state_map
+            .get(&decided_view_num)
+            .expect("Decided leaf state is missing! Consensus internally inconsistent.");
         let leaf = view
             .get_leaf_commitment()
             .expect("Decided leaf not found! Consensus internally inconsistent");

@@ -239,7 +239,11 @@ mod test {
 
         // check that it is in the cache and expiries
         assert_eq!(
-            cache.get(&key.to_bytes()).await.unwrap().value(),
+            cache
+                .get(&key.to_bytes())
+                .await
+                .expect("key {key:?} not in cache")
+                .value(),
             &value.to_bytes()
         );
         assert_eq!(cache.expiries.read().await.len(), 1);
@@ -279,7 +283,7 @@ mod test {
         }
 
         // save the cache
-        cache.save().await.unwrap();
+        cache.save().await.expect("Unable to save DHT cache");
 
         // load the cache
         let cache = Cache::new(Config {
@@ -292,7 +296,14 @@ mod test {
         // check that the cache has the 10 key-value pairs
         for i in 0u8..10u8 {
             let (key, value) = (vec![i; 1], vec![i + 1; 1]);
-            assert_eq!(cache.get(&key).await.unwrap().value(), &value);
+            assert_eq!(
+                cache
+                    .get(&key)
+                    .await
+                    .expect("{key:?} not in DHT cache")
+                    .value(),
+                &value
+            );
         }
 
         // delete the cache file

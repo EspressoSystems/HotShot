@@ -148,7 +148,9 @@ impl ViewSyncTaskDescription {
                 .register_event_handler(event_handler)
                 .register_message_handler(message_handler)
                 .register_message_stream(MergeN::new(streams));
-                let task_id = builder.get_task_id().unwrap();
+                let task_id = builder
+                    .get_task_id()
+                    .expect("Task id does not exist. Shouldn't be possible.");
                 (task_id, ViewSyncTaskTypes::build(builder).launch())
             }
             .boxed()

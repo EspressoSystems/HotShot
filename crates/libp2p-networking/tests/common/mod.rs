@@ -49,7 +49,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     // that amounts to a failed test.
     let handles = spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
         .await
-        .unwrap();
+        .expect("Couldn't spin up the libp2p swams");
 
     let mut handler_futures = Vec::new();
     for handle in &handles {
@@ -61,7 +61,10 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
 
     // cleanup
     for handle in handles {
-        handle.shutdown().await.unwrap();
+        handle
+            .shutdown()
+            .await
+            .expect("Couldn't shut down handle {handle:?}");
     }
 
     for fut in handler_futures {
@@ -89,9 +92,9 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
             handle
                 .connected_pids()
                 .await
-                .unwrap()
+                .expect("Couldn't figure out what the connected PIDs are")
                 .iter()
-                .map(|pid| m.get(pid).unwrap())
+                .map(|pid| m.get(pid).expect("The peerid map is empty"))
                 .collect::<Vec<_>>()
         );
     }
@@ -109,7 +112,8 @@ pub async fn spin_up_swarms<S: Debug + Default>(
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
     // should never panic unless num_nodes is 0
-    let replication_factor = NonZeroUsize::new(num_of_nodes - 1).unwrap();
+    let replication_factor = NonZeroUsize::new(num_of_nodes - 1)
+        .expect("{num_of_nodes - 1} is not positive. Increase the number of nodes.");
 
     for i in 0..num_bootstrap {
         let mut config = NetworkNodeConfigBuilder::default();
@@ -121,7 +125,8 @@ pub async fn spin_up_swarms<S: Debug + Default>(
         // port
         // let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{}/quic-v1", start_port + i)).unwrap();
 
-        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1").unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1")
+            .expect("Couldn't parse libp2p address");
         config
             .identity(identity)
             .replication_factor(replication_factor)
@@ -151,7 +156,8 @@ pub async fn spin_up_swarms<S: Debug + Default>(
     }
 
     for j in 0..(num_of_nodes - num_bootstrap) {
-        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1").unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1")
+            .expect("Couldn't parse libp2p address");
         // NOTE use this if testing locally and want human readable ports
         // let addr = Multiaddr::from_str(&format!(
         //     "/ip4/127.0.0.1/udp/{}/quic-v1",

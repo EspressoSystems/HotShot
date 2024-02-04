@@ -208,9 +208,11 @@ pub mod test {
 
         async_spawn(async move {
             let (mut stream, _) = dup_channel_stream.subscribe(FilterEvent::default()).await;
-            assert!(stream.next().await.unwrap() == TestMessage::Three);
-            assert!(stream.next().await.unwrap() == TestMessage::One);
-            assert!(stream.next().await.unwrap() == TestMessage::Two);
+            assert!(
+                stream.next().await.expect("Missing next event in stream") == TestMessage::Three
+            );
+            assert!(stream.next().await.expect("Missing next event in stream") == TestMessage::One);
+            assert!(stream.next().await.expect("Missing next event in stream") == TestMessage::Two);
         });
 
         async_spawn(async move {
@@ -220,9 +222,9 @@ pub mod test {
         });
         async_sleep(Duration::new(3, 0)).await;
 
-        assert!(stream.next().await.unwrap() == TestMessage::Three);
-        assert!(stream.next().await.unwrap() == TestMessage::One);
-        assert!(stream.next().await.unwrap() == TestMessage::Two);
+        assert!(stream.next().await.expect("Missing next event in stream") == TestMessage::Three);
+        assert!(stream.next().await.expect("Missing next event in stream") == TestMessage::One);
+        assert!(stream.next().await.expect("Missing next event in stream") == TestMessage::Two);
     }
 
     #[cfg_attr(
@@ -247,11 +249,13 @@ pub mod test {
         let dup_dup_channel_stream = channel_stream.clone();
 
         for _i in 0..1000 {
-            let mut stream = streams.pop().unwrap();
+            let mut stream = streams.pop().expect("stream missing");
             async_spawn(async move {
                 for event in [TestMessage::One, TestMessage::Two, TestMessage::Three] {
                     for _ in 0..100 {
-                        assert!(stream.next().await.unwrap() == event);
+                        assert!(
+                            stream.next().await.expect("missing next event in stream") == event
+                        );
                     }
                 }
             });

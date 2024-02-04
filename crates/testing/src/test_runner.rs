@@ -89,7 +89,7 @@ where
         for (_, changes) in &spinning_changes {
             for change in changes {
                 if matches!(change.updown, UpDown::Up) {
-                    late_start_nodes.insert(change.idx.try_into().unwrap());
+                    late_start_nodes.insert(change.idx.try_into().expect("Conversion error"));
                 }
             }
         }
@@ -230,8 +230,8 @@ where
             let node_id = self.next_node_id;
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
-            let initializer =
-                HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
+            let initializer = HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {})
+                .expect("Couldn't generate genesis block");
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             // We assign node's public key and stake value rather than read from config file since it's a test
             let validator_config =

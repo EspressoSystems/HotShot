@@ -176,7 +176,7 @@ mod test {
             *self
                 .values
                 .lock()
-                .unwrap()
+                .expect("Couldn't obtain test metrics lock!")
                 .counters
                 .entry(self.prefix.clone())
                 .or_default() += amount;
@@ -188,13 +188,16 @@ mod test {
             *self
                 .values
                 .lock()
-                .unwrap()
+                .expect("Couldn't obtain test metrics lock!")
                 .gauges
                 .entry(self.prefix.clone())
                 .or_default() = amount;
         }
         fn update(&self, delta: i64) {
-            let mut values = self.values.lock().unwrap();
+            let mut values = self
+                .values
+                .lock()
+                .expect("Couldn't obtain test metrics lock!");
             let value = values.gauges.entry(self.prefix.clone()).or_default();
             let signed_value = i64::try_from(*value).unwrap_or(i64::MAX);
             *value = usize::try_from(signed_value + delta).unwrap_or(0);
@@ -205,7 +208,7 @@ mod test {
         fn add_point(&self, point: f64) {
             self.values
                 .lock()
-                .unwrap()
+                .expect("Couldn't obtain test metrics lock!")
                 .histograms
                 .entry(self.prefix.clone())
                 .or_default()
@@ -218,7 +221,7 @@ mod test {
             *self
                 .values
                 .lock()
-                .unwrap()
+                .expect("Couldn't obtain test metrics lock!")
                 .labels
                 .entry(self.prefix.clone())
                 .or_default() = value;
@@ -277,7 +280,10 @@ mod test {
 
         // The above variables are scoped so they should be dropped at this point
         // One of the rare times we can use `Arc::try_unwrap`!
-        let values = Arc::try_unwrap(values).unwrap().into_inner().unwrap();
+        let values = Arc::try_unwrap(values)
+            .expect("reference to values does not have exactly one strong reference")
+            .into_inner()
+            .expect("Couldn't get metrics values out of lock");
         assert_eq!(values.gauges["foo"], 3);
         assert_eq!(values.counters["bar"], 10); // 0..5
         assert_eq!(
