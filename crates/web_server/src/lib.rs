@@ -273,7 +273,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 if proposal.1.is_empty() {
                     Err(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: format!("Proposal not found for view {view_number}"),
+                        message: format!("Proposal empty for view {view_number}"),
                     })
                 } else {
                     Ok(Some(vec![proposal.1.clone()]))
@@ -568,6 +568,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .entry(view_number)
             .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
             .or_insert_with(|| (String::new(), proposal));
+        info!("proposal views {:?}", self.proposals.keys());
         Ok(())
     }
 

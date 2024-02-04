@@ -99,7 +99,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::CommitteeNetwork)>;
+    ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::QuorumNetwork)>;
 }
 
 #[async_trait]
@@ -158,33 +158,24 @@ where
         num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::CommitteeNetwork)> {
+    ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::QuorumNetwork)> {
         let network_generator = <<I::QuorumNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 0,
                 da_committee_size,
                 false,
-                reliability_config.clone(),
-            );
-        let da_generator = <<I::CommitteeNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
-                expected_node_count,
-                num_bootstrap,
-                1,
-                da_committee_size,
-                true,
-                reliability_config
+                reliability_config,
             );
 
         Box::new(move |id| {
             let network = Arc::new(network_generator(id));
-            let network_da = Arc::new(da_generator(id));
             let quorum_chan =
-                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(network);
-            let committee_chan =
-                <I::CommitteeNetwork as TestableChannelImplementation<_>>::generate_network()(
-                    network_da,
+                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(
+                    network.clone(),
                 );
+            let committee_chan =
+                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(network);
             (quorum_chan, committee_chan)
         })
     }

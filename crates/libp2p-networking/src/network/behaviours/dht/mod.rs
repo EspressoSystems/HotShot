@@ -250,7 +250,7 @@ impl DHTBehaviour {
         if let Some(entry) = async_block_on(self.cache.get(&key)) {
             // exists in cache
             if chan.send(entry.value().clone()).is_err() {
-                warn!("Get DHT: channel closed before get record request result could be sent");
+                error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
             // doesn't exist in cache, actually propagate request
