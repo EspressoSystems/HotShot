@@ -1,13 +1,10 @@
 //! Provides the core consensus types
 
-pub use crate::{
-    traits::node_implementation::ViewQueue,
-    utils::{View, ViewInner},
-};
+pub use crate::utils::{View, ViewInner};
 use displaydoc::Display;
 
 use crate::{
-    data::{Leaf, VidCommitment},
+    data::Leaf,
     error::HotShotError,
     simple_certificate::{DACertificate, QuorumCertificate},
     traits::{
@@ -17,9 +14,9 @@ use crate::{
     utils::Terminator,
 };
 use commit::Commitment;
-use derivative::Derivative;
+
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex},
 };
 use tracing::error;
@@ -32,9 +29,11 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
 pub struct Consensus<TYPES: NodeType> {
-    /// The phases that are currently loaded in memory
-    // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+    /// Immutable instance-level state.
+    pub instance_state: TYPES::InstanceState,
+
+    /// The validated states that are currently loaded in memory.
+    pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
@@ -53,9 +52,8 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Saved payloads.
     ///
-    /// Contains the block payload commitment and encoded transactions for every leaf in
-    /// `saved_leaves` if that payload is available.
-    pub saved_payloads: PayloadStore,
+    /// Encoded transactions for every view if we got a payload for that view.
+    pub saved_payloads: BTreeMap<TYPES::Time, Vec<u8>>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
@@ -254,7 +252,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     where
         F: FnMut(&Leaf<TYPES>) -> bool,
     {
-        let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
+        let mut next_leaf = if let Some(view) = self.validated_state_map.get(&start_from) {
             view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
@@ -293,7 +291,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Garbage collects based on state change right now, this removes from both the
-    /// `saved_payloads` and `state_map` fields of `Consensus`.
+    /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
     #[allow(clippy::unused_async)] // async for API compatibility reasons
@@ -304,7 +302,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) {
         // state check
         let anchor_entry = self
-            .state_map
+            .validated_state_map
             .iter()
             .next()
             .expect("INCONSISTENT STATE: anchor leaf not in state map!");
@@ -316,88 +314,49 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         // perform gc
         self.saved_da_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
-        self.state_map
-            .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(_view_number, view)| view.get_payload_commitment())
-            .for_each(|payload_commitment| {
-                self.saved_payloads.remove(payload_commitment);
-            });
-        self.state_map
+        self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
-                if let Some(removed) = self.saved_leaves.remove(&leaf) {
-                    self.saved_payloads.remove(removed.get_payload_commitment());
-                }
+                self.saved_leaves.remove(&leaf);
             });
-        self.state_map = self.state_map.split_off(&new_anchor_view);
+        self.validated_state_map = self.validated_state_map.split_off(&new_anchor_view);
+        self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
     }
 
-    /// Gets the last decided state
+    /// Gets the last decided leaf.
+    ///
     /// # Panics
-    /// if the last decided view's state does not exist in the state map
-    /// this should never happen.
+    /// if the last decided view's leaf does not exist in the state map or saved leaves, which
+    /// should never happen.
     #[must_use]
     pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
-        let view = self.state_map.get(&decided_view_num).unwrap();
+        let view = self.validated_state_map.get(&decided_view_num).unwrap();
         let leaf = view
             .get_leaf_commitment()
-            .expect("Decided state not found! Consensus internally inconsistent");
+            .expect("Decided leaf not found! Consensus internally inconsistent");
         self.saved_leaves.get(&leaf).unwrap().clone()
     }
-}
 
-/// Mapping from block payload commitments to the encoded transactions.
-///
-/// Entries in this mapping are reference-counted, so multiple consensus objects can refer to the
-/// same block, and the block will only be deleted after _all_ such objects are garbage collected.
-/// For example, multiple leaves may temporarily reference the same block on different branches,
-/// before all but one branch are ultimately garbage collected.
-#[derive(Clone, Debug, Derivative)]
-#[derivative(Default(bound = ""))]
-pub struct PayloadStore(HashMap<VidCommitment, (Vec<u8>, u64)>);
-
-impl PayloadStore {
-    /// Save the encoded transactions for later retrieval.
-    ///
-    /// After calling this function, and before the corresponding call to [`remove`](Self::remove),
-    /// `self.get(payload_commitment)` will return `Some(encoded_transactions)`.
-    ///
-    /// This function will increment a reference count on the saved payload commitment, so that
-    /// multiple calls to [`insert`](Self::insert) for the same payload commitment result in
-    /// multiple owning references to the payload commitment. [`remove`](Self::remove) must be
-    /// called once for each reference before the payload commitment will be deallocated.
-    pub fn insert(&mut self, payload_commitment: VidCommitment, encoded_transactions: Vec<u8>) {
-        self.0
-            .entry(payload_commitment)
-            .and_modify(|(_, refcount)| *refcount += 1)
-            .or_insert((encoded_transactions, 1));
-    }
-
-    /// Get the saved encoded transactions, if available.
-    ///
-    /// If the encoded transactions has been saved with [`insert`](Self::insert), this function
-    /// will retrieve it. It may return [`None`] if a block with the given commitment has not been
-    /// saved or if the block has been dropped with [`remove`](Self::remove).
+    /// Gets the validated state with the given view number, if in the state map.
     #[must_use]
-    pub fn get(&self, payload_commitment: VidCommitment) -> Option<&Vec<u8>> {
-        self.0.get(&payload_commitment).map(|(encoded, _)| encoded)
+    pub fn get_state(&self, view_number: TYPES::Time) -> Option<&TYPES::ValidatedState> {
+        match self.validated_state_map.get(&view_number) {
+            Some(view) => view.get_state(),
+            None => None,
+        }
     }
 
-    /// Drop a reference to the saved encoded transactions.
+    /// Gets the last decided validated state.
     ///
-    /// If the set exists and this call drops the last reference to it, the set will be returned,
-    /// Otherwise, the return value is [`None`].
-    pub fn remove(&mut self, payload_commitment: VidCommitment) -> Option<Vec<u8>> {
-        if let Entry::Occupied(mut e) = self.0.entry(payload_commitment) {
-            let (_, refcount) = e.get_mut();
-            *refcount -= 1;
-            if *refcount == 0 {
-                let (encoded, _) = e.remove();
-                return Some(encoded);
-            }
-        }
-        None
+    /// # Panics
+    /// If the last decided view's state does not exist in the state map, which should never
+    /// happen.
+    #[must_use]
+    pub fn get_decided_state(&self) -> &TYPES::ValidatedState {
+        let decided_view_num = self.last_decided_view;
+        self.get_state(decided_view_num)
+            .expect("Decided state not found! Consensus internally inconsistent")
     }
 }

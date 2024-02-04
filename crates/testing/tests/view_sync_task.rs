@@ -1,7 +1,7 @@
 use hotshot::HotShotConsensusApi;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::node_types::{MemoryImpl, TestTypes};
-use hotshot_types::{data::ViewNumber, traits::state::ConsensusTime};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -34,7 +34,8 @@ async fn test_view_sync_task() {
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::Time::new(4),
         hotshot_types::traits::consensus_api::ConsensusApi::public_key(&api),
         hotshot_types::traits::consensus_api::ConsensusApi::private_key(&api),
-    );
+    )
+    .expect("Failed to create a ViewSyncPreCommitVote!");
 
     tracing::error!("Vote in test is {:?}", vote.clone());
 

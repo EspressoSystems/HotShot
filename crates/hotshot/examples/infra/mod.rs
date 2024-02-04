@@ -1,3 +1,4 @@
+#![allow(clippy::panic)]
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
@@ -23,7 +24,10 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_task::task::FilterEvent;
-use hotshot_testing::block_types::{TestBlockHeader, TestBlockPayload, TestTransaction};
+use hotshot_testing::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::TestInstanceState,
+};
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::ValidatorConfig;
@@ -32,10 +36,11 @@ use hotshot_types::{
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     traits::{
+        block_contents::TestableBlock,
         election::Membership,
         network::CommunicationChannel,
-        node_implementation::NodeType,
-        state::{ConsensusTime, TestableBlock, TestableState},
+        node_implementation::{ConsensusTime, NodeType},
+        states::TestableState,
     },
     HotShotConfig,
 };
@@ -85,10 +90,13 @@ pub struct ConfigArgs {
 }
 
 /// Reads a network configuration from a given filepath
+/// # Panics
+/// if unable to convert the config file into toml
+#[must_use]
 pub fn load_config_from_file<TYPES: NodeType>(
-    config_file: String,
+    config_file: &str,
 ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
-    let config_file_as_string: String = fs::read_to_string(config_file.as_str())
+    let config_file_as_string: String = fs::read_to_string(config_file)
         .unwrap_or_else(|_| panic!("Could not read config file located at {config_file}"));
     let config_toml: NetworkConfigFile<TYPES::SignatureKey> =
         toml::from_str::<NetworkConfigFile<TYPES::SignatureKey>>(&config_file_as_string)
@@ -127,7 +135,7 @@ pub async fn run_orchestrator<
     OrchestratorArgs { url, config_file }: OrchestratorArgs,
 ) {
     error!("Starting orchestrator",);
-    let run_config = load_config_from_file::<TYPES>(config_file);
+    let run_config = load_config_from_file::<TYPES>(&config_file);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -136,17 +144,23 @@ pub async fn run_orchestrator<
 }
 
 /// Helper function to calculate the nuymber of transactions to send per node per round
+#[allow(clippy::cast_possible_truncation)]
 fn calculate_num_tx_per_round(
     node_index: u64,
     total_num_nodes: usize,
     transactions_per_round: usize,
 ) -> usize {
     transactions_per_round / total_num_nodes
-        + ((total_num_nodes - 1 - node_index as usize) < (transactions_per_round % total_num_nodes))
-            as usize
+        + usize::from(
+            (total_num_nodes - 1 - node_index as usize)
+                < (transactions_per_round % total_num_nodes),
+        )
 }
 
-async fn webserver_network_from_config<TYPES: NodeType>(
+/// create a web server network from a config file + public key
+/// # Panics
+/// Panics if the web server config doesn't exist in `config`
+fn webserver_network_from_config<TYPES: NodeType>(
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     pub_key: TYPES::SignatureKey,
 ) -> WebServerNetwork<TYPES> {
@@ -159,6 +173,12 @@ async fn webserver_network_from_config<TYPES: NodeType>(
     WebServerNetwork::create(url, wait_between_polls, pub_key, false)
 }
 
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_lossless)]
+#[allow(clippy::too_many_lines)]
+/// Create a libp2p network from a config file and public key
+/// # Panics
+/// If unable to create bootstrap nodes multiaddres or the libp2p config is invalid
 async fn libp2p_network_from_config<TYPES: NodeType>(
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     pub_key: TYPES::SignatureKey,
@@ -188,9 +208,10 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         NetworkNodeType::Regular
     };
     let node_index = config.node_index;
-    let port_index = match libp2p_config.index_ports {
-        true => node_index,
-        false => 0,
+    let port_index = if libp2p_config.index_ports {
+        node_index
+    } else {
+        0
     };
     let bound_addr: Multiaddr = format!(
         "/{}/{}/udp/{}/quic-v1",
@@ -222,22 +243,22 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
     config_builder.to_connect_addrs(to_connect_addrs);
 
     let mesh_params =
-// NOTE I'm arbitrarily choosing these.
-match node_type {
-    NetworkNodeType::Bootstrap => MeshParams {
-        mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
-        mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
-        mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
-        mesh_n: libp2p_config.bootstrap_mesh_n,
-    },
-    NetworkNodeType::Regular => MeshParams {
-        mesh_n_high: libp2p_config.mesh_n_high,
-        mesh_n_low: libp2p_config.mesh_n_low,
-        mesh_outbound_min: libp2p_config.mesh_outbound_min,
-        mesh_n: libp2p_config.mesh_n,
-    },
-    NetworkNodeType::Conductor => unreachable!(),
-};
+        // NOTE I'm arbitrarily choosing these.
+        match node_type {
+            NetworkNodeType::Bootstrap => MeshParams {
+                mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
+                mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
+                mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
+                mesh_n: libp2p_config.bootstrap_mesh_n,
+            },
+            NetworkNodeType::Regular => MeshParams {
+                mesh_n_high: libp2p_config.mesh_n_high,
+                mesh_n_low: libp2p_config.mesh_n_low,
+                mesh_outbound_min: libp2p_config.mesh_outbound_min,
+                mesh_n: libp2p_config.mesh_n,
+            },
+            NetworkNodeType::Conductor => unreachable!(),
+        };
     config_builder.mesh_params(Some(mesh_params));
 
     let mut all_keys = BTreeSet::new();
@@ -252,6 +273,7 @@ match node_type {
     }
     let node_config = config_builder.build().unwrap();
 
+    #[allow(clippy::cast_possible_truncation)]
     Libp2pNetwork::new(
         NetworkingMetricsValue::default(),
         node_config,
@@ -267,6 +289,7 @@ match node_type {
         // NOTE: this introduces an invariant that the keys are assigned using this indexed
         // function
         all_keys,
+        None,
         da_keys.clone(),
         da_keys.contains(&pub_key),
     )
@@ -277,7 +300,7 @@ match node_type {
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType,
+    TYPES: NodeType<InstanceState = TestInstanceState>,
     DACHANNEL: CommunicationChannel<TYPES> + Debug,
     QUORUMCHANNEL: CommunicationChannel<TYPES> + Debug,
     VIEWSYNCCHANNEL: CommunicationChannel<TYPES> + Debug,
@@ -289,7 +312,7 @@ pub trait RunDA<
         Storage = MemoryStorage<TYPES>,
     >,
 > where
-    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     TYPES: NodeType<Transaction = TestTransaction>,
     Leaf<TYPES>: TestableLeaf,
@@ -305,7 +328,7 @@ pub trait RunDA<
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
-        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis()
+        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
         let config = self.get_config();
@@ -425,7 +448,7 @@ pub trait RunDA<
                                 for _ in 0..transactions_to_send_per_round {
                                     let tx = transactions.remove(0);
 
-                                    _ = context.submit_transaction(tx).await.unwrap();
+                                    () = context.submit_transaction(tx).await.unwrap();
                                     total_transactions_sent += 1;
                                 }
                             }
@@ -450,8 +473,7 @@ pub trait RunDA<
                         EventType::NextLeaderViewTimeout { view_number } => {
                             warn!("Timed out as the next leader in view {:?}", view_number);
                         }
-                        EventType::ViewFinished { view_number: _ } => {}
-                        _ => unimplemented!(),
+                        _ => {}
                     }
                 }
             }
@@ -482,10 +504,15 @@ pub trait RunDA<
 
 /// Represents a web server-based run
 pub struct WebServerDARun<TYPES: NodeType> {
+    /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// quorum channel
     quorum_channel: WebCommChannel<TYPES>,
+    /// data availability channel
     da_channel: WebCommChannel<TYPES>,
+    /// view sync channel
     view_sync_channel: WebCommChannel<TYPES>,
+    /// vid channel
     vid_channel: WebCommChannel<TYPES>,
 }
 
@@ -495,6 +522,7 @@ impl<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -512,7 +540,7 @@ impl<
         NODE,
     > for WebServerDARun<TYPES>
 where
-    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
@@ -531,7 +559,7 @@ where
 
         // create and wait for underlying network
         let underlying_quorum_network =
-            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
+            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
 
         underlying_quorum_network.wait_for_ready().await;
 
@@ -584,10 +612,15 @@ where
 
 /// Represents a libp2p-based run
 pub struct Libp2pDARun<TYPES: NodeType> {
+    /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// quorum channel
     quorum_channel: Libp2pCommChannel<TYPES>,
+    /// data availability channel
     da_channel: Libp2pCommChannel<TYPES>,
+    /// view sync channel
     view_sync_channel: Libp2pCommChannel<TYPES>,
+    /// vid channel
     vid_channel: Libp2pCommChannel<TYPES>,
 }
 
@@ -597,6 +630,7 @@ impl<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -614,7 +648,7 @@ impl<
         NODE,
     > for Libp2pDARun<TYPES>
 where
-    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
@@ -677,10 +711,15 @@ where
 
 /// Represents a combined-network-based run
 pub struct CombinedDARun<TYPES: NodeType> {
+    /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// quorum channel
     quorum_channel: CombinedCommChannel<TYPES>,
+    /// data availability channel
     da_channel: CombinedCommChannel<TYPES>,
+    /// view sync channel
     view_sync_channel: CombinedCommChannel<TYPES>,
+    /// vid channel
     vid_channel: CombinedCommChannel<TYPES>,
 }
 
@@ -690,6 +729,7 @@ impl<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -707,7 +747,7 @@ impl<
         NODE,
     > for CombinedDARun<TYPES>
 where
-    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
@@ -736,7 +776,7 @@ where
 
         // create and wait for underlying webserver network
         let webserver_underlying_quorum_network =
-            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
+            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
 
         let webserver_underlying_da_network =
             WebServerNetwork::create(url, wait_between_polls, pub_key, true);
@@ -796,11 +836,14 @@ where
 }
 
 /// Main entry point for validators
+/// # Panics
+/// if unable to get the local ip address
 pub async fn main_entry_point<
     TYPES: NodeType<
         Transaction = TestTransaction,
         BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
+        InstanceState = TestInstanceState,
     >,
     DACHANNEL: CommunicationChannel<TYPES> + Debug,
     QUORUMCHANNEL: CommunicationChannel<TYPES> + Debug,
@@ -816,7 +859,7 @@ pub async fn main_entry_point<
 >(
     args: ValidatorArgs,
 ) where
-    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
 {
@@ -832,7 +875,7 @@ pub async fn main_entry_point<
     };
 
     let orchestrator_client: OrchestratorClient =
-        OrchestratorClient::new(args.clone(), public_ip.to_string()).await;
+        OrchestratorClient::new(args.clone(), public_ip.to_string());
 
     // conditionally save/load config from file or orchestrator
     let (mut run_config, source) =
@@ -871,7 +914,7 @@ pub async fn main_entry_point<
 
     for round in 0..rounds {
         for _ in 0..transactions_to_send_per_round {
-            let mut txn = <TYPES::StateType>::create_random_transaction(
+            let mut txn = <TYPES::ValidatedState>::create_random_transaction(
                 None,
                 &mut txn_rng,
                 transaction_size as u64,
@@ -901,6 +944,10 @@ pub async fn main_entry_point<
     .await;
 }
 
+/// generate a libp2p identity based on a seed and idx
+/// # Panics
+/// if unable to create a secret key out of bytes
+#[must_use]
 pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     let mut hasher = blake3::Hasher::new();
     hasher.update(&seed);

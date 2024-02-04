@@ -7,13 +7,14 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
-        state::TestableBlock,
-        BlockPayload,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        BlockPayload, ValidatedState,
     },
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
+
+use crate::state_types::TestValidatedState;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -116,7 +117,7 @@ impl BlockPayload for TestBlockPayload {
         ))
     }
 
-    fn from_bytes<E>(encoded_transactions: E, _metadata: Self::Metadata) -> Self
+    fn from_bytes<E>(encoded_transactions: E, _metadata: &Self::Metadata) -> Self
     where
         E: Iterator<Item = u8>,
     {
@@ -149,7 +150,10 @@ impl BlockPayload for TestBlockPayload {
         Ok(TestTransaction::encode(self.transactions.clone())?.into_iter())
     }
 
-    fn transaction_commitments(&self) -> Vec<Commitment<Self::Transaction>> {
+    fn transaction_commitments(
+        &self,
+        _metadata: &Self::Metadata,
+    ) -> Vec<Commitment<Self::Transaction>> {
         self.transactions
             .iter()
             .map(commit::Committable::commit)
@@ -178,11 +182,14 @@ pub struct TestBlockHeader {
 
 impl BlockHeader for TestBlockHeader {
     type Payload = TestBlockPayload;
+    type State = TestValidatedState;
 
     fn new(
+        _parent_state: &Self::State,
+        _instance_state: &<Self::State as ValidatedState>::Instance,
+        parent_header: &Self,
         payload_commitment: VidCommitment,
         _metadata: <Self::Payload as BlockPayload>::Metadata,
-        parent_header: &Self,
     ) -> Self {
         Self {
             block_number: parent_header.block_number + 1,
@@ -190,7 +197,9 @@ impl BlockHeader for TestBlockHeader {
         }
     }
 
-    fn genesis() -> (
+    fn genesis(
+        _instance_state: &<Self::State as ValidatedState>::Instance,
+    ) -> (
         Self,
         Self::Payload,
         <Self::Payload as BlockPayload>::Metadata,
@@ -214,17 +223,17 @@ impl BlockHeader for TestBlockHeader {
         self.payload_commitment
     }
 
-    fn metadata(&self) -> <Self::Payload as BlockPayload>::Metadata {}
+    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata {
+        &()
+    }
 }
 
 impl Committable for TestBlockHeader {
     fn commit(&self) -> Commitment<Self> {
-        let payload_commitment_bytes: [u8; 32] = self.payload_commitment().into();
-
         RawCommitmentBuilder::new("Header Comm")
             .u64_field("block number", self.block_number())
             .constant_str("payload commitment")
-            .fixed_size_bytes(&payload_commitment_bytes)
+            .fixed_size_bytes(self.payload_commitment().as_ref().as_ref())
             .finalize()
     }
 

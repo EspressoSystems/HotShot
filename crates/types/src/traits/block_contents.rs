@@ -3,7 +3,10 @@
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
-use crate::data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait};
+use crate::{
+    data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
+    traits::ValidatedState,
+};
 use commit::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -56,7 +59,7 @@ pub trait BlockPayload:
     /// and the associated number of VID storage nodes
     ///
     /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    fn from_bytes<I>(encoded_transactions: I, metadata: Self::Metadata) -> Self
+    fn from_bytes<I>(encoded_transactions: I, metadata: &Self::Metadata) -> Self
     where
         I: Iterator<Item = u8>;
 
@@ -70,7 +73,19 @@ pub trait BlockPayload:
     fn encode(&self) -> Result<Self::Encode<'_>, Self::Error>;
 
     /// List of transaction commitments.
-    fn transaction_commitments(&self) -> Vec<Commitment<Self::Transaction>>;
+    fn transaction_commitments(
+        &self,
+        metadata: &Self::Metadata,
+    ) -> Vec<Commitment<Self::Transaction>>;
+}
+
+/// extra functions required on block to be usable by hotshot-testing
+pub trait TestableBlock: BlockPayload + Debug {
+    /// generate a genesis block
+    fn genesis() -> Self;
+
+    /// the number of transactions in this block
+    fn txn_count(&self) -> u64;
 }
 
 /// Compute the VID payload commitment.
@@ -97,15 +112,23 @@ pub trait BlockHeader:
     /// Block payload associated with the commitment.
     type Payload: BlockPayload;
 
-    /// Build a header with the payload commitment, metadata, and parent header.
+    /// Validated state.
+    type State: ValidatedState<BlockHeader = Self>;
+
+    /// Build a header with the payload commitment, metadata, instance-level state, parent header,
+    /// and parent state.
     fn new(
+        parent_state: &Self::State,
+        instance_state: &<Self::State as ValidatedState>::Instance,
+        parent_header: &Self,
         payload_commitment: VidCommitment,
         metadata: <Self::Payload as BlockPayload>::Metadata,
-        parent_header: &Self,
     ) -> Self;
 
     /// Build the genesis header, payload, and metadata.
-    fn genesis() -> (
+    fn genesis(
+        instance_state: &<Self::State as ValidatedState>::Instance,
+    ) -> (
         Self,
         Self::Payload,
         <Self::Payload as BlockPayload>::Metadata,
@@ -118,5 +141,5 @@ pub trait BlockHeader:
     fn payload_commitment(&self) -> VidCommitment;
 
     /// Get the metadata.
-    fn metadata(&self) -> <Self::Payload as BlockPayload>::Metadata;
+    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata;
 }

@@ -13,6 +13,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
+    event::{Event, EventType},
     message::Proposal,
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
@@ -21,9 +22,8 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         network::{CommunicationChannel, ConsensusIntentEvent},
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
     },
     utils::ViewInner,
     vote::HasViewNumber,
@@ -141,6 +141,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
+                // Proposal is fresh and valid, notify the application layer
+                self.api
+                    .send_event(Event {
+                        view_number: self.cur_view,
+                        event: EventType::DAProposal {
+                            proposal: proposal.clone(),
+                            sender: sender.clone(),
+                        },
+                    })
+                    .await;
+
                 if !self.da_membership.has_stake(&self.public_key) {
                     debug!(
                         "We were not chosen for consensus committee on {:?}",
@@ -149,14 +160,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
                 // Generate and send vote
-                let vote = DAVote::create_signed_vote(
+                let Ok(vote) = DAVote::create_signed_vote(
                     DAData {
                         payload_commit: payload_commitment,
                     },
                     view,
                     &self.public_key,
                     &self.private_key,
-                );
+                ) else {
+                    error!("Failed to sign DA Vote!");
+                    return None;
+                };
 
                 // ED Don't think this is necessary?
                 // self.cur_view = view;
@@ -170,14 +184,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
-                consensus.state_map.entry(view).or_insert(View {
+                consensus.validated_state_map.entry(view).or_insert(View {
                     view_inner: ViewInner::DA { payload_commitment },
                 });
 
                 // Record the payload we have promised to make available.
                 consensus
                     .saved_payloads
-                    .insert(payload_commitment, proposal.data.encoded_transactions);
+                    .insert(view, proposal.data.encoded_transactions);
             }
             HotShotEvent::DAVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number());
@@ -275,8 +289,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
                 // sign the encoded transactions as opposed to the VID commitment
-                let signature =
-                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash);
+                let Ok(signature) =
+                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
+                else {
+                    error!("Failed to sign block payload!");
+                    return None;
+                };
+
                 let data: DAProposal<TYPES> = DAProposal {
                     encoded_transactions,
                     metadata: metadata.clone(),

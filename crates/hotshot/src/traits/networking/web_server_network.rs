@@ -12,6 +12,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
+use hotshot_constants::VERSION_0_1;
 use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     message::{Message, MessagePurpose},
@@ -25,6 +26,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
+use hotshot_utils::version::read_version;
 use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
@@ -33,7 +35,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use surf_disco::Url;
 
-use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
 use std::collections::BTreeMap;
 use std::{
     collections::{btree_map::Entry, BTreeSet},
@@ -45,6 +47,10 @@ use std::{
 };
 use surf_disco::error::ClientError;
 use tracing::{debug, error, info, warn};
+
+/// convenience alias alias for the result of getting transactions from the web server
+pub type TxnResult = Result<Option<(u64, Vec<Vec<u8>>)>, ClientError>;
+
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone, Debug)]
 pub struct WebCommChannel<TYPES: NodeType>(Arc<WebServerNetwork<TYPES>>);
@@ -188,9 +194,9 @@ struct Inner<TYPES: NodeType> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for broadcasted messages
-    broadcast_poll_queue: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
+    broadcast_poll_queue_0_1: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
     /// Queue for direct messages
-    direct_poll_queue: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
+    direct_poll_queue_0_1: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
     /// Client is running
     running: AtomicBool,
     /// The web server connection is ready
@@ -201,10 +207,8 @@ struct Inner<TYPES: NodeType> {
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
     is_da: bool,
-
     /// The last tx_index we saw from the web server
     tx_index: Arc<RwLock<u64>>,
-
     /// Task map for quorum proposals.
     proposal_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for quorum votes.
@@ -219,24 +223,182 @@ struct Inner<TYPES: NodeType> {
     view_sync_vote_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
     /// Task map for transactions
     txn_task_map: Arc<RwLock<TaskMap<TYPES::SignatureKey>>>,
-    /// Task polling for latest quorum propsal
-    latest_quorum_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
-    /// Task polling for latest view sync proposal
-    latest_view_sync_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    #[allow(clippy::type_complexity)]
+    /// A handle on the task polling for latest quorum propsal
+    latest_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    #[allow(clippy::type_complexity)]
+    /// A handle on the task polling for the latest view sync certificate
+    latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
 impl<TYPES: NodeType> Inner<TYPES> {
     #![allow(clippy::too_many_lines)]
+
+    /// Handle version 0.1 transactions
+    ///
+    /// * `first_tx_index` - the index of the first transaction received from the server in the latest batch.
+    /// * `tx_index` - the last transaction index we saw from the web server.
+    async fn handle_tx_0_1(&self, tx: Vec<u8>, first_tx_index: u64, tx_index: &mut u64) {
+        let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
+        if first_tx_index > *tx_index + 1 {
+            debug!(
+                "missed txns from {} to {}",
+                *tx_index + 1,
+                first_tx_index - 1
+            );
+            *tx_index = first_tx_index - 1;
+        }
+
+        *tx_index += 1;
+
+        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx) {
+            let deserialized_message = RecvMsg {
+                message: Some(deserialized_message_inner),
+            };
+            broadcast_poll_queue
+                .write()
+                .await
+                .push(deserialized_message.clone());
+        } else {
+            async_sleep(self.wait_between_polls).await;
+        }
+
+        debug!("tx index is {}", tx_index);
+    }
+
+    /// Handle version 0.1 messages
+    ///
+    /// Returns `should_return` as a boolean, which is:
+    ///   * `true` if we've seen enough this round and the `poll_web_server` function should return
+    ///   * `false` if we want to receive further messages from the server.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_message_0_1(
+        &self,
+        message: Vec<u8>,
+        view_number: u64,
+        message_purpose: MessagePurpose,
+        vote_index: &mut u64,
+        seen_proposals: &mut LruCache<u64, ()>,
+        seen_view_sync_certificates: &mut LruCache<u64, ()>,
+    ) -> bool {
+        let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
+        let direct_poll_queue = &self.direct_poll_queue_0_1;
+        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&message) {
+            let deserialized_message = RecvMsg {
+                message: Some(deserialized_message_inner),
+            };
+            match message_purpose {
+                MessagePurpose::Data => {
+                    error!("We should not receive transactions in this function");
+                }
+                MessagePurpose::Proposal => {
+                    let proposal = deserialized_message.clone();
+                    broadcast_poll_queue.write().await.push(proposal);
+
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                    return true;
+                }
+                MessagePurpose::LatestProposal => {
+                    let proposal = deserialized_message.clone();
+                    let hash = hash(&proposal);
+                    // Only allow unseen proposals to be pushed to the queue
+                    if seen_proposals.put(hash, ()).is_none() {
+                        broadcast_poll_queue.write().await.push(proposal);
+                    }
+
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                    return true;
+                }
+                MessagePurpose::LatestViewSyncCertificate => {
+                    let cert = deserialized_message.clone();
+                    let hash = hash(&cert);
+                    if seen_view_sync_certificates.put(hash, ()).is_none() {
+                        broadcast_poll_queue.write().await.push(cert);
+                    }
+                    return false;
+                }
+                MessagePurpose::Vote => {
+                    let vote = deserialized_message.clone();
+                    *vote_index += 1;
+                    direct_poll_queue.write().await.push(vote);
+
+                    return false;
+                }
+                MessagePurpose::DAC => {
+                    debug!(
+                        "Received DAC from web server for view {} {}",
+                        view_number, self.is_da
+                    );
+                    broadcast_poll_queue
+                        .write()
+                        .await
+                        .push(deserialized_message.clone());
+
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                    // return if we found a DAC, since there will only be 1 per view
+                    // In future we should check to make sure DAC is valid
+                    return true;
+                }
+                MessagePurpose::VidDisperse => {
+                    // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
+
+                    self.broadcast_poll_queue_0_1
+                        .write()
+                        .await
+                        .push(deserialized_message.clone());
+
+                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                    return true;
+                }
+                MessagePurpose::ViewSyncVote => {
+                    let vote = deserialized_message.clone();
+                    *vote_index += 1;
+                    direct_poll_queue.write().await.push(vote);
+
+                    return false;
+                }
+                MessagePurpose::ViewSyncCertificate => {
+                    // TODO ED Special case this for view sync
+                    // TODO ED Need to add vote indexing to web server for view sync certs
+                    let cert = deserialized_message.clone();
+                    *vote_index += 1;
+                    broadcast_poll_queue.write().await.push(cert);
+
+                    return false;
+                }
+
+                MessagePurpose::Internal => {
+                    error!("Received internal message in web server network");
+
+                    return false;
+                }
+
+                MessagePurpose::Upgrade => {
+                    broadcast_poll_queue
+                        .write()
+                        .await
+                        .push(deserialized_message.clone());
+
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     /// Pull a web server.
     async fn poll_web_server(
         &self,
         receiver: UnboundedReceiver<ConsensusIntentEvent<TYPES::SignatureKey>>,
         message_purpose: MessagePurpose,
         view_number: u64,
+        additional_wait: Duration,
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
         let mut seen_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
+        let mut seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(100).unwrap());
 
         if message_purpose == MessagePurpose::Data {
             tx_index = *self.tx_index.read().await;
@@ -244,190 +406,153 @@ impl<TYPES: NodeType> Inner<TYPES> {
         };
 
         while self.running.load(Ordering::Relaxed) {
+            async_sleep(additional_wait).await;
+
             let endpoint = match message_purpose {
                 MessagePurpose::Proposal => config::get_proposal_route(view_number),
-                MessagePurpose::LatestQuorumProposal => config::get_latest_quorum_proposal_route(),
-                MessagePurpose::LatestViewSyncProposal => {
-                    config::get_latest_view_sync_proposal_route()
+                MessagePurpose::LatestProposal => config::get_latest_proposal_route(),
+                MessagePurpose::LatestViewSyncCertificate => {
+                    config::get_latest_view_sync_certificate_route()
                 }
                 MessagePurpose::Vote => config::get_vote_route(view_number, vote_index),
                 MessagePurpose::Data => config::get_transactions_route(tx_index),
                 MessagePurpose::Internal => unimplemented!(),
-                MessagePurpose::ViewSyncProposal => {
-                    config::get_view_sync_proposal_route(view_number, vote_index)
+                MessagePurpose::ViewSyncCertificate => {
+                    config::get_view_sync_certificate_route(view_number, vote_index)
                 }
                 MessagePurpose::ViewSyncVote => {
                     config::get_view_sync_vote_route(view_number, vote_index)
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
+                MessagePurpose::Upgrade => config::get_upgrade_route(view_number),
             };
 
-            if message_purpose == MessagePurpose::Data {
-                let possible_message = self.get_txs_from_web_server(endpoint).await;
-                match possible_message {
-                    Ok(Some((index, deserialized_messages))) => {
-                        let mut broadcast_poll_queue = self.broadcast_poll_queue.write().await;
-                        if index > tx_index + 1 {
-                            debug!("missed txns from {} to {}", tx_index + 1, index - 1);
-                            tx_index = index - 1;
+            if let MessagePurpose::Data = message_purpose {
+                let possible_message: TxnResult = self.client.get(&endpoint).send().await;
+                // Deserialize and process transactions from the server.
+                // If something goes wrong at any point, we sleep for wait_between_polls
+                // then try again next time.
+                if let Ok(Some((first_tx_index, txs))) = possible_message {
+                    for tx_raw in txs {
+                        // This is very hacky.
+                        //
+                        // Fundamentally, tx_raw is a serialized Option(Message<TYPES>).
+                        // The problem is, we want to extract the serialized Message<TYPES>
+                        // *without* deserializing the entire tx_raw
+                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
+                        // which we have not yet read at this point).
+                        //
+                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
+                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
+                        //
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
+
+                        match tx_raw.first() {
+                            Some(0) => {
+                                continue;
+                            }
+                            Some(1) => {
+                                let tx = tx_raw[1..].to_vec();
+                                let tx_version = read_version(&tx);
+
+                                match tx_version {
+                                    Some(VERSION_0_1) => {
+                                        self.handle_tx_0_1(tx, first_tx_index, &mut tx_index).await;
+                                    }
+                                    Some(version) => {
+                                        warn!(
+                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                      version,
+                                      tx
+                                  );
+                                    }
+                                    _ => {
+                                        warn!(
+                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                                      tx
+                                  );
+                                    }
+                                }
+                            }
+                            _ => {
+                                warn!("Could not deserialize transaction: {:?}", tx_raw);
+                            }
                         }
-                        for tx in &deserialized_messages {
-                            tx_index += 1;
-                            broadcast_poll_queue.push(tx.clone());
-                        }
-                        debug!("tx index is {}", tx_index);
                     }
-                    Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                    Err(_e) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
+                } else {
+                    async_sleep(self.wait_between_polls + additional_wait).await;
                 }
             } else {
-                let possible_message = self.get_message_from_web_server(endpoint).await;
+                let possible_message: Result<Option<Vec<Vec<u8>>>, ClientError> =
+                    self.client.get(&endpoint).send().await;
+                if let Ok(Some(messages)) = possible_message {
+                    for message_raw in messages {
+                        // This is very hacky.
+                        //
+                        // Fundamentally, message_raw is a serialized Option(Message<TYPES>).
+                        // The problem is, we want to extract the serialized Message<TYPES>
+                        // *without* deserializing the entire message_raw
+                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
+                        // which we have not yet read at this point).
+                        //
+                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
+                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
+                        //
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
 
-                match possible_message {
-                    Ok(Some(deserialized_messages)) => {
-                        match message_purpose {
-                            MessagePurpose::Data => {
-                                error!("We should not receive transactions in this function");
+                        match message_raw.first() {
+                            Some(0) => {
+                                continue;
                             }
-                            MessagePurpose::Proposal => {
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
+                            Some(1) => {
+                                let message = message_raw[1..].to_vec();
+                                let message_version = read_version(&message);
 
-                                return Ok(());
-                                // Wait for the view to change before polling for proposals again
-                                // let event = receiver.recv().await;
-                                // match event {
-                                //     Ok(event) => view_number = event.view_number(),
-                                //     Err(_r) => {
-                                //         error!("Proposal receiver error!  It was likely shutdown")
-                                //     }
-                                // }
-                            }
-                            MessagePurpose::LatestQuorumProposal => {
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
+                                let should_return;
 
-                                return Ok(());
-                            }
-                            MessagePurpose::LatestViewSyncProposal => {
-                                let mut broadcast_poll_queue =
-                                    self.broadcast_poll_queue.write().await;
+                                match message_version {
+                                    Some(VERSION_0_1) => {
+                                        should_return = self
+                                            .handle_message_0_1(
+                                                message,
+                                                view_number,
+                                                message_purpose,
+                                                &mut vote_index,
+                                                &mut seen_proposals,
+                                                &mut seen_view_sync_certificates,
+                                            )
+                                            .await;
 
-                                for cert in &deserialized_messages {
-                                    let hash = hash(&cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.push(cert.clone());
+                                        if should_return {
+                                            return Ok(());
+                                        }
                                     }
-                                }
-
-                                // additional sleep to reduce load on web server
-                                async_sleep(Duration::from_millis(300)).await;
-                            }
-                            MessagePurpose::Vote => {
-                                // error!(
-                                //     "Received {} votes from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                let mut direct_poll_queue = self.direct_poll_queue.write().await;
-                                for vote in &deserialized_messages {
-                                    vote_index += 1;
-                                    direct_poll_queue.push(vote.clone());
-                                }
-                            }
-                            MessagePurpose::DAC => {
-                                debug!(
-                                    "Received DAC from web server for view {} {}",
-                                    view_number, self.is_da
-                                );
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                // return if we found a DAC, since there will only be 1 per view
-                                // In future we should check to make sure DAC is valid
-                                return Ok(());
-                            }
-                            MessagePurpose::VidDisperse => {
-                                // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
-                                // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                                self.broadcast_poll_queue
-                                    .write()
-                                    .await
-                                    .push(deserialized_messages[0].clone());
-
-                                return Ok(());
-                                // Wait for the view to change before polling for proposals again
-                                // let event = receiver.recv().await;
-                                // match event {
-                                //     Ok(event) => view_number = event.view_number(),
-                                //     Err(_r) => {
-                                //         error!("Proposal receiver error!  It was likely shutdown")
-                                //     }
-                                // }
-                            }
-                            MessagePurpose::ViewSyncVote => {
-                                // error!(
-                                //     "Received {} view sync votes from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                let mut direct_poll_queue = self.direct_poll_queue.write().await;
-                                for vote in &deserialized_messages {
-                                    vote_index += 1;
-                                    direct_poll_queue.push(vote.clone());
-                                }
-                            }
-                            MessagePurpose::ViewSyncProposal => {
-                                // error!(
-                                //     "Received {} view sync certs from web server for view {} is da {}",
-                                //     deserialized_messages.len(),
-                                //     view_number,
-                                //     self.is_da
-                                // );
-                                let mut broadcast_poll_queue =
-                                    self.broadcast_poll_queue.write().await;
-                                // TODO ED Special case this for view sync
-                                // TODO ED Need to add vote indexing to web server for view sync certs
-                                for cert in &deserialized_messages {
-                                    vote_index += 1;
-                                    let hash = hash(cert);
-                                    if seen_proposals.put(hash, ()).is_none() {
-                                        broadcast_poll_queue.push(cert.clone());
+                                    Some(version) => {
+                                        warn!(
+                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                      version,
+                                      message
+                                  );
+                                    }
+                                    _ => {
+                                        warn!(
+                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                                      message
+                                  );
                                     }
                                 }
                             }
-
-                            MessagePurpose::Internal => {
-                                error!("Received internal message in web server network");
+                            _ => {
+                                warn!("Could not deserialize message: {:?}", message_raw);
                             }
                         }
                     }
-                    Ok(None) => {
-                        async_sleep(self.wait_between_polls).await;
-                    }
-                    Err(_e) => {
-                        // error!("error is {:?}", _e);
-                        async_sleep(self.wait_between_polls).await;
-                    }
+                } else {
+                    async_sleep(self.wait_between_polls).await;
                 }
             }
+
             let maybe_event = receiver.try_recv();
             match maybe_event {
                 Ok(event) => {
@@ -438,6 +563,10 @@ impl<TYPES: NodeType> Inner<TYPES> {
                         | ConsensusIntentEvent::CancelPollForDAC(event_view)
                         | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
                         | ConsensusIntentEvent::CancelPollForVIDDisperse(event_view)
+                        | ConsensusIntentEvent::CancelPollForLatestProposal(event_view)
+                        | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(
+                            event_view,
+                        )
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
                             if view_number == event_view {
                                 debug!("Shutting down polling task for view {}", event_view);
@@ -456,10 +585,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             }
                         }
 
-                        ConsensusIntentEvent::CancelPollForLatestViewSyncProposal => {
-                            return Ok(());
-                        }
-
                         _ => {
                             unimplemented!()
                         }
@@ -472,59 +597,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
             }
         }
         Err(NetworkError::ShutDown)
-    }
-
-    /// Fetches transactions from web server
-    async fn get_txs_from_web_server(
-        &self,
-        endpoint: String,
-    ) -> Result<Option<(u64, Vec<RecvMsg<Message<TYPES>>>)>, NetworkError> {
-        let result: Result<Option<(u64, Vec<Vec<u8>>)>, ClientError> =
-            self.client.get(&endpoint).send().await;
-        match result {
-            Err(_error) => Err(NetworkError::WebServer {
-                source: WebServerNetworkError::ClientError,
-            }),
-            Ok(Some((index, messages))) => {
-                let mut deserialized_messages = Vec::new();
-                for message in &messages {
-                    let deserialized_message = bincode::deserialize(message);
-                    if let Err(e) = deserialized_message {
-                        return Err(NetworkError::FailedToDeserialize { source: e });
-                    }
-                    deserialized_messages.push(deserialized_message.unwrap());
-                }
-                Ok(Some((index, deserialized_messages)))
-            }
-            Ok(None) => Ok(None),
-        }
-    }
-
-    /// Sends a GET request to the webserver for some specified endpoint
-    /// Returns a vec of deserialized, received messages or an error
-    async fn get_message_from_web_server(
-        &self,
-        endpoint: String,
-    ) -> Result<Option<Vec<RecvMsg<Message<TYPES>>>>, NetworkError> {
-        let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
-            self.client.get(&endpoint).send().await;
-        match result {
-            Err(_error) => Err(NetworkError::WebServer {
-                source: WebServerNetworkError::ClientError,
-            }),
-            Ok(Some(messages)) => {
-                let mut deserialized_messages = Vec::new();
-                for message in &messages {
-                    let deserialized_message = bincode::deserialize(message);
-                    if let Err(e) = deserialized_message {
-                        return Err(NetworkError::FailedToDeserialize { source: e });
-                    }
-                    deserialized_messages.push(deserialized_message.unwrap());
-                }
-                Ok(Some(deserialized_messages))
-            }
-            Ok(None) => Ok(None),
-        }
     }
 }
 
@@ -595,8 +667,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         let client = surf_disco::Client::<ClientError>::new(url);
 
         let inner = Arc::new(Inner {
-            broadcast_poll_queue: Arc::default(),
-            direct_poll_queue: Arc::default(),
+            broadcast_poll_queue_0_1: Arc::default(),
+            direct_poll_queue_0_1: Arc::default(),
             running: AtomicBool::new(true),
             connected: AtomicBool::new(false),
             client,
@@ -611,8 +683,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_cert_task_map: Arc::default(),
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
-            latest_quorum_proposal_task: Arc::default(),
-            latest_view_sync_proposal_task: Arc::default(),
+            latest_proposal_task: Arc::default(),
+            latest_view_sync_certificate_task: Arc::default(),
         });
 
         inner.connected.store(true, Ordering::Relaxed);
@@ -635,17 +707,18 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             MessagePurpose::Vote => config::post_vote_route(*view_number),
             MessagePurpose::Data => config::post_transactions_route(),
             MessagePurpose::Internal
-            | MessagePurpose::LatestQuorumProposal
-            | MessagePurpose::LatestViewSyncProposal => {
+            | MessagePurpose::LatestProposal
+            | MessagePurpose::LatestViewSyncCertificate => {
                 return Err(WebServerNetworkError::EndpointError)
             }
-            MessagePurpose::ViewSyncProposal => {
-                // error!("Posting view sync proposal route is: {}", config::post_view_sync_proposal_route(*view_number));
-                config::post_view_sync_proposal_route(*view_number)
+            MessagePurpose::ViewSyncCertificate => {
+                // error!("Posting view sync proposal route is: {}", config::post_view_sync_certificate_route(*view_number));
+                config::post_view_sync_certificate_route(*view_number)
             }
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
+            MessagePurpose::Upgrade => config::post_upgrade_route(*view_number),
         };
 
         let network_msg: SendMsg<Message<TYPES>> = SendMsg {
@@ -780,6 +853,19 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         Self: 'b,
     {
         let closure = async move {
+            // Cancel poll for latest proposal on shutdown
+            if let Some(ref sender) = *self.inner.latest_proposal_task.read().await {
+                let _ = sender
+                    .send(ConsensusIntentEvent::CancelPollForLatestProposal(1))
+                    .await;
+            };
+
+            // Cancel poll for latest view sync certificate on shutdown
+            if let Some(ref sender) = *self.inner.latest_view_sync_certificate_task.read().await {
+                let _ = sender
+                    .send(ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(1))
+                    .await;
+            };
             self.inner.running.store(false, Ordering::Relaxed);
         };
         boxed_sync(closure)
@@ -847,7 +933,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         let closure = async move {
             match transmit_type {
                 TransmitType::Direct => {
-                    let mut queue = self.inner.direct_poll_queue.write().await;
+                    let mut queue = self.inner.direct_poll_queue_0_1.write().await;
                     Ok(queue
                         .drain(..)
                         .collect::<Vec<_>>()
@@ -856,7 +942,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         .collect())
                 }
                 TransmitType::Broadcast => {
-                    let mut queue = self.inner.broadcast_poll_queue.write().await;
+                    let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
                     Ok(queue
                         .drain(..)
                         .collect::<Vec<_>>()
@@ -898,7 +984,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Proposal, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Proposal,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -931,7 +1022,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::VidDisperse, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::VidDisperse,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -950,59 +1046,60 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
                     .await;
             }
-            ConsensusIntentEvent::PollForLatestQuorumProposal => {
-                let mut proposal_task = self.inner.latest_quorum_proposal_task.write().await;
-                if proposal_task.is_none() {
-                    // create new task
-                    let (sender, receiver) = unbounded();
-                    *proposal_task = Some(sender);
+            ConsensusIntentEvent::PollForLatestProposal => {
+                // Only start this task if we haven't already started it.
+                let mut cancel_handle = self.inner.latest_proposal_task.write().await;
+                if cancel_handle.is_none() {
+                    let inner = self.inner.clone();
 
-                    async_spawn({
-                        let inner_clone = self.inner.clone();
-                        async move {
-                            if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::LatestQuorumProposal, 1)
-                                .await
-                            {
-                                warn!(
-                                "Background receive proposal polling encountered an error: {:?}",
+                    // Create sender and receiver for cancelling the task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
+                    // Create the new task
+                    async_spawn(async move {
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::LatestProposal,
+                                1,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
+                                "Background receive latest quorum proposal polling encountered an error: {:?}",
                                 e
                             );
-                            }
-                            let mut proposal_task =
-                                inner_clone.latest_quorum_proposal_task.write().await;
-                            *proposal_task = None;
                         }
                     });
                 }
             }
-            ConsensusIntentEvent::PollForLatestViewSyncProposal => {
-                let mut latest_view_sync_proposal_task =
-                    self.inner.latest_view_sync_proposal_task.write().await;
-                if latest_view_sync_proposal_task.is_none() {
-                    // create new task
-                    let (sender, receiver) = unbounded();
-                    *latest_view_sync_proposal_task = Some(sender);
+            ConsensusIntentEvent::PollForLatestViewSyncCertificate => {
+                // Only start this task if we haven't already started it.
+                let mut cancel_handle = self.inner.latest_view_sync_certificate_task.write().await;
+                if cancel_handle.is_none() {
+                    let inner = self.inner.clone();
 
-                    async_spawn({
-                        let inner_clone = self.inner.clone();
-                        async move {
-                            if let Err(e) = inner_clone
-                                .poll_web_server(
-                                    receiver,
-                                    MessagePurpose::LatestViewSyncProposal,
-                                    1,
-                                )
-                                .await
-                            {
-                                warn!(
-                                "Background receive proposal polling encountered an error: {:?}",
+                    // Create sender and receiver for cancelling the task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
+                    // Create the new task
+                    async_spawn(async move {
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::LatestViewSyncCertificate,
+                                1,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
+                                "Background receive latest view sync certificate polling encountered an error: {:?}",
                                 e
                             );
-                            }
-                            let mut latest_view_sync_proposal_task =
-                                inner_clone.latest_view_sync_proposal_task.write().await;
-                            *latest_view_sync_proposal_task = None;
                         }
                     });
                 }
@@ -1017,7 +1114,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Vote, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Vote,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -1047,7 +1149,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::DAC, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::DAC,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -1080,17 +1187,6 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                 }
             }
 
-            ConsensusIntentEvent::CancelPollForLatestViewSyncProposal => {
-                let mut latest_view_sync_proposal_task =
-                    self.inner.latest_view_sync_proposal_task.write().await;
-
-                if let Some(thing) = latest_view_sync_proposal_task.take() {
-                    let _res = thing
-                        .send(ConsensusIntentEvent::CancelPollForLatestViewSyncProposal)
-                        .await;
-                }
-            }
-
             ConsensusIntentEvent::PollForViewSyncCertificate(view_number) => {
                 let mut task_map = self.inner.view_sync_cert_task_map.write().await;
                 if let Entry::Vacant(e) = task_map.entry(view_number) {
@@ -1103,8 +1199,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                             if let Err(e) = inner_clone
                                 .poll_web_server(
                                     receiver,
-                                    MessagePurpose::ViewSyncProposal,
+                                    MessagePurpose::ViewSyncCertificate,
                                     view_number,
+                                    Duration::ZERO,
                                 )
                                 .await
                             {
@@ -1141,6 +1238,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                     receiver,
                                     MessagePurpose::ViewSyncVote,
                                     view_number,
+                                    Duration::ZERO,
                                 )
                                 .await
                             {
@@ -1202,7 +1300,12 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         let inner_clone = self.inner.clone();
                         async move {
                             if let Err(e) = inner_clone
-                                .poll_web_server(receiver, MessagePurpose::Data, view_number)
+                                .poll_web_server(
+                                    receiver,
+                                    MessagePurpose::Data,
+                                    view_number,
+                                    Duration::ZERO,
+                                )
                                 .await
                             {
                                 warn!(
@@ -1248,6 +1351,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         _network_id: usize,
         _da_committee_size: usize,
         is_da: bool,
+        _reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -1286,7 +1390,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
             let mut network = WebServerNetwork::create(
                 url,
                 Duration::from_millis(100),
-                known_nodes[id as usize].clone(),
+                known_nodes[usize::try_from(id).unwrap()].clone(),
                 is_da,
             );
             network.server_shutdown_signal = Some(sender);
@@ -1306,6 +1410,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebCommChannel
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        _reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <WebServerNetwork<TYPES> as TestableNetworkingImplementation<_>>::generator(
             expected_node_count,
@@ -1313,6 +1418,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebCommChannel
             network_id,
             da_committee_size,
             is_da,
+            // network reliability is a testing feature
+            // not yet implemented for webcommchannel
+            None,
         );
         Box::new(move |node_id| Self(generator(node_id).into()))
     }

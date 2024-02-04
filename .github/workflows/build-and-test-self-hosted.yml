@@ -31,12 +31,11 @@ jobs:
         with:
           prefix-key: ${{ matrix.just_variants }}
 
-      - name: Run linting
-        run: |
-          just ${{ matrix.just_variants }} lint
-
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
+
+      - name: Build HotShot in release mode
+        run: just ${{ matrix.just_variants }} build_release
 
       - name: Unit and integration tests for all crates in workspace
         run: |

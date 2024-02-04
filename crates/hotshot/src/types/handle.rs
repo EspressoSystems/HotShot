@@ -3,7 +3,6 @@
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_compatibility_layer::channel::UnboundedStream;
 use async_lock::RwLock;
-use commit::Committable;
 use futures::Stream;
 use hotshot_task::{
     boxed_sync,
@@ -13,19 +12,13 @@ use hotshot_task::{
     BoxSyncFuture,
 };
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::simple_vote::QuorumData;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::election::Membership;
+
 use hotshot_types::{
-    consensus::Consensus,
-    error::HotShotError,
-    event::EventType,
-    message::{MessageKind, SequencingMessage},
-    traits::{
-        election::Membership, node_implementation::NodeType, state::ConsensusTime, storage::Storage,
-    },
+    consensus::Consensus, data::Leaf, error::HotShotError, traits::node_implementation::NodeType,
 };
-use hotshot_types::{data::Leaf, simple_certificate::QuorumCertificate};
 use std::sync::Arc;
-use tracing::error;
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -93,21 +86,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.internal_event_stream.subscribe(filter).await
     }
 
-    /// Gets the current committed state of the [`SystemContext`] instance
+    /// Get the last decided validated state of the [`SystemContext`] instance.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) {
-        self.hotshot.get_state().await;
+    /// # Panics
+    /// If the internal consensus is in an inconsistent state.
+    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+        self.hotshot.get_decided_state().await
     }
 
-    /// Gets most recent decided leaf
-    /// # Panics
+    /// Get the last decided leaf of the [`SystemContext`] instance.
     ///
-    /// Panics if internal consensus is in an inconsistent state.
+    /// # Panics
+    /// If the internal consensus is in an inconsistent state.
     pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.hotshot.get_decided_leaf().await
+    }
+
+    /// Tries to get the most recent decided leaf, returning instantly
+    /// if we can't acquire the lock.
+    ///
+    /// # Panics
+    /// Panics if internal consensus is in an inconsistent state.
+    pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+        self.hotshot.try_get_decided_leaf()
     }
 
     /// Submits a transaction to the backing [`SystemContext`] instance.
@@ -123,39 +124,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot.publish_transaction_async(tx).await
-    }
-
-    /// performs the genesis initializaiton
-    pub async fn maybe_do_genesis_init(&self) {
-        let _anchor = self.storage();
-        if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
-            if anchor_leaf.view_number == TYPES::Time::genesis() {
-                let leaf = Leaf::from_stored_view(anchor_leaf);
-                let mut qc = QuorumCertificate::<TYPES>::genesis();
-                qc.data = QuorumData {
-                    leaf_commit: leaf.commit(),
-                };
-                let event = Event {
-                    view_number: TYPES::Time::genesis(),
-                    event: EventType::Decide {
-                        leaf_chain: Arc::new(vec![leaf]),
-                        qc: Arc::new(qc),
-                        block_size: None,
-                    },
-                };
-                self.output_event_stream.publish(event).await;
-            }
-        } else {
-            // TODO (justin) this seems bad. I think we should hard error in this case??
-            error!("Hotshot storage has no anchor leaf!");
-        }
-    }
-
-    /// begin consensus by sending a genesis event
-    /// Use `start_consensus` on `SystemContext` instead
-    #[deprecated]
-    pub async fn start_consensus_deprecated(&self) {
-        self.maybe_do_genesis_init().await;
     }
 
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
@@ -217,63 +185,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_current_view(&self) -> TYPES::Time {
         self.hotshot.inner.consensus.read().await.cur_view
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
-    #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: SequencingMessage<TYPES>) {
-        let _result = self
-            .hotshot
-            .send_broadcast_message(MessageKind::from_consensus_message(msg))
-            .await;
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `send_direct_consensus_message` function
-    #[cfg(feature = "hotshot-testing")]
-    pub async fn send_direct_consensus_message(
-        &self,
-        msg: SequencingMessage<TYPES>,
-        recipient: TYPES::SignatureKey,
-    ) {
-        let _result = self
-            .hotshot
-            .send_direct_message(MessageKind::from_consensus_message(msg), recipient)
-            .await;
-    }
-
-    /// Get length of the replica's receiver channel
-    #[cfg(feature = "hotshot-testing")]
-    pub async fn get_replica_receiver_channel_len(
-        &self,
-        view_number: TYPES::Time,
-    ) -> Option<usize> {
-        use async_compatibility_layer::channel::UnboundedReceiver;
-
-        let channel_map = self.hotshot.inner.channel_maps.0.vote_channel.read().await;
-        let chan = channel_map.channel_map.get(&view_number)?;
-        let receiver = chan.receiver_chan.lock().await;
-        UnboundedReceiver::len(&*receiver)
-    }
-
-    /// Get length of the next leaders's receiver channel
-    #[cfg(feature = "hotshot-testing")]
-    pub async fn get_next_leader_receiver_channel_len(
-        &self,
-        view_number: TYPES::Time,
-    ) -> Option<usize> {
-        use async_compatibility_layer::channel::UnboundedReceiver;
-
-        let channel_map = self
-            .hotshot
-            .inner
-            .channel_maps
-            .0
-            .proposal_channel
-            .read()
-            .await;
-        let chan = channel_map.channel_map.get(&view_number)?;
-
-        let receiver = chan.receiver_chan.lock().await;
-        UnboundedReceiver::len(&*receiver)
     }
 }

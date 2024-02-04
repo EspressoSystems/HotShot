@@ -2,16 +2,20 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 use super::NetworkingMetricsValue;
+#[cfg(feature = "hotshot-testing")]
+use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_constants::LOOK_AHEAD;
+use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
 use hotshot_task::{boxed_sync, BoxSyncFuture};
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
     data::ViewNumber,
     message::{Message, MessageKind},
@@ -19,34 +23,34 @@ use hotshot_types::{
         election::Membership,
         network::{
             CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
-            NetworkError, NetworkMsg, TestableChannelImplementation,
-            TestableNetworkingImplementation, TransmitType, ViewMessage,
+            NetworkError, NetworkMsg, TestableChannelImplementation, TransmitType, ViewMessage,
         },
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        state::ConsensusTime,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
+#[cfg(feature = "hotshot-testing")]
+use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
+
 use libp2p_networking::{
     network::{
-        MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     reexport::Multiaddr,
 };
 
 use serde::Serialize;
 use snafu::ResultExt;
+#[cfg(feature = "hotshot-testing")]
+use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
+
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::BTreeSet,
     fmt::Debug,
     marker::PhantomData,
-    num::NonZeroUsize,
-    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -55,14 +59,25 @@ use std::{
 };
 use tracing::{error, info, instrument, warn};
 
+/// convienence alias for the type for bootstrap addresses
+/// concurrency primitives are needed for having tests
+pub type BootstrapAddrs = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
+
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
 
 /// Stubbed out Ack
+///
+/// Note: as part of versioning for upgradability,
+/// all network messages must begin with a 4-byte version number.
+///
+/// Hence:
+///   * `Empty` *must* be a struct (enums are serialized with a leading byte for the variant), and
+///   * we must have an explicit version field.
 #[derive(Serialize)]
-pub enum Empty {
-    /// Empty value
-    Empty,
+pub struct Empty {
+    /// network protocol version number in use
+    version: Version,
 }
 
 impl<M: NetworkMsg, K: SignatureKey + 'static> Debug for Libp2pNetwork<M, K> {
@@ -112,6 +127,9 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
     latest_seen_view: Arc<AtomicU64>,
+    #[cfg(feature = "hotshot-testing")]
+    /// reliability_config
+    reliability_config: Option<Box<dyn NetworkReliability>>,
     /// if we're a member of the DA committee or not
     is_da: bool,
 }
@@ -124,6 +142,7 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
     inner: Arc<Libp2pNetworkInner<M, K>>,
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     for Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>
 where
@@ -145,6 +164,7 @@ where
         _network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -230,6 +250,7 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let keys = all_keys.clone();
                 let da = da_keys.clone();
+                let reliability_config_dup = reliability_config.clone();
                 async_block_on(async move {
                     match Libp2pNetwork::new(
                         NetworkingMetricsValue::default(),
@@ -237,8 +258,10 @@ where
                         pubkey.clone(),
                         bootstrap_addrs_ref,
                         num_bootstrap,
-                        node_id as usize,
+                        usize::try_from(node_id).unwrap(),
                         keys,
+                        #[cfg(feature = "hotshot-testing")]
+                        reliability_config_dup,
                         da.clone(),
                         da.contains(&pubkey),
                     )
@@ -246,7 +269,7 @@ where
                     {
                         Ok(network) => network,
                         Err(err) => {
-                            panic!("Failed to create network: {err}");
+                            panic!("Failed to create libp2p network: {err:?}");
                         }
                     }
                 })
@@ -288,11 +311,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         metrics: NetworkingMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
-        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs: BootstrapAddrs,
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
+        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
@@ -343,7 +367,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                dht_timeout: Duration::from_secs(1),
+                dht_timeout: Duration::from_secs(2),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
                 topic_map,
@@ -352,11 +376,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // proposals on". We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don't need.
                 latest_seen_view: Arc::new(AtomicU64::new(0)),
+                #[cfg(feature = "hotshot-testing")]
+                reliability_config,
                 is_da,
             }),
         };
 
-        result.spawn_event_generator(direct_send, broadcast_send);
+        result.handle_event_generator(direct_send, broadcast_send);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -375,6 +401,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
                 /// defines lookahead threshold based on the constant
+                #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
 
                 info!("Performing lookup for peer {:?}", pk);
@@ -496,9 +523,63 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             .map_err(Into::<NetworkError>::into)
     }
 
+    /// Handle events for Version 0.1 of the protocol.
+    async fn handle_recvd_events_0_1(
+        &self,
+        msg: NetworkEvent,
+        direct_send: &UnboundedSender<M>,
+        broadcast_send: &UnboundedSender<M>,
+    ) -> Result<(), NetworkError> {
+        match msg {
+            GossipMsg(msg, _topic) => {
+                let result: Result<M, _> = bincode_opts().deserialize(&msg);
+                if let Ok(result) = result {
+                    broadcast_send
+                        .send(result)
+                        .await
+                        .map_err(|_| NetworkError::ChannelSend)?;
+                }
+            }
+            DirectRequest(msg, _pid, chan) => {
+                let result: Result<M, _> = bincode_opts()
+                    .deserialize(&msg)
+                    .context(FailedToSerializeSnafu);
+                if let Ok(result) = result {
+                    direct_send
+                        .send(result)
+                        .await
+                        .map_err(|_| NetworkError::ChannelSend)?;
+                }
+                if self
+                    .inner
+                    .handle
+                    .direct_response(
+                        chan,
+                        &Empty {
+                            version: VERSION_0_1,
+                        },
+                    )
+                    .await
+                    .is_err()
+                {
+                    error!("failed to ack!");
+                };
+            }
+            DirectResponse(msg, _) => {
+                let _result: Result<M, _> = bincode_opts()
+                    .deserialize(&msg)
+                    .context(FailedToSerializeSnafu);
+            }
+            NetworkEvent::IsBootstrapped => {
+                error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+            }
+        }
+        Ok::<(), NetworkError>(())
+    }
+
     /// task to propagate messages to handlers
     /// terminates on shut down of network
-    fn spawn_event_generator(
+    fn handle_event_generator(
         &self,
         direct_send: UnboundedSender<M>,
         broadcast_send: UnboundedSender<M>,
@@ -506,49 +587,36 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
-            while let Ok(msg) = handle.inner.handle.receiver().recv().await {
-                match msg {
-                    GossipMsg(msg, _topic) => {
-                        let result: Result<M, _> = bincode_opts().deserialize(&msg);
-                        if let Ok(result) = result {
-                            broadcast_send
-                                .send(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
-                        }
-                    }
-                    DirectRequest(msg, _pid, chan) => {
-                        let result: Result<M, _> = bincode_opts()
-                            .deserialize(&msg)
-                            .context(FailedToSerializeSnafu);
-                        if let Ok(result) = result {
-                            direct_send
-                                .send(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
-                        }
-                        if handle
-                            .inner
-                            .handle
-                            .direct_response(chan, &Empty::Empty)
-                            .await
-                            .is_err()
-                        {
-                            error!("failed to ack!");
-                        };
-                    }
-                    DirectResponse(msg, _) => {
-                        let _result: Result<M, _> = bincode_opts()
-                            .deserialize(&msg)
-                            .context(FailedToSerializeSnafu);
-                    }
+            while let Ok(message) = handle.inner.handle.receiver().recv().await {
+                match &message {
                     NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, Ordering::Relaxed);
                     }
+                    GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
+                        let message_version = read_version(raw);
+                        match message_version {
+                            Some(VERSION_0_1) => {
+                                let _ = handle
+                                    .handle_recvd_events_0_1(message, &direct_send, &broadcast_send)
+                                    .await;
+                            }
+                            Some(version) => {
+                                warn!(
+                            "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                            version, message
+                        );
+                            }
+                            _ => {
+                                warn!(
+                            "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
+                            message
+                        );
+                            }
+                        }
+                    }
                 }
             }
-            warn!("Network receiever shut down!");
-            Ok::<(), NetworkError>(())
+            warn!("Network receiver shut down!");
         });
     }
 }
@@ -618,6 +686,40 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 .map_err(|_| NetworkError::ShutDown)?;
         }
 
+        // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
+        #[cfg(feature = "hotshot-testing")]
+        {
+            let metrics = self.inner.metrics.clone();
+            if let Some(ref config) = &self.inner.reliability_config {
+                let handle = self.inner.handle.clone();
+
+                let serialized_msg = bincode_opts()
+                    .serialize(&message)
+                    .context(FailedToSerializeSnafu)?;
+                let fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(move |msg: Vec<u8>| {
+                        let topic_2 = topic.clone();
+                        let handle_2 = handle.clone();
+                        let metrics_2 = metrics.clone();
+                        boxed_sync(async move {
+                            match handle_2.gossip_no_serialize(topic_2, msg).await {
+                                Err(e) => {
+                                    metrics_2.message_failed_to_send.add(1);
+                                    warn!("Failed to broadcast to libp2p: {:?}", e);
+                                }
+                                Ok(()) => {
+                                    metrics_2.outgoing_direct_message_count.add(1);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                return Ok(());
+            }
+        }
+
         match self.inner.handle.gossip(topic, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
@@ -666,15 +768,41 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         };
 
+        #[cfg(feature = "hotshot-testing")]
+        {
+            let metrics = self.inner.metrics.clone();
+            if let Some(ref config) = &self.inner.reliability_config {
+                let handle = self.inner.handle.clone();
+
+                let serialized_msg = bincode_opts()
+                    .serialize(&message)
+                    .context(FailedToSerializeSnafu)?;
+                let fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(move |msg: Vec<u8>| {
+                        let handle_2 = handle.clone();
+                        let metrics_2 = metrics.clone();
+                        boxed_sync(async move {
+                            match handle_2.direct_request_no_serialize(pid, msg).await {
+                                Err(e) => {
+                                    metrics_2.message_failed_to_send.add(1);
+                                    warn!("Failed to broadcast to libp2p: {:?}", e);
+                                }
+                                Ok(()) => {
+                                    metrics_2.outgoing_direct_message_count.add(1);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                return Ok(());
+            }
+        }
+
         match self.inner.handle.direct_request(pid, &message).await {
-            Ok(()) => {
-                self.inner.metrics.outgoing_direct_message_count.add(1);
-                Ok(())
-            }
-            Err(e) => {
-                self.inner.metrics.message_failed_to_send.add(1);
-                Err(e.into())
-            }
+            Ok(()) => Ok(()),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -773,6 +901,7 @@ impl<TYPES: NodeType> Libp2pCommChannel<TYPES> {
     }
 }
 
+#[cfg(feature = "hotshot-testing")]
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for Libp2pCommChannel<TYPES>
 where
     MessageKind<TYPES>: ViewMessage<TYPES>,
@@ -792,6 +921,7 @@ where
         network_id: usize,
         da_committee_size: usize,
         is_da: bool,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <Libp2pNetwork<
             Message<TYPES>,
@@ -801,7 +931,8 @@ where
             num_bootstrap,
             network_id,
             da_committee_size,
-            is_da
+            is_da,
+            reliability_config
         );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }

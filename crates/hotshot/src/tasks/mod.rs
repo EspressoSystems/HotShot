@@ -33,8 +33,7 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
-        node_implementation::{NodeImplementation, NodeType},
-        state::ConsensusTime,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
 };
@@ -44,6 +43,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tracing::error;
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -67,12 +67,16 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
         let network = net.clone();
         let closure = async move {
             loop {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Broadcast)
-                        .await
-                        .expect("Failed to receive broadcast messages"),
-                );
+                let msgs = match network.recv_msgs(TransmitType::Broadcast).await {
+                    Ok(msgs) => Messages(msgs),
+                    Err(err) => {
+                        error!("failed to receive broadcast messages: {err}");
+
+                        // return zero messages so we sleep and try again
+                        Messages(vec![])
+                    }
+                };
+
                 if msgs.0.is_empty() {
                     async_sleep(Duration::from_millis(100)).await;
                 } else {
@@ -87,12 +91,15 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
         let network = net.clone();
         let closure = async move {
             loop {
-                let msgs = Messages(
-                    network
-                        .recv_msgs(TransmitType::Direct)
-                        .await
-                        .expect("Failed to receive direct messages"),
-                );
+                let msgs = match network.recv_msgs(TransmitType::Direct).await {
+                    Ok(msgs) => Messages(msgs),
+                    Err(err) => {
+                        error!("failed to receive direct messages: {err}");
+
+                        // return zero messages so we sleep and try again
+                        Messages(vec![])
+                    }
+                };
                 if msgs.0.is_empty() {
                     async_sleep(Duration::from_millis(100)).await;
                 } else {
@@ -248,10 +255,34 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         committee_membership: c_api.inner.memberships.da_membership.clone().into(),
     };
+    // Poll (forever) for the latest quorum proposal
     consensus_state
         .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
         .await;
+
+    // See if we're in the DA committee
+    // This will not work for epochs (because dynamic subscription
+    // With the Push CDN, we are _always_ polling for latest anyway.
+    let is_da = consensus_state
+        .committee_membership
+        .get_committee(<TYPES as NodeType>::Time::new(0))
+        .contains(&consensus_state.public_key);
+
+    // If we are, poll for latest DA proposal.
+    if is_da {
+        consensus_state
+            .committee_network
+            .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+            .await;
+    }
+
+    // Poll (forever) for the latest view sync certificate
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
+        .await;
+
     let filter = FilterEvent(Arc::new(consensus_event_filter));
     let consensus_name = "Consensus Task";
     let consensus_event_handler = HandleEvent(Arc::new(

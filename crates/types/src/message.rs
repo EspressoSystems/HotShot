@@ -3,14 +3,16 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::data::QuorumProposal;
+use crate::data::{QuorumProposal, UpgradeProposal};
 use crate::simple_certificate::{
-    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+    DACertificate, UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
     ViewSyncPreCommitCertificate2,
 };
 use crate::simple_vote::{
-    DAVote, TimeoutVote, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitVote,
+    DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+    ViewSyncPreCommitVote,
 };
+use crate::traits::signature_key::SignatureKey;
 use crate::vote::HasViewNumber;
 use crate::{
     data::{DAProposal, VidDisperse},
@@ -18,12 +20,12 @@ use crate::{
     traits::{
         network::{NetworkMsg, ViewMessage},
         node_implementation::NodeType,
-        signature_key::EncodedSignature,
     },
 };
 
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
+use hotshot_constants::Version;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -32,6 +34,9 @@ use std::{fmt::Debug, marker::PhantomData};
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct Message<TYPES: NodeType> {
+    /// The version of the protocol in use for this message
+    pub version: Version,
+
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
@@ -58,18 +63,18 @@ pub struct Messages<TYPES: NodeType>(pub Vec<Message<TYPES>>);
 /// A message type agnostic description of a message's purpose
 #[derive(PartialEq, Copy, Clone)]
 pub enum MessagePurpose {
-    /// Message with a quorum proposal.
+    /// Message with a [quorum/DA] proposal.
     Proposal,
-    /// Message with most recent quorum proposal the server has
-    LatestQuorumProposal,
-    /// Message with most recent view sync proposal the server has
-    LatestViewSyncProposal,
+    /// Message with most recent [quorum/DA] proposal the server has
+    LatestProposal,
+    /// Message with most recent view sync certificate the server has
+    LatestViewSyncCertificate,
     /// Message with a quorum vote.
     Vote,
     /// Message with a view sync vote.
     ViewSyncVote,
-    /// Message with a view sync proposal.
-    ViewSyncProposal,
+    /// Message with a view sync certificate.
+    ViewSyncCertificate,
     /// Message with a DAC.
     DAC,
     /// Message for internal use
@@ -78,6 +83,8 @@ pub enum MessagePurpose {
     Data,
     /// VID disperse, like [`Proposal`].
     VidDisperse,
+    /// Message with an upgrade proposal.
+    Upgrade,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -125,15 +132,6 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
     }
 }
 
-/// Internal triggers sent by consensus messages.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub enum InternalTrigger<TYPES: NodeType> {
-    // May add other triggers if necessary.
-    /// Internal timeout at the specified view number.
-    Timeout(TYPES::Time),
-}
-
 /// A processed consensus message for both validating and sequencing consensus.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
@@ -142,9 +140,6 @@ pub enum ProcessedGeneralConsensusMessage<TYPES: NodeType> {
     Proposal(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Message with a quorum vote.
     Vote(QuorumVote<TYPES>, TYPES::SignatureKey),
-    /// Internal ONLY message indicating a view interrupt.
-    #[serde(skip)]
-    InternalTrigger(InternalTrigger<TYPES>),
 }
 
 impl<TYPES: NodeType> From<ProcessedGeneralConsensusMessage<TYPES>>
@@ -156,9 +151,6 @@ impl<TYPES: NodeType> From<ProcessedGeneralConsensusMessage<TYPES>>
                 GeneralConsensusMessage::Proposal(p)
             }
             ProcessedGeneralConsensusMessage::Vote(v, _) => GeneralConsensusMessage::Vote(v),
-            ProcessedGeneralConsensusMessage::InternalTrigger(a) => {
-                GeneralConsensusMessage::InternalTrigger(a)
-            }
         }
     }
 }
@@ -173,9 +165,6 @@ impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
                 ProcessedGeneralConsensusMessage::Proposal(p, sender)
             }
             GeneralConsensusMessage::Vote(v) => ProcessedGeneralConsensusMessage::Vote(v, sender),
-            GeneralConsensusMessage::InternalTrigger(a) => {
-                ProcessedGeneralConsensusMessage::InternalTrigger(a)
-            }
             // ED NOTE These are deprecated
             GeneralConsensusMessage::TimeoutVote(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncPreCommitVote(_) => unimplemented!(),
@@ -184,6 +173,9 @@ impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
             GeneralConsensusMessage::ViewSyncPreCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => unimplemented!(),
+            GeneralConsensusMessage::UpgradeCertificate(_) => unimplemented!(),
+            GeneralConsensusMessage::UpgradeProposal(_) => unimplemented!(),
+            GeneralConsensusMessage::UpgradeVote(_) => unimplemented!(),
         }
     }
 }
@@ -295,9 +287,14 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a Timeout vote
     TimeoutVote(TimeoutVote<TYPES>),
 
-    /// Internal ONLY message indicating a view interrupt.
-    #[serde(skip)]
-    InternalTrigger(InternalTrigger<TYPES>),
+    /// Message with an upgrade certificate
+    UpgradeCertificate(UpgradeCertificate<TYPES>),
+
+    /// Message with an upgrade proposal
+    UpgradeProposal(UpgradeProposal<TYPES>),
+
+    /// Message with an upgrade vote
+    UpgradeVote(UpgradeVote<TYPES>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -341,10 +338,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         p.data.get_view_number()
                     }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.get_view_number(),
-                    GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
-                        InternalTrigger::Timeout(time) => *time,
-                    },
-
                     GeneralConsensusMessage::TimeoutVote(message) => message.get_view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) => {
                         message.get_view_number()
@@ -364,6 +357,11 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) => {
                         message.get_view_number()
                     }
+                    GeneralConsensusMessage::UpgradeCertificate(message) => {
+                        message.get_view_number()
+                    }
+                    GeneralConsensusMessage::UpgradeProposal(message) => message.get_view_number(),
+                    GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
             }
             Right(committee_message) => {
@@ -395,7 +393,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 GeneralConsensusMessage::Vote(_) | GeneralConsensusMessage::TimeoutVote(_) => {
                     MessagePurpose::Vote
                 }
-                GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
                 GeneralConsensusMessage::ViewSyncPreCommitVote(_)
                 | GeneralConsensusMessage::ViewSyncCommitVote(_)
                 | GeneralConsensusMessage::ViewSyncFinalizeVote(_) => MessagePurpose::ViewSyncVote,
@@ -403,8 +400,12 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 GeneralConsensusMessage::ViewSyncPreCommitCertificate(_)
                 | GeneralConsensusMessage::ViewSyncCommitCertificate(_)
                 | GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => {
-                    MessagePurpose::ViewSyncProposal
+                    MessagePurpose::ViewSyncCertificate
                 }
+
+                GeneralConsensusMessage::UpgradeCertificate(_)
+                | GeneralConsensusMessage::UpgradeProposal(_)
+                | GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::Upgrade,
             },
             Right(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
@@ -435,7 +436,7 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     /// The data being proposed.
     pub data: PROPOSAL,
     /// The proposal must be signed by the view leader
-    pub signature: EncodedSignature,
+    pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     /// Phantom for TYPES
     pub _pd: PhantomData<TYPES>,
 }

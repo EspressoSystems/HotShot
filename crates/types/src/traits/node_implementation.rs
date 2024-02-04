@@ -4,98 +4,30 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 use super::{
-    block_contents::{BlockHeader, Transaction},
+    block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
-    network::{CommunicationChannel, TestableNetworkingImplementation},
-    state::{ConsensusTime, TestableBlock, TestableState},
+    network::{CommunicationChannel, NetworkReliability, TestableNetworkingImplementation},
+    states::TestableState,
     storage::{StorageError, StorageState, TestableStorage},
-    State,
+    ValidatedState,
 };
 use crate::{
     data::{Leaf, TestableLeaf},
-    message::ProcessedSequencingMessage,
     traits::{
         election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
-        storage::Storage, BlockPayload,
+        states::InstanceState, storage::Storage, BlockPayload,
     },
 };
-use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
-use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
+use commit::Committable;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
     fmt::Debug,
     hash::Hash,
-    sync::{atomic::AtomicBool, Arc},
+    ops,
+    ops::{Deref, Sub},
+    sync::Arc,
 };
-
-/// struct containing messages for a view to send to a replica or DA committee member.
-#[derive(Clone)]
-pub struct ViewQueue<TYPES: NodeType> {
-    /// to send networking events to a replica or DA committee member.
-    pub sender_chan: UnboundedSender<ProcessedSequencingMessage<TYPES>>,
-
-    /// to recv networking events for a replica or DA committee member.
-    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES>>>>,
-
-    /// `true` if this queue has already received a proposal
-    pub has_received_proposal: Arc<AtomicBool>,
-}
-
-impl<TYPES: NodeType> Default for ViewQueue<TYPES> {
-    /// create new view queue
-    fn default() -> Self {
-        let (s, r) = unbounded();
-        ViewQueue {
-            sender_chan: s,
-            receiver_chan: Arc::new(Mutex::new(r)),
-            has_received_proposal: Arc::new(AtomicBool::new(false)),
-        }
-    }
-}
-
-/// metadata for sending information to the leader, replica, or DA committee member.
-pub struct SendToTasks<TYPES: NodeType> {
-    /// the current view number
-    /// this should always be in sync with `Consensus`
-    pub cur_view: TYPES::Time,
-
-    /// a map from view number to ViewQueue
-    /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
-    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES>>,
-}
-
-impl<TYPES: NodeType> SendToTasks<TYPES> {
-    /// create new sendtosasks
-    #[must_use]
-    pub fn new(view_num: TYPES::Time) -> Self {
-        SendToTasks {
-            cur_view: view_num,
-            channel_map: BTreeMap::default(),
-        }
-    }
-}
-
-/// Channels for sending/recv-ing proposals and votes.
-#[derive(Clone)]
-pub struct ChannelMaps<TYPES: NodeType> {
-    /// Channel for the next consensus leader or DA leader.
-    pub proposal_channel: Arc<RwLock<SendToTasks<TYPES>>>,
-
-    /// Channel for the replica or DA committee member.
-    pub vote_channel: Arc<RwLock<SendToTasks<TYPES>>>,
-}
-
-impl<TYPES: NodeType> ChannelMaps<TYPES> {
-    /// Create channels starting from a given view.
-    pub fn new(start_view: TYPES::Time) -> Self {
-        Self {
-            proposal_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-            vote_channel: Arc::new(RwLock::new(SendToTasks::new(start_view))),
-        }
-    }
-}
 
 /// Node implementation aggregate trait
 ///
@@ -115,12 +47,6 @@ pub trait NodeImplementation<TYPES: NodeType>:
     type QuorumNetwork: CommunicationChannel<TYPES>;
     /// Network for those in the DA committee
     type CommitteeNetwork: CommunicationChannel<TYPES>;
-
-    /// Create channels for sending/recv-ing proposals and votes for quorum and committee
-    /// exchanges, the latter of which is only applicable for sequencing consensus.
-    fn new_channel_maps(
-        start_view: TYPES::Time,
-    ) -> (ChannelMaps<TYPES>, Option<ChannelMaps<TYPES>>);
 }
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
@@ -138,7 +64,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
     fn state_create_random_transaction(
-        state: Option<&TYPES::StateType>,
+        state: Option<&TYPES::ValidatedState>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <TYPES::BlockPayload as BlockPayload>::Transaction;
@@ -172,13 +98,14 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::CommitteeNetwork)>;
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES> for I
 where
-    TYPES::StateType: TestableState,
+    TYPES::ValidatedState: TestableState,
     TYPES::BlockPayload: TestableBlock,
     I::Storage: TestableStorage<TYPES>,
     I::QuorumNetwork: TestableChannelImplementation<TYPES>,
@@ -196,11 +123,11 @@ where
     }
 
     fn state_create_random_transaction(
-        state: Option<&TYPES::StateType>,
+        state: Option<&TYPES::ValidatedState>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(state, rng, padding)
+        <TYPES::ValidatedState as TestableState>::create_random_transaction(state, rng, padding)
     }
 
     fn leaf_create_random_transaction(
@@ -230,6 +157,7 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::CommitteeNetwork)> {
         let network_generator = <<I::QuorumNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
@@ -237,6 +165,7 @@ where
                 0,
                 da_committee_size,
                 false,
+                reliability_config.clone(),
             );
         let da_generator = <<I::CommitteeNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
@@ -244,6 +173,7 @@ where
                 1,
                 da_committee_size,
                 true,
+                reliability_config
             );
 
         Box::new(move |id| {
@@ -258,6 +188,36 @@ where
             (quorum_chan, committee_chan)
         })
     }
+}
+
+/// Trait for time compatibility needed for reward collection
+pub trait ConsensusTime:
+    PartialOrd
+    + Ord
+    + Send
+    + Sync
+    + Debug
+    + Clone
+    + Copy
+    + Hash
+    + Deref<Target = u64>
+    + serde::Serialize
+    + for<'de> serde::Deserialize<'de>
+    + ops::AddAssign<u64>
+    + ops::Add<u64, Output = Self>
+    + Sub<u64, Output = Self>
+    + 'static
+    + Committable
+{
+    /// Create a new instance of this time unit at time number 0
+    #[must_use]
+    fn genesis() -> Self {
+        Self::new(0)
+    }
+    /// Create a new instance of this time unit
+    fn new(val: u64) -> Self;
+    /// Get the u64 format of time
+    fn get_u64(&self) -> u64;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -279,13 +239,13 @@ pub trait NodeType:
 {
     /// The time type that this hotshot setup is using.
     ///
-    /// This should be the same `Time` that `StateType::Time` is using.
+    /// This should be the same `Time` that `ValidatedState::Time` is using.
     type Time: ConsensusTime;
     /// The block header type that this hotshot setup is using.
-    type BlockHeader: BlockHeader<Payload = Self::BlockPayload>;
+    type BlockHeader: BlockHeader<Payload = Self::BlockPayload, State = Self::ValidatedState>;
     /// The block type that this hotshot setup is using.
     ///
-    /// This should be the same block that `StateType::BlockPayload` is using.
+    /// This should be the same block that `ValidatedState::BlockPayload` is using.
     type BlockPayload: BlockPayload<Transaction = Self::Transaction>;
     /// The signature key that this hotshot setup is using.
     type SignatureKey: SignatureKey;
@@ -296,8 +256,16 @@ pub trait NodeType:
     /// The election config type that this hotshot setup is using.
     type ElectionConfigType: ElectionConfig;
 
-    /// The state type that this hotshot setup is using.
-    type StateType: State<BlockPayload = Self::BlockPayload, Time = Self::Time>;
+    /// The instance-level state type that this hotshot setup is using.
+    type InstanceState: InstanceState;
+
+    /// The validated state type that this hotshot setup is using.
+    type ValidatedState: ValidatedState<
+        Instance = Self::InstanceState,
+        BlockHeader = Self::BlockHeader,
+        BlockPayload = Self::BlockPayload,
+        Time = Self::Time,
+    >;
 
     /// Membership used for this implementation
     type Membership: Membership<Self>;

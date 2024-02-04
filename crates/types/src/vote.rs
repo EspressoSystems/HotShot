@@ -5,12 +5,10 @@ use std::{
     marker::PhantomData,
 };
 
-use bincode::Options;
-use bitvec::vec::BitVec;
+use bitvec::{bitvec, vec::BitVec};
 use commit::Commitment;
 use either::Either;
 use ethereum_types::U256;
-use hotshot_utils::bincode::bincode_opts;
 use tracing::error;
 
 use crate::{
@@ -19,7 +17,7 @@ use crate::{
     traits::{
         election::Membership,
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, StakeTableEntryType},
+        signature_key::{SignatureKey, StakeTableEntryType},
     },
 };
 
@@ -29,7 +27,7 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
     type Commitment: Voteable;
 
     /// Get the signature of the vote sender
-    fn get_signature(&self) -> EncodedSignature;
+    fn get_signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
     /// Gets the data which was voted on by this vote
     fn get_data(&self) -> &Self::Commitment;
     /// Gets the Data commitment of the vote
@@ -75,7 +73,14 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Get the vote commitment which the votes commit to
     fn get_data_commitment(&self) -> Commitment<Self::Voteable>;
 }
-
+/// Mapping of vote commitment to sigatures and bitvec
+type SignersMap<COMMITMENT, KEY> = HashMap<
+    COMMITMENT,
+    (
+        BitVec,
+        Vec<<KEY as SignatureKey>::PureAssembledSignatureType>,
+    ),
+>;
 /// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 pub struct VoteAccumulator<
     TYPES: NodeType,
@@ -83,11 +88,14 @@ pub struct VoteAccumulator<
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
 > {
     /// Map of all signatures accumlated so far
-    pub vote_outcomes: VoteMap2<Commitment<VOTE::Commitment>>,
-    /// A list of valid signatures for certificate aggregation
-    pub sig_lists: Vec<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType>,
+    pub vote_outcomes: VoteMap2<
+        Commitment<VOTE::Commitment>,
+        TYPES::SignatureKey,
+        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    >,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
-    pub signers: BitVec,
+    /// And a list of valid signatures for certificate aggregation
+    pub signers: SignersMap<Commitment<VOTE::Commitment>, TYPES::SignatureKey>,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
@@ -118,14 +126,8 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             .position(|x| *x == stake_table_entry.clone())
             .unwrap();
 
-        let encoded_key = key.to_bytes();
-
-        // Deserialize the signature so that it can be assembeld into a QC
-        // TODO ED Update this once we've gotten rid of EncodedSignature
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            bincode_opts()
-                .deserialize(&vote.get_signature().0)
-                .expect("Deserialization on the signature shouldn't be able to fail.");
+            vote.get_signature();
 
         let (total_stake_casted, total_vote_map) = self
             .vote_outcomes
@@ -133,25 +135,23 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             .or_insert_with(|| (U256::from(0), BTreeMap::new()));
 
         // Check for duplicate vote
-        // TODO ED Re-encoding signature key to bytes until we get rid of EncodedKey
-        // Have to do this because SignatureKey is not hashable
-        if total_vote_map.contains_key(&encoded_key) {
+        if total_vote_map.contains_key(&key) {
             return Either::Left(self);
         }
-
-        if self.signers.get(vote_node_id).as_deref() == Some(&true) {
+        let (signers, sig_list) = self
+            .signers
+            .entry(vote_commitment)
+            .or_insert((bitvec![0; membership.total_nodes()], Vec::new()));
+        if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
             return Either::Left(self);
         }
-        self.signers.set(vote_node_id, true);
-        self.sig_lists.push(original_signature);
+        signers.set(vote_node_id, true);
+        sig_list.push(original_signature);
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.get_stake();
-        total_vote_map.insert(
-            encoded_key,
-            (vote.get_signature(), vote.get_data_commitment()),
-        );
+        total_vote_map.insert(key, (vote.get_signature(), vote.get_data_commitment()));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
@@ -163,8 +163,8 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
                 &real_qc_pp,
-                self.signers.as_bitslice(),
-                &self.sig_lists[..],
+                signers.as_bitslice(),
+                &sig_list[..],
             );
 
             let cert = CERT::create_signed_certificate(
@@ -180,10 +180,4 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 }
 
 /// Mapping of commitments to vote tokens by key.
-type VoteMap2<COMMITMENT> = HashMap<
-    COMMITMENT,
-    (
-        U256,
-        BTreeMap<EncodedPublicKey, (EncodedSignature, COMMITMENT)>,
-    ),
->;
+type VoteMap2<COMMITMENT, PK, SIG> = HashMap<COMMITMENT, (U256, BTreeMap<PK, (SIG, COMMITMENT)>)>;

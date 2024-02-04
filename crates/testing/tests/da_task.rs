@@ -8,8 +8,10 @@ use hotshot_types::{
     data::{DAProposal, ViewNumber},
     simple_vote::{DAData, DAVote},
     traits::{
-        block_contents::vid_commitment, consensus_api::ConsensusApi, election::Membership,
-        node_implementation::NodeType, state::ConsensusTime,
+        block_contents::vid_commitment,
+        consensus_api::ConsensusApi,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
     },
 };
 use sha2::{Digest, Sha256};
@@ -49,7 +51,8 @@ async fn test_da_task() {
     let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
     let signature =
-        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), &encoded_transactions_hash);
+        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), &encoded_transactions_hash)
+            .expect("Failed to sign block payload");
     let proposal = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: (),
@@ -93,7 +96,8 @@ async fn test_da_task() {
         ViewNumber::new(2),
         api.public_key(),
         api.private_key(),
-    );
+    )
+    .expect("Failed to sign DAData");
     output.insert(HotShotEvent::DAVoteSend(da_vote), 1);
 
     output.insert(HotShotEvent::DAProposalRecv(message, pub_key), 1);

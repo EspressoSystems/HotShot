@@ -1,3 +1,6 @@
+//! Web server for `HotShot`
+
+/// Configuration for the webserver
 pub mod config;
 
 use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
@@ -6,9 +9,13 @@ use async_lock::RwLock;
 use clap::Args;
 use futures::FutureExt;
 
-use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
+use hotshot_types::traits::signature_key::SignatureKey;
 use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    io,
+    path::PathBuf,
+};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -17,59 +24,62 @@ use tide_disco::{
 };
 use tracing::{debug, info};
 
+/// Convience alias for a lock over the state of the app
+/// TODO this is used in two places. It might be clearer to just inline
 type State<KEY> = RwLock<WebServerState<KEY>>;
+/// Convience alias for errors in this crate
 type Error = ServerError;
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
+// TODO should the view numbers be generic over time?
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
-    proposals: HashMap<u64, (String, Vec<u8>)>,
-
-    view_sync_proposals: HashMap<u64, Vec<(u64, Vec<u8>)>>,
-
-    view_sync_proposal_index: HashMap<u64, u64>,
+    proposals: BTreeMap<u64, (String, Vec<u8>)>,
+    /// for view sync: view number -> (relay, certificate)
+    view_sync_certificates: BTreeMap<u64, Vec<(u64, Vec<u8>)>>,
+    /// view number -> relay
+    view_sync_certificate_index: HashMap<u64, u64>,
     /// view number -> (secret, da_certificates)
     da_certificates: HashMap<u64, (String, Vec<u8>)>,
-    /// view for oldest proposals in memory
-    oldest_proposal: u64,
     /// view for the most recent proposal to help nodes catchup
-    latest_quorum_proposal: u64,
+    latest_proposal: u64,
     /// view for the most recent view sync proposal
-    latest_view_sync_proposal: u64,
-
-    /// view for teh oldest DA certificate
+    latest_view_sync_certificate: u64,
+    /// view for the oldest DA certificate
     oldest_certificate: u64,
-
-    oldest_view_sync_proposal: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
-
+    /// view sync: view number -> Vec(relay, vote)
     view_sync_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> highest vote index for that view number
     vote_index: HashMap<u64, u64>,
-
+    /// view_sync: view number -> highest vote index for that view number
     view_sync_vote_index: HashMap<u64, u64>,
     /// view number of oldest votes in memory
     oldest_vote: u64,
-
+    /// view sync: view number of oldest votes in memory
     oldest_view_sync_vote: u64,
-
+    /// view number -> (secret, string)
     vid_disperses: HashMap<u64, (String, Vec<u8>)>,
+    /// view for the oldest vid disperal
     oldest_vid_disperse: u64,
+    /// view of most recent vid dispersal
     recent_vid_disperse: u64,
-
+    /// votes that a node got, that is, their VID share
     vid_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    /// oldest vid vote view number
     oldest_vid_vote: u64,
-    // recent_vid_vote: u64,
+    /// recent_vid_vote view number
     vid_certificates: HashMap<u64, (String, Vec<u8>)>,
+    /// oldest vid certificate view number
     oldest_vid_certificate: u64,
-    // recent_vid_certificate: u64,
+    /// recent_vid_certificate: u64,
     vid_vote_index: HashMap<u64, u64>,
-
     /// index -> transaction
     // TODO ED Make indexable by hash of tx
     transactions: HashMap<u64, Vec<u8>>,
+    /// tx hash -> tx index, is currently unused
     txn_lookup: HashMap<Vec<u8>, u64>,
     /// highest transaction index
     num_txns: u64,
@@ -83,16 +93,16 @@ struct WebServerState<KEY> {
 }
 
 impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
+    /// Create new web server state
     fn new() -> Self {
         Self {
-            proposals: HashMap::new(),
+            proposals: BTreeMap::new(),
             da_certificates: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
             oldest_vote: 0,
-            oldest_proposal: 0,
-            latest_quorum_proposal: 0,
-            latest_view_sync_proposal: 0,
+            latest_proposal: 0,
+            latest_view_sync_certificate: 0,
             oldest_certificate: 0,
             shutdown: None,
             stake_table: Vec::new(),
@@ -100,7 +110,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             transactions: HashMap::new(),
             txn_lookup: HashMap::new(),
             _prng: StdRng::from_entropy(),
-            view_sync_proposals: HashMap::new(),
+            view_sync_certificates: BTreeMap::new(),
             view_sync_votes: HashMap::new(),
             view_sync_vote_index: HashMap::new(),
 
@@ -117,14 +127,18 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             vid_vote_index: HashMap::new(),
 
             oldest_view_sync_vote: 0,
-            oldest_view_sync_proposal: 0,
-            view_sync_proposal_index: HashMap::new(),
+            view_sync_certificate_index: HashMap::new(),
         }
     }
+    /// Provide a shutdown signal to the server
+    /// # Panics
+    /// Panics if already shut down
+    #[allow(clippy::panic)]
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
-        if self.shutdown.is_some() {
-            panic!("A shutdown signal is already registered and can not be registered twice");
-        }
+        assert!(
+            self.shutdown.is_none(),
+            "A shutdown signal is already registered and can not be registered twice"
+        );
         self.shutdown = shutdown_listener;
         self
     }
@@ -132,16 +146,34 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
+    /// Get proposal
+    /// # Errors
+    /// Error if unable to serve.
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_latest_quorum_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_latest_view_sync_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_view_sync_proposal(
+    /// Get latest quanrum proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_latest_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get latest view sync proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_latest_view_sync_certificate(&self) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get view sync proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_view_sync_certificate(
         &self,
         view_number: u64,
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
+    /// Get vote
+    /// # Errors
+    /// Error if unable to serve.
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get view sync votes
+    /// # Errors
+    /// Error if unable to serve.
     fn get_view_sync_votes(
         &self,
         view_number: u64,
@@ -149,29 +181,84 @@ pub trait WebServerDataSource<KEY> {
     ) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
     #[allow(clippy::type_complexity)]
+    /// Get transactions
+    /// # Errors
+    /// Error if unable to serve.
     fn get_transactions(&self, index: u64) -> Result<Option<(u64, Vec<Vec<u8>>)>, Error>;
+    /// Get da certificate
+    /// # Errors
+    /// Error if unable to serve.
     fn get_da_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Post vote
+    /// # Errors
+    /// Error if unable to serve.
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    /// Post view sync vote
+    /// # Errors
+    /// Error if unable to serve.
     fn post_view_sync_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
 
+    /// Post proposal
+    /// # Errors
+    /// Error if unable to serve.
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
-    fn post_view_sync_proposal(&mut self, view_number: u64, proposal: Vec<u8>)
-        -> Result<(), Error>;
+    /// Post view sync certificate
+    /// # Errors
+    /// Error if unable to serve.
+    fn post_view_sync_certificate(
+        &mut self,
+        view_number: u64,
+        certificate: Vec<u8>,
+    ) -> Result<(), Error>;
 
+    /// Post data avaiability certificate
+    /// # Errors
+    /// Error if unable to serve.
     fn post_da_certificate(&mut self, view_number: u64, cert: Vec<u8>) -> Result<(), Error>;
+    /// Post transaction
+    /// # Errors
+    /// Error if unable to serve.
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
+    /// Post staketable
+    /// # Errors
+    /// Error if unable to serve.
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
+    /// Post completed transaction
+    /// # Errors
+    /// Error if unable to serve.
     fn post_completed_transaction(&mut self, block: Vec<u8>) -> Result<(), Error>;
+    /// Post secret proposal
+    /// # Errors
+    /// Error if unable to serve.
     fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
+    /// Post proposal
+    /// # Errors
+    /// Error if unable to serve.
     fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)>;
-
+    /// Post vid disperal
+    /// # Errors
+    /// Error if unable to serve.
     fn post_vid_disperse(&mut self, view_number: u64, disperse: Vec<u8>) -> Result<(), Error>;
+    /// Post vid vote
+    /// # Errors
+    /// Error if unable to serve.
     fn post_vid_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    /// post vid certificate
+    /// # Errors
+    /// Error if unable to serve.
     fn post_vid_certificate(&mut self, view_number: u64, certificate: Vec<u8>)
         -> Result<(), Error>;
-
+    /// Get vid dispersal
+    /// # Errors
+    /// Error if unable to serve.
     fn get_vid_disperse(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get vid votes
+    /// # Errors
+    /// Error if unable to serve.
     fn get_vid_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get vid certificates
+    /// # Errors
+    /// Error if unable to serve.
     fn get_vid_certificate(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
 }
 
@@ -219,30 +306,30 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
-    fn get_latest_quorum_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        self.get_proposal(self.latest_quorum_proposal)
+    fn get_latest_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        self.get_proposal(self.latest_proposal)
     }
 
-    fn get_latest_view_sync_proposal(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        self.get_view_sync_proposal(self.latest_view_sync_proposal, 0)
+    fn get_latest_view_sync_certificate(&self) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        self.get_view_sync_certificate(self.latest_view_sync_certificate, 0)
     }
 
-    fn get_view_sync_proposal(
+    fn get_view_sync_certificate(
         &self,
         view_number: u64,
         index: u64,
     ) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        let proposals = self.view_sync_proposals.get(&view_number);
+        let proposals = self.view_sync_certificates.get(&view_number);
         let mut ret_proposals = vec![];
         if let Some(cert) = proposals {
-            for i in index..*self.view_sync_proposal_index.get(&view_number).unwrap() {
-                ret_proposals.push(cert[i as usize].1.clone());
+            for i in index..*self.view_sync_certificate_index.get(&view_number).unwrap() {
+                ret_proposals.push(cert[usize::try_from(i).unwrap()].1.clone());
             }
         }
-        if !ret_proposals.is_empty() {
-            Ok(Some(ret_proposals))
-        } else {
+        if ret_proposals.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(ret_proposals))
         }
     }
 
@@ -252,13 +339,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
-                ret_votes.push(votes[i as usize].1.clone());
+                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
             }
         }
-        if !ret_votes.is_empty() {
-            Ok(Some(ret_votes))
-        } else {
+        if ret_votes.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(ret_votes))
         }
     }
 
@@ -268,13 +355,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut ret_votes = vec![];
         if let Some(vid_votes) = vid_votes {
             for i in index..*self.vid_vote_index.get(&view_number).unwrap() {
-                ret_votes.push(vid_votes[i as usize].1.clone());
+                ret_votes.push(vid_votes[usize::try_from(i).unwrap()].1.clone());
             }
         }
-        if !ret_votes.is_empty() {
-            Ok(Some(ret_votes))
-        } else {
+        if ret_votes.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(ret_votes))
         }
     }
 
@@ -287,13 +374,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.view_sync_vote_index.get(&view_number).unwrap() {
-                ret_votes.push(votes[i as usize].1.clone());
+                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
             }
         }
-        if !ret_votes.is_empty() {
-            Ok(Some(ret_votes))
-        } else {
+        if ret_votes.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(ret_votes))
         }
     }
 
@@ -306,34 +393,34 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let lowest_in_memory_txs = if self.num_txns < MAX_TXNS.try_into().unwrap() {
             0
         } else {
-            self.num_txns as usize - MAX_TXNS
+            usize::try_from(self.num_txns).unwrap() - MAX_TXNS
         };
 
-        let starting_index = if (index as usize) < lowest_in_memory_txs {
+        let starting_index = if (usize::try_from(index).unwrap()) < lowest_in_memory_txs {
             lowest_in_memory_txs
         } else {
-            index as usize
+            usize::try_from(index).unwrap()
         };
 
         for idx in starting_index..=self.num_txns.try_into().unwrap() {
             if let Some(txn) = self.transactions.get(&(idx as u64)) {
-                txns_to_return.push(txn.clone())
+                txns_to_return.push(txn.clone());
             }
-            if txns_to_return.len() >= TX_BATCH_SIZE as usize {
+            if txns_to_return.len() >= usize::try_from(TX_BATCH_SIZE).unwrap() {
                 break;
             }
         }
 
-        if !txns_to_return.is_empty() {
-            debug!("Returning this many txs {}", txns_to_return.len());
-            //starting_index is the oldest index of the returned txns
-            Ok(Some((starting_index as u64, txns_to_return)))
-        } else {
+        if txns_to_return.is_empty() {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
                 status: StatusCode::NotImplemented,
                 message: format!("Transaction not found for index {index}"),
             })
+        } else {
+            debug!("Returning this many txs {}", txns_to_return.len());
+            //starting_index is the oldest index of the returned txns
+            Ok(Some((starting_index as u64, txns_to_return)))
         }
     }
 
@@ -469,16 +556,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
         info!("Received proposal for view {}", view_number);
 
-        if view_number > self.latest_quorum_proposal {
-            self.latest_quorum_proposal = view_number;
+        if view_number > self.latest_proposal {
+            self.latest_proposal = view_number;
         }
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
-            self.proposals.remove(&self.oldest_proposal);
-            while !self.proposals.contains_key(&self.oldest_proposal) {
-                self.oldest_proposal += 1;
-            }
+            self.proposals.pop_first();
         }
         self.proposals
             .entry(view_number)
@@ -507,35 +591,28 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_view_sync_proposal(
+    fn post_view_sync_certificate(
         &mut self,
         view_number: u64,
         proposal: Vec<u8>,
     ) -> Result<(), Error> {
-        if view_number > self.latest_view_sync_proposal {
-            self.latest_view_sync_proposal = view_number;
+        if view_number > self.latest_view_sync_certificate {
+            self.latest_view_sync_certificate = view_number;
         }
 
         // Only keep proposal history for MAX_VIEWS number of view
-        if self.view_sync_proposals.len() >= MAX_VIEWS {
-            self.view_sync_proposals
-                .remove(&self.oldest_view_sync_proposal);
-            while !self
-                .view_sync_proposals
-                .contains_key(&self.oldest_view_sync_proposal)
-            {
-                self.oldest_view_sync_proposal += 1;
-            }
+        if self.view_sync_certificates.len() >= MAX_VIEWS {
+            self.view_sync_certificates.pop_first();
         }
         let next_index = self
-            .view_sync_proposal_index
+            .view_sync_certificate_index
             .entry(view_number)
             .or_insert(0);
-        self.view_sync_proposals
+        self.view_sync_certificates
             .entry(view_number)
             .and_modify(|current_props| current_props.push((*next_index, proposal.clone())))
             .or_insert_with(|| vec![(*next_index, proposal)]);
-        self.view_sync_proposal_index
+        self.view_sync_certificate_index
             .entry(view_number)
             .and_modify(|index| *index += 1);
         Ok(())
@@ -605,24 +682,20 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error> {
         // KALEY TODO: need security checks here
-        let new_key = KEY::from_bytes(&(EncodedPublicKey(key)));
-        if let Some(new_key) = new_key {
-            let node_index = self.stake_table.len() as u64;
-            //generate secret for leader's first submission endpoint when key is added
-            let secret = thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(30)
-                .map(char::from)
-                .collect();
-            self.proposals.insert(node_index, (secret, Vec::new()));
-            self.stake_table.push(new_key);
-            Ok(())
-        } else {
-            Err(ServerError {
-                status: StatusCode::BadRequest,
-                message: "Only signature keys can be added to stake table".to_string(),
-            })
-        }
+        let new_key = KEY::from_bytes(&key).map_err(|_| ServerError {
+            status: StatusCode::BadRequest,
+            message: "Only signature keys can be added to stake table".to_string(),
+        })?;
+        let node_index = self.stake_table.len() as u64;
+        //generate secret for leader's first submission endpoint when key is added
+        let secret = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        self.proposals.insert(node_index, (secret, Vec::new()));
+        self.stake_table.push(new_key);
+        Ok(())
     }
 
     fn post_completed_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
@@ -648,10 +721,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         // Only keep proposal history for MAX_VIEWS number of views
         if self.proposals.len() >= MAX_VIEWS {
-            self.proposals.remove(&self.oldest_proposal);
-            while !self.proposals.contains_key(&self.oldest_proposal) {
-                self.oldest_proposal += 1;
-            }
+            self.proposals.pop_first();
         }
         self.proposals
             .entry(view_number)
@@ -670,13 +740,16 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
 }
 
+/// configurability options for the web server
 #[derive(Args, Default)]
 pub struct Options {
     #[arg(long = "web-server-api-path", env = "WEB_SERVER_API_PATH")]
+    /// path to API
     pub api_path: Option<PathBuf>,
 }
 
 /// Sets up all API routes
+#[allow(clippy::too_many_lines)]
 fn define_api<State, KEY>(options: &Options) -> Result<Api<State, Error>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
@@ -708,17 +781,17 @@ where
         }
         .boxed()
     })?
-    .get("get_latest_quorum_proposal", |_req, state| {
-        async move { state.get_latest_quorum_proposal() }.boxed()
+    .get("get_latest_proposal", |_req, state| {
+        async move { state.get_latest_proposal() }.boxed()
     })?
-    .get("get_latest_view_sync_proposal", |_req, state| {
-        async move { state.get_latest_view_sync_proposal() }.boxed()
+    .get("get_latest_view_sync_certificate", |_req, state| {
+        async move { state.get_latest_view_sync_certificate() }.boxed()
     })?
-    .get("getviewsyncproposal", |req, state| {
+    .get("getviewsynccertificate", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let index: u64 = req.integer_param("index")?;
-            state.get_view_sync_proposal(view_number, index)
+            state.get_view_sync_certificate(view_number, index)
         }
         .boxed()
     })?
@@ -786,11 +859,11 @@ where
         }
         .boxed()
     })?
-    .post("postviewsyncproposal", |req, state| {
+    .post("postviewsynccertificate", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
-            state.post_view_sync_proposal(view_number, proposal)
+            state.post_view_sync_certificate(view_number, proposal)
         }
         .boxed()
     })?
@@ -839,21 +912,20 @@ where
                         Err(ServerError {
                             status: StatusCode::BadRequest,
                             message: format!(
-                                "Wrong secret value for proposal for view {:?}",
-                                view_number
+                                "Wrong secret value for proposal for view {view_number:?}"
                             ),
                         })
                     }
                 } else {
                     Err(ServerError {
                         status: StatusCode::BadRequest,
-                        message: format!("Proposal already submitted for view {:?}", view_number),
+                        message: format!("Proposal already submitted for view {view_number:?}"),
                     })
                 }
             } else {
                 Err(ServerError {
                     status: StatusCode::BadRequest,
-                    message: format!("No endpoint for view number {} yet", view_number),
+                    message: format!("No endpoint for view number {view_number:?} yet"),
                 })
             }
         }
@@ -862,17 +934,23 @@ where
     Ok(api)
 }
 
+/// run the web server
+/// # Errors
+/// TODO
+/// this looks like it will panic not error
+/// # Panics
+/// on errors creating or registering the tide disco api
 pub async fn run_web_server<KEY: SignatureKey + 'static>(
     shutdown_listener: Option<OneShotReceiver<()>>,
     url: Url,
 ) -> io::Result<()> {
     let options = Options::default();
 
-    let api = define_api(&options).unwrap();
+    let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
-    app.register_module("api", api).unwrap();
+    app.register_module("api", web_api).unwrap();
 
     let app_future = app.serve(url);
 
