@@ -7,13 +7,14 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
-        state::TestableBlock,
-        BlockPayload,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        BlockPayload, ValidatedState,
     },
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
+
+use crate::state_types::TestValidatedState;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -181,11 +182,14 @@ pub struct TestBlockHeader {
 
 impl BlockHeader for TestBlockHeader {
     type Payload = TestBlockPayload;
+    type State = TestValidatedState;
 
     fn new(
+        _parent_state: &Self::State,
+        _instance_state: &<Self::State as ValidatedState>::Instance,
+        parent_header: &Self,
         payload_commitment: VidCommitment,
         _metadata: <Self::Payload as BlockPayload>::Metadata,
-        parent_header: &Self,
     ) -> Self {
         Self {
             block_number: parent_header.block_number + 1,
@@ -193,7 +197,9 @@ impl BlockHeader for TestBlockHeader {
         }
     }
 
-    fn genesis() -> (
+    fn genesis(
+        _instance_state: &<Self::State as ValidatedState>::Instance,
+    ) -> (
         Self,
         Self::Payload,
         <Self::Payload as BlockPayload>::Metadata,
