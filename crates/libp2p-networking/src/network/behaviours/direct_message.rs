@@ -4,7 +4,7 @@ use std::{
 };
 
 use libp2p::{
-    request_response::{Behaviour, Event, Message, RequestId, ResponseChannel},
+    request_response::{cbor::Behaviour, Event, Message, RequestId, ResponseChannel},
     swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
@@ -32,7 +32,7 @@ pub struct DMRequest {
 /// usage: direct message peer
 pub struct DMBehaviour {
     /// The wrapped behaviour
-    request_response: Behaviour<DirectMessageCodec>,
+    request_response: request_response::cbor::Behaviour<Vec<u8>, Vec<u8>>,
     /// In progress queries
     in_progress_rr: HashMap<RequestId, DMRequest>,
     /// Failed queries to be retried
@@ -117,13 +117,13 @@ impl DMBehaviour {
 }
 
 impl NetworkBehaviour for DMBehaviour {
-    type ConnectionHandler = <Behaviour<DirectMessageCodec> as NetworkBehaviour>::ConnectionHandler;
+    type ConnectionHandler = <Behaviour<Vec<u8>, Vec<u8>> as NetworkBehaviour>::ConnectionHandler;
 
     type ToSwarm = DMEvent;
 
     fn on_swarm_event(
         &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>,
+        event: libp2p::swarm::derive_prelude::FromSwarm<'_>,
     ) {
         self.request_response.on_swarm_event(event);
     }
@@ -141,7 +141,6 @@ impl NetworkBehaviour for DMBehaviour {
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl libp2p::swarm::PollParameters,
     ) -> Poll<ToSwarm<DMEvent, THandlerInEvent<Self>>> {
         while let Some(req) = self.failed_rr.pop_front() {
             if req.backoff.is_expired() {
@@ -151,7 +150,7 @@ impl NetworkBehaviour for DMBehaviour {
             }
         }
         while let Poll::Ready(ready) =
-            NetworkBehaviour::poll(&mut self.request_response, cx, params)
+            NetworkBehaviour::poll(&mut self.request_response, cx)
         {
             match ready {
                 // NOTE: this generates request

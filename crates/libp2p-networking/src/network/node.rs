@@ -216,7 +216,7 @@ impl NetworkNode {
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
-                .map_err(|s| GossipsubConfigSnafu { message: s }.build())?;
+                .map_err(|s| GossipsubConfigSnafu { message: s.to_string() }.build())?;
 
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
@@ -437,7 +437,6 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEventInternal,
-            Either<Either<Either<void::Void, Error>, Error>, void::Void>,
         >,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
@@ -498,6 +497,9 @@ impl NetworkNode {
                 listener_id: _,
                 address: _,
             }
+            | SwarmEvent::NewExternalAddrCandidate { .. }
+            | SwarmEvent::ExternalAddrConfirmed { .. }
+            | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: _,
                 local_addr: _,
@@ -582,6 +584,9 @@ impl NetworkNode {
             }
             SwarmEvent::ListenerError { listener_id, error } => {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
+            }
+            _ => {
+                error!("Unhandled swarm event {:?}. This should not be possible.", event);
             }
         }
         Ok(())

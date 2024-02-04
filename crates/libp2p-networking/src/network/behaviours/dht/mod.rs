@@ -553,7 +553,6 @@ impl NetworkBehaviour for DHTBehaviour {
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl libp2p::swarm::PollParameters,
     ) -> Poll<ToSwarm<DHTEvent, THandlerInEvent<Self>>> {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
@@ -608,7 +607,7 @@ impl NetworkBehaviour for DHTBehaviour {
         }
 
         // poll behaviour which is a passthrough and call inject event
-        while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx, params) {
+        while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx) {
             match ready {
                 ToSwarm::GenerateEvent(e) => {
                     self.dht_handle_event(e);
@@ -661,7 +660,7 @@ impl NetworkBehaviour for DHTBehaviour {
 
     fn on_swarm_event(
         &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>,
+        event: libp2p::swarm::derive_prelude::FromSwarm<'_>,
     ) {
         self.kadem.on_swarm_event(event);
     }
