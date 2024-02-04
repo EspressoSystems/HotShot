@@ -665,10 +665,7 @@ impl NetworkBehaviour for DHTBehaviour {
         Poll::Pending
     }
 
-    fn on_swarm_event(
-        &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<'_>,
-    ) {
+    fn on_swarm_event(&mut self, event: libp2p::swarm::derive_prelude::FromSwarm<'_>) {
         self.kadem.on_swarm_event(event);
     }
 

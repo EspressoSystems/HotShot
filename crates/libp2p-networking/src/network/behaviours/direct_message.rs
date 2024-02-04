@@ -122,10 +122,7 @@ impl NetworkBehaviour for DMBehaviour {
 
     type ToSwarm = DMEvent;
 
-    fn on_swarm_event(
-        &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<'_>,
-    ) {
+    fn on_swarm_event(&mut self, event: libp2p::swarm::derive_prelude::FromSwarm<'_>) {
         self.request_response.on_swarm_event(event);
     }
 
@@ -150,9 +147,7 @@ impl NetworkBehaviour for DMBehaviour {
                 self.failed_rr.push_back(req);
             }
         }
-        while let Poll::Ready(ready) =
-            NetworkBehaviour::poll(&mut self.request_response, cx)
-        {
+        while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.request_response, cx) {
             match ready {
                 // NOTE: this generates request
                 ToSwarm::GenerateEvent(e) => {

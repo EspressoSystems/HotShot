@@ -220,7 +220,12 @@ impl NetworkNode {
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
-                .map_err(|s| GossipsubConfigSnafu { message: s.to_string() }.build())?;
+                .map_err(|s| {
+                    GossipsubConfigSnafu {
+                        message: s.to_string(),
+                    }
+                    .build()
+                })?;
 
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
@@ -439,9 +444,7 @@ impl NetworkNode {
     #[instrument(skip(self))]
     async fn handle_swarm_events(
         &mut self,
-        event: SwarmEvent<
-            NetworkEventInternal,
-        >,
+        event: SwarmEvent<NetworkEventInternal>,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
@@ -590,7 +593,10 @@ impl NetworkNode {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
             _ => {
-                error!("Unhandled swarm event {:?}. This should not be possible.", event);
+                error!(
+                    "Unhandled swarm event {:?}. This should not be possible.",
+                    event
+                );
             }
         }
         Ok(())

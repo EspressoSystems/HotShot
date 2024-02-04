@@ -64,10 +64,7 @@ impl NetworkBehaviour for GossipBehaviour {
 
     type ToSwarm = GossipEvent;
 
-    fn on_swarm_event(
-        &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<'_>,
-    ) {
+    fn on_swarm_event(&mut self, event: libp2p::swarm::derive_prelude::FromSwarm<'_>) {
         self.gossipsub.on_swarm_event(event);
     }
 
