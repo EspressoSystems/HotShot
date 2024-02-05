@@ -29,6 +29,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
+use libp2p_networking::network::network_node_handle_error::SerializationSnafu;
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]
@@ -205,7 +206,7 @@ where
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
-                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
+                let replication_factor = NonZeroUsize::new(expected_node_count - 1).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         // NOTICE the implicit assumption that bootstrap is less
@@ -410,7 +411,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
                     if let Err(err) = handle.lookup_node::<K>(pk.clone(), dht_timeout).await {
-                        error!("Failed to perform lookup for key {:?}: {}", pk, err);
+                        // error!("Failed to perform lookup for key {:?}: {}", bincode_opts().serialize(&pk).context(SerializationSnafu).unwrap(), err);
                     };
                 }
             }
@@ -485,10 +486,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // we want our records published before
                 // we begin participating in consensus
                 while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
-                    async_sleep(Duration::from_secs(1)).await;
+                    async_sleep(Duration::from_millis(100)).await;
                 }
 
-                info!(
+                error!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -761,8 +762,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             Err(err) => {
                 self.inner.metrics.message_failed_to_send.add(1);
                 error!(
-                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
-                    message, recipient
+                    "Failed to message because could not find recipient peer id for pk {:?}",
+                    bincode_opts().serialize(&recipient).context(SerializationSnafu).unwrap()
                 );
                 return Err(NetworkError::Libp2p { source: err });
             }

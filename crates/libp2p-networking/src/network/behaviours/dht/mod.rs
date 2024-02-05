@@ -219,7 +219,6 @@ impl DHTBehaviour {
                 self.queued_put_record_queries.push_back(query);
             }
             Ok(qid) => {
-                info!("Success publishing {:?} to DHT", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -253,6 +252,7 @@ impl DHTBehaviour {
                 error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
+            error!("DHT cache miss, key: {:?}", key);
             // doesn't exist in cache, actually propagate request
             let qid = self.kadem.get_record(key.clone().into());
             let query = KadGetQuery {

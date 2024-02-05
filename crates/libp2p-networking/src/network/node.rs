@@ -123,7 +123,7 @@ impl NetworkNode {
     /// will start connecting to peers
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
-        info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
+        error!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         let mut shuffled = known_peers.iter().collect::<Vec<_>>();
