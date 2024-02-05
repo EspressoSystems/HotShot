@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["NUM_REPLICATED_TO_TRUST","_DERIVE_core_fmt_Debug_FOR_NetworkDef"],"struct":["NetworkDef"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_NetworkDef"],"struct":["NetworkDef"]};
