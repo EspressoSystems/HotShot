@@ -241,6 +241,15 @@
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -253,6 +262,7 @@
         block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
+    utils::BuilderCommitment,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};
@@ -401,6 +411,14 @@
             .iter()
             .map(commit::Committable::commit)
             .collect()
+    }
+
+    <span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment {
+        <span class="kw">let </span><span class="kw-2">mut </span>digest = sha2::Sha256::new();
+        <span class="kw">for </span>txn <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.transactions {
+            digest.update(<span class="kw-2">&amp;</span>txn.<span class="number">0</span>);
+        }
+        BuilderCommitment::from_raw_digest(digest.finalize())
     }
 }
 

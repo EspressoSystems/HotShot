@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Terminator","ViewInner"],"struct":["RoundFinishedEvent","View"]};
+window.SIDEBAR_ITEMS = {"enum":["Terminator","ViewInner"],"struct":["BuilderCommitment","RoundFinishedEvent","View"],"type":["Sha256Digest"]};
