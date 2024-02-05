@@ -296,6 +296,8 @@ impl TaskRegistry {
         self.register(join_handle).await;
     }
     /// Wait for the results of all the tasks registered
+    /// # Panics
+    /// Panics if one of the tasks paniced
     pub async fn join_all(self) -> Vec<()> {
         #[cfg(async_executor_impl = "async-std")]
         let ret = join_all(self.task_handles.into_inner()).await;
@@ -370,6 +372,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[allow(unused_must_use)]
     async fn it_works() {
         let reg = Arc::new(TaskRegistry::default());
         let (tx, rx) = broadcast(10);

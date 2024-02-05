@@ -93,6 +93,8 @@ mod test {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    // allow unused for tokio because it's a test
+    #[allow(unused_must_use)]
     async fn it_works() {
         let (tx, rx) = broadcast(10);
         let (res_tx, mut res_rx) = broadcast(10);
@@ -101,6 +103,7 @@ mod test {
         let join_handle = DependencyTask { dep, handle }.run();
         tx.broadcast(2).await.unwrap();
         assert_eq!(res_rx.recv().await.unwrap(), TaskResult::Success(2));
+
         join_handle.await;
     }
 
