@@ -1,4 +1,4 @@
-<mxfile host="Electron" modified="2024-02-02T15:24:43.436Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/23.0.2 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="uiEvOdPmScCHQrMHY2qL" version="23.0.2" type="device" pages="7">
+<mxfile host="Electron" modified="2024-02-05T15:25:14.894Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/23.0.2 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="nIo8h6b5EHWWjPH-ddaY" version="23.0.2" type="device" pages="7">
   <diagram id="ADqwHOWVw94lml6pQkJ5" name="Template">
     <mxGraphModel dx="1242" dy="818" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -401,7 +401,7 @@
         <mxCell id="bGltdMpPFPNPKB7S5yFq-9" value="Is proposal view sync commit&#39;s certificate view equal to proposal&#39;s view?&amp;nbsp;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="779.5" y="1180" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="KeJ-MgEJR0mc3nozKlLl-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KeJ-MgEJR0mc3nozKlLl-1">
+        <mxCell id="KeJ-MgEJR0mc3nozKlLl-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KeJ-MgEJR0mc3nozKlLl-1" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="bGltdMpPFPNPKB7S5yFq-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KNZv4TGAp9zdyb55509J-41" edge="1">
@@ -598,7 +598,7 @@
         <mxCell id="cKMBn_hYGvpmcsBPfW0e-1" value="Store proposal in state map" style="strokeWidth=2;html=1;shape=datastore;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
           <mxGeometry x="95.5" y="2760" width="90" height="100" as="geometry" />
         </mxCell>
-        <mxCell id="KeJ-MgEJR0mc3nozKlLl-1" value="ViewSyncCommitCertRecv(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" vertex="1" parent="1">
+        <mxCell id="KeJ-MgEJR0mc3nozKlLl-1" value="ViewSyncCommitCertRecv(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="734.5" y="1560" width="210" height="60" as="geometry" />
         </mxCell>
         <mxCell id="_MXV2LbIbXkBIwIddAVt-1" value="Annotations" parent="0" />
@@ -697,7 +697,7 @@
         <mxCell id="kk7_qMnYcO-ovZKg4tNN-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-48" target="4XAwg8-d-pzoQ1rgx3KM-50" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-48" value="Store DA proposal in our state map" style="strokeWidth=2;html=1;shape=datastore;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-48" value="Store DA proposal + VID commitmentin our state map" style="strokeWidth=2;html=1;shape=datastore;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
           <mxGeometry x="105" y="1220" width="90" height="100" as="geometry" />
         </mxCell>
         <mxCell id="vJKDEQ1gt5N6olOfmioH-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-50" target="vJKDEQ1gt5N6olOfmioH-1" edge="1">
