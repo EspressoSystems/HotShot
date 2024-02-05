@@ -163,7 +163,7 @@ impl BlockPayload for TestBlockPayload {
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
-        for txn in self.transactions.iter() {
+        for txn in &self.transactions {
             digest.update(&txn.0);
         }
         BuilderCommitment::from_raw_digest(digest.finalize())
