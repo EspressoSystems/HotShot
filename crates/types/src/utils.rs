@@ -107,6 +107,7 @@ pub enum Terminator<T> {
     Inclusive(T),
 }
 
+/// Type alias for byte array of SHA256 digest length
 type Sha256Digest = [u8; <sha2::Sha256 as OutputSizeUser>::OutputSize::USIZE];
 
 #[tagged("BUILDER_COMMITMENT")]
