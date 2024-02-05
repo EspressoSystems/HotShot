@@ -491,7 +491,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.32",
+ "time 0.3.34",
 ]
 
 [[package]]
@@ -2699,7 +2699,7 @@ dependencies = [
  "serde",
  "snafu",
  "surf-disco",
- "time 0.3.32",
+ "time 0.3.34",
  "tokio",
  "toml 0.8.9",
  "tracing",
@@ -2791,7 +2791,7 @@ dependencies = [
  "hotshot-utils",
  "sha2 0.10.8",
  "snafu",
- "time 0.3.32",
+ "time 0.3.34",
  "tokio",
  "tracing",
 ]
@@ -2893,7 +2893,7 @@ dependencies = [
  "sha2 0.10.8",
  "snafu",
  "tagged-base64",
- "time 0.3.32",
+ "time 0.3.34",
  "tokio",
  "tracing",
  "typenum",
@@ -5463,7 +5463,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring 0.16.20",
- "time 0.3.32",
+ "time 0.3.34",
  "yasna",
 ]
 
@@ -5954,7 +5954,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros",
- "time 0.3.32",
+ "time 0.3.34",
 ]
 
 [[package]]
@@ -6724,9 +6724,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe80ced77cbfb4cb91a94bf72b378b4b6791a0d9b7f09d0be747d1bdff4e68bd"
+checksum = "c8248b6521bb14bc45b4067159b9b6ad792e2d6d754d6c41fb50e29fefe38749"
 dependencies = [
  "deranged",
  "itoa",
@@ -7763,7 +7763,7 @@ dependencies = [
  "oid-registry",
  "rusticata-macros",
  "thiserror",
- "time 0.3.32",
+ "time 0.3.34",
 ]
 
 [[package]]
@@ -7811,7 +7811,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
- "time 0.3.32",
+ "time 0.3.34",
 ]
 
 [[package]]
