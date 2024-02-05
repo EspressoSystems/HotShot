@@ -3,26 +3,29 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    state_types::TestInstanceState,
+    test_launcher::TaskGenerator,
+    test_runner::{LateStartNode, Node, TestRunner},
+};
 use async_compatibility_layer::channel::UnboundedStream;
+use either::{Left, Right};
 use futures::FutureExt;
-use hotshot::traits::TestableNodeImplementation;
+use hotshot::{traits::TestableNodeImplementation, HotShotInitializer};
 use hotshot_task::{
     event_stream::ChannelStream,
     task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
     task_impls::{HSTWithEventAndMessage, TaskBuilder},
     MergeN,
 };
-use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
-    event::Event,
+    data::Leaf,
+    event::{Event, EventType},
+    traits::network::CommunicationChannel,
     traits::node_implementation::{ConsensusTime, NodeType},
+    ValidatorConfig,
 };
 use snafu::Snafu;
-
-use crate::{
-    test_launcher::TaskGenerator,
-    test_runner::{LateStartNode, Node},
-};
 /// convience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -71,20 +74,25 @@ pub struct ChangeNode {
 /// description of the spinning task
 /// (used to build a spinning task)
 #[derive(Clone, Debug)]
-pub struct SpinningTaskDescription {
+pub struct SpinningTaskDescription<TYPES: NodeType> {
     /// the changes in node status, time -> changes
     pub node_changes: Vec<(u64, Vec<ChangeNode>)>,
+
+    /// Last decided leaf that can be used as the anchor leaf to initialize the node.
+    pub last_decided_leaf: Leaf<TYPES>,
 }
 
-impl SpinningTaskDescription {
+impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription<TYPES> {
     /// build a task
     /// # Panics
     /// If there is no latest view
     /// or if the node id is over `u32::MAX`
     #[must_use]
     #[allow(clippy::too_many_lines)]
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-        self,
+    pub fn build<
+        I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
+    >(
+        mut self,
     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
         Box::new(move |mut state, mut registry, test_event_stream| {
             async move {
@@ -111,8 +119,14 @@ impl SpinningTaskDescription {
                         async move {
                             let Event {
                                 view_number,
-                                event: _,
+                                event,
                             } = msg.1;
+
+                            if let EventType::Decide{leaf_chain,..} = event {
+                                if let Some(leaf) = leaf_chain.first() {
+                                    self.last_decided_leaf = leaf.clone();
+                                }
+                            };
 
                             // if we have not seen this view before
                             if state.latest_view.is_none()
@@ -141,12 +155,34 @@ impl SpinningTaskDescription {
                                                             "Node {} spinning up late",
                                                             idx
                                                         );
+                                                        let node_id = idx.try_into().unwrap();
+                                                        let context = match node.context {
+                                                            Left(context) => context,
+                                                            // Node not initialized. Initialize it
+                                                            // based on the received leaf.
+                                                            Right((storage, config)) => {
+                                                                let initializer =
+                                                                    HotShotInitializer::<TYPES>::from_reload(self.last_decided_leaf.clone(), TestInstanceState {}, view);
+                                                                // We assign node's public key and stake value rather than read from config file since it's a test
+                                                                let validator_config =
+                                                                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
+                                                                TestRunner::add_node_with_config(
+                                                                    node_id,
+                                                                    node.networks.clone(),
+                                                                    storage,
+                                                                    initializer,
+                                                                    config,
+                                                                    validator_config,
+                                                                )
+                                                                .await
+                                                            }
+                                                        };
 
                                                         // create node and add to state, so we can shut them down properly later
                                                         let node = Node {
-                                                            node_id: idx.try_into().unwrap(),
+                                                            node_id,
                                                             networks: node.networks,
-                                                            handle: node.context.run_tasks().await,
+                                                            handle: context.run_tasks().await,
                                                         };
 
                                                         // bootstrap consensus by sending the event

@@ -49,7 +49,7 @@ cross_tests!(
         }];
 
         metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)],
+            node_changes: vec![(5, dead_nodes)], last_decided_leaf: Leaf::genesis(&TestInstanceState{}),
         };
         metadata.overall_safety_properties.num_failed_views = 3;
         metadata.overall_safety_properties.num_successful_views = 25;
@@ -88,7 +88,7 @@ cross_tests!(
         ];
 
         metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)],
+            node_changes: vec![(5, dead_nodes)], last_decided_leaf: Leaf::genesis(&TestInstanceState{}),
         };
 
         metadata.overall_safety_properties.num_failed_views = 3;
@@ -145,7 +145,7 @@ cross_tests!(
             ];
 
         metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)],
+            node_changes: vec![(5, dead_nodes)], last_decided_leaf: Leaf::genesis(&TestInstanceState{}),
         };
 
         metadata
@@ -181,7 +181,7 @@ cross_tests!(
         ];
 
         metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)],
+            node_changes: vec![(5, dead_nodes)], last_decided_leaf: Leaf::genesis(&TestInstanceState{}),
         };
 
         // 2 nodes fail triggering view sync, expect no other timeouts

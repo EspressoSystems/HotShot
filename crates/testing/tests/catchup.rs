@@ -37,6 +37,7 @@ async fn test_catchup() {
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
         node_changes: vec![(13, catchup_node)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -56,7 +57,7 @@ async fn test_catchup() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }
 
@@ -95,6 +96,7 @@ async fn test_catchup_web() {
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
         node_changes: vec![(10, catchup_nodes)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -112,7 +114,7 @@ async fn test_catchup_web() {
     metadata
         .gen_launcher::<TestTypes, WebImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }
 
@@ -152,6 +154,7 @@ async fn test_catchup_one_node() {
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
         node_changes: vec![(10, catchup_nodes)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -171,7 +174,7 @@ async fn test_catchup_one_node() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }
 
@@ -219,6 +222,7 @@ async fn test_catchup_in_view_sync() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(10, catchup_nodes)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -236,6 +240,6 @@ async fn test_catchup_in_view_sync() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }

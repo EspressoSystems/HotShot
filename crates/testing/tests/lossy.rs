@@ -28,7 +28,7 @@
 //     builder
 //         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
 //         .launch()
-//         .run_test()
+//         .run_test(false)
 //         .await
 //         .unwrap();
 // }
@@ -53,7 +53,7 @@
 //     builder
 //         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
 //         .launch()
-//         .run_test()
+//         .run_test(false)
 //         .await
 //         .unwrap();
 // }
@@ -81,7 +81,7 @@
 //     builder
 //         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
 //         .launch()
-//         .run_test()
+//         .run_test(false)
 //         .await
 //         .unwrap();
 // }
@@ -112,7 +112,7 @@
 //     builder
 //         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
 //         .launch()
-//         .run_test()
+//         .run_test(false)
 //         .await
 //         .unwrap();
 // }

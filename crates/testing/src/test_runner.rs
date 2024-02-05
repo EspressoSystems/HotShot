@@ -10,6 +10,7 @@ use crate::{
     test_launcher::{Networks, TestLauncher},
     view_sync_task::ViewSyncTask,
 };
+use either::Either::{self, Left, Right};
 use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
@@ -49,8 +50,15 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
-    /// The context to which we will use to launch HotShot when it's time
-    pub context: SystemContext<TYPES, I>,
+    /// Either the context to which we will use to launch HotShot for initialized node when it's
+    /// time, or the parameters that will be used to initialize the node and launch HotShot.
+    pub context: Either<
+        SystemContext<TYPES, I>,
+        (
+            I::Storage,
+            HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        ),
+    >,
 }
 
 /// The runner of a test network
@@ -74,10 +82,15 @@ where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
 {
     /// excecute test
+    ///
+    /// # Arguments
+    /// *  `skip_late` - Whether to skip initializing nodes that will start late, which will catch
+    /// up later with `HotShotInitializer::from_reload` in the spinning task.
+    ///
     /// # Panics
     /// if the test fails
     #[allow(clippy::too_many_lines)]
-    pub async fn run_test(mut self) {
+    pub async fn run_test(mut self, skip_late: bool) {
         let spinning_changes = self
             .launcher
             .metadata
@@ -94,8 +107,12 @@ where
             }
         }
 
-        self.add_nodes(self.launcher.metadata.total_nodes, &late_start_nodes)
-            .await;
+        self.add_nodes(
+            self.launcher.metadata.total_nodes,
+            &late_start_nodes,
+            skip_late,
+        )
+        .await;
 
         let TestRunner {
             launcher,
@@ -220,24 +237,44 @@ where
         );
     }
 
-    /// add nodes
+    /// Add nodes.
+    ///
+    /// # Arguments
+    /// *  `skip_late` - Whether to skip initializing nodes that will start late, which will catch
+    /// up later with `HotShotInitializer::from_reload`.
+    ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes(&mut self, total: usize, late_start: &HashSet<u64>) -> Vec<u64> {
+    pub async fn add_nodes(
+        &mut self,
+        total: usize,
+        late_start: &HashSet<u64>,
+        skip_late: bool,
+    ) -> Vec<u64> {
         let mut results = vec![];
         for i in 0..total {
-            tracing::debug!("launch node {}", i);
             let node_id = self.next_node_id;
+            self.next_node_id += 1;
+            tracing::debug!("launch node {}", i);
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
-            let initializer =
-                HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
-            // We assign node's public key and stake value rather than read from config file since it's a test
-            let validator_config =
-                ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
-            let hotshot = self
-                .add_node_with_config(
+            if skip_late && late_start.contains(&node_id) {
+                self.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: Right((storage, config)),
+                    },
+                );
+            } else {
+                let initializer =
+                    HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
+                // We assign node's public key and stake value rather than read from config file since it's a test
+                let validator_config =
+                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
+                let hotshot = Self::add_node_with_config(
+                    node_id,
                     networks.clone(),
                     storage,
                     initializer,
@@ -245,20 +282,21 @@ where
                     validator_config,
                 )
                 .await;
-            if late_start.contains(&node_id) {
-                self.late_start.insert(
-                    node_id,
-                    LateStartNode {
+                if late_start.contains(&node_id) {
+                    self.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            networks,
+                            context: Left(hotshot),
+                        },
+                    );
+                } else {
+                    self.nodes.push(Node {
+                        node_id,
                         networks,
-                        context: hotshot,
-                    },
-                );
-            } else {
-                self.nodes.push(Node {
-                    node_id,
-                    networks,
-                    handle: hotshot.run_tasks().await,
-                });
+                        handle: hotshot.run_tasks().await,
+                    });
+                }
             }
             results.push(node_id);
         }
@@ -270,15 +308,13 @@ where
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
     pub async fn add_node_with_config(
-        &mut self,
+        node_id: u64,
         networks: Networks<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
     ) -> SystemContext<TYPES, I> {
-        let node_id = self.next_node_id;
-        self.next_node_id += 1;
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();

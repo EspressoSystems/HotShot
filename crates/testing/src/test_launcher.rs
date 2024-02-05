@@ -66,7 +66,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generator for resources
     pub resource_generator: ResourceGenerators<TYPES, I>,
     /// metadasta used for tasks
-    pub metadata: TestMetadata,
+    pub metadata: TestMetadata<TYPES>,
     /// overrideable txn task generator function
     pub txn_task_generator: TaskGenerator<TxnTask<TYPES, I>>,
     /// overrideable timeout task generator function

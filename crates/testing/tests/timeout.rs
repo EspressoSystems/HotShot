@@ -46,6 +46,7 @@ async fn test_timeout_web() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, dead_nodes)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -60,7 +61,7 @@ async fn test_timeout_web() {
     metadata
         .gen_launcher::<TestTypes, WebImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }
 
@@ -114,6 +115,7 @@ async fn test_timeout_libp2p() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, dead_nodes)],
+        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata.completion_task_description =
@@ -128,6 +130,6 @@ async fn test_timeout_libp2p() {
     metadata
         .gen_launcher::<TestTypes, Libp2pImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
 }

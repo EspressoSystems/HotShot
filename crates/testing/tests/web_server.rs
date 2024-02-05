@@ -42,7 +42,7 @@ async fn web_server_network() {
     metadata
         .gen_launcher::<TestTypes, WebImpl>(0)
         .launch()
-        .run_test()
+        .run_test(false)
         .await;
     shutdown_logging();
 }
