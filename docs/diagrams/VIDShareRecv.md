@@ -5,5 +5,5 @@
 ## Basic Message Validation 
 
 ## VID Share Processing and Validation
-* A "valid" VID share is one that successfully passes the `payload_verify` function
+* A "valid" VID share is one that successfully passes the `VidScheme::verify_share` function
 
