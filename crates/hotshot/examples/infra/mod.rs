@@ -88,6 +88,10 @@ pub struct ConfigArgs {
 /// Reads a network configuration from a given filepath
 /// # Panics
 /// if unable to convert the config file into toml
+/// This derived config is used for initialization of orchestrator
+/// therefore known_nodes_with_stake will be an initialized vector full of the node's own config
+/// my_own_validator_config will be generated from seed here for loading config from orchestrator
+/// or else it will be loaded from file
 #[must_use]
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: &str,
@@ -101,20 +105,21 @@ pub fn load_config_from_file<TYPES: NodeType>(
     let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         config_toml.into();
 
-    // Generate network's public keys
-    let known_nodes: Vec<_> = (0..config.config.total_nodes.get())
-        .map(|node_id| {
-            TYPES::SignatureKey::generated_from_seed_indexed(
-                config.seed,
-                node_id.try_into().unwrap(),
-            )
-            .0
-        })
-        .collect();
-
-    config.config.known_nodes_with_stake = (0..config.config.total_nodes.get())
-        .map(|node_id| known_nodes[node_id].get_stake_table_entry(1u64))
-        .collect();
+    // my_own_validator_config would be best to load from file,
+    // but its type is too complex to load so we'll generate it from seed now
+    config.config.my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
+        config.seed,
+        config.node_index,
+        1,
+    );
+    let my_own_validator_config_with_stake = config.config.my_own_validator_config.public_key.get_stake_table_entry(1u64);
+    error!("In load_config_from_file, config.seed = {:?}, config.node_index = {:?}, my_own_validator_config_with_stake = {:?}", 
+        config.seed, 
+        config.node_index, 
+        my_own_validator_config_with_stake,
+    );
+    // initialize it with size for better assignment of other peers' config
+    config.config.known_nodes_with_stake = vec![my_own_validator_config_with_stake; config.config.total_nodes.get() as usize];
 
     config
 }
@@ -872,19 +877,53 @@ pub async fn main_entry_point<
 
     // conditionally save/load config from file or orchestrator
     let (mut run_config, source) =
-        NetworkConfig::from_file_or_orchestrator(&orchestrator_client, args.network_config_file)
+        NetworkConfig::from_file_or_orchestrator(&orchestrator_client, args.clone().network_config_file)
             .await;
 
     let node_index = run_config.node_index;
     error!("Retrieved config; our node index is {node_index}");
 
-    run_config.config.my_own_validator_config =
-        ValidatorConfig::<<TYPES as NodeType>::SignatureKey>::generated_from_seed_indexed(
-            run_config.seed,
-            node_index,
-            1,
-        );
     //run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
+
+    // one more round of orchestrator here to get peer's public key/config
+    error!("my node_index = {:?}, my public key = {:?}", node_index, run_config.config.my_own_validator_config.public_key);
+    if node_index == 0 {
+        error!("old run_config = {:?}", run_config);
+    }
+    // Sishan TODO: add public key later, related to tagged_base64_param
+    // run_config.config.my_own_validator_config.public_key
+    // let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = 
+    orchestrator_client
+        .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(run_config.node_index) 
+        .await;
+    let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = 
+        NetworkConfig::from_orchestrator_after_peer_config_collected(&orchestrator_client, node_index).await;
+    error!("node {:?}'s updated_config = {:?}", node_index, updated_config);
+    // let updated_config = 
+    //     orchestrator_client
+    //         .get_config_w_peer_config_collected::<TYPES::SignatureKey, TYPES::ElectionConfigType>(run_config.node_index).await;
+    // run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
+    // if node_index == 0 {
+    //     error!("new run_config = {:?}", run_config);
+    // }
+
+
+    let known_nodes: Vec<_> = (0..run_config.config.total_nodes.get())
+    .map(|node_id| {
+        TYPES::SignatureKey::generated_from_seed_indexed(
+            run_config.seed,
+            node_id.try_into().unwrap(),
+        )
+        .0
+    })
+    .collect();
+    run_config.config.known_nodes_with_stake = (0..run_config.config.total_nodes.get())
+    .map(|node_id| known_nodes[node_id].get_stake_table_entry(1u64))
+    .collect();
+
+    if node_index == 0 {
+        error!("original new run_config = {:?}", run_config);
+    }
 
     error!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;

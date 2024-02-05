@@ -228,6 +228,15 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         }
     }
 
+    /// get config from orchestrator after peer public config collected
+    pub async fn from_orchestrator_after_peer_config_collected(
+        client: &OrchestratorClient,
+        node_index: u64,
+    ) -> NetworkConfig<K, E> {
+        error!("Node {:?} Retrieving config from the orchestrator after peer public config collected", node_index);
+        client.get_config_w_peer_config_collected(node_index).await
+    }
+
     /// Loads a `NetworkConfig` from a file.
     ///
     /// This function takes a file path as a string, reads the file, and then deserializes the contents into a `NetworkConfig`.

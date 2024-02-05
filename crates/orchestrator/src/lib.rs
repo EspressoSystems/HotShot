@@ -5,6 +5,7 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
@@ -29,7 +30,7 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
-
+use tracing::error;
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed
@@ -50,6 +51,13 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY, ELECTION>,
+    /// The total nodes that have posted their public keys
+    pub nodes_with_pubkey: u64,
+    /// Whether the network configuration has been updated with all the peer's public keys/configs
+    peer_pub_ready: bool,
+    /// The total nodes that have got the updated network configuration with peer's public keys/configs
+    peer_config_got: u64,
+    peer_updated_config_ready: bool,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -69,11 +77,16 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
             web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
         }
+        error!("In new orchestratorstate, config = {:?}", network_config);
         OrchestratorState {
             latest_index: 0,
             config: network_config,
-            start: false,
+            nodes_with_pubkey: 0,
+            peer_pub_ready: false,
+            peer_config_got: 0,
+            peer_updated_config_ready: false,
             nodes_connected: 0,
+            start: false,
             client: web_client,
         }
     }
@@ -90,8 +103,27 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// if unable to serve
     fn post_getconfig(
         &mut self,
-        node_index: u16,
+        _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    /// post endpoint for each node's public key
+    /// # Errors
+    /// if unable to serve
+    fn post_my_public_key(
+        &mut self,
+        node_index: u64, 
+    ) -> Result<(), ServerError>;
+    /// post endpoint for whether or not all peers public keys are ready
+    /// # Errors
+    /// if unable to serve
+    fn peer_pub_ready(&self) -> Result<bool, ServerError>;
+    /// get endpoint for the network config after all peers public keys are collected
+    /// # Errors
+    /// if unable to serve
+    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    /// get endpoint for whether or not all nodes have updated their config
+    /// # Errors
+    /// if unable to serve
+    fn get_all_nodes_got_updated_config_ready(&self) -> Result<bool, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -125,7 +157,11 @@ where
 
         //add new node's key to stake table
         if self.config.web_server_config.clone().is_some() {
-            let new_key = &self.config.config.my_own_validator_config.public_key;
+            let new_key = &KEY::generated_from_seed_indexed(
+                self.config.seed,
+                node_index.try_into().unwrap(),
+            )
+            .0;
             let client_clone = self.client.clone().unwrap();
             async move {
                 client_clone
@@ -176,7 +212,84 @@ where
                 });
             }
         }
+        error!("config post in post_getconfig() = {:?}", self.config.clone());
         Ok(self.config.clone())
+    }
+
+    fn post_my_public_key(
+        &mut self,
+        node_index: u64,
+    ) -> Result<(), ServerError> {
+        // Sishan TODO: pass in public key rather than generating it here
+        let my_pub_key = <KEY as SignatureKey>::generated_from_seed_indexed(
+            self.config.seed,
+            node_index.try_into().unwrap(),
+        )
+        .0;
+        let my_pub_key_with_stake = my_pub_key.get_stake_table_entry(1u64);
+        error!("my_seed = {:?} my_index = {:?}, my_pub_key_with_stake = {:?}", self.config.seed, node_index, my_pub_key_with_stake);
+        self.config
+            .config
+            .known_nodes_with_stake[node_index as usize] = my_pub_key_with_stake;
+        // Assumes nodes do not post the public key twice
+        // Sishan TODO: Add a map to verify which nodes have posted their public key
+        self.nodes_with_pubkey += 1;
+        println!("Node {:?} posted public key, now total num posted public key: {:?}", node_index, self.nodes_with_pubkey);
+        if self.nodes_with_pubkey
+            >= (self
+                .config
+                .config
+                .total_nodes
+                .get()
+                as u64)
+        {
+            self.peer_pub_ready = true;
+            error!("Node {:?}'s peers are ready.", node_index);
+        }
+        Ok(())
+    }
+
+    
+    fn peer_pub_ready(&self) -> Result<bool, ServerError> {
+        if !self.peer_pub_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Peer's public configs are not ready".to_string(),
+            });
+        }
+        Ok(self.peer_pub_ready)
+    }
+
+    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+        if !self.peer_pub_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Peer's public configs are not ready".to_string(),
+            });
+        }
+        self.peer_config_got += 1;
+        if self.peer_config_got
+            >= (self
+                .config
+                .config
+                .total_nodes
+                .get()
+                as u64)
+        {
+            self.peer_updated_config_ready = true;
+        }
+        error!("config get in get_config_after_peer_collected() = {:?}", self.config.clone());
+        Ok(self.config.clone())
+    }
+
+    fn get_all_nodes_got_updated_config_ready(&self) -> Result<bool, ServerError> {
+        if !self.peer_updated_config_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Updated config with Peer's public configs are not retrieved by all the nodes yet".to_string(),
+            });
+        }
+        Ok(self.peer_updated_config_ready)
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
@@ -196,13 +309,12 @@ where
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected
-            >= self
+            >= (self
                 .config
                 .config
-                .known_nodes_with_stake
-                .len()
-                .try_into()
-                .unwrap()
+                .total_nodes
+                .get() as u64)
+                
         {
             self.start = true;
         }
@@ -249,7 +361,23 @@ where
         }
         .boxed()
     })?
-    .post("postready", |_req, state| {
+    .post("postpubkey", |req, state| {
+        async move {
+            let node_index = req.integer_param("node_index")?;
+            state.post_my_public_key(node_index)
+        }
+        .boxed()
+    })?
+    .get("peer_pubconfig_ready", |_req, state| {
+        async move { state.peer_pub_ready() }.boxed()
+    })?
+    .post("config_after_peer_collected", |_req, state| {
+        async move { state.get_config_after_peer_collected() }.boxed()
+    })?
+    .get("all_nodes_got_updated_config_ready", |_req, state| {
+        async move { state.get_all_nodes_got_updated_config_ready() }.boxed()
+    })?
+    .post("postready", |_req, state: &mut <State as ReadState>::State| {
         async move { state.post_ready() }.boxed()
     })?
     .get("getstart", |_req, state| {
@@ -277,6 +405,7 @@ where
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
+    error!("In run_orchestrator, the initialization of config = {:?}", network_config);
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 

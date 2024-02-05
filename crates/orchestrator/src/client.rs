@@ -5,7 +5,7 @@ use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
 
-use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
+use hotshot_types::{traits::{election::ElectionConfig, signature_key::SignatureKey}, ValidatorConfig};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
 
@@ -136,10 +136,79 @@ impl OrchestratorClient {
         };
 
         let mut config = self.wait_for_fn_from_orchestrator(f).await;
-
+        if node_index == 0 {
+            println!("In client.rs get_config(), before assigning my_own_validator_config, config = {:?}", 
+            config);
+        }
         config.node_index = From::<u16>::from(node_index);
-
+        // The orchestrator will generate keys for validator if it doesn't load keys from file
+        config.config.my_own_validator_config = ValidatorConfig::<K>::generated_from_seed_indexed(
+            config.seed,
+            config.node_index,
+            1,
+        );
+        
         config
+    }
+
+    /// Sends my public key to the orchestrator so that it can collect all public keys
+    /// Blocks until the orchestrator collects all peer's public keys/configs
+    /// # Panics
+    /// if unable to post
+    pub async fn post_and_wait_all_public_keys<K: SignatureKey, E: ElectionConfig>(
+        &self,
+        node_index: u64,
+        // my_pub_key: K, // Sishan TODO: Add public key later
+    ) -> () {
+        // send my public key
+        let send_pubkey_ready_f = |client: Client<ClientError>| {
+            async move {
+                let result: Result<(), ClientError> = client
+                    .post(&format!("api/pubkey/{node_index}"))
+                    .send()
+                    .await;
+                result
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(send_pubkey_ready_f)
+            .await;
+
+        // wait for all nodes' public keys
+        let wait_for_all_nodes_pub_key = |client: Client<ClientError>| {
+            async move { client.get("api/peer_pub_ready").send().await }.boxed()
+        };
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
+            .await;
+    }
+
+    /// Gets the newest config from the orchestrator
+    pub async fn get_config_w_peer_config_collected<K: SignatureKey, E: ElectionConfig>(
+        &self,
+        node_index: u64,
+    ) -> NetworkConfig<K, E> {
+        // get the newest config
+        let get_newest_config = |client: Client<ClientError>| {
+            async move {
+                let config: Result<NetworkConfig<K, E>, ClientError> = client
+                    .post(&format!("api/config_after_peer_collected"))
+                    .send()
+                    .await;
+                // println!("Node {:?} got updated config: {:?}", node_index, config);
+                config
+            }
+            .boxed()
+        };
+        let updated_config = self.wait_for_fn_from_orchestrator(get_newest_config).await;
+        
+        // wait for all nodes' done with getting config
+        let wait_for_all_nodes_got_updated_config = |client: Client<ClientError>| {
+            async move { client.get("api/all_nodes_got_updated_config_ready").send().await }.boxed()
+        };
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_got_updated_config)
+            .await;
+
+        updated_config
     }
 
     /// Tells the orchestrator this validator is ready to start
