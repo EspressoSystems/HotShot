@@ -20,4 +20,4 @@
 ## Proposal Validation
 * This proposal validation represents the [HotStuff-2](https://eprint.iacr.org/2023/397.pdf) protocol. 
 * We never emit a `QuorumProposalValidated` event if we are missing any data.  It is unsafe to emit this event if we can't properly validate the entire proposal. 
-* For simplicity, we opt to have nodes not reprocess proposals once they have the data they were missing.  Instead they will wait for the next proposal. In the future we can change this behavior so that nodes finish processing their current proposal once they have the data they are missing. 
+* For simplicity, we opt to have nodes not reprocess proposals once they have the data they were missing.  Instead they will wait for the next proposal. In the future we can change this behavior so that nodes finish processing their current proposal once they have the data they are missing. Either option is safe. 
