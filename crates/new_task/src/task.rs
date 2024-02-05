@@ -29,7 +29,9 @@ use crate::{
 
 /// Type for mutable task state that can be used as the state for a `Task`
 pub trait TaskState: Send {
+    /// Type of event sent and received by the task
     type Event: Clone + Send + Sync + 'static;
+    /// The result returned when this task compeltes
     type Result: Send;
     /// Handle event and update state.  Return true if the task is finished
     /// false otherwise.  The handler can access the state through `Task::state_mut`
@@ -63,8 +65,11 @@ pub trait TaskState: Send {
 /// This is used as state for `TestTask` and messages can come from many
 /// different input streams.
 pub trait TestTaskState: Send {
+    /// Message type handled by the task
     type Message: Clone + Send + Sync + 'static;
+    /// Result returned by the test task on completion
     type Result: Send;
+    /// The state type
     type State: TaskState;
     /// Handle and incoming message and return `Some` if the task is finished
     fn handle_message(
