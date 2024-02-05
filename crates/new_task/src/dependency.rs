@@ -5,18 +5,23 @@ use futures::stream::StreamExt;
 use futures::FutureExt;
 use std::future::Future;
 
+/// Type which describes the idea of waiting for a dependency to complete
 pub trait Dependency<T> {
+    /// Complete will wait until it gets some value `T` then return the value
     fn completed(self) -> impl Future<Output = T> + Send;
 }
 
+/// Used to combine dependencies to create `AndDependency`s or `OrDependency`s
 trait CombineDependencies<T: Clone + Send + Sync + 'static>:
     Sized + Dependency<T> + Send + 'static
 {
+    /// Create an or dependency from this dependency and another
     fn or<D: Dependency<T> + Send + 'static>(self, dep: D) -> OrDependency<T> {
         let mut or = OrDependency::from_deps(vec![self]);
         or.add_dep(dep);
         or
     }
+    /// Create an and dependency from this dependency and another
     fn and<D: Dependency<T> + Send + 'static>(self, dep: D) -> AndDependency<T> {
         let mut and = AndDependency::from_deps(vec![self]);
         and.add_dep(dep);
@@ -24,10 +29,13 @@ trait CombineDependencies<T: Clone + Send + Sync + 'static>:
     }
 }
 
+/// Defines a dependency that completes when all of its deps complete
 pub struct AndDependency<T> {
     deps: Vec<BoxFuture<'static, T>>,
 }
 impl<T: Clone + Send + Sync> Dependency<Vec<T>> for AndDependency<T> {
+    /// Returns a vector of all of the results from it's dependencies.  
+    /// The results will be in a random order
     async fn completed(self) -> Vec<T> {
         let futures = FuturesUnordered::from_iter(self.deps);
         futures.collect().await
@@ -35,16 +43,20 @@ impl<T: Clone + Send + Sync> Dependency<Vec<T>> for AndDependency<T> {
 }
 
 impl<T: Clone + Send + Sync + 'static> AndDependency<T> {
+    /// Create from a vec of deps
+    #[must_use]
     pub fn from_deps(deps: Vec<impl Dependency<T> + Send + 'static>) -> Self {
         let mut pinned = vec![];
         for dep in deps {
-            pinned.push(dep.completed().boxed())
+            pinned.push(dep.completed().boxed());
         }
         Self { deps: pinned }
     }
+    /// Add another dependency
     pub fn add_dep(&mut self, dep: impl Dependency<T> + Send + 'static) {
         self.deps.push(dep.completed().boxed());
     }
+    /// Add multiple dependencies
     pub fn add_deps(&mut self, deps: AndDependency<T>) {
         for dep in deps.deps {
             self.deps.push(dep);
@@ -52,10 +64,12 @@ impl<T: Clone + Send + Sync + 'static> AndDependency<T> {
     }
 }
 
+/// Defines a dependency that complets when one of it's dependencies compeltes
 pub struct OrDependency<T> {
     deps: Vec<BoxFuture<'static, T>>,
 }
 impl<T: Clone + Send + Sync> Dependency<T> for OrDependency<T> {
+    /// Returns the value of the first completed dependency
     async fn completed(self) -> T {
         let mut futures = FuturesUnordered::from_iter(self.deps);
         loop {
@@ -67,24 +81,34 @@ impl<T: Clone + Send + Sync> Dependency<T> for OrDependency<T> {
 }
 
 impl<T: Clone + Send + Sync + 'static> OrDependency<T> {
+    /// Creat an `OrDependency` from a vec of dependencies
+    #[must_use]
     pub fn from_deps(deps: Vec<impl Dependency<T> + Send + 'static>) -> Self {
         let mut pinned = vec![];
         for dep in deps {
-            pinned.push(dep.completed().boxed())
+            pinned.push(dep.completed().boxed());
         }
         Self { deps: pinned }
     }
+    /// Add another dependecy
     pub fn add_dep(&mut self, dep: impl Dependency<T> + Send + 'static) {
         self.deps.push(dep.completed().boxed());
     }
 }
 
+/// A dependency that listens on a chanel for an event
+/// that matches what some value it wants.
 pub struct EventDependency<T: Clone + Send + Sync> {
+    /// Channel of incomming events
     pub(crate) event_rx: Receiver<T>,
+    /// Closure which returns true if the incoming `T` is the
+    /// thing that completes this dependency
     pub(crate) match_fn: Box<dyn Fn(&T) -> bool + Send>,
 }
 
 impl<T: Clone + Send + Sync + 'static> EventDependency<T> {
+    /// Create a new `EventDependency`
+    #[must_use]
     pub fn new(receiver: Receiver<T>, match_fn: Box<dyn Fn(&T) -> bool + Send>) -> Self {
         Self {
             event_rx: receiver,
@@ -135,7 +159,7 @@ mod tests {
         let mut deps = vec![];
         for i in 0..5 {
             tx.broadcast(i).await.unwrap();
-            deps.push(eq_dep(rx.clone(), 5))
+            deps.push(eq_dep(rx.clone(), 5));
         }
 
         let and = AndDependency::from_deps(deps);
@@ -154,7 +178,7 @@ mod tests {
         tx.broadcast(5).await.unwrap();
         let mut deps = vec![];
         for _ in 0..5 {
-            deps.push(eq_dep(rx.clone(), 5))
+            deps.push(eq_dep(rx.clone(), 5));
         }
         let or = OrDependency::from_deps(deps);
         let result = or.completed().await;
