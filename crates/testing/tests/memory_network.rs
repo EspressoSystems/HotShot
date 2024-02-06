@@ -9,20 +9,20 @@ use hotshot::traits::implementations::{
 };
 use hotshot::traits::NodeImplementation;
 use hotshot::types::SignatureKey;
-use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
+use hotshot_constants::VERSION_0_1;
+use hotshot_testing::state_types::TestInstanceState;
 use hotshot_testing::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::TestState,
+    state_types::TestValidatedState,
 };
 use hotshot_types::message::Message;
 use hotshot_types::signature_key::BLSPubKey;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::{ConnectedNetwork, TransmitType};
-use hotshot_types::traits::node_implementation::{ChannelMaps, NodeType};
+use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
     data::ViewNumber,
     message::{DataMessage, MessageKind},
-    traits::state::ConsensusTime,
 };
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
@@ -52,7 +52,8 @@ impl NodeType for Test {
     type SignatureKey = BLSPubKey;
     type Transaction = TestTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = TestState;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<Test, Self::SignatureKey>;
 }
 
@@ -69,12 +70,6 @@ impl NodeImplementation<Test> for TestImpl {
     type Storage = MemoryStorage<Test>;
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
-
-    fn new_channel_maps(
-        start_view: <Test as NodeType>::Time,
-    ) -> (ChannelMaps<Test>, Option<ChannelMaps<Test>>) {
-        (ChannelMaps::new(start_view), None)
-    }
 }
 
 /// fake Eq
@@ -111,7 +106,7 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
         rng.fill_bytes(&mut bytes);
 
         let message = Message {
-            version: PROGRAM_PROTOCOL_VERSION,
+            version: VERSION_0_1,
             sender: pk,
             kind: MessageKind::Data(DataMessage::SubmitTransaction(
                 TestTransaction(bytes.to_vec()),

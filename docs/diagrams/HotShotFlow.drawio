@@ -402,6 +402,7 @@
           <mxGeometry x="779.5" y="1180" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="KeJ-MgEJR0mc3nozKlLl-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KeJ-MgEJR0mc3nozKlLl-1" edge="1">
+        <mxCell id="KeJ-MgEJR0mc3nozKlLl-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KeJ-MgEJR0mc3nozKlLl-1" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="bGltdMpPFPNPKB7S5yFq-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="bGltdMpPFPNPKB7S5yFq-11" target="KNZv4TGAp9zdyb55509J-41" edge="1">
@@ -598,6 +599,7 @@
         <mxCell id="cKMBn_hYGvpmcsBPfW0e-1" value="Store proposal in state map" style="strokeWidth=2;html=1;shape=datastore;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=top;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
           <mxGeometry x="95.5" y="2760" width="90" height="100" as="geometry" />
         </mxCell>
+        <mxCell id="KeJ-MgEJR0mc3nozKlLl-1" value="ViewSyncCommitCertRecv(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
         <mxCell id="KeJ-MgEJR0mc3nozKlLl-1" value="ViewSyncCommitCertRecv(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="734.5" y="1560" width="210" height="60" as="geometry" />
         </mxCell>

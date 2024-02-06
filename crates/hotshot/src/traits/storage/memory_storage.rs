@@ -118,7 +118,8 @@ mod test {
         data::{fake_commitment, Leaf},
         simple_certificate::QuorumCertificate,
         traits::{
-            node_implementation::NodeType, signature_key::SignatureKey, state::ConsensusTime,
+            node_implementation::{ConsensusTime, NodeType},
+            signature_key::SignatureKey,
         },
     };
     use std::marker::PhantomData;
@@ -147,7 +148,6 @@ mod test {
             header,
             Some(payload),
             dummy_leaf_commit,
-            Vec::new(),
             <<TestTypes as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
         )
     }
