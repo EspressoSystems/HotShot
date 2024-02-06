@@ -1,4 +1,4 @@
-use async_broadcast::Receiver;
+use async_broadcast::{Receiver, RecvError};
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
@@ -8,7 +8,7 @@ use std::future::Future;
 /// Type which describes the idea of waiting for a dependency to complete
 pub trait Dependency<T> {
     /// Complete will wait until it gets some value `T` then return the value
-    fn completed(self) -> impl Future<Output = T> + Send;
+    fn completed(self) -> impl Future<Output = Option<T>> + Send;
 }
 
 /// Used to combine dependencies to create `AndDependency`s or `OrDependency`s
@@ -31,14 +31,18 @@ trait CombineDependencies<T: Clone + Send + Sync + 'static>:
 
 /// Defines a dependency that completes when all of its deps complete
 pub struct AndDependency<T> {
-    deps: Vec<BoxFuture<'static, T>>,
+    deps: Vec<BoxFuture<'static, Option<T>>>,
 }
 impl<T: Clone + Send + Sync> Dependency<Vec<T>> for AndDependency<T> {
     /// Returns a vector of all of the results from it's dependencies.  
     /// The results will be in a random order
-    async fn completed(self) -> Vec<T> {
+    async fn completed(self) -> Option<Vec<T>> {
         let futures = FuturesUnordered::from_iter(self.deps);
-        futures.collect().await
+        futures
+            .collect::<Vec<Option<T>>>()
+            .await
+            .into_iter()
+            .collect()
     }
 }
 
@@ -66,15 +70,19 @@ impl<T: Clone + Send + Sync + 'static> AndDependency<T> {
 
 /// Defines a dependency that complets when one of it's dependencies compeltes
 pub struct OrDependency<T> {
-    deps: Vec<BoxFuture<'static, T>>,
+    deps: Vec<BoxFuture<'static, Option<T>>>,
 }
 impl<T: Clone + Send + Sync> Dependency<T> for OrDependency<T> {
     /// Returns the value of the first completed dependency
-    async fn completed(self) -> T {
+    async fn completed(self) -> Option<T> {
         let mut futures = FuturesUnordered::from_iter(self.deps);
         loop {
-            if let Some(val) = futures.next().await {
-                break val;
+            if let Some(maybe) = futures.next().await {
+                if maybe.is_some() {
+                    return maybe;
+                }
+            } else {
+                return None;
             }
         }
     }
@@ -118,11 +126,20 @@ impl<T: Clone + Send + Sync + 'static> EventDependency<T> {
 }
 
 impl<T: Clone + Send + Sync + 'static> Dependency<T> for EventDependency<T> {
-    async fn completed(mut self) -> T {
+    async fn completed(mut self) -> Option<T> {
         loop {
-            let next = self.event_rx.recv().await.unwrap();
-            if (self.match_fn)(&next) {
-                return next;
+            match self.event_rx.recv_direct().await {
+                Ok(event) => {
+                    if (self.match_fn)(&event) {
+                        return Some(event);
+                    }
+                }
+                Err(RecvError::Overflowed(n)) => {
+                    tracing::error!("Dependency Task overloaded, skipping {} events", n);
+                }
+                Err(RecvError::Closed) => {
+                    return None;
+                }
             }
         }
     }
@@ -165,7 +182,7 @@ mod tests {
         let and = AndDependency::from_deps(deps);
         tx.broadcast(5).await.unwrap();
         let result = and.completed().await;
-        assert_eq!(result, vec![5; 5]);
+        assert_eq!(result, Some(vec![5; 5]));
     }
     #[cfg_attr(
         async_executor_impl = "tokio",
@@ -182,7 +199,7 @@ mod tests {
         }
         let or = OrDependency::from_deps(deps);
         let result = or.completed().await;
-        assert_eq!(result, 5);
+        assert_eq!(result, Some(5));
     }
 
     #[cfg_attr(
@@ -203,7 +220,7 @@ mod tests {
         let or2 = OrDependency::from_deps([eq_dep(rx.clone(), 4), eq_dep(rx.clone(), 5)].into());
         let and = AndDependency::from_deps([or1, or2].into());
         let result = and.completed().await;
-        assert_eq!(result, vec![6, 5]);
+        assert_eq!(result, Some(vec![6, 5]));
     }
 
     #[cfg_attr(
@@ -224,7 +241,7 @@ mod tests {
         let and2 = eq_dep(rx.clone(), 4).and(eq_dep(rx.clone(), 5));
         let or = and1.or(and2);
         let result = or.completed().await;
-        assert_eq!(result, vec![4, 5]);
+        assert_eq!(result, Some(vec![4, 5]));
     }
 
     #[cfg_attr(
@@ -246,6 +263,6 @@ mod tests {
         let and2 = eq_dep(rx.clone(), 4).and(eq_dep(rx.clone(), 5));
         and1.add_deps(and2);
         let result = and1.completed().await;
-        assert_eq!(result, vec![4, 6, 4, 5]);
+        assert_eq!(result, Some(vec![4, 6, 4, 5]));
     }
 }

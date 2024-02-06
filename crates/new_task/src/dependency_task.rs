@@ -39,9 +39,9 @@ impl<D: Dependency<H::Result> + Send + 'static, H: HandleDepResult> DependencyTa
         Self: Sized,
     {
         spawn(async move {
-            self.handle
-                .handle_dep_result(self.dep.completed().await)
-                .await;
+            if let Some(completed) = self.dep.completed().await {
+                self.handle.handle_dep_result(completed).await;
+            }
         })
     }
 }
