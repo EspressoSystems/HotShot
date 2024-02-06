@@ -65,7 +65,7 @@ async fn libp2p_network_failures_2() {
             },
         ),
         timing_data: TimingData {
-            next_view_timeout: 2500,
+            next_view_timeout: 25000,
             propose_max_round_time: Duration::from_millis(100),
             ..Default::default()
         },
