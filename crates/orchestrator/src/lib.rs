@@ -6,7 +6,6 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
-use clap::error;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
     io,
