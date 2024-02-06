@@ -9,24 +9,32 @@ use std::future::Future;
 pub trait Dependency<T> {
     /// Complete will wait until it gets some value `T` then return the value
     fn completed(self) -> impl Future<Output = Option<T>> + Send;
+    /// Create an or dependency from this dependency and another
+    fn or<D: Dependency<T> + Send + 'static>(self, dep: D) -> OrDependency<T>
+    where
+        T: Send + Sync + Clone + 'static,
+        Self: Sized + Send + 'static,
+    {
+        let mut or = OrDependency::from_deps(vec![self]);
+        or.add_dep(dep);
+        or
+    }
+    /// Create an and dependency from this dependency and another
+    fn and<D: Dependency<T> + Send + 'static>(self, dep: D) -> AndDependency<T>
+    where
+        T: Send + Sync + Clone + 'static,
+        Self: Sized + Send + 'static,
+    {
+        let mut and = AndDependency::from_deps(vec![self]);
+        and.add_dep(dep);
+        and
+    }
 }
 
 /// Used to combine dependencies to create `AndDependency`s or `OrDependency`s
 trait CombineDependencies<T: Clone + Send + Sync + 'static>:
     Sized + Dependency<T> + Send + 'static
 {
-    /// Create an or dependency from this dependency and another
-    fn or<D: Dependency<T> + Send + 'static>(self, dep: D) -> OrDependency<T> {
-        let mut or = OrDependency::from_deps(vec![self]);
-        or.add_dep(dep);
-        or
-    }
-    /// Create an and dependency from this dependency and another
-    fn and<D: Dependency<T> + Send + 'static>(self, dep: D) -> AndDependency<T> {
-        let mut and = AndDependency::from_deps(vec![self]);
-        and.add_dep(dep);
-        and
-    }
 }
 
 /// Defines a dependency that completes when all of its deps complete
@@ -145,16 +153,8 @@ impl<T: Clone + Send + Sync + 'static> Dependency<T> for EventDependency<T> {
     }
 }
 
-// Impl Combine for all the basic dependency types
-impl<T: Clone + Send + Sync + 'static, D> CombineDependencies<T> for D where
-    D: Dependency<T> + Send + 'static
-{
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::dependency::CombineDependencies;
-
     use super::{AndDependency, Dependency, EventDependency, OrDependency};
     use async_broadcast::{broadcast, Receiver};
 
