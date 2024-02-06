@@ -42,7 +42,6 @@ Get whether the node can collect the final config which includs all peer's publi
 # GET the updated config with all peers' public keys / configs
 [route.config_after_peer_collected]
 PATH = ["config_after_peer_collected"]
-METHOD = "POST"
 DOC = """
 Get the updated config with all peers' public keys / configs, returns a NetworkConfig.
 """

@@ -112,7 +112,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// get endpoint for the network config after all peers public keys are collected
     /// # Errors
     /// if unable to serve
-    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -244,7 +244,7 @@ where
         Ok(self.peer_pub_ready)
     }
 
-    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -334,7 +334,7 @@ where
     .get("peer_pubconfig_ready", |_req, state| {
         async move { state.peer_pub_ready() }.boxed()
     })?
-    .post("config_after_peer_collected", |_req, state| {
+    .get("config_after_peer_collected", |_req, state| {
         async move { state.get_config_after_peer_collected() }.boxed()
     })?
     .post("postready", |_req, state: &mut <State as ReadState>::State| {

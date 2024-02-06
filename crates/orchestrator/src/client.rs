@@ -180,10 +180,9 @@ impl OrchestratorClient {
         let get_newest_config = |client: Client<ClientError>| {
             async move {
                 let config: Result<NetworkConfig<K, E>, ClientError> = client
-                    .post(&format!("api/config_after_peer_collected"))
+                    .get(&format!("api/config_after_peer_collected"))
                     .send()
                     .await;
-                // println!("Node {:?} got updated config: {:?}", node_index, config);
                 config
             }
             .boxed()
