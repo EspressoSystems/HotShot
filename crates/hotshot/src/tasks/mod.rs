@@ -177,8 +177,26 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
     // Poll (forever) for the latest quorum proposal
     consensus_state
         .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForLatestQuorumProposal)
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
         .await;
+
+    // See if we're in the DA committee
+    // This will not work for epochs (because dynamic subscription
+    // With the Push CDN, we are _always_ polling for latest anyway.
+    let is_da = consensus_state
+        .committee_membership
+        .get_committee(<TYPES as NodeType>::Time::new(0))
+        .contains(&consensus_state.public_key);
+
+    // If we are, poll for latest DA proposal.
+    if is_da {
+        consensus_state
+            .committee_network
+            .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+            .await;
+    }
+
+    // Poll (forever) for the latest view sync certificate
     consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)

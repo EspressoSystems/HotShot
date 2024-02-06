@@ -1,6 +1,5 @@
 //! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
-//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]
@@ -28,7 +27,7 @@ use async_trait::async_trait;
 use commit::Committable;
 use custom_debug::Debug;
 use futures::join;
-use hotshot_constants::PROGRAM_PROTOCOL_VERSION;
+use hotshot_constants::VERSION_0_1;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
@@ -249,7 +248,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             id: nonce,
-            #[cfg(feature = "hotshot-testing")]
             consensus,
             public_key,
             private_key,
@@ -319,7 +317,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     .da_network
                     .broadcast_message(
                         Message {
-                            version: PROGRAM_PROTOCOL_VERSION,
+                            version: VERSION_0_1,
                             sender: api.inner.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
