@@ -357,8 +357,8 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                 error!("Networking task shutting down");
                 return Some(HotShotTaskCompleted);
             }
-            _event => {
-                // error!("Receieved unexpected message in network task {:?}", event);
+            event => {
+                error!("Receieved unexpected message in network task {:?}", event);
                 return None;
             }
         };

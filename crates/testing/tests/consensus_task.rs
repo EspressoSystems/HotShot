@@ -1,6 +1,6 @@
 #![allow(clippy::panic)]
 use commit::Committable;
-use hotshot::{tasks::add_consensus_task, types::SystemContextHandle, HotShotConsensusApi};
+use hotshot::{types::SystemContextHandle, HotShotConsensusApi};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::{
     node_types::{MemoryImpl, TestTypes},
@@ -81,6 +81,7 @@ async fn build_vote(
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
+    use hotshot::tasks::create_consensus_state;
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_certificate::QuorumCertificate;
@@ -120,7 +121,7 @@ async fn test_consensus_task() {
     }
 
     let consensus_state =
-        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+        create_consensus_state(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
     run_harness(input, output, consensus_state, false).await;
 }
@@ -132,6 +133,7 @@ async fn test_consensus_task() {
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
+    use hotshot::tasks::create_consensus_state;
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -164,7 +166,7 @@ async fn test_consensus_vote() {
     input.push(HotShotEvent::Shutdown);
 
     let consensus_state =
-        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+        create_consensus_state(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
 
     run_harness(input, output, consensus_state, false).await;
 }
@@ -278,8 +280,11 @@ async fn test_consensus_with_vid() {
     input.push(HotShotEvent::Shutdown);
     output.insert(HotShotEvent::Shutdown, 1);
 
-    let consensus_state =
-        add_consensus_task(handle.hotshot.inner.output_event_stream.0.clone(), &handle).await;
+    let consensus_state = hotshot::tasks::create_consensus_state(
+        handle.hotshot.inner.output_event_stream.0.clone(),
+        &handle,
+    )
+    .await;
 
     run_harness(input, output, consensus_state, false).await;
 }

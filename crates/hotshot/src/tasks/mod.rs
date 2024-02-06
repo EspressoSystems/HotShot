@@ -123,10 +123,10 @@ pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<T
     task_reg.run_task(task).await;
 }
 
-/// add the consensus task
+/// Create the consensus task state
 /// # Panics
 /// Is unable to panic. This section here is just to satisfy clippy
-pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     output_stream: Sender<Event<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) -> ConsensusTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>> {
@@ -184,8 +184,21 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
         .await;
     consensus_state
-    // let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
-    // task_reg.run_task(task).await;
+}
+
+/// add the consensus task
+/// # Panics
+/// Is unable to panic. This section here is just to satisfy clippy
+pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<HotShotEvent<TYPES>>,
+    rx: Receiver<HotShotEvent<TYPES>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let state =
+        create_consensus_state(handle.hotshot.inner.output_event_stream.0.clone(), handle).await;
+    let task = Task::new(tx, rx, task_reg.clone(), state);
+    task_reg.run_task(task).await;
 }
 
 /// add the VID task

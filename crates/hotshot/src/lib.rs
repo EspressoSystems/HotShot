@@ -33,7 +33,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
 
-use hotshot_task::task::{Task, TaskRegistry};
+use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
@@ -509,14 +509,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             network::vid_filter,
         )
         .await;
-        let consensus_state = add_consensus_task(output_event_stream.0.clone(), &handle).await;
-        let task = Task::new(
+        add_consensus_task(
+            registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            registry.clone(),
-            consensus_state,
-        );
-        registry.run_task(task).await;
+            &handle,
+        )
+        .await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),

@@ -10,7 +10,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 pub struct TestHarnessState<TYPES: NodeType> {
     /// The expected events we get from the test.  Maps an event to the number of times we expect to see it
     expected_output: HashMap<HotShotEvent<TYPES>, usize>,
-    ///
+    /// If true we won't fail the test if extra events come in
     allow_extra_output: bool,
 }
 
