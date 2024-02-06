@@ -189,14 +189,6 @@ impl OrchestratorClient {
             .boxed()
         };
         let updated_config = self.wait_for_fn_from_orchestrator(get_newest_config).await;
-        
-        // wait for all nodes' done with getting config
-        let wait_for_all_nodes_got_updated_config = |client: Client<ClientError>| {
-            async move { client.get("api/all_nodes_got_updated_config_ready").send().await }.boxed()
-        };
-        self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_got_updated_config)
-            .await;
-
         updated_config
     }
 

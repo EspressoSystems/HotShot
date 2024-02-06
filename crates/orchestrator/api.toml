@@ -47,13 +47,6 @@ DOC = """
 Get the updated config with all peers' public keys / configs, returns a NetworkConfig.
 """
 
-# GET whether or not the config with all peers' public keys / configs are retrieved
-[route.all_nodes_got_updated_config_ready]
-PATH = ["all_nodes_got_updated_config_ready"]
-DOC = """
-Get whether all the nodes retrieved the final config which includs all peer's public config/info like public keys, returns a boolean.
-"""
-
 # POST whether the node is ready to begin the run
 # TODO ED Use the node index parameter
 [route.postready]

@@ -53,9 +53,6 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     pub nodes_with_pubkey: u64,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
     peer_pub_ready: bool,
-    /// The total nodes that have got the updated network configuration with peer's public keys/configs
-    peer_config_got: u64,
-    peer_updated_config_ready: bool,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -80,8 +77,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             config: network_config,
             nodes_with_pubkey: 0,
             peer_pub_ready: false,
-            peer_config_got: 0,
-            peer_updated_config_ready: false,
             nodes_connected: 0,
             start: false,
             client: web_client,
@@ -118,10 +113,6 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// # Errors
     /// if unable to serve
     fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
-    /// get endpoint for whether or not all nodes have updated their config
-    /// # Errors
-    /// if unable to serve
-    fn get_all_nodes_got_updated_config_ready(&self) -> Result<bool, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -260,28 +251,7 @@ where
                 message: "Peer's public configs are not ready".to_string(),
             });
         }
-        self.peer_config_got += 1;
-        if self.peer_config_got
-            >= (self
-                .config
-                .config
-                .total_nodes
-                .get()
-                as u64)
-        {
-            self.peer_updated_config_ready = true;
-        }
         Ok(self.config.clone())
-    }
-
-    fn get_all_nodes_got_updated_config_ready(&self) -> Result<bool, ServerError> {
-        if !self.peer_updated_config_ready {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: "Updated config with Peer's public configs are not retrieved by all the nodes yet".to_string(),
-            });
-        }
-        Ok(self.peer_updated_config_ready)
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
@@ -366,9 +336,6 @@ where
     })?
     .post("config_after_peer_collected", |_req, state| {
         async move { state.get_config_after_peer_collected() }.boxed()
-    })?
-    .get("all_nodes_got_updated_config_ready", |_req, state| {
-        async move { state.get_all_nodes_got_updated_config_ready() }.boxed()
     })?
     .post("postready", |_req, state: &mut <State as ReadState>::State| {
         async move { state.post_ready() }.boxed()
