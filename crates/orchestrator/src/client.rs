@@ -5,7 +5,10 @@ use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
 
-use hotshot_types::{traits::{election::ElectionConfig, signature_key::SignatureKey}, ValidatorConfig};
+use hotshot_types::{
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
+    ValidatorConfig,
+};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
 
@@ -138,12 +141,9 @@ impl OrchestratorClient {
         let mut config = self.wait_for_fn_from_orchestrator(f).await;
         config.node_index = From::<u16>::from(node_index);
         // The orchestrator will generate keys for validator if it doesn't load keys from file
-        config.config.my_own_validator_config = ValidatorConfig::<K>::generated_from_seed_indexed(
-            config.seed,
-            config.node_index,
-            1,
-        );
-        
+        config.config.my_own_validator_config =
+            ValidatorConfig::<K>::generated_from_seed_indexed(config.seed, config.node_index, 1);
+
         config
     }
 
@@ -155,9 +155,10 @@ impl OrchestratorClient {
         &self,
         node_index: u64,
         my_pub_key: K,
-    ) -> () {
+    ) {
         // send my public key
-        let _send_pubkey_ready_f: Result<(), ClientError> = self.client
+        let _send_pubkey_ready_f: Result<(), ClientError> = self
+            .client
             .post(&format!("api/pubkey/{node_index}"))
             .body_binary(&my_pub_key.to_bytes())
             .unwrap()
@@ -179,16 +180,13 @@ impl OrchestratorClient {
         // get the newest config
         let get_newest_config = |client: Client<ClientError>| {
             async move {
-                let config: Result<NetworkConfig<K, E>, ClientError> = client
-                    .get(&format!("api/config_after_peer_collected"))
-                    .send()
-                    .await;
+                let config: Result<NetworkConfig<K, E>, ClientError> =
+                    client.get("api/config_after_peer_collected").send().await;
                 config
             }
             .boxed()
         };
-        let updated_config = self.wait_for_fn_from_orchestrator(get_newest_config).await;
-        updated_config
+        self.wait_for_fn_from_orchestrator(get_newest_config).await
     }
 
     /// Tells the orchestrator this validator is ready to start

@@ -88,10 +88,13 @@ pub struct ConfigArgs {
 /// Reads a network configuration from a given filepath
 /// # Panics
 /// if unable to convert the config file into toml
-/// This derived config is used for initialization of orchestrator
-/// therefore known_nodes_with_stake will be an initialized vector full of the node's own config
-/// my_own_validator_config will be generated from seed here for loading config from orchestrator
-/// or else it will be loaded from file
+/// # Note
+/// This derived config is used for initialization of orchestrator,
+/// therefore `known_nodes_with_stake` will be an initialized
+/// vector full of the node's own config.
+/// `my_own_validator_config` will be generated from seed here
+/// for loading config from orchestrator,
+/// or else it will be loaded from file.
 #[must_use]
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: &str,
@@ -107,14 +110,16 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     // my_own_validator_config would be best to load from file,
     // but its type is too complex to load so we'll generate it from seed now
-    config.config.my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
-        config.seed,
-        config.node_index,
-        1,
-    );
-    let my_own_validator_config_with_stake = config.config.my_own_validator_config.public_key.get_stake_table_entry(1u64);
+    config.config.my_own_validator_config =
+        ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, 1);
+    let my_own_validator_config_with_stake = config
+        .config
+        .my_own_validator_config
+        .public_key
+        .get_stake_table_entry(1u64);
     // initialize it with size for better assignment of other peers' config
-    config.config.known_nodes_with_stake = vec![my_own_validator_config_with_stake; config.config.total_nodes.get() as usize];
+    config.config.known_nodes_with_stake =
+        vec![my_own_validator_config_with_stake; config.config.total_nodes.get() as usize];
 
     config
 }
@@ -873,7 +878,7 @@ pub async fn main_entry_point<
     // conditionally save/load config from file or orchestrator
     let (mut run_config, source) =
         NetworkConfig::<TYPES::SignatureKey, TYPES::ElectionConfigType>::from_file_or_orchestrator(
-            &orchestrator_client, 
+            &orchestrator_client,
             args.clone().network_config_file,
         )
         .await;
@@ -886,12 +891,14 @@ pub async fn main_entry_point<
     // one more round of orchestrator here to get peer's public key/config
     orchestrator_client
         .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(
-            run_config.node_index, 
+            run_config.node_index,
             run_config.config.my_own_validator_config.public_key.clone(),
-        ) 
+        )
         .await;
-    let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> = 
-        orchestrator_client.get_config_w_peer_config_collected().await;
+    let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
+        orchestrator_client
+            .get_config_w_peer_config_collected()
+            .await;
     run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
     error!("Initializing networking");

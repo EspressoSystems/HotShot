@@ -6,6 +6,7 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
+use clap::error;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
     io,
@@ -102,7 +103,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// if unable to serve
     fn post_my_public_key(
         &mut self,
-        node_index: u64, 
+        node_index: u64,
         pubkey: &mut Vec<u8>,
     ) -> Result<(), ServerError>;
     /// post endpoint for whether or not all peers public keys are ready
@@ -145,12 +146,11 @@ where
         }
 
         //add new node's key to stake table
+        #[allow(clippy::unnecessary_fallible_conversions)]
         if self.config.web_server_config.clone().is_some() {
-            let new_key = &KEY::generated_from_seed_indexed(
-                self.config.seed,
-                node_index.try_into().unwrap(),
-            )
-            .0;
+            let new_key =
+                &KEY::generated_from_seed_indexed(self.config.seed, node_index.try_into().unwrap())
+                    .0;
             let client_clone = self.client.clone().unwrap();
             async move {
                 client_clone
@@ -204,6 +204,7 @@ where
         Ok(self.config.clone())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn post_my_public_key(
         &mut self,
         node_index: u64,
@@ -211,29 +212,22 @@ where
     ) -> Result<(), ServerError> {
         // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
         pubkey.drain(..8);
-        let my_pub_key = <KEY as SignatureKey>::from_bytes(&pubkey).unwrap();
+        let my_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
 
         let my_pub_key_with_stake = my_pub_key.get_stake_table_entry(1u64);
-        self.config
-            .config
-            .known_nodes_with_stake[node_index as usize] = my_pub_key_with_stake;
+        self.config.config.known_nodes_with_stake[node_index as usize] = my_pub_key_with_stake;
         // Assumes nodes do not post the public key twice
         self.nodes_with_pubkey += 1;
-        println!("Node {:?} posted public key, now total num posted public key: {:?}", node_index, self.nodes_with_pubkey);
-        if self.nodes_with_pubkey
-            >= (self
-                .config
-                .config
-                .total_nodes
-                .get()
-                as u64)
-        {
+        println!(
+            "Node {:?} posted public key, now total num posted public key: {:?}",
+            node_index, self.nodes_with_pubkey
+        );
+        if self.nodes_with_pubkey >= (self.config.config.total_nodes.get() as u64) {
             self.peer_pub_ready = true;
         }
         Ok(())
     }
 
-    
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
@@ -270,14 +264,7 @@ where
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
-        if self.nodes_connected
-            >= (self
-                .config
-                .config
-                .total_nodes
-                .get() as u64)
-                
-        {
+        if self.nodes_connected >= (self.config.config.total_nodes.get() as u64) {
             self.start = true;
         }
         Ok(())
@@ -337,9 +324,10 @@ where
     .get("config_after_peer_collected", |_req, state| {
         async move { state.get_config_after_peer_collected() }.boxed()
     })?
-    .post("postready", |_req, state: &mut <State as ReadState>::State| {
-        async move { state.post_ready() }.boxed()
-    })?
+    .post(
+        "postready",
+        |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
+    )?
     .get("getstart", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
