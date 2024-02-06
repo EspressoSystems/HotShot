@@ -1,7 +1,1 @@
-# Overview
-
-We have three main directories here:
-
-- HotShotDocs contains a description of the implementation of HotShot
-- pandoc-based-spec contains pseudocode of HotShot
-- hotshot-analysis contains a correctness analysis of HotShot
+This directory contains documentation for the HotShot protocol.  `/diagrams` contains state diagrams representing the code logic of HotShot.  The implementation of this logic in the `hotshot` crate should match these diagrams. `espresso-sequencer-paper.pdf` is an academic description and analysis of the HotShot protocol. 
