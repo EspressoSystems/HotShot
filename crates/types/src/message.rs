@@ -291,7 +291,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     UpgradeCertificate(UpgradeCertificate<TYPES>),
 
     /// Message with an upgrade proposal
-    UpgradeProposal(UpgradeProposal<TYPES>),
+    UpgradeProposal(Proposal<TYPES, UpgradeProposal<TYPES>>),
 
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
@@ -360,7 +360,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeCertificate(message) => {
                         message.get_view_number()
                     }
-                    GeneralConsensusMessage::UpgradeProposal(message) => message.get_view_number(),
+                    GeneralConsensusMessage::UpgradeProposal(message) => message.data.get_view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
             }

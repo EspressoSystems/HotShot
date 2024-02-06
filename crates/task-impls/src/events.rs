@@ -112,7 +112,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Like [`HotShotEvent::DAProposalRecv`].
     VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been received from the network
-    UpgradeProposalRecv(UpgradeProposal<TYPES>),
+    UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
     UpgradeProposalSend(UpgradeProposal<TYPES>),
     /// Upgrade vote has been received from the network

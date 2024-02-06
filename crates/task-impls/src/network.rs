@@ -90,7 +90,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::UpgradeCertificateRecv(message)
                             }
                             GeneralConsensusMessage::UpgradeProposal(message) => {
-                                HotShotEvent::UpgradeProposalRecv(message)
+                                HotShotEvent::UpgradeProposalRecv(message, sender)
                             }
                             GeneralConsensusMessage::UpgradeVote(message) => {
                                 HotShotEvent::UpgradeVoteRecv(message)
