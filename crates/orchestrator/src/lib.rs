@@ -5,7 +5,6 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
@@ -30,7 +29,6 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
-use tracing::error;
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed
@@ -77,7 +75,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
             web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
         }
-        error!("In new orchestratorstate, config = {:?}", network_config);
         OrchestratorState {
             latest_index: 0,
             config: network_config,
@@ -111,6 +108,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     fn post_my_public_key(
         &mut self,
         node_index: u64, 
+        pubkey: &mut Vec<u8>,
     ) -> Result<(), ServerError>;
     /// post endpoint for whether or not all peers public keys are ready
     /// # Errors
@@ -212,27 +210,23 @@ where
                 });
             }
         }
-        error!("config post in post_getconfig() = {:?}", self.config.clone());
         Ok(self.config.clone())
     }
 
     fn post_my_public_key(
         &mut self,
         node_index: u64,
+        pubkey: &mut Vec<u8>,
     ) -> Result<(), ServerError> {
-        // Sishan TODO: pass in public key rather than generating it here
-        let my_pub_key = <KEY as SignatureKey>::generated_from_seed_indexed(
-            self.config.seed,
-            node_index.try_into().unwrap(),
-        )
-        .0;
+        // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
+        pubkey.drain(..8);
+        let my_pub_key = <KEY as SignatureKey>::from_bytes(&pubkey).unwrap();
+
         let my_pub_key_with_stake = my_pub_key.get_stake_table_entry(1u64);
-        error!("my_seed = {:?} my_index = {:?}, my_pub_key_with_stake = {:?}", self.config.seed, node_index, my_pub_key_with_stake);
         self.config
             .config
             .known_nodes_with_stake[node_index as usize] = my_pub_key_with_stake;
         // Assumes nodes do not post the public key twice
-        // Sishan TODO: Add a map to verify which nodes have posted their public key
         self.nodes_with_pubkey += 1;
         println!("Node {:?} posted public key, now total num posted public key: {:?}", node_index, self.nodes_with_pubkey);
         if self.nodes_with_pubkey
@@ -244,7 +238,6 @@ where
                 as u64)
         {
             self.peer_pub_ready = true;
-            error!("Node {:?}'s peers are ready.", node_index);
         }
         Ok(())
     }
@@ -278,7 +271,6 @@ where
         {
             self.peer_updated_config_ready = true;
         }
-        error!("config get in get_config_after_peer_collected() = {:?}", self.config.clone());
         Ok(self.config.clone())
     }
 
@@ -364,7 +356,8 @@ where
     .post("postpubkey", |req, state| {
         async move {
             let node_index = req.integer_param("node_index")?;
-            state.post_my_public_key(node_index)
+            let mut pubkey = req.body_bytes();
+            state.post_my_public_key(node_index, &mut pubkey)
         }
         .boxed()
     })?
@@ -405,7 +398,6 @@ where
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
-    error!("In run_orchestrator, the initialization of config = {:?}", network_config);
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 
