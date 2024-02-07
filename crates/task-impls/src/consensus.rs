@@ -434,10 +434,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .metrics
                 .current_view
                 .set(usize::try_from(self.cur_view.get_u64()).unwrap());
-            consensus.metrics.number_of_views_since_last_decide.set(
-                usize::try_from(self.cur_view.get_u64()).unwrap()
-                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
-            );
+            // Do the comparison before the substraction to avoid potential overflow, since
+            // `last_decided_view` may be greater than `cur_view` if the node is catching up.
+            if usize::try_from(self.cur_view.get_u64()).unwrap()
+                > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
+            {
+                consensus.metrics.number_of_views_since_last_decide.set(
+                    usize::try_from(self.cur_view.get_u64()).unwrap()
+                        - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                );
+            }
 
             return true;
         }

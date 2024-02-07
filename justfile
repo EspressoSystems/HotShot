@@ -43,7 +43,7 @@ test_basic: test_success test_with_failures test_network_task test_consensus_tas
 
 test_catchup:
   echo Testing with async std executor
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_catchup_reload -- --test-threads=1 --nocapture
 
 test_crypto:
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast crypto_test -- --test-threads=1 --nocapture
