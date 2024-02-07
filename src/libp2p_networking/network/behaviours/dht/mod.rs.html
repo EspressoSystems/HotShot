@@ -733,6 +733,19 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -764,7 +777,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_REPLICATED_TO_TRUST: usize = <span class="number">2</span>;
 
 <span class="doccomment">/// the maximum number of nodes to query in the DHT at any one time
-</span><span class="kw">const </span>MAX_DHT_QUERY_SIZE: usize = <span class="number">5</span>;
+</span><span class="kw">const </span>MAX_DHT_QUERY_SIZE: usize = <span class="number">50</span>;
 
 <span class="kw">use </span><span class="self">self</span>::cache::Cache;
 
@@ -984,9 +997,10 @@
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = async_block_on(<span class="self">self</span>.cache.get(<span class="kw-2">&amp;</span>key)) {
             <span class="comment">// exists in cache
             </span><span class="kw">if </span>chan.send(entry.value().clone()).is_err() {
-                <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
             }
         } <span class="kw">else </span>{
+            <span class="macro">tracing::debug!</span>(<span class="string">&quot;DHT cache miss, key: {:?}&quot;</span>, key);
             <span class="comment">// doesn&#39;t exist in cache, actually propagate request
             </span><span class="kw">let </span>qid = <span class="self">self</span>.kadem.get_record(key.clone().into());
             <span class="kw">let </span>query = KadGetQuery {
@@ -1003,17 +1017,27 @@
     }
 
     <span class="doccomment">/// update state based on recv-ed get query
-    </span><span class="kw">fn </span>handle_get_query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record_results: GetRecordResult, id: QueryId, last: bool) {
+    </span><span class="kw">fn </span>handle_get_query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record_results: GetRecordResult, id: QueryId, <span class="kw-2">mut </span>last: bool) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(query) = <span class="self">self</span>.in_progress_get_record_queries.get_mut(<span class="kw-2">&amp;</span>id) {
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(GetRecordOk::FoundRecord(record)) = record_results {
-                <span class="kw">match </span>query.records.entry(record.record.value) {
-                    std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                        <span class="kw">let </span>num_entries = o.get_mut();
-                        <span class="kw-2">*</span>num_entries += <span class="number">1</span>;
+            <span class="kw">match </span>record_results {
+                <span class="prelude-val">Ok</span>(results) =&gt; <span class="kw">match </span>results {
+                    GetRecordOk::FoundRecord(record) =&gt; {
+                        <span class="kw">match </span>query.records.entry(record.record.value) {
+                            std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                                <span class="kw">let </span>num_entries = o.get_mut();
+                                <span class="kw-2">*</span>num_entries += <span class="number">1</span>;
+                            }
+                            std::collections::hash_map::Entry::Vacant(v) =&gt; {
+                                v.insert(<span class="number">1</span>);
+                            }
+                        }
                     }
-                    std::collections::hash_map::Entry::Vacant(v) =&gt; {
-                        v.insert(<span class="number">1</span>);
-                    }
+                    GetRecordOk::FinishedWithNoAdditionalRecord {
+                        cache_candidates: <span class="kw">_</span>,
+                    } =&gt; last = <span class="bool-val">true</span>,
+                },
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">error!</span>(<span class="string">&quot;GOT ERROR IN KAD QUERY {:?}&quot;</span>, err);
                 }
             }
         } <span class="kw">else </span>{
@@ -1021,7 +1045,8 @@
             </span><span class="kw">return</span>;
         }
 
-        <span class="kw">if </span>last {
+        <span class="comment">// BUG
+        </span><span class="kw">if </span>last {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(KadGetQuery {
                 backoff,
                 progress,
@@ -1050,17 +1075,17 @@
 
                     <span class="comment">// return value
                     </span><span class="kw">if </span>notify.send(r).is_err() {
-                        <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
+                        <span class="macro">error!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
                     }
                 }
                 <span class="comment">// lack of replication =&gt; error
                 </span><span class="kw">else if </span>records_len &lt; NUM_REPLICATED_TO_TRUST {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, progress);
+                    <span class="macro">error!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, progress);
                     <span class="self">self</span>.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
                 <span class="comment">// many records that don&#39;t match =&gt; disagreement
                 </span><span class="kw">else if </span>records_len &gt; MAX_DHT_QUERY_SIZE {
-                    <span class="macro">warn!</span>(
+                    <span class="macro">error!</span>(
                         <span class="string">&quot;Get DHT: Record disagreed upon; {:?}! requerying with more nodes&quot;</span>,
                         progress
                     );
@@ -1074,7 +1099,7 @@
                         NonZeroUsize::new(num_replicas.get() + <span class="number">1</span>).unwrap_or(num_replicas);
 
                     <span class="self">self</span>.get_record(key, notify, new_factor, backoff, retry_count);
-                    <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes&quot;</span>, progress);
+                    <span class="macro">error!</span>(<span class="string">&quot;Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes&quot;</span>, progress);
                 }
             }
         }
@@ -1340,6 +1365,7 @@
                 <span class="self">self</span>.queued_get_record_queries.push_back(req);
             }
         }
+
         <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_put_record_queries.pop_front() {
             <span class="kw">if </span>req.backoff.is_expired() {
                 <span class="self">self</span>.put_record(req);

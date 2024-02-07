@@ -637,6 +637,10 @@
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -885,13 +889,17 @@
                 .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC));
             <span class="kw">let </span>ttl = <span class="prelude-val">Some</span>(config.ttl.unwrap_or(<span class="number">16 </span>* record_republication_interval));
             kconfig
-                .set_parallelism(NonZeroUsize::new(<span class="number">1</span>).unwrap())
+                .set_parallelism(NonZeroUsize::new(<span class="number">5</span>).unwrap())
                 .set_provider_publication_interval(<span class="prelude-val">Some</span>(record_republication_interval))
                 .set_publication_interval(<span class="prelude-val">Some</span>(record_republication_interval))
                 .set_record_ttl(ttl);
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(factor) = config.replication_factor {
+            <span class="comment">// allowing panic here because something is very wrong if this fales
+            </span><span class="attr">#[allow(clippy::panic)]
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
+            } <span class="kw">else </span>{
+                <span class="macro">panic!</span>(<span class="string">&quot;Replication factor not set&quot;</span>);
             }
 
             <span class="kw">let </span>kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);

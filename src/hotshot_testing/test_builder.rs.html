@@ -383,7 +383,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            next_view_timeout: <span class="number">1500</span>,
+            next_view_timeout: <span class="number">2500</span>,
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">100</span>,
             start_delay: <span class="number">100</span>,
@@ -499,7 +499,7 @@
             },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             <span class="comment">// arbitrary, haven&#39;t done the math on this
-            </span>txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(<span class="number">10</span>)),
+            </span>txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(<span class="number">100</span>)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     <span class="comment">// TODO ED Put a configurable time here - 10 seconds for now

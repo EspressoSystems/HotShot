@@ -1231,7 +1231,7 @@
                 <span class="kw">if </span>proposal.<span class="number">1</span>.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {view_number}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal empty for view {view_number}&quot;</span>),
                     })
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[proposal.<span class="number">1</span>.clone()]))

@@ -186,7 +186,11 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
@@ -196,7 +200,10 @@
     task::HotShotTaskCompleted,
     task_launcher::TaskRunner,
 };
-<span class="kw">use </span>hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
+<span class="kw">use </span>hotshot_types::{
+    traits::{network::CommunicationChannel, node_implementation::NodeType},
+    HotShotConfig,
+};
 
 <span class="kw">use crate</span>::{spinning_task::SpinningTask, view_sync_task::ViewSyncTask};
 
@@ -208,7 +215,7 @@
 <span class="doccomment">/// convience type alias for the networks available
 </span><span class="kw">pub type </span>Networks&lt;TYPES, I&gt; = (
     &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork,
-    &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeNetwork,
+    &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork,
 );
 
 <span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -272,13 +279,14 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
     <span class="doccomment">/// launch the test
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>launch(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I&gt; {
-        TestRunner {
+    </span><span class="kw">pub fn </span>launch&lt;N: CommunicationChannel&lt;TYPES&gt;&gt;(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I, N&gt; {
+        TestRunner::&lt;TYPES, I, N&gt; {
             launcher: <span class="self">self</span>,
             nodes: Vec::new(),
             late_start: HashMap::new(),
             next_node_id: <span class="number">0</span>,
             task_runner: TaskRunner::default(),
+            _pd: PhantomData,
         }
     }
 
