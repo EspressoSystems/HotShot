@@ -197,6 +197,10 @@ async fn test_memory_network_partially_sync() {
                 duration: Duration::from_secs(240),
             },
         ),
+        timing_data: TimingData {
+            next_view_timeout: 25000,
+            ..Default::default()
+        },
         unreliable_network: Some(Box::new(PartiallySynchronousNetwork {
             asynchronous: AsynchronousNetwork {
                 keep_numerator: 8,
