@@ -45,6 +45,8 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) changes: BTreeMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
     pub(crate) latest_view: Option<TYPES::Time>,
+    /// Last decided leaf that can be used as the anchor leaf to initialize the node.
+    pub(crate) last_decided_leaf: Leaf<TYPES>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TS for SpinningTask<TYPES, I> {}
@@ -74,15 +76,12 @@ pub struct ChangeNode {
 /// description of the spinning task
 /// (used to build a spinning task)
 #[derive(Clone, Debug)]
-pub struct SpinningTaskDescription<TYPES: NodeType> {
+pub struct SpinningTaskDescription {
     /// the changes in node status, time -> changes
     pub node_changes: Vec<(u64, Vec<ChangeNode>)>,
-
-    /// Last decided leaf that can be used as the anchor leaf to initialize the node.
-    pub last_decided_leaf: Leaf<TYPES>,
 }
 
-impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription<TYPES> {
+impl SpinningTaskDescription {
     /// build a task
     /// # Panics
     /// If there is no latest view
@@ -90,9 +89,10 @@ impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn build<
+        TYPES: NodeType<InstanceState = TestInstanceState>,
         I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
     >(
-        mut self,
+        self,
     ) -> TaskGenerator<SpinningTask<TYPES, I>> {
         Box::new(move |mut state, mut registry, test_event_stream| {
             async move {
@@ -124,7 +124,7 @@ impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription
 
                             if let EventType::Decide{leaf_chain,..} = event {
                                 if let Some(leaf) = leaf_chain.first() {
-                                    self.last_decided_leaf = leaf.clone();
+                                    state.last_decided_leaf = leaf.clone();
                                 }
                             };
 
@@ -160,9 +160,9 @@ impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription
                                                             Left(context) => context,
                                                             // Node not initialized. Initialize it
                                                             // based on the received leaf.
-                                                            Right((storage, config)) => {
+                                                            Right((storage, memberships, config)) => {
                                                                 let initializer =
-                                                                    HotShotInitializer::<TYPES>::from_reload(self.last_decided_leaf.clone(), TestInstanceState {}, view);
+                                                                    HotShotInitializer::<TYPES>::from_reload(state.last_decided_leaf.clone(), TestInstanceState {}, view);
                                                                 // We assign node's public key and stake value rather than read from config file since it's a test
                                                                 let validator_config =
                                                                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
@@ -170,6 +170,7 @@ impl<TYPES: NodeType<InstanceState = TestInstanceState>> SpinningTaskDescription
                                                                     node_id,
                                                                     node.networks.clone(),
                                                                     storage,
+                                                                    memberships,
                                                                     initializer,
                                                                     config,
                                                                     validator_config,

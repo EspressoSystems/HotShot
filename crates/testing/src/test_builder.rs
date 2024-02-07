@@ -1,6 +1,6 @@
 use hotshot::{traits::NetworkReliability, types::SignatureKey};
 use hotshot_orchestrator::config::ValidatorConfigFile;
-use hotshot_types::{data::Leaf, traits::election::Membership};
+use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
@@ -12,7 +12,6 @@ use hotshot_types::{
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
 use crate::{
     spinning_task::SpinningTaskDescription,
-    state_types,
     state_types::TestInstanceState,
     test_launcher::{ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
@@ -40,7 +39,7 @@ pub struct TimingData {
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
-pub struct TestMetadata<TYPES: NodeType> {
+pub struct TestMetadata {
     /// Total number of nodes in the test
     pub total_nodes: usize,
     /// nodes available at start
@@ -52,7 +51,7 @@ pub struct TestMetadata<TYPES: NodeType> {
     /// overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
     /// spinning properties
-    pub spinning_properties: SpinningTaskDescription<TYPES>,
+    pub spinning_properties: SpinningTaskDescription,
     /// txns timing
     pub txn_description: TxnTaskDescription,
     /// completion task
@@ -80,7 +79,7 @@ impl Default for TimingData {
     }
 }
 
-impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> TestMetadata<TYPES> {
+impl TestMetadata {
     /// the default metadata for a stress test
     #[must_use]
     pub fn default_stress() -> Self {
@@ -111,7 +110,7 @@ impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> TestMetada
 
     /// the default metadata for multiple rounds
     #[must_use]
-    pub fn default_multiple_rounds() -> TestMetadata<TYPES> {
+    pub fn default_multiple_rounds() -> TestMetadata {
         let num_nodes = 10;
         TestMetadata {
             // TODO: remove once we have fixed the DHT timeout issue
@@ -139,7 +138,7 @@ impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> TestMetada
 
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
-    pub fn default_more_nodes() -> TestMetadata<TYPES> {
+    pub fn default_more_nodes() -> TestMetadata {
         let num_nodes = 20;
         TestMetadata {
             total_nodes: num_nodes,
@@ -170,9 +169,7 @@ impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> TestMetada
     }
 }
 
-impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> Default
-    for TestMetadata<TYPES>
-{
+impl Default for TestMetadata {
     /// by default, just a single round
     fn default() -> Self {
         let num_nodes = 5;
@@ -185,7 +182,6 @@ impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> Default
             da_committee_size: num_nodes,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
-                last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
             },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
@@ -202,13 +198,14 @@ impl<TYPES: NodeType<InstanceState = state_types::TestInstanceState>> Default
     }
 }
 
-impl<TYPES: NodeType<InstanceState = TestInstanceState>> TestMetadata<TYPES> {
+impl TestMetadata {
     /// turn a description of a test (e.g. a [`TestMetadata`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
     #[must_use]
     pub fn gen_launcher<
+        TYPES: NodeType<InstanceState = TestInstanceState>,
         I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
     >(
         self,

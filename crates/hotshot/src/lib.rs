@@ -102,6 +102,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Networks<TYPES, I> {
 }
 
 /// Bundle of all the memberships a consensus instance uses
+#[derive(Clone)]
 pub struct Memberships<TYPES: NodeType> {
     /// Quorum Membership
     pub quorum_membership: TYPES::Membership,

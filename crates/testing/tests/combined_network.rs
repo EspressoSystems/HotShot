@@ -90,7 +90,6 @@ async fn test_combined_network_webserver_crash() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, all_nodes)],
-        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata
@@ -148,7 +147,6 @@ async fn test_combined_network_reup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(13, all_up), (5, all_down)],
-        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata
@@ -200,7 +198,6 @@ async fn test_combined_network_half_dc() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, half)],
-        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata
@@ -274,7 +271,6 @@ async fn test_stress_combined_network_fuzzy() {
             metadata.total_nodes,
             metadata.overall_safety_properties.num_successful_views * 2,
         ),
-        last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
     };
 
     metadata
