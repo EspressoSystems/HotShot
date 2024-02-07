@@ -606,6 +606,17 @@
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -799,7 +810,7 @@
 
         <span class="comment">// insert genesis (or latest block) to state map
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
-        <span class="kw">let </span>validated_state = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
+        <span class="kw">let </span>validated_state = Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -953,17 +964,28 @@
             .map(|guard| guard.get_decided_leaf())
     }
 
-    <span class="doccomment">/// Returns a copy of the last decided validated state.
+    <span class="doccomment">/// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::ValidatedState {
+    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
         <span class="self">self</span>.inner
             .consensus
             .read()
             .<span class="kw">await
             </span>.get_decided_state()
             .clone()
+    }
+
+    <span class="doccomment">/// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
+        <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_state(view).cloned()
     }
 
     <span class="doccomment">/// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks

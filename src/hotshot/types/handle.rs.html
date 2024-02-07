@@ -187,6 +187,17 @@
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -279,8 +290,19 @@
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::ValidatedState {
+    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
         <span class="self">self</span>.hotshot.get_decided_state().<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
+        <span class="self">self</span>.hotshot.get_state(view).<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Get the last decided leaf of the [`SystemContext`] instance.

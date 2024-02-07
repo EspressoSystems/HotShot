@@ -375,6 +375,9 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -419,7 +422,7 @@
 <span class="kw">use </span>hotshot_types::vote::Vote;
 
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>std::{fmt::Debug, hash::Hash};
+<span class="kw">use </span>std::{fmt::Debug, hash::Hash, sync::Arc};
 
 <span class="doccomment">/// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -615,10 +618,11 @@
             .quorum_membership
             .total_nodes(),
     );
-    <span class="kw">let </span><span class="kw-2">mut </span>parent_state =
-        &lt;TestValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header);
+    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = Arc::new(&lt;TestValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(
+        <span class="kw-2">&amp;</span>parent_leaf.block_header,
+    ));
     <span class="kw">let </span>block_header = TestBlockHeader::new(
-        <span class="kw-2">&amp;</span>parent_state,
+        <span class="kw-2">&amp;*</span>parent_state,
         <span class="kw-2">&amp;</span>TestInstanceState {},
         <span class="kw-2">&amp;</span>parent_leaf.block_header,
         payload_commitment,
@@ -646,9 +650,11 @@
 
     <span class="comment">// Only view 2 is tested, higher views are not tested
     </span><span class="kw">for </span>cur_view <span class="kw">in </span><span class="number">2</span>..=view {
-        <span class="kw">let </span>state_new_view = parent_state
-            .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header)
-            .unwrap();
+        <span class="kw">let </span>state_new_view = Arc::new(
+            parent_state
+                .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header)
+                .unwrap(),
+        );
         <span class="comment">// save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         </span>consensus.validated_state_map.insert(

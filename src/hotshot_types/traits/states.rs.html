@@ -105,7 +105,7 @@
 /// produce a new state, with the modifications from the block applied
 /// ([`validate_and_apply_header`](`ValidatedState::validate_and_apply_header))
 </span><span class="kw">pub trait </span>ValidatedState:
-    Serialize + DeserializeOwned + Clone + Debug + Default + Hash + PartialEq + Eq + Send + Sync
+    Serialize + DeserializeOwned + Debug + Default + Hash + PartialEq + Eq + Send + Sync
 {
     <span class="doccomment">/// The error type for this particular type of ledger state
     </span><span class="kw">type </span>Error: Error + Debug + Send + Sync;

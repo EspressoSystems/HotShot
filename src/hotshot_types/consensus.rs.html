@@ -703,7 +703,7 @@
 
     <span class="doccomment">/// Gets the validated state with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::ValidatedState&gt; {
+    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt;&gt; {
         <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
             <span class="prelude-val">Some</span>(view) =&gt; view.get_state(),
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
@@ -716,7 +716,7 @@
     /// If the last decided view&#39;s state does not exist in the state map, which should never
     /// happen.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::ValidatedState {
+    </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
         <span class="self">self</span>.get_state(decided_view_num)
             .expect(<span class="string">&quot;Decided state not found! Consensus internally inconsistent&quot;</span>)
