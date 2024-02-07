@@ -103,8 +103,6 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
 }
 
 /// Add the network task to handle events and send messages.
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
@@ -125,7 +123,7 @@ pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<T
 
 /// Create the consensus task state
 /// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
+/// If genesis payload can't be encoded.  This should not be possible
 pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     output_stream: Sender<Event<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
@@ -205,8 +203,6 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
 }
 
 /// add the consensus task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
@@ -220,8 +216,6 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 /// add the VID task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
@@ -249,8 +243,6 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 /// add the Data Availability task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
@@ -279,8 +271,6 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 /// add the Transaction Handling task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
@@ -308,8 +298,6 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     task_reg.run_task(task).await;
 }
 /// add the view sync task
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
