@@ -24,7 +24,7 @@ use tokio::{
 
 use crate::{
     dependency::Dependency,
-    dependency_task::{DependencyTask, HandleDepResult},
+    dependency_task::{DependencyTask, HandleDepOutput},
 };
 
 /// Type for mutable task state that can be used as the state for a `Task`
@@ -290,7 +290,7 @@ impl TaskRegistry {
     pub async fn spawn_dependency_task<T, H>(
         &self,
         dep: impl Dependency<T> + Send + 'static,
-        handle: impl HandleDepResult<Output = T>,
+        handle: impl HandleDepOutput<Output = T>,
     ) {
         let join_handle = DependencyTask { dep, handle }.run();
         self.register(join_handle).await;
