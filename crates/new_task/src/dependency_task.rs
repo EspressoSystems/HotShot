@@ -10,21 +10,21 @@ use crate::dependency::Dependency;
 /// Defines a type that can handle the result of a dependency
 pub trait HandleDepResult: Send + Sized + Sync + 'static {
     /// Type we expect from completed dependency
-    type Result: Send + Sync + 'static;
+    type Output: Send + Sync + 'static;
 
     /// Called once when the Dependency completes handles the results
-    fn handle_dep_result(self, res: Self::Result) -> impl Future<Output = ()> + Send;
+    fn handle_dep_result(self, res: Self::Output) -> impl Future<Output = ()> + Send;
 }
 
 /// A task that runs until it's dependency completes and it handles the result
-pub struct DependencyTask<D: Dependency<H::Result> + Send, H: HandleDepResult + Send> {
+pub struct DependencyTask<D: Dependency<H::Output> + Send, H: HandleDepResult + Send> {
     /// Dependency this taks waits for
     pub(crate) dep: D,
     /// Handles the results returned from `self.dep.completed().await`
     pub(crate) handle: H,
 }
 
-impl<D: Dependency<H::Result> + Send, H: HandleDepResult + Send> DependencyTask<D, H> {
+impl<D: Dependency<H::Output> + Send, H: HandleDepResult + Send> DependencyTask<D, H> {
     /// Create a new `DependencyTask`
     #[must_use]
     pub fn new(dep: D, handle: H) -> Self {
@@ -32,7 +32,7 @@ impl<D: Dependency<H::Result> + Send, H: HandleDepResult + Send> DependencyTask<
     }
 }
 
-impl<D: Dependency<H::Result> + Send + 'static, H: HandleDepResult> DependencyTask<D, H> {
+impl<D: Dependency<H::Output> + Send + 'static, H: HandleDepResult> DependencyTask<D, H> {
     /// Spawn the dependency task
     pub fn run(self) -> JoinHandle<()>
     where
@@ -72,7 +72,7 @@ mod test {
         sender: Sender<TaskResult>,
     }
     impl HandleDepResult for DummyHandle {
-        type Result = usize;
+        type Output = usize;
         async fn handle_dep_result(self, res: usize) {
             self.sender
                 .broadcast(TaskResult::Success(res))

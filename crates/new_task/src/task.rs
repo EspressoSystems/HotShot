@@ -32,13 +32,13 @@ pub trait TaskState: Send {
     /// Type of event sent and received by the task
     type Event: Clone + Send + Sync + 'static;
     /// The result returned when this task compeltes
-    type Result: Send;
+    type Output: Send;
     /// Handle event and update state.  Return true if the task is finished
     /// false otherwise.  The handler can access the state through `Task::state_mut`
     fn handle_event(
         event: Self::Event,
         task: &mut Task<Self>,
-    ) -> impl Future<Output = Option<Self::Result>> + Send
+    ) -> impl Future<Output = Option<Self::Output>> + Send
     where
         Self: Sized;
 
@@ -48,7 +48,7 @@ pub trait TaskState: Send {
         false
     }
     /// Do something with the result of the task before it shuts down
-    fn handle_result(&self, _res: &Self::Result) -> impl std::future::Future<Output = ()> + Send {
+    fn handle_result(&self, _res: &Self::Output) -> impl std::future::Future<Output = ()> + Send {
         async {}
     }
     /// Return true if the event should shut the task down
@@ -68,7 +68,7 @@ pub trait TestTaskState: Send {
     /// Message type handled by the task
     type Message: Clone + Send + Sync + 'static;
     /// Result returned by the test task on completion
-    type Result: Send;
+    type Output: Send;
     /// The state type
     type State: TaskState;
     /// Handle and incoming message and return `Some` if the task is finished
@@ -76,7 +76,7 @@ pub trait TestTaskState: Send {
         message: Self::Message,
         id: usize,
         task: &mut TestTask<Self::State, Self>,
-    ) -> impl Future<Output = Option<Self::Result>> + Send
+    ) -> impl Future<Output = Option<Self::Output>> + Send
     where
         Self: Sized;
 }
@@ -191,7 +191,7 @@ pub struct TestTask<S: TaskState, T: TestTaskState + Send> {
 
 impl<
         S: TaskState + Send + 'static,
-        T: TestTaskState<State = S, Result = S::Result> + Send + Sync + 'static,
+        T: TestTaskState<State = S, Output = S::Output> + Send + Sync + 'static,
     > TestTask<S, T>
 {
     /// Create a test task
@@ -205,7 +205,7 @@ impl<
     /// Consumes self and runs until some shutdown condition is met.
     /// The join handle will return the result of the task, useful for deciding if the test
     /// passed or not.
-    pub fn run(mut self) -> JoinHandle<S::Result> {
+    pub fn run(mut self) -> JoinHandle<S::Output> {
         spawn(async move {
             loop {
                 let mut futs = vec![];
@@ -290,7 +290,7 @@ impl TaskRegistry {
     pub async fn spawn_dependency_task<T, H>(
         &self,
         dep: impl Dependency<T> + Send + 'static,
-        handle: impl HandleDepResult<Result = T>,
+        handle: impl HandleDepResult<Output = T>,
     ) {
         let join_handle = DependencyTask { dep, handle }.run();
         self.register(join_handle).await;
@@ -326,7 +326,7 @@ mod tests {
     #[allow(clippy::panic)]
     impl TaskState for DummyHandle {
         type Event = usize;
-        type Result = ();
+        type Output = ();
         async fn handle_event(event: usize, task: &mut Task<Self>) -> Option<()> {
             sleep(Duration::from_millis(10)).await;
             let state = task.state_mut();
@@ -353,7 +353,7 @@ mod tests {
 
     impl TestTaskState for DummyHandle {
         type Message = String;
-        type Result = ();
+        type Output = ();
         type State = Self;
 
         async fn handle_message(
