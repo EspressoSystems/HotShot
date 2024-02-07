@@ -7,33 +7,41 @@ use futures::Future;
 
 use crate::dependency::Dependency;
 
-pub trait HandleDepResult: Send + Sized + Sync + 'static {
-    type Result: Send + Sync + 'static;
+/// Defines a type that can handle the result of a dependency
+pub trait HandleDepOutput: Send + Sized + Sync + 'static {
+    /// Type we expect from completed dependency
+    type Output: Send + Sync + 'static;
 
     /// Called once when the Dependency completes handles the results
-    fn handle_dep_result(self, res: Self::Result) -> impl Future<Output = ()> + Send;
+    fn handle_dep_result(self, res: Self::Output) -> impl Future<Output = ()> + Send;
 }
 
-pub struct DependencyTask<D: Dependency<H::Result> + Send, H: HandleDepResult + Send> {
+/// A task that runs until it's dependency completes and it handles the result
+pub struct DependencyTask<D: Dependency<H::Output> + Send, H: HandleDepOutput + Send> {
+    /// Dependency this taks waits for
     pub(crate) dep: D,
+    /// Handles the results returned from `self.dep.completed().await`
     pub(crate) handle: H,
 }
 
-impl<D: Dependency<H::Result> + Send, H: HandleDepResult + Send> DependencyTask<D, H> {
+impl<D: Dependency<H::Output> + Send, H: HandleDepOutput + Send> DependencyTask<D, H> {
+    /// Create a new `DependencyTask`
+    #[must_use]
     pub fn new(dep: D, handle: H) -> Self {
         Self { dep, handle }
     }
 }
 
-impl<D: Dependency<H::Result> + Send + 'static, H: HandleDepResult> DependencyTask<D, H> {
+impl<D: Dependency<H::Output> + Send + 'static, H: HandleDepOutput> DependencyTask<D, H> {
+    /// Spawn the dependency task
     pub fn run(self) -> JoinHandle<()>
     where
         Self: Sized,
     {
         spawn(async move {
-            self.handle
-                .handle_dep_result(self.dep.completed().await)
-                .await;
+            if let Some(completed) = self.dep.completed().await {
+                self.handle.handle_dep_result(completed).await;
+            }
         })
     }
 }
@@ -63,8 +71,8 @@ mod test {
     struct DummyHandle {
         sender: Sender<TaskResult>,
     }
-    impl HandleDepResult for DummyHandle {
-        type Result = usize;
+    impl HandleDepOutput for DummyHandle {
+        type Output = usize;
         async fn handle_dep_result(self, res: usize) {
             self.sender
                 .broadcast(TaskResult::Success(res))
@@ -85,6 +93,8 @@ mod test {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    // allow unused for tokio because it's a test
+    #[allow(unused_must_use)]
     async fn it_works() {
         let (tx, rx) = broadcast(10);
         let (res_tx, mut res_rx) = broadcast(10);
@@ -93,7 +103,8 @@ mod test {
         let join_handle = DependencyTask { dep, handle }.run();
         tx.broadcast(2).await.unwrap();
         assert_eq!(res_rx.recv().await.unwrap(), TaskResult::Success(2));
-        let _ = join_handle.await;
+
+        join_handle.await;
     }
 
     #[cfg_attr(

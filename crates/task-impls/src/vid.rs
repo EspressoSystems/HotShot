@@ -183,7 +183,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     async fn handle_event(
         event: Self::Event,

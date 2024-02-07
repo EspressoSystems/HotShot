@@ -123,9 +123,9 @@ where
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Output> {
         let sender = task.clone_sender();
         task.state_mut().handle_event(event, &sender).await
     }

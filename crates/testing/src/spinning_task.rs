@@ -34,9 +34,9 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for SpinningTask<TYPES, I> {
     type Event = GlobalTestEvent;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
-    async fn handle_event(event: Self::Event, _task: &mut Task<Self>) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, _task: &mut Task<Self>) -> Option<Self::Output> {
         if matches!(event, GlobalTestEvent::ShutDown) {
             return Some(HotShotTaskCompleted::ShutDown);
         }
@@ -53,7 +53,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 {
     type Message = Event<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     type State = Self;
 
@@ -61,7 +61,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
         message: Self::Message,
         _id: usize,
         task: &mut hotshot_task::task::TestTask<Self::State, Self>,
-    ) -> Option<Self::Result> {
+    ) -> Option<Self::Output> {
         let Event {
             view_number,
             event: _,

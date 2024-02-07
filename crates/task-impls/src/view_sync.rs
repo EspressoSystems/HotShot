@@ -115,7 +115,7 @@ impl<
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = ();
+    type Output = ();
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
         let sender = task.clone_sender();
@@ -184,7 +184,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = ();
+    type Output = ();
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
         let sender = task.clone_sender();

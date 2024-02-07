@@ -26,9 +26,9 @@ pub struct ViewSyncTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSyncTask<TYPES, I> {
     type Event = GlobalTestEvent;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Output> {
         let state = task.state_mut();
         match event {
             GlobalTestEvent::ShutDown => match state.description.clone() {
@@ -56,7 +56,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 {
     type Message = HotShotEvent<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     type State = Self;
 

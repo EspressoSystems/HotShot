@@ -340,7 +340,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
         !matches!(

@@ -16,7 +16,7 @@ pub struct TestHarnessState<TYPES: NodeType> {
 
 impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
     type Event = HotShotEvent<TYPES>;
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     async fn handle_event(
         event: Self::Event,

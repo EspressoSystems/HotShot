@@ -24,18 +24,21 @@ use tokio::{
 
 use crate::{
     dependency::Dependency,
-    dependency_task::{DependencyTask, HandleDepResult},
+    dependency_task::{DependencyTask, HandleDepOutput},
 };
 
+/// Type for mutable task state that can be used as the state for a `Task`
 pub trait TaskState: Send {
+    /// Type of event sent and received by the task
     type Event: Clone + Send + Sync + 'static;
-    type Result: Send;
+    /// The result returned when this task compeltes
+    type Output: Send;
     /// Handle event and update state.  Return true if the task is finished
-    /// false otherwise
+    /// false otherwise.  The handler can access the state through `Task::state_mut`
     fn handle_event(
         event: Self::Event,
         task: &mut Task<Self>,
-    ) -> impl Future<Output = Option<Self::Result>> + Send
+    ) -> impl Future<Output = Option<Self::Output>> + Send
     where
         Self: Sized;
 
@@ -45,7 +48,7 @@ pub trait TaskState: Send {
         false
     }
     /// Do something with the result of the task before it shuts down
-    fn handle_result(&self, _res: &Self::Result) -> impl std::future::Future<Output = ()> + Send {
+    fn handle_result(&self, _res: &Self::Output) -> impl std::future::Future<Output = ()> + Send {
         async {}
     }
     /// Return true if the event should shut the task down
@@ -56,27 +59,48 @@ pub trait TaskState: Send {
     }
 }
 
+/// Task state for a test.  Similar to `TaskState` but it handles
+/// messages as well as events.  Messages are events that are
+/// external to this task.  (i.e. a test message would be an event from non test task)
+/// This is used as state for `TestTask` and messages can come from many
+/// different input streams.
 pub trait TestTaskState: Send {
+    /// Message type handled by the task
     type Message: Clone + Send + Sync + 'static;
-    type Result: Send;
+    /// Result returned by the test task on completion
+    type Output: Send;
+    /// The state type
     type State: TaskState;
+    /// Handle and incoming message and return `Some` if the task is finished
     fn handle_message(
         message: Self::Message,
         id: usize,
         task: &mut TestTask<Self::State, Self>,
-    ) -> impl Future<Output = Option<Self::Result>> + Send
+    ) -> impl Future<Output = Option<Self::Output>> + Send
     where
         Self: Sized;
 }
 
+/// A basic task which loops waiting for events to come from `event_receiver`
+/// and then handles them using it's state
+/// It sends events to other `Task`s through `event_sender`
+/// This should be used as the primary building block for long running
+/// or medium running tasks (i.e. anything that can't be described as a dependency task)
 pub struct Task<S: TaskState> {
+    /// Sends events all tasks including itself
     event_sender: Sender<S::Event>,
+    /// Receives events that are broadcast from any task, including itself
     event_receiver: Receiver<S::Event>,
+    /// Contains this task, used to register any spawned tasks
     registry: Arc<TaskRegistry>,
+    /// The state of the task.  It is fed events from `event_sender`
+    /// and mutates it state ocordingly.  Also it signals the task
+    /// if it is complete/should shutdown
     state: S,
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
+    /// Create a new task
     pub fn new(
         tx: Sender<S::Event>,
         rx: Receiver<S::Event>,
@@ -90,40 +114,59 @@ impl<S: TaskState + Send + 'static> Task<S> {
             state,
         }
     }
+    /// Spawn the task loop, consuming self.  Will continue until
+    /// the task reaches some shutdown condition
     pub fn run(mut self) -> JoinHandle<()> {
         spawn(async move {
             loop {
-                let event = self.event_receiver.recv_direct().await;
-                if S::should_shutdown(event.as_ref().unwrap()) {
-                    self.state.shutdown().await;
-                    break;
-                }
-                if self.state.filter(event.as_ref().unwrap()) {
-                    continue;
-                }
-                if let Some(res) = S::handle_event(event.unwrap(), &mut self).await {
-                    self.state.handle_result(&res).await;
-                    self.state.shutdown().await;
-                    break;
+                match self.event_receiver.recv_direct().await {
+                    Ok(event) => {
+                        if S::should_shutdown(&event) {
+                            self.state.shutdown().await;
+                            break;
+                        }
+                        if self.state.filter(&event) {
+                            continue;
+                        }
+                        if let Some(res) = S::handle_event(event, &mut self).await {
+                            self.state.handle_result(&res).await;
+                            self.state.shutdown().await;
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to receiving from event stream Error: {}", e);
+                    }
                 }
             }
         })
     }
+
+    /// Create a new event `Receiver` from this Task's receiver.
+    /// The returned receiver will get all messages not yet seen by this task
     pub fn subscribe(&self) -> Receiver<S::Event> {
         self.event_receiver.clone()
     }
+    /// Get a new sender handle for events
     pub fn sender(&self) -> &Sender<S::Event> {
         &self.event_sender
     }
+    /// Clone the sender handle
     pub fn clone_sender(&self) -> Sender<S::Event> {
         self.event_sender.clone()
     }
+    /// Broadcast a message to all listening tasks
+    /// # Errors
+    /// Errors if the broadcast fails
     pub async fn send(&self, event: S::Event) -> Result<Option<S::Event>, SendError<S::Event>> {
         self.event_sender.broadcast(event).await
     }
+    /// Get a mutable reference to this tasks state
     pub fn state_mut(&mut self) -> &mut S {
         &mut self.state
     }
+    /// Spawn a new task adn register it.  It will get all events not seend
+    /// by the task creating it.
     pub async fn run_sub_task(&self, state: S) {
         let task = Task {
             event_sender: self.clone_sender(),
@@ -137,23 +180,32 @@ impl<S: TaskState + Send + 'static> Task<S> {
     }
 }
 
+/// Similar to `Task` but adds functionality for testing.  Notably
+/// it adds message receivers to collect events from many non-test tasks
 pub struct TestTask<S: TaskState, T: TestTaskState + Send> {
+    /// Task which handles test events
     task: Task<S>,
+    /// Receivers for outside events
     message_receivers: Vec<Receiver<T::Message>>,
 }
 
 impl<
         S: TaskState + Send + 'static,
-        T: TestTaskState<State = S, Result = S::Result> + Send + Sync + 'static,
+        T: TestTaskState<State = S, Output = S::Output> + Send + Sync + 'static,
     > TestTask<S, T>
 {
+    /// Create a test task
     pub fn new(task: Task<S>, rxs: Vec<Receiver<T::Message>>) -> Self {
         Self {
             task,
             message_receivers: rxs,
         }
     }
-    pub fn run(mut self) -> JoinHandle<S::Result> {
+    /// Runs the task, taking events from the the test events and the message receivers.
+    /// Consumes self and runs until some shutdown condition is met.
+    /// The join handle will return the result of the task, useful for deciding if the test
+    /// passed or not.
+    pub fn run(mut self) -> JoinHandle<S::Output> {
         spawn(async move {
             loop {
                 let mut futs = vec![];
@@ -173,7 +225,7 @@ impl<
                     }
                 }
 
-                for rx in self.message_receivers.iter_mut() {
+                for rx in &mut self.message_receivers {
                     futs.push(rx.recv());
                 }
                 if let Ok((Ok(msg), id, _)) =
@@ -188,26 +240,37 @@ impl<
             }
         })
     }
+
+    /// Get a ref to state
     pub fn state(&self) -> &S {
         &self.task.state
     }
+    /// Get a mutable ref to state
     pub fn state_mut(&mut self) -> &mut S {
         self.task.state_mut()
     }
+    /// Send an event to other listening test tasks
+    ///
+    /// # Panics
+    /// panics if the event can't be sent (ok to panic in test)
     pub async fn send_event(&self, event: S::Event) {
         self.task.send(event).await.unwrap();
     }
 }
 
 #[derive(Default)]
+/// A collection of tasks which can handle shutdown
 pub struct TaskRegistry {
+    /// Tasks this registry controls
     task_handles: RwLock<Vec<JoinHandle<()>>>,
 }
 
 impl TaskRegistry {
+    /// Add a task to the registry
     pub async fn register(&self, handle: JoinHandle<()>) {
         self.task_handles.write().await.push(handle);
     }
+    /// Try to cancel/abort the task this registry has
     pub async fn shutdown(&self) {
         let mut handles = self.task_handles.write().await;
         while let Some(handle) = handles.pop() {
@@ -217,20 +280,25 @@ impl TaskRegistry {
             handle.abort();
         }
     }
+    /// Take a task, run it, and register it
     pub async fn run_task<S>(&self, task: Task<S>)
     where
         S: TaskState + Send + 'static,
     {
         self.register(task.run()).await;
     }
+    /// Create a new `DependencyTask` run it, and register it
     pub async fn spawn_dependency_task<T, H>(
         &self,
         dep: impl Dependency<T> + Send + 'static,
-        handle: impl HandleDepResult<Result = T>,
+        handle: impl HandleDepOutput<Output = T>,
     ) {
         let join_handle = DependencyTask { dep, handle }.run();
         self.register(join_handle).await;
     }
+    /// Wait for the results of all the tasks registered
+    /// # Panics
+    /// Panics if one of the tasks paniced
     pub async fn join_all(self) -> Vec<()> {
         #[cfg(async_executor_impl = "async-std")]
         let ret = join_all(self.task_handles.into_inner()).await;
@@ -256,18 +324,20 @@ mod tests {
         seen: HashSet<usize>,
     }
 
+    #[allow(clippy::panic)]
     impl TaskState for DummyHandle {
         type Event = usize;
-        type Result = ();
+        type Output = ();
         async fn handle_event(event: usize, task: &mut Task<Self>) -> Option<()> {
             sleep(Duration::from_millis(10)).await;
             let state = task.state_mut();
             state.seen.insert(event);
             if event > state.val {
                 state.val = event;
-                if state.val >= 100 {
-                    panic!("Test should shutdown before getting an event for 100")
-                }
+                assert!(
+                    state.val < 100,
+                    "Test should shutdown before getting an event for 100"
+                );
                 task.send(event + 1).await.unwrap();
             }
             None
@@ -284,7 +354,7 @@ mod tests {
 
     impl TestTaskState for DummyHandle {
         type Message = String;
-        type Result = ();
+        type Output = ();
         type State = Self;
 
         async fn handle_message(
@@ -292,7 +362,6 @@ mod tests {
             _id: usize,
             _task: &mut TestTask<Self::State, Self>,
         ) -> Option<()> {
-            println!("got message {}", message);
             if message == *"done".to_string() {
                 return Some(());
             }
@@ -304,6 +373,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[allow(unused_must_use)]
     async fn it_works() {
         let reg = Arc::new(TaskRegistry::default());
         let (tx, rx) = broadcast(10);
@@ -311,18 +381,18 @@ mod tests {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
             registry: reg.clone(),
-            state: Default::default(),
+            state: DummyHandle::default(),
         };
         tx.broadcast(1).await.unwrap();
         let task2 = Task::<DummyHandle> {
             event_sender: tx.clone(),
             event_receiver: rx,
             registry: reg,
-            state: Default::default(),
+            state: DummyHandle::default(),
         };
         let handle = task2.run();
         let _res = task1.run().await;
-        let _ = handle.await;
+        handle.await;
     }
 
     #[cfg_attr(
@@ -340,14 +410,14 @@ mod tests {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
             registry: reg.clone(),
-            state: Default::default(),
+            state: DummyHandle::default(),
         };
         tx.broadcast(1).await.unwrap();
         let task2 = Task::<DummyHandle> {
             event_sender: tx.clone(),
             event_receiver: rx,
             registry: reg,
-            state: Default::default(),
+            state: DummyHandle::default(),
         };
         let test1 = TestTask::<_, DummyHandle> {
             task: task1,

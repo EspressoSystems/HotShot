@@ -76,7 +76,7 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
 
 impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     type Event = Vec<Message<TYPES>>;
-    type Result = ();
+    type Output = ();
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
     where
@@ -201,7 +201,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> TaskState
 {
     type Event = HotShotEvent<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     async fn handle_event(
         event: Self::Event,

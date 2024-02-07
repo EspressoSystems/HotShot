@@ -1311,7 +1311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     for ConsensusTaskState<TYPES, I, A>
 {
     type Event = HotShotEvent<TYPES>;
-    type Result = ();
+    type Output = ();
     fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
         !matches!(
             event,

@@ -77,9 +77,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
 {
     type Event = GlobalTestEvent;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Result> {
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Output> {
         match event {
             GlobalTestEvent::ShutDown => {
                 tracing::error!("Shutting down SafetyTask");
@@ -128,7 +128,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 {
     type Message = Event<TYPES>;
 
-    type Result = HotShotTaskCompleted;
+    type Output = HotShotTaskCompleted;
 
     type State = Self;
 
@@ -136,7 +136,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
         message: Self::Message,
         idx: usize,
         task: &mut hotshot_task::task::TestTask<Self::State, Self>,
-    ) -> Option<Self::Result> {
+    ) -> Option<Self::Output> {
         let OverallSafetyPropertiesDescription {
             check_leaf,
             check_block,
