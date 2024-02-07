@@ -513,9 +513,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let consensus = self.consensus.upgradable_read().await;
 
-                // Construct the leaf.
+                // Get the parent leaf.
                 let parent = if justify_qc.is_genesis {
-                    self.genesis_leaf().await
+                    // Send the `Decide` event for the genesis block if the justify QC is genesis.
+                    let leaf = self.genesis_leaf().await;
+                    match leaf {
+                        Some(ref leaf) => {
+                            self.output_event_stream
+                                .publish(Event {
+                                    view_number: TYPES::Time::genesis(),
+                                    event: EventType::Decide {
+                                        leaf_chain: Arc::new(vec![leaf.clone()]),
+                                        qc: Arc::new(justify_qc.clone()),
+                                        block_size: None,
+                                    },
+                                })
+                                .await;
+                        }
+                        None => {
+                            error!(
+                                "Failed to find the genesis leaf while the justify QC is genesis."
+                            );
+                        }
+                    }
+                    leaf
                 } else {
                     consensus
                         .saved_leaves
@@ -544,9 +565,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         block_payload: None,
                         proposer_id: sender,
                     };
-                    let state = <TYPES::ValidatedState as ValidatedState>::from_header(
+                    let state = Arc::new(<TYPES::ValidatedState as ValidatedState>::from_header(
                         &proposal.data.block_header,
-                    );
+                    ));
 
                     consensus.validated_state_map.insert(
                         view,
@@ -606,6 +627,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
+                let state = Arc::new(state);
                 let parent_commitment = parent.commit();
                 let leaf: Leaf<_> = Leaf {
                     view_number: view,

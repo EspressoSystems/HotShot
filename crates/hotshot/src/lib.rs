@@ -191,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         // insert genesis (or latest block) to state map
         let mut validated_state_map = BTreeMap::default();
-        let validated_state = TYPES::ValidatedState::genesis(&instance_state);
+        let validated_state = Arc::new(TYPES::ValidatedState::genesis(&instance_state));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -347,17 +347,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .map(|guard| guard.get_decided_leaf())
     }
 
-    /// Returns a copy of the last decided validated state.
+    /// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+    pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
         self.inner
             .consensus
             .read()
             .await
             .get_decided_state()
             .clone()
+    }
+
+    /// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+        self.inner.consensus.read().await.get_state(view).cloned()
     }
 
     /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks

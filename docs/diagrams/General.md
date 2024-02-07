@@ -6,6 +6,19 @@
 ## Data Structures
 ```
 state_map {
+  HashMap (VIDCommitment -> Leaf)
   TODO
 }
+```
+
+```
+latest_known_view: u64
+```
+
+```
+latest_voted_view: u64
+```
+
+```
+latest_da_voted_view: u64
 ```
