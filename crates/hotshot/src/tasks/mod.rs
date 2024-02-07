@@ -44,8 +44,6 @@ pub enum GlobalEvent {
 }
 
 /// Add the network task to handle messages and publish events.
-/// # Panics
-/// Is unable to panic. This section here is just to satisfy clippy
 pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     event_stream: Sender<HotShotEvent<TYPES>>,
