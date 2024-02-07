@@ -33,6 +33,9 @@ pub mod spinning_task;
 /// task for checking if view sync got activated
 pub mod view_sync_task;
 
+/// Test implementation of block builder
+pub mod block_builder;
+
 /// global event at the test level
 #[derive(Clone, Debug)]
 pub enum GlobalTestEvent {
