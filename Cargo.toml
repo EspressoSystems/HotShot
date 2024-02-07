@@ -75,7 +75,7 @@ surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = 
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
 time = "0.3.34"
-toml = "0.8.9"
+toml = "0.8.10"
 tracing = "0.1.40"
 typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.52.4", features = [
