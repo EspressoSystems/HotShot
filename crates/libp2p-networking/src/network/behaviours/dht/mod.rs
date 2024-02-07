@@ -219,6 +219,7 @@ impl DHTBehaviour {
                 self.queued_put_record_queries.push_back(query);
             }
             Ok(qid) => {
+                info!("Success publishing {:?} to DHT", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query

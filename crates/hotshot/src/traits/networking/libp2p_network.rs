@@ -31,7 +31,6 @@ use hotshot_types::{
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
-use libp2p_networking::network::network_node_handle_error::SerializationSnafu;
 #[cfg(feature = "hotshot-testing")]
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
@@ -762,11 +761,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             Err(err) => {
                 self.inner.metrics.message_failed_to_send.add(1);
                 error!(
-                    "Failed to message because could not find recipient peer id for pk {:?}",
-                    bincode_opts()
-                        .serialize(&recipient)
-                        .context(SerializationSnafu)
-                        .unwrap()
+                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                    message, recipient
                 );
                 return Err(NetworkError::Libp2p { source: err });
             }

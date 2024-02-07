@@ -254,6 +254,7 @@ impl NetworkNode {
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
 
+            // allowing panic here because something is very wrong if this fales
             #[allow(clippy::panic)]
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
