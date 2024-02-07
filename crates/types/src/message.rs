@@ -5,7 +5,7 @@
 
 use crate::data::{QuorumProposal, UpgradeProposal};
 use crate::simple_certificate::{
-    DACertificate, UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
     ViewSyncPreCommitCertificate2,
 };
 use crate::simple_vote::{
@@ -173,7 +173,6 @@ impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
             GeneralConsensusMessage::ViewSyncPreCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncCommitCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => unimplemented!(),
-            GeneralConsensusMessage::UpgradeCertificate(_) => unimplemented!(),
             GeneralConsensusMessage::UpgradeProposal(_) => unimplemented!(),
             GeneralConsensusMessage::UpgradeVote(_) => unimplemented!(),
         }
@@ -287,9 +286,6 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a Timeout vote
     TimeoutVote(TimeoutVote<TYPES>),
 
-    /// Message with an upgrade certificate
-    UpgradeCertificate(UpgradeCertificate<TYPES>),
-
     /// Message with an upgrade proposal
     UpgradeProposal(Proposal<TYPES, UpgradeProposal<TYPES>>),
 
@@ -357,9 +353,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) => {
                         message.get_view_number()
                     }
-                    GeneralConsensusMessage::UpgradeCertificate(message) => {
-                        message.get_view_number()
-                    }
                     GeneralConsensusMessage::UpgradeProposal(message) => message.data.get_view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
@@ -403,8 +396,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     MessagePurpose::ViewSyncCertificate
                 }
 
-                GeneralConsensusMessage::UpgradeCertificate(_)
-                | GeneralConsensusMessage::UpgradeProposal(_)
+                GeneralConsensusMessage::UpgradeProposal(_)
                 | GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::Upgrade,
             },
             Right(committee_message) => match committee_message {

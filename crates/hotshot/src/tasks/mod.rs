@@ -395,7 +395,6 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         api: c_api.clone(),
         registry: registry.clone(),
         cur_view: TYPES::Time::new(0),
-        consensus: handle.hotshot.get_consensus(),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         quorum_network: c_api.inner.networks.quorum_network.clone().into(),
         should_vote: |_upgrade_proposal| false,

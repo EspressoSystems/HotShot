@@ -276,7 +276,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
         certificate: UpgradeCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::UpgradeCertificateSend(certificate)
+        HotShotEvent::UpgradeCertificateFormed(certificate)
     }
 }
 

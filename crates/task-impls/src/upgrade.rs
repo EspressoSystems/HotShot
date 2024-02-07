@@ -11,7 +11,6 @@ use hotshot_task::{
     task_impls::HSTWithEvent,
 };
 use hotshot_types::{
-    consensus::Consensus,
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
@@ -49,9 +48,6 @@ pub struct UpgradeTaskState<
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
-
-    /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -91,7 +87,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
                 let should_vote = self.should_vote;
                 // If the proposal does not match our upgrade target, we immediately exit.
-                if should_vote(proposal.data.upgrade_proposal.clone()) {
+                if !should_vote(proposal.data.upgrade_proposal.clone()) {
                     warn!(
                         "Received unexpected upgrade proposal:\n{:?}",
                         proposal.data

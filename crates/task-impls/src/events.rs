@@ -119,8 +119,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteRecv(UpgradeVote<TYPES>),
     /// Upgrade vote has been sent to the network
     UpgradeVoteSend(UpgradeVote<TYPES>),
-    /// Upgrade certificate has been received from the network
-    UpgradeCertificateRecv(UpgradeCertificate<TYPES>),
     /// Upgrade certificate has been sent to the network
-    UpgradeCertificateSend(UpgradeCertificate<TYPES>),
+    UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
 }

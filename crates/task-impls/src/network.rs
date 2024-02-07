@@ -86,9 +86,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             GeneralConsensusMessage::TimeoutVote(message) => {
                                 HotShotEvent::TimeoutVoteRecv(message)
                             }
-                            GeneralConsensusMessage::UpgradeCertificate(message) => {
-                                HotShotEvent::UpgradeCertificateRecv(message)
-                            }
                             GeneralConsensusMessage::UpgradeProposal(message) => {
                                 HotShotEvent::UpgradeProposalRecv(message, sender)
                             }
