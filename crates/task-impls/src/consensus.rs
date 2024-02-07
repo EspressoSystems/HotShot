@@ -1253,7 +1253,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 signature,
                 _pd: PhantomData,
             };
-            error!(
+            debug!(
                 "Sending proposal for view {:?} \n {:?}",
                 leaf.view_number, ""
             );

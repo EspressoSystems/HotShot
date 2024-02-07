@@ -22,7 +22,6 @@ use hotshot_types::{
 use snafu::Snafu;
 use std::sync::Arc;
 use tracing::error;
-use tracing::warn;
 use tracing::instrument;
 
 /// the type of network task
@@ -58,7 +57,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     let event = match consensus_message.0 {
                         Either::Left(general_message) => match general_message {
                             GeneralConsensusMessage::Proposal(proposal) => {
-                                warn!("Received message {:?}", proposal);
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
                             GeneralConsensusMessage::Vote(vote) => {
@@ -166,17 +164,14 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
         membership: &TYPES::Membership,
     ) -> Option<HotShotTaskCompleted> {
         let (sender, message_kind, transmit_type, recipient) = match event.clone() {
-            HotShotEvent::QuorumProposalSend(proposal, sender) => {
-                warn!("Send message {:?}", proposal);
-                (
-                    sender,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
-                        GeneralConsensusMessage::Proposal(proposal),
-                    ))),
-                    TransmitType::Broadcast,
-                    None,
-                )
-            }
+            HotShotEvent::QuorumProposalSend(proposal, sender) => (
+                sender,
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                    GeneralConsensusMessage::Proposal(proposal),
+                ))),
+                TransmitType::Broadcast,
+                None,
+            ),
 
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             HotShotEvent::QuorumVoteSend(vote) => (

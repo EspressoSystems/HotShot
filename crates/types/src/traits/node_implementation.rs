@@ -159,23 +159,30 @@ where
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Self::QuorumNetwork, Self::QuorumNetwork)> {
-        let network_generator = <<I::QuorumNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
+        let quorum_generator = <<I::QuorumNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 0,
                 da_committee_size,
                 false,
-                reliability_config,
+                reliability_config.clone(),
             );
+        let da_generator = <<I::QuorumNetwork as CommunicationChannel<TYPES>>::NETWORK as TestableNetworkingImplementation<TYPES>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            1,
+            da_committee_size,
+            false,
+            reliability_config,
+        );
 
         Box::new(move |id| {
-            let network = Arc::new(network_generator(id));
+            let quorum = Arc::new(quorum_generator(id));
+            let da = Arc::new(da_generator(id));
             let quorum_chan =
-                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(
-                    network.clone(),
-                );
+                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(quorum);
             let committee_chan =
-                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(network);
+                <I::QuorumNetwork as TestableChannelImplementation<_>>::generate_network()(da);
             (quorum_chan, committee_chan)
         })
     }

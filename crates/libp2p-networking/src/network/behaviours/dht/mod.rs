@@ -252,7 +252,7 @@ impl DHTBehaviour {
                 error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
-            error!("DHT cache miss, key: {:?}", key);
+            tracing::debug!("DHT cache miss, key: {:?}", key);
             // doesn't exist in cache, actually propagate request
             let qid = self.kadem.get_record(key.clone().into());
             let query = KadGetQuery {
@@ -272,27 +272,25 @@ impl DHTBehaviour {
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, mut last: bool) {
         if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             match record_results {
-                Ok(results) => {
-                    match results {
-                        GetRecordOk::FoundRecord(record) => {
-                            match query.records.entry(record.record.value) {
-                                std::collections::hash_map::Entry::Occupied(mut o) => {
-                                    let num_entries = o.get_mut();
-                                    *num_entries += 1;
-                                }
-                                std::collections::hash_map::Entry::Vacant(v) => {
-                                    v.insert(1);
-                                }
+                Ok(results) => match results {
+                    GetRecordOk::FoundRecord(record) => {
+                        match query.records.entry(record.record.value) {
+                            std::collections::hash_map::Entry::Occupied(mut o) => {
+                                let num_entries = o.get_mut();
+                                *num_entries += 1;
                             }
-                        },
-                        GetRecordOk::FinishedWithNoAdditionalRecord { cache_candidates: _ } => {
-                            last = true
-                        },
+                            std::collections::hash_map::Entry::Vacant(v) => {
+                                v.insert(1);
+                            }
+                        }
                     }
+                    GetRecordOk::FinishedWithNoAdditionalRecord {
+                        cache_candidates: _,
+                    } => last = true,
                 },
                 Err(err) => {
-                    println!("GOT ERROR IN KAD QUERY {:?}", err);
-                },
+                    error!("GOT ERROR IN KAD QUERY {:?}", err);
+                }
             }
         } else {
             // inactive entry
