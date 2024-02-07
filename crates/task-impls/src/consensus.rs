@@ -149,29 +149,6 @@ pub struct ConsensusTaskState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
     ConsensusTaskState<TYPES, I, A>
 {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus genesis leaf", level = "error")]
-
-    async fn genesis_leaf(&self) -> Option<Leaf<TYPES>> {
-        let consensus = self.consensus.read().await;
-
-        let Some(genesis_view) = consensus.validated_state_map.get(&TYPES::Time::genesis()) else {
-            error!("Couldn't find genesis view in state map.");
-            return None;
-        };
-        let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            error!(
-                ?genesis_view,
-                "Genesis view points to a view without a leaf"
-            );
-            return None;
-        };
-        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-            error!("Failed to find genesis leaf.");
-            return None;
-        };
-        Some(leaf.clone())
-    }
-
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
@@ -185,6 +162,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         if let Some(proposal) = &self.current_proposal {
+            let consensus = self.consensus.read().await;
+
             // ED Need to account for the genesis DA cert
             // No need to check vid share nor da cert for genesis
             if proposal.justify_qc.is_genesis && proposal.view_number == TYPES::Time::new(1) {
@@ -193,11 +172,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view = TYPES::Time::new(*proposal.view_number);
                 let justify_qc = proposal.justify_qc.clone();
                 let parent = if justify_qc.is_genesis {
-                    self.genesis_leaf().await
+                    Some(Leaf::genesis(&consensus.instance_state))
                 } else {
-                    self.consensus
-                        .read()
-                        .await
+                    consensus
                         .saved_leaves
                         .get(&justify_qc.get_data().leaf_commit)
                         .cloned()
@@ -266,22 +243,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            if let Some(cert) = self
-                .consensus
-                .read()
-                .await
-                .saved_da_certs
-                .get(&(proposal.get_view_number()))
-            {
+            if let Some(cert) = consensus.saved_da_certs.get(&(proposal.get_view_number())) {
                 let view = cert.view_number;
                 // TODO: do some of this logic without the vote token check, only do that when voting.
                 let justify_qc = proposal.justify_qc.clone();
                 let parent = if justify_qc.is_genesis {
-                    self.genesis_leaf().await
+                    Some(Leaf::genesis(&consensus.instance_state))
                 } else {
-                    self.consensus
-                        .read()
-                        .await
+                    consensus
                         .saved_leaves
                         .get(&justify_qc.get_data().leaf_commit)
                         .cloned()
@@ -510,27 +479,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Get the parent leaf.
                 let parent = if justify_qc.is_genesis {
                     // Send the `Decide` event for the genesis block if the justify QC is genesis.
-                    let leaf = self.genesis_leaf().await;
-                    match leaf {
-                        Some(ref leaf) => {
-                            self.output_event_stream
-                                .publish(Event {
-                                    view_number: TYPES::Time::genesis(),
-                                    event: EventType::Decide {
-                                        leaf_chain: Arc::new(vec![leaf.clone()]),
-                                        qc: Arc::new(justify_qc.clone()),
-                                        block_size: None,
-                                    },
-                                })
-                                .await;
-                        }
-                        None => {
-                            error!(
-                                "Failed to find the genesis leaf while the justify QC is genesis."
-                            );
-                        }
-                    }
-                    leaf
+                    let leaf = Leaf::genesis(&consensus.instance_state);
+                    self.output_event_stream
+                        .publish(Event {
+                            view_number: TYPES::Time::genesis(),
+                            event: EventType::Decide {
+                                leaf_chain: Arc::new(vec![leaf.clone()]),
+                                qc: Arc::new(justify_qc.clone()),
+                                block_size: None,
+                            },
+                        })
+                        .await;
+                    Some(leaf)
                 } else {
                     consensus
                         .saved_leaves
