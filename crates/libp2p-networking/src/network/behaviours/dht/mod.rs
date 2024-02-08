@@ -270,7 +270,7 @@ impl DHTBehaviour {
 
     /// update state based on recv-ed get query
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, mut last: bool) {
-        if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
+        let num = if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             match record_results {
                 Ok(results) => match results {
                     GetRecordOk::FoundRecord(record) => {
@@ -278,27 +278,33 @@ impl DHTBehaviour {
                             std::collections::hash_map::Entry::Occupied(mut o) => {
                                 let num_entries = o.get_mut();
                                 *num_entries += 1;
+                                *num_entries
                             }
                             std::collections::hash_map::Entry::Vacant(v) => {
                                 v.insert(1);
+                                1
                             }
                         }
                     }
                     GetRecordOk::FinishedWithNoAdditionalRecord {
                         cache_candidates: _,
-                    } => last = true,
+                    } => {
+                        last = true;
+                        0
+                    }
                 },
                 Err(err) => {
                     error!("GOT ERROR IN KAD QUERY {:?}", err);
+                    0
                 }
             }
         } else {
             // inactive entry
             return;
-        }
+        };
 
         // BUG
-        if last {
+        if num > NUM_REPLICATED_TO_TRUST {
             if let Some(KadGetQuery {
                 backoff,
                 progress,
@@ -323,6 +329,7 @@ impl DHTBehaviour {
                     .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
                 {
                     // insert into cache
+                    // TODO we should not block here, this is called in poll.
                     async_block_on(self.cache.insert(key, r.clone()));
 
                     // return value
