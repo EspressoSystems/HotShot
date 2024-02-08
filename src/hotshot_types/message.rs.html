@@ -432,14 +432,6 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -447,7 +439,7 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::data::{QuorumProposal, UpgradeProposal};
 <span class="kw">use </span><span class="kw">crate</span>::simple_certificate::{
-    DACertificate, UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
     ViewSyncPreCommitCertificate2,
 };
 <span class="kw">use </span><span class="kw">crate</span>::simple_vote::{
@@ -615,7 +607,6 @@
             GeneralConsensusMessage::ViewSyncPreCommitCertificate(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
             GeneralConsensusMessage::ViewSyncCommitCertificate(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
             GeneralConsensusMessage::ViewSyncFinalizeCertificate(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
-            GeneralConsensusMessage::UpgradeCertificate(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
             GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
             GeneralConsensusMessage::UpgradeVote(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
         }
@@ -729,11 +720,8 @@
     <span class="doccomment">/// Message with a Timeout vote
     </span>TimeoutVote(TimeoutVote&lt;TYPES&gt;),
 
-    <span class="doccomment">/// Message with an upgrade certificate
-    </span>UpgradeCertificate(UpgradeCertificate&lt;TYPES&gt;),
-
     <span class="doccomment">/// Message with an upgrade proposal
-    </span>UpgradeProposal(UpgradeProposal&lt;TYPES&gt;),
+    </span>UpgradeProposal(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
@@ -799,10 +787,7 @@
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) =&gt; {
                         message.get_view_number()
                     }
-                    GeneralConsensusMessage::UpgradeCertificate(message) =&gt; {
-                        message.get_view_number()
-                    }
-                    GeneralConsensusMessage::UpgradeProposal(message) =&gt; message.get_view_number(),
+                    GeneralConsensusMessage::UpgradeProposal(message) =&gt; message.data.get_view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) =&gt; message.get_view_number(),
                 }
             }
@@ -845,8 +830,7 @@
                     MessagePurpose::ViewSyncCertificate
                 }
 
-                GeneralConsensusMessage::UpgradeCertificate(<span class="kw">_</span>)
-                | GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>)
+                GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>)
                 | GeneralConsensusMessage::UpgradeVote(<span class="kw">_</span>) =&gt; MessagePurpose::Upgrade,
             },
             Right(committee_message) =&gt; <span class="kw">match </span>committee_message {

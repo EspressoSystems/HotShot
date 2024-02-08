@@ -122,8 +122,6 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -238,16 +236,14 @@
     /// Like [`HotShotEvent::DAProposalRecv`].
     </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been received from the network
-    </span>UpgradeProposalRecv(UpgradeProposal&lt;TYPES&gt;),
+    </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network
     </span>UpgradeProposalSend(UpgradeProposal&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade vote has been received from the network
     </span>UpgradeVoteRecv(UpgradeVote&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade vote has been sent to the network
     </span>UpgradeVoteSend(UpgradeVote&lt;TYPES&gt;),
-    <span class="doccomment">/// Upgrade certificate has been received from the network
-    </span>UpgradeCertificateRecv(UpgradeCertificate&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade certificate has been sent to the network
-    </span>UpgradeCertificateSend(UpgradeCertificate&lt;TYPES&gt;),
+    </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
 }
 </code></pre></div></section></main></body></html>

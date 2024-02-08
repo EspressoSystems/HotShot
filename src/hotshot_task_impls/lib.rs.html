@@ -30,6 +30,9 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
@@ -59,6 +62,9 @@
 
 <span class="doccomment">/// Generic task for collecting votes
 </span><span class="kw">pub mod </span>vote;
+
+<span class="doccomment">/// Task for handling upgrades
+</span><span class="kw">pub mod </span>upgrade;
 
 <span class="doccomment">/// Helper functions used by any task
 </span><span class="kw">mod </span>helpers;
