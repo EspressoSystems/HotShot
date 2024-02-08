@@ -482,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let consensus = self.consensus.upgradable_read().await;
 
-                // Get the parent leaf.
+                // Get the parent leaf and state.
                 let parent = if justify_qc.is_genesis {
                     // Send the `Decide` event for the genesis block if the justify QC is genesis.
                     let leaf = Leaf::genesis(&consensus.instance_state);
@@ -496,12 +496,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             },
                         })
                         .await;
-                    Some(leaf)
+                    let state = Arc::new(TYPES::ValidatedState::genesis(&consensus.instance_state));
+                    Some((leaf, state))
                 } else {
-                    consensus
+                    match consensus
                         .saved_leaves
                         .get(&justify_qc.get_data().leaf_commit)
                         .cloned()
+                    {
+                        Some(leaf) => {
+                            if let Some(state) = consensus.get_state(leaf.view_number) {
+                                Some((leaf, state.clone()))
+                            } else {
+                                error!("Parent state not found! Consensus internally inconsistent");
+                                return;
+                            }
+                        }
+                        None => None,
+                    }
                 };
 
                 let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
@@ -512,7 +524,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                let Some(parent) = parent else {
+                let Some((parent_leaf, parent_state)) = parent else {
                     error!(
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
@@ -575,20 +587,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                let Some(parent_state) = consensus.get_state(parent.view_number) else {
-                    error!("Parent state not found! Consensus internally inconsistent");
-                    return;
-                };
                 let Ok(state) = parent_state.validate_and_apply_header(
                     &consensus.instance_state,
-                    &parent.block_header.clone(),
+                    &parent_leaf.block_header.clone(),
                     &proposal.data.block_header.clone(),
                 ) else {
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
                 let state = Arc::new(state);
-                let parent_commitment = parent.commit();
+                let parent_commitment = parent_leaf.commit();
                 let leaf: Leaf<_> = Leaf {
                     view_number: view,
                     justify_qc: justify_qc.clone(),
