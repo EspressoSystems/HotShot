@@ -269,7 +269,7 @@ impl DHTBehaviour {
     }
 
     /// update state based on recv-ed get query
-    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, mut last: bool) {
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
         let num = if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             match record_results {
                 Ok(results) => match results {
@@ -289,7 +289,7 @@ impl DHTBehaviour {
                     GetRecordOk::FinishedWithNoAdditionalRecord {
                         cache_candidates: _,
                     } => {
-                        last = true;
+                        tracing::debug!("GetRecord Finished with No Additional Record");
                         0
                     }
                 },
@@ -446,10 +446,9 @@ impl DHTBehaviour {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetRecord(record_results),
                 id,
-                step: ProgressStep { last, .. },
                 ..
             } => {
-                self.handle_get_query(record_results, id, last);
+                self.handle_get_query(record_results, id);
             }
             KademliaEvent::OutboundQueryProgressed {
                 result:
