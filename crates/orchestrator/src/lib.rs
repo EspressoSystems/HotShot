@@ -8,6 +8,7 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
+    collections::HashSet,
     io,
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
@@ -53,6 +54,8 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     pub nodes_with_pubkey: u64,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
     peer_pub_ready: bool,
+    /// The set of index for nodes that have posted their public keys/configs
+    pub_posted: HashSet<u64>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -77,6 +80,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             config: network_config,
             nodes_with_pubkey: 0,
             peer_pub_ready: false,
+            pub_posted: HashSet::new(),
             nodes_connected: 0,
             start: false,
             client: web_client,
@@ -100,7 +104,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// post endpoint for each node's public key
     /// # Errors
     /// if unable to serve
-    fn post_my_public_key(
+    fn register_public_key(
         &mut self,
         node_index: u64,
         pubkey: &mut Vec<u8>,
@@ -204,18 +208,25 @@ where
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn post_my_public_key(
+    fn register_public_key(
         &mut self,
         node_index: u64,
         pubkey: &mut Vec<u8>,
     ) -> Result<(), ServerError> {
+        if self.pub_posted.contains(&node_index) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Node has already posted public key".to_string(),
+            });
+        }
+        self.pub_posted.insert(node_index);
+
         // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
         pubkey.drain(..8);
-        let my_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
-
-        let my_pub_key_with_stake = my_pub_key.get_stake_table_entry(1u64);
-        self.config.config.known_nodes_with_stake[node_index as usize] = my_pub_key_with_stake;
-        // Assumes nodes do not post the public key twice
+        let register_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
+        let register_pub_key_with_stake = register_pub_key.get_stake_table_entry(1u64);
+        self.config.config.known_nodes_with_stake[node_index as usize] =
+            register_pub_key_with_stake;
         self.nodes_with_pubkey += 1;
         println!(
             "Node {:?} posted public key, now total num posted public key: {:?}",
@@ -313,7 +324,7 @@ where
         async move {
             let node_index = req.integer_param("node_index")?;
             let mut pubkey = req.body_bytes();
-            state.post_my_public_key(node_index, &mut pubkey)
+            state.register_public_key(node_index, &mut pubkey)
         }
         .boxed()
     })?
