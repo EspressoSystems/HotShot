@@ -886,18 +886,13 @@ pub async fn main_entry_point<
     let node_index = run_config.node_index;
     error!("Retrieved config; our node index is {node_index}");
 
-    //run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
-
     // one more round of orchestrator here to get peer's public key/config
-    orchestrator_client
-        .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(
-            run_config.node_index,
-            run_config.config.my_own_validator_config.public_key.clone(),
-        )
-        .await;
     let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         orchestrator_client
-            .get_config_w_peer_config_collected()
+            .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(
+                run_config.node_index,
+                run_config.config.my_own_validator_config.public_key.clone(),
+            )
             .await;
     run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 

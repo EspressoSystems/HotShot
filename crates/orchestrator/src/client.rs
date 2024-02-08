@@ -148,6 +148,7 @@ impl OrchestratorClient {
     }
 
     /// Sends my public key to the orchestrator so that it can collect all public keys
+    /// And get the updated config
     /// Blocks until the orchestrator collects all peer's public keys/configs
     /// # Panics
     /// if unable to post
@@ -155,7 +156,7 @@ impl OrchestratorClient {
         &self,
         node_index: u64,
         my_pub_key: K,
-    ) {
+    ) -> NetworkConfig<K, E> {
         // send my public key
         let _send_pubkey_ready_f: Result<(), ClientError> = self
             .client
@@ -171,13 +172,8 @@ impl OrchestratorClient {
         };
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
-    }
 
-    /// Gets the newest config from the orchestrator
-    pub async fn get_config_w_peer_config_collected<K: SignatureKey, E: ElectionConfig>(
-        &self,
-    ) -> NetworkConfig<K, E> {
-        // get the newest config
+        // get the newest updated config
         let get_newest_config = |client: Client<ClientError>| {
             async move {
                 let config: Result<NetworkConfig<K, E>, ClientError> =
