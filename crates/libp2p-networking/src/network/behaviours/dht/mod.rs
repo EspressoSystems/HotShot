@@ -8,7 +8,7 @@ use std::{
 /// a local caching layer for the DHT key value pairs
 mod cache;
 
-use async_compatibility_layer::art::{async_block_on, async_spawn};
+use async_compatibility_layer::art::async_block_on;
 use futures::channel::oneshot::Sender;
 use libp2p::kad::Behaviour as KademliaBehaviour;
 use libp2p::kad::Event as KademliaEvent;
@@ -331,6 +331,7 @@ impl DHTBehaviour {
                 {
                     // insert into cache
                     // TODO we should find a better place to set the cache
+                    // https://github.com/EspressoSystems/HotShot/issues/2554
                     async_spawn(self.cache.insert(key, r.clone()));
 
                     // return value
