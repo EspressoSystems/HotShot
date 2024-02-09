@@ -269,7 +269,7 @@ impl DHTBehaviour {
     }
 
     /// update state based on recv-ed get query
-    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, mut last: bool) {
         let num = if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             match record_results {
                 Ok(results) => match results {
@@ -290,6 +290,7 @@ impl DHTBehaviour {
                         cache_candidates: _,
                     } => {
                         tracing::debug!("GetRecord Finished with No Additional Record");
+                        last = true;
                         0
                     }
                 },
@@ -337,11 +338,6 @@ impl DHTBehaviour {
                         error!("Get DHT: channel closed before get record request result could be sent");
                     }
                 }
-                // lack of replication => error
-                else if records_len < NUM_REPLICATED_TO_TRUST {
-                    error!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
-                    self.get_record(key, notify, num_replicas, backoff, retry_count);
-                }
                 // many records that don't match => disagreement
                 else if records_len > MAX_DHT_QUERY_SIZE {
                     error!(
@@ -359,6 +355,24 @@ impl DHTBehaviour {
 
                     self.get_record(key, notify, new_factor, backoff, retry_count);
                     error!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                }
+            }
+        } else if last {
+            if let Some(KadGetQuery {
+                backoff,
+                progress,
+                notify,
+                num_replicas,
+                key,
+                retry_count,
+                records,
+            }) = self.in_progress_get_record_queries.remove(&id)
+            {
+                let records_len = records.iter().fold(0, |acc, (_k, v)| acc + v);
+                // lack of replication => error
+                if records_len < NUM_REPLICATED_TO_TRUST {
+                    error!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                    self.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
             }
         }
@@ -446,9 +460,10 @@ impl DHTBehaviour {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetRecord(record_results),
                 id,
+                step: ProgressStep { last, .. },
                 ..
             } => {
-                self.handle_get_query(record_results, id);
+                self.handle_get_query(record_results, id, last);
             }
             KademliaEvent::OutboundQueryProgressed {
                 result:
