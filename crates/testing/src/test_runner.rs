@@ -20,7 +20,9 @@ use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemCont
 
 use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::{
+    network::CommunicationChannel, node_implementation::NodeImplementation,
+};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::{
@@ -60,7 +62,11 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestRunner<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES>,
+    N: CommunicationChannel<TYPES>,
+> {
     /// test launcher, contains a bunch of useful metadata and closures
     pub(crate) launcher: TestLauncher<TYPES, I>,
     /// nodes in the test
@@ -69,6 +75,8 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier
     pub(crate) next_node_id: u64,
+    /// Phantom for N
+    pub(crate) _pd: PhantomData<N>,
 }
 
 /// enum describing how the tasks completed
@@ -91,10 +99,14 @@ pub enum HotShotTaskCompleted {
 pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
-impl<TYPES: NodeType<InstanceState = TestInstanceState>, I: TestableNodeImplementation<TYPES>>
-    TestRunner<TYPES, I>
+impl<
+        TYPES: NodeType<InstanceState = TestInstanceState>,
+        I: TestableNodeImplementation<TYPES>,
+        N: CommunicationChannel<TYPES>,
+    > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
+    I: NodeImplementation<TYPES, QuorumNetwork = N, CommitteeNetwork = N>,
 {
     /// excecute test
     /// # Panics
@@ -139,6 +151,7 @@ where
             nodes,
             late_start,
             next_node_id: _,
+            _pd: _,
         } = self;
 
         let mut task_futs = vec![];

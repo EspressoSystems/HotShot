@@ -15,7 +15,7 @@ pub mod tasks;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_view_sync_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
@@ -436,7 +436,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         Ok((handle, tx, rx.activate()))
     }
-
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
@@ -547,6 +546,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_view_sync_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_upgrade_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),

@@ -1,14 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot_types::{traits::node_implementation::NodeType, HotShotConfig};
+use hotshot_types::{
+    traits::{network::CommunicationChannel, node_implementation::NodeType},
+    HotShotConfig,
+};
 
 use super::{test_builder::TestMetadata, test_runner::TestRunner};
 
 /// convience type alias for the networks available
 pub type Networks<TYPES, I> = (
     <I as NodeImplementation<TYPES>>::QuorumNetwork,
-    <I as NodeImplementation<TYPES>>::CommitteeNetwork,
+    <I as NodeImplementation<TYPES>>::QuorumNetwork,
 );
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -41,12 +44,13 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// launch the test
     #[must_use]
-    pub fn launch(self) -> TestRunner<TYPES, I> {
-        TestRunner {
+    pub fn launch<N: CommunicationChannel<TYPES>>(self) -> TestRunner<TYPES, I, N> {
+        TestRunner::<TYPES, I, N> {
             launcher: self,
             nodes: Vec::new(),
             late_start: HashMap::new(),
             next_node_id: 0,
+            _pd: PhantomData,
         }
     }
     /// Modifies the config used when generating nodes with `f`

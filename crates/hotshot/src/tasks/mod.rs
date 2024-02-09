@@ -11,6 +11,7 @@ use hotshot_task_impls::{
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     transactions::TransactionTaskState,
+    upgrade::UpgradeTaskState,
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
@@ -240,6 +241,35 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     };
 
     let task = Task::new(tx, rx, task_reg.clone(), vid_state);
+    task_reg.run_task(task).await;
+}
+
+/// add the Upgrade task.
+///
+/// # Panics
+///
+/// Uses .`unwrap()`, though this should never panic.
+pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<HotShotEvent<TYPES>>,
+    rx: Receiver<HotShotEvent<TYPES>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+        inner: handle.hotshot.inner.clone(),
+    };
+    let upgrade_state = UpgradeTaskState {
+        api: c_api.clone(),
+        cur_view: TYPES::Time::new(0),
+        quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
+        quorum_network: c_api.inner.networks.quorum_network.clone().into(),
+        should_vote: |_upgrade_proposal| false,
+        vote_collector: None.into(),
+        public_key: c_api.public_key().clone(),
+        private_key: c_api.private_key().clone(),
+        id: handle.hotshot.inner.id,
+    };
+    let task = Task::new(tx, rx, task_reg.clone(), upgrade_state);
     task_reg.run_task(task).await;
 }
 
