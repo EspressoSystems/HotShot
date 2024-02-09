@@ -174,15 +174,11 @@ impl OrchestratorClient {
             .await;
 
         // get the newest updated config
-        let get_newest_config = |client: Client<ClientError>| {
-            async move {
-                let config: Result<NetworkConfig<K, E>, ClientError> =
-                    client.get("api/config_after_peer_collected").send().await;
-                config
-            }
-            .boxed()
-        };
-        self.wait_for_fn_from_orchestrator(get_newest_config).await
+        self.client
+            .get("api/config_after_peer_collected")
+            .send()
+            .await
+            .expect("Unable to get the updated config")
     }
 
     /// Tells the orchestrator this validator is ready to start
