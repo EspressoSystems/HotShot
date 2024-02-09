@@ -2697,7 +2697,6 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
- "hotshot-testing",
  "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
@@ -2721,6 +2720,50 @@ name = "hotshot-constants"
 version = "0.3.3"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "hotshot-examples"
+version = "0.3.3"
+dependencies = [
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "bimap",
+ "bincode",
+ "blake3",
+ "clap",
+ "commit",
+ "custom_debug",
+ "dashmap",
+ "derive_more",
+ "either",
+ "embed-doc-image",
+ "futures",
+ "hotshot",
+ "hotshot-constants",
+ "hotshot-orchestrator",
+ "hotshot-task",
+ "hotshot-task-impls",
+ "hotshot-testing",
+ "hotshot-types",
+ "hotshot-utils",
+ "hotshot-web-server",
+ "libp2p-identity",
+ "libp2p-networking",
+ "local-ip-address",
+ "lru",
+ "portpicker",
+ "rand 0.8.5",
+ "serde",
+ "snafu",
+ "surf-disco",
+ "time 0.3.34",
+ "tokio",
+ "toml 0.8.10",
+ "tracing",
 ]
 
 [[package]]
