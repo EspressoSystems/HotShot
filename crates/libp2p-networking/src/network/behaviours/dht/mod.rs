@@ -332,7 +332,7 @@ impl DHTBehaviour {
                     // insert into cache
                     // TODO we should find a better place to set the cache
                     // https://github.com/EspressoSystems/HotShot/issues/2554
-                    async_spawn(self.cache.insert(key, r.clone()));
+                    async_block_on(self.cache.insert(key, r.clone()));
 
                     // return value
                     if notify.send(r).is_err() {
