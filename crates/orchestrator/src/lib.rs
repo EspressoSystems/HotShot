@@ -62,7 +62,7 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
     /// connection to the web server
-    client: Option<surf_disco::Client<ClientError>>,
+    _client: Option<surf_disco::Client<ClientError>>,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -83,7 +83,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             pub_posted: HashSet::new(),
             nodes_connected: 0,
             start: false,
-            client: web_client,
+            _client: web_client,
         }
     }
 }
@@ -146,24 +146,6 @@ where
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Network has reached capacity".to_string(),
             });
-        }
-
-        //add new node's key to stake table
-        #[allow(clippy::unnecessary_fallible_conversions)]
-        if self.config.web_server_config.clone().is_some() {
-            let new_key =
-                &KEY::generated_from_seed_indexed(self.config.seed, node_index.try_into().unwrap())
-                    .0;
-            let client_clone = self.client.clone().unwrap();
-            async move {
-                client_clone
-                    .post::<()>("api/staketable")
-                    .body_binary(&new_key)
-                    .unwrap()
-                    .send()
-                    .await
-            }
-            .boxed();
         }
 
         if self.config.libp2p_config.clone().is_some() {
