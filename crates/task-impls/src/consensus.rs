@@ -21,7 +21,7 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -123,6 +123,9 @@ pub struct ConsensusTaskState<
 
     /// last Timeout Certificate this node formed
     pub timeout_cert: Option<TimeoutCertificate<TYPES>>,
+
+    /// last Upgrade Certificate this node formed
+    pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<HotShotEvent<TYPES>>,
@@ -500,6 +503,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let consensus = self.consensus.write().await;
                     consensus.metrics.invalid_qc.update(1);
                     return;
+                }
+
+                // Validate the upgrade certificate, if one is attached.
+                // Continue unless the certificate is invalid.
+                if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
+                    if !upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                        error!("Invalid upgrade_cert in proposal for view {}", *view);
+                        return;
+                    }
                 }
 
                 // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
@@ -994,6 +1006,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            HotShotEvent::UpgradeCertificateFormed(cert) => {
+                debug!(
+                    "Upgrade certificate received for view {}!",
+                    *cert.view_number
+                );
+
+                // Update our current upgrade_cert as long as it's still relevant.
+                if cert.view_number >= self.cur_view {
+                    self.upgrade_cert = Some(cert);
+                }
+            }
             HotShotEvent::DACRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
@@ -1260,13 +1283,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 error!("Failed to sign leaf.commit()!");
                 return false;
             };
+
+            let upgrade_cert;
+
+            // Check if the upgrade certificate we have is for the current view.
+            if let Some(cert) = self.upgrade_cert.clone() {
+                if cert.view_number == view {
+                    upgrade_cert = Some(cert);
+                } else {
+                    upgrade_cert = None;
+                }
+            } else {
+                upgrade_cert = None;
+            }
+
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| None),
-                upgrade_certificate: None,
+                upgrade_certificate: upgrade_cert,
                 proposer_id: leaf.proposer_id,
             };
 
