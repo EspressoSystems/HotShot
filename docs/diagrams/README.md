@@ -1,0 +1,1 @@
+To edit or view the source of these diagrams, open `HotShotFlow.drawio` using the draw.io application.  Use the Template diagram for style guidance.  If you edit the diagrams, be sure to replace the `png` images of the diagrams in the `/diagrams` directory. 

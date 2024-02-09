@@ -1,6 +1,5 @@
 //! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
-//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]
@@ -16,7 +15,7 @@ pub mod tasks;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_view_sync_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
@@ -192,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         // insert genesis (or latest block) to state map
         let mut validated_state_map = BTreeMap::default();
-        let validated_state = TYPES::ValidatedState::genesis(&instance_state);
+        let validated_state = Arc::new(TYPES::ValidatedState::genesis(&instance_state));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -346,17 +345,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .map(|guard| guard.get_decided_leaf())
     }
 
-    /// Returns a copy of the last decided validated state.
+    /// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+    pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
         self.inner
             .consensus
             .read()
             .await
             .get_decided_state()
             .clone()
+    }
+
+    /// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+        self.inner.consensus.read().await.get_state(view).cloned()
     }
 
     /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
@@ -409,7 +419,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         Ok((handle, internal_event_stream))
     }
-
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
@@ -511,6 +520,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
         let task_runner =
             add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
+        let task_runner =
+            add_upgrade_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
         async_spawn(async move {
             let _ = task_runner.launch().await;
             info!("Task runner exited!");

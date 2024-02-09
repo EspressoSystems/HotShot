@@ -19,15 +19,12 @@ use super::{
     NetworkNodeType,
 };
 
-use crate::network::{
-    behaviours::{
-        dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
-        direct_message::{DMBehaviour, DMEvent},
-        direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
-        exponential_backoff::ExponentialBackoff,
-        gossip::GossipEvent,
-    },
-    def::NUM_REPLICATED_TO_TRUST,
+use crate::network::behaviours::{
+    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    direct_message::{DMBehaviour, DMEvent},
+    direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
+    exponential_backoff::ExponentialBackoff,
+    gossip::GossipEvent,
 };
 use async_compatibility_layer::{
     art::async_spawn,
@@ -250,14 +247,18 @@ impl NetworkNode {
             let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
             kconfig
                 .set_parallelism(
-                    NonZeroUsize::new(1).expect("Turning 1 usize into a nonzero usize panicked!"),
+                    NonZeroUsize::new(5).expect("Turning 5 usize into a nonzero usize panicked!"),
                 )
                 .set_provider_publication_interval(Some(record_republication_interval))
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
 
+            // allowing panic here because something is very wrong if this fales
+            #[allow(clippy::panic)]
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
+            } else {
+                panic!("Replication factor not set");
             }
 
             let kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
