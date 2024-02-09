@@ -1331,7 +1331,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     where
         Self: Sized,
     {
-        // TODO: Don't clone the sender
         let sender = task.clone_sender();
         tracing::trace!("sender queue len {}", sender.len());
         task.state_mut().handle(event, sender).await;

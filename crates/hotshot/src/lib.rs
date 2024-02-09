@@ -27,7 +27,7 @@ use async_trait::async_trait;
 use commit::Committable;
 use custom_debug::Debug;
 use futures::join;
-use hotshot_constants::VERSION_0_1;
+use hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
@@ -239,8 +239,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
         let consensus = Arc::new(RwLock::new(consensus));
 
-        let (internal_tx, internal_rx) = broadcast(100_000);
-        let (mut external_tx, external_rx) = broadcast(100_000);
+        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
 
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.

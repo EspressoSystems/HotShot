@@ -21,6 +21,7 @@ use tokio::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
+use tracing::error;
 
 use crate::{
     dependency::Dependency,
@@ -228,13 +229,20 @@ impl<
                 for rx in &mut self.message_receivers {
                     futs.push(rx.recv());
                 }
-                if let Ok((Ok(msg), id, _)) =
-                    async_timeout(Duration::from_secs(1), select_all(futs)).await
-                {
-                    if let Some(res) = T::handle_message(msg, id, &mut self).await {
-                        self.task.state.handle_result(&res).await;
-                        self.task.state.shutdown().await;
-                        return res;
+                // if let Ok((Ok(msg), id, _)) =
+                match async_timeout(Duration::from_secs(1), select_all(futs)).await {
+                    Ok((Ok(msg), id, _)) => {
+                        if let Some(res) = T::handle_message(msg, id, &mut self).await {
+                            self.task.state.handle_result(&res).await;
+                            self.task.state.shutdown().await;
+                            return res;
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to get event from task. Error: {:?}", e);
+                    }
+                    Ok((Err(e), _, _)) => {
+                        error!("A task channel returned an Error: {:?}", e);
                     }
                 }
             }
@@ -359,8 +367,8 @@ mod tests {
 
         async fn handle_message(
             message: Self::Message,
-            _id: usize,
-            _task: &mut TestTask<Self::State, Self>,
+            _: usize,
+            _: &mut TestTask<Self::State, Self>,
         ) -> Option<()> {
             if message == *"done".to_string() {
                 return Some(());

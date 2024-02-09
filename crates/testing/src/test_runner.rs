@@ -18,6 +18,7 @@ use hotshot::{types::SystemContextHandle, Memberships};
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
+use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
@@ -100,7 +101,7 @@ where
     /// if the test fails
     #[allow(clippy::too_many_lines)]
     pub async fn run_test(mut self) {
-        let (tx, rx) = broadcast(100_000);
+        let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
             .metadata

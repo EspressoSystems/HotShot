@@ -56,6 +56,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
 
     // TODO we don't need two async tasks for this, we should combine the
     // by getting rid of `TransmitType`
+    // https://github.com/EspressoSystems/HotShot/issues/2377
     let network = net.clone();
     let mut state = network_state.clone();
     let broadcast_handle = async_spawn(async move {
@@ -70,6 +71,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
                 }
             };
             if msgs.0.is_empty() {
+                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
                 async_sleep(Duration::from_millis(100)).await;
             } else {
                 state.handle_messages(msgs.0).await;
@@ -90,6 +92,7 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
                 }
             };
             if msgs.0.is_empty() {
+                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
                 async_sleep(Duration::from_millis(100)).await;
             } else {
                 state.handle_messages(msgs.0).await;
