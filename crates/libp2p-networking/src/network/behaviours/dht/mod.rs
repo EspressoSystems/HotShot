@@ -8,7 +8,7 @@ use std::{
 /// a local caching layer for the DHT key value pairs
 mod cache;
 
-use async_compatibility_layer::art::async_block_on;
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use futures::channel::oneshot::Sender;
 use libp2p::kad::Behaviour as KademliaBehaviour;
 use libp2p::kad::Event as KademliaEvent;
@@ -330,8 +330,8 @@ impl DHTBehaviour {
                     .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
                 {
                     // insert into cache
-                    // TODO we should not block here, this is called in poll.
-                    async_block_on(self.cache.insert(key, r.clone()));
+                    // TODO we should find a better place to set the cache
+                    async_spawn(self.cache.insert(key, r.clone()));
 
                     // return value
                     if notify.send(r).is_err() {
