@@ -43,7 +43,7 @@ async fn main() {
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_cdn),
-            Url::parse("http://localhost:9000").unwrap(),
+            Url::parse("http://localhost:9000").expect("Couldn't parse web server url"),
         )
         .await
         {
@@ -55,7 +55,7 @@ async fn main() {
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
         >(
             Some(server_shutdown_da),
-            Url::parse("http://localhost:9001").unwrap(),
+            Url::parse("http://localhost:9001").expect("Couldn't parse DA server url"),
         )
         .await
         {
@@ -63,7 +63,8 @@ async fn main() {
         }
     });
 
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+    let orchestrator_url =
+        Url::parse("http://localhost:4444").expect("Couldn't parse orchestrator url");
 
     // web server orchestrator
     async_spawn(run_orchestrator::<

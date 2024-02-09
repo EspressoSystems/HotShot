@@ -197,15 +197,16 @@ where
                 // pick a free, unused UDP port for testing
                 let port = portpicker::pick_unused_port().expect("Could not find an open port");
 
-                let addr =
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{port}/quic-v1")).unwrap();
+                let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{port}/quic-v1"))
+                    .expect("Unable to generate a parsable multiaddr in libp2p generator");
 
                 // We assign node's public key and stake value rather than read from config file since it's a test
                 let privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
-                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
+                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3)
+                    .expect("expected node count {expected_node_count} too low and must be higher");
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         // NOTICE the implicit assumption that bootstrap is less
@@ -225,7 +226,7 @@ where
                         .ttl(None)
                         .republication_interval(None)
                         .build()
-                        .unwrap()
+                        .expect("Failed to build when generating networknode config")
                 } else {
                     NetworkNodeConfigBuilder::default()
                         // NOTE I'm hardcoding these because this is probably the MAX
@@ -245,7 +246,7 @@ where
                         .ttl(None)
                         .republication_interval(None)
                         .build()
-                        .unwrap()
+                        .expect("Failed to build when generating networknode config")
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let keys = all_keys.clone();
@@ -258,7 +259,9 @@ where
                         pubkey.clone(),
                         bootstrap_addrs_ref,
                         num_bootstrap,
-                        usize::try_from(node_id).unwrap(),
+                        usize::try_from(node_id).expect(
+                            "Node id unable to be converted to usize. Is the architecture 64bit?",
+                        ),
                         keys,
                         #[cfg(feature = "hotshot-testing")]
                         reliability_config_dup,
@@ -444,7 +447,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         num_bootstrap
                     );
                 };
-                handle.add_known_peers(bs_addrs).await.unwrap();
+                handle
+                    .add_known_peers(bs_addrs)
+                    .await
+                    .expect("Couldn't add libp2p bootstrap addresses to known peers");
 
                 // 10 minute timeout
                 let timeout_duration = Duration::from_secs(600);
@@ -453,7 +459,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 handle
                     .wait_to_connect(4, id, timeout_duration)
                     .await
-                    .unwrap();
+                    .expect("Libp2p node with id {id} couldn't connect to 4 nodes");
 
                 let connected_num = handle.num_connected().await?;
                 metrics_connected_peers
@@ -465,11 +471,17 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
+                handle
+                    .subscribe(QC_TOPIC.to_string())
+                    .await
+                    .expect("Couldn't subscribe to topic {QC_TOPIC}");
 
                 // only subscribe to DA events if we are DA
                 if is_da {
-                    handle.subscribe("DA".to_string()).await.unwrap();
+                    handle
+                        .subscribe("DA".to_string())
+                        .await
+                        .expect("Couldn't subscribe to topic DA");
                 }
 
                 // TODO figure out some way of passing in ALL keypairs. That way we can add the

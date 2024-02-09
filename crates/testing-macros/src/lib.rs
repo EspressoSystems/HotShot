@@ -210,7 +210,7 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
                 .imply(imp.clone())
                 .ty(ty.clone())
                 .build()
-                .unwrap();
+                .expect("Unable to build test");
             let test = test_data.generate_test();
 
             let impl_str = format_ident!("{}", imp.to_lower_snake_str());

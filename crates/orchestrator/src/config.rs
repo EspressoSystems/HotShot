@@ -482,8 +482,12 @@ impl ValidatorConfigFile {
                 PathBuf::from("")
             }
         };
-        let filename =
-            current_working_dir.into_os_string().into_string().unwrap() + "/../../" + dir_str;
+        let filename = current_working_dir
+            .into_os_string()
+            .into_string()
+            .expect("Failed to convert cwd to string")
+            + "/../../"
+            + dir_str;
         match fs::read_to_string(filename.clone()) {
             // If successful return the files text as `contents`.
             Ok(contents) => {
@@ -567,11 +571,13 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             })
             .collect();
         Self {
-            total_nodes: NonZeroUsize::new(10).unwrap(),
+            total_nodes: NonZeroUsize::new(10)
+                .expect("the usize 10 could not be converted to a nonzerousize"),
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             committee_nodes: 5,
-            max_transactions: NonZeroUsize::new(100).unwrap(),
+            max_transactions: NonZeroUsize::new(100)
+                .expect("the usize 100 could not be converted to a nonzerousize"),
             min_transactions: 1,
             next_view_timeout: 10000,
             timeout_ratio: (11, 10),

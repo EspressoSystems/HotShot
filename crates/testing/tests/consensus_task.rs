@@ -50,7 +50,7 @@ async fn build_vote(
             .saved_leaves
             .get(&justify_qc.get_data().leaf_commit)
             .cloned()
-            .unwrap()
+            .expect("Saved leaf missing justify qc")
     };
 
     let parent_commitment = parent.commit();
@@ -193,6 +193,7 @@ async fn test_consensus_vote() {
 // TODO: re-enable this when HotShot/the sequencer needs the shares for something
 // issue: https://github.com/EspressoSystems/HotShot/issues/2236
 #[ignore]
+#[allow(clippy::too_many_lines)]
 async fn test_consensus_with_vid() {
     use hotshot::traits::BlockPayload;
     use hotshot::types::SignatureKey;
@@ -228,14 +229,19 @@ async fn test_consensus_with_vid() {
     let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let encoded_transactions =
+        TestTransaction::encode(transactions.clone()).expect("Failed to encode transactions");
+    let vid_disperse = vid
+        .disperse(&encoded_transactions)
+        .expect("Failed to disperse");
     let payload_commitment = vid_disperse.commit;
 
     let vid_signature =
         <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), payload_commitment.as_ref())
             .expect("Failed to sign payload commitment");
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let vid_disperse = vid
+        .disperse(&encoded_transactions)
+        .expect("Faild to disperse");
     let vid_disperse_inner = VidDisperse::from_membership(
         ViewNumber::new(2),
         vid_disperse,
@@ -260,7 +266,10 @@ async fn test_consensus_with_vid() {
     let proposal_view2 = build_quorum_proposal(&handle, &private_key_view2, 2).await;
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let da_payload_commitment = vid_commitment(
-        &block.encode().unwrap().collect(),
+        &block
+            .encode()
+            .expect("Faildd to encode transactions")
+            .collect(),
         quorum_membership.total_nodes(),
     );
     let da_data = DAData {

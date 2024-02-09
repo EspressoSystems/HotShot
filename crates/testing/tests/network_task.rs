@@ -46,7 +46,9 @@ async fn test_network_task() {
         )
         .expect("Failed to sign block payload");
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(2));
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let vid_disperse = vid
+        .disperse(&encoded_transactions)
+        .expect("Failed to disperse transactions");
     let payload_commitment = vid_disperse.commit;
     let vid_signature =
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(

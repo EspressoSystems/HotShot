@@ -39,7 +39,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&seed);
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
-    let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
+    let sk_bytes = SecretKey::try_from_bytes(new_seed).expect("Couldn't get secret key");
     <EdKeypair as From<SecretKey>>::from(sk_bytes).into()
 }
 
@@ -66,7 +66,10 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         let mut web_client = None;
         if network_config.web_server_config.is_some() {
-            let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
+            let base_url = "http://0.0.0.0/9000"
+                .to_string()
+                .parse()
+                .expect("Coudn't parse url");
             web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
         }
         OrchestratorState {
@@ -126,12 +129,12 @@ where
         //add new node's key to stake table
         if self.config.web_server_config.clone().is_some() {
             let new_key = &self.config.config.my_own_validator_config.public_key;
-            let client_clone = self.client.clone().unwrap();
+            let client_clone = self.client.clone().expect("client does not exist");
             async move {
                 client_clone
                     .post::<()>("api/staketable")
                     .body_binary(&new_key)
-                    .unwrap()
+                    .expect("Could not construct post request")
                     .send()
                     .await
             }
@@ -139,7 +142,11 @@ where
         }
 
         if self.config.libp2p_config.clone().is_some() {
-            let libp2p_config_clone = self.config.libp2p_config.clone().unwrap();
+            let libp2p_config_clone = self
+                .config
+                .libp2p_config
+                .clone()
+                .expect("Libp2p config does not exist. Not possible, we just checked.");
             // Designate node as bootstrap node and store its identity information
             if libp2p_config_clone.bootstrap_nodes.len() < libp2p_config_clone.num_bootstrap_nodes {
                 let port_index = if libp2p_config_clone.index_ports {
@@ -153,9 +160,14 @@ where
                 self.config
                     .libp2p_config
                     .as_mut()
-                    .unwrap()
+                    .expect("Impossible")
                     .bootstrap_nodes
-                    .push((socketaddr, keypair.to_protobuf_encoding().unwrap()));
+                    .push((
+                        socketaddr,
+                        keypair
+                            .to_protobuf_encoding()
+                            .expect("Couldn't construct protobuf encoding"),
+                    ));
             }
         }
         Ok(node_index)
@@ -168,7 +180,7 @@ where
         _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         if self.config.libp2p_config.is_some() {
-            let libp2p_config = self.config.clone().libp2p_config.unwrap();
+            let libp2p_config = self.config.clone().libp2p_config.expect("Impossible.");
             if libp2p_config.bootstrap_nodes.len() < libp2p_config.num_bootstrap_nodes {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
@@ -202,7 +214,7 @@ where
                 .known_nodes_with_stake
                 .len()
                 .try_into()
-                .unwrap()
+                .expect("Couldn't convert u64 to usize")
         {
             self.start = true;
         }
@@ -238,7 +250,7 @@ where
                     message: "Identity is not a properly formed IP address".to_string(),
                 });
             }
-            state.post_identity(identity.unwrap())
+            state.post_identity(identity.expect("Unable to parse the posted identity."))
         }
         .boxed()
     })?
@@ -281,8 +293,11 @@ where
         RwLock::new(OrchestratorState::new(network_config));
 
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
-    app.register_module("api", web_api.unwrap())
-        .expect("Error registering api");
+    app.register_module(
+        "api",
+        web_api.expect("Couldn't register module for orchestrator app"),
+    )
+    .expect("Error registering api");
     tracing::error!("listening on {:?}", url);
     app.serve(url).await
 }

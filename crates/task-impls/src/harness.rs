@@ -69,7 +69,9 @@ pub async fn run_harness<TYPES, Fut>(
         .register_state(state)
         .register_event_handler(handler);
 
-    let id = builder.get_task_id().unwrap();
+    let id = builder
+        .get_task_id()
+        .expect("Task id does not exist. Shouldn't be possible.");
 
     let task = TestHarnessTaskTypes::build(builder).launch();
 
@@ -113,7 +115,10 @@ pub fn handle_event<TYPES: NodeType>(
         );
     }
 
-    let num_expected = state.expected_output.get_mut(&event).unwrap();
+    let num_expected = state
+        .expected_output
+        .get_mut(&event)
+        .expect("Expected output did not exist.");
     if *num_expected == 1 {
         state.expected_output.remove(&event);
     } else {

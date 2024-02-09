@@ -318,10 +318,14 @@ pub mod test {
         use futures::StreamExt;
         let (s, r) = unbounded();
         let mut stream: UnboundedStream<Message> = r.into_stream();
-        s.send(Message::Dummy).await.unwrap();
-        s.send(Message::Finished).await.unwrap();
-        assert!(stream.next().await.unwrap() == Message::Dummy);
-        assert!(stream.next().await.unwrap() == Message::Finished);
+        s.send(Message::Dummy)
+            .await
+            .expect("Couldn't send dummy msg");
+        s.send(Message::Finished)
+            .await
+            .expect("Couldn't send finished msg");
+        assert!(stream.next().await.expect("Next msg not dummy") == Message::Dummy);
+        assert!(stream.next().await.expect("Next msg not finished") == Message::Finished);
     }
 
     #[cfg(test)]
@@ -361,7 +365,9 @@ pub mod test {
                 .await
                 .register_state(state)
                 .register_event_handler(event_handler);
-            let id = built_task.get_task_id().unwrap();
+            let id = built_task
+                .get_task_id()
+                .expect("Task id does not exist. Shouldn't be possible.");
             let result = AppliedHSTWithEventCounterState::build(built_task).launch();
             task_runner = task_runner.add_task(id, name, result);
         }
@@ -448,8 +454,12 @@ pub mod test {
             .await
             .register_state(state);
         async_spawn(async move {
-            s.send(Message::Dummy).await.unwrap();
-            s.send(Message::Finished).await.unwrap();
+            s.send(Message::Dummy)
+                .await
+                .expect("Couldn't send dummy msg");
+            s.send(Message::Finished)
+                .await
+                .expect("Couldn't send finished msg");
         });
         let result = AppliedHSTWithMessage::build(built_task).launch().await;
         assert!(result == HotShotTaskCompleted::ShutDown);

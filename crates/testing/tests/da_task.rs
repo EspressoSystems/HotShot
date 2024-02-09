@@ -38,7 +38,8 @@ async fn test_da_task() {
     };
     let pub_key = *api.public_key();
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions =
+        TestTransaction::encode(transactions.clone()).expect("Failed to encode transaction");
     let payload_commitment = vid_commitment(
         &encoded_transactions,
         handle

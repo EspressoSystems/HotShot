@@ -248,10 +248,12 @@ impl TestMetadata {
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            total_nodes: NonZeroUsize::new(total_nodes)
+                .expect("total_nodes {total_nodes} is not positive"),
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
-            max_transactions: NonZeroUsize::new(99999).unwrap(),
+            max_transactions: NonZeroUsize::new(99999)
+                .expect("the usize 99999 could not be converted to a nonzerousize"),
             known_nodes_with_stake,
             my_own_validator_config,
             da_committee_size,
@@ -299,7 +301,9 @@ impl TestMetadata {
                     da_committee_size,
                     unreliable_network,
                 ),
-                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                storage: Box::new(|_| {
+                    I::construct_tmp_storage().expect("Failure to construct tmp storage")
+                }),
                 config,
             },
             metadata: self,

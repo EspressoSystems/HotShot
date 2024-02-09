@@ -164,7 +164,9 @@ impl TxnTaskDescription {
                 .register_event_handler(event_handler)
                 .register_message_handler(message_handler)
                 .register_message_stream(stream_generator);
-                let task_id = builder.get_task_id().unwrap();
+                let task_id = builder
+                    .get_task_id()
+                    .expect("Task id does not exist. Shouldn't be possible.");
                 (task_id, TxnTaskTypes::build(builder).launch())
             }
             .boxed()

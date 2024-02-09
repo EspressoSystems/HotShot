@@ -62,7 +62,8 @@ where
     #[cfg(not(feature = "randomized-leader-election"))]
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        let index = usize::try_from(*view_number % self.nodes_with_stake.len() as u64).unwrap();
+        let index = usize::try_from(*view_number % self.nodes_with_stake.len() as u64)
+            .expect("Couldn't convert {view_number} to usize");
         let res = self.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(&res)
     }
@@ -104,7 +105,12 @@ where
     ) -> Self {
         let mut committee_nodes_with_stake = keys_qc.clone();
         debug!("Election Membership Size: {}", config.num_nodes);
-        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_with_stake.truncate(
+            config
+                .num_nodes
+                .try_into()
+                .expect("Conversion error with {config.num_nodes}"),
+        );
         Self {
             nodes_with_stake: keys_qc,
             committee_nodes_with_stake,
@@ -117,15 +123,18 @@ where
     }
 
     fn success_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64 * 2) / 3) + 1).unwrap()
+        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64 * 2) / 3) + 1)
+            .expect("committee nodes with stake too low at {self.committee_nodes_with_stake.len()}")
     }
 
     fn failure_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64) / 3) + 1).unwrap()
+        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64) / 3) + 1)
+            .expect("committee nodes with stake too low at {self.committee_nodes_with_stake.len()}")
     }
 
     fn upgrade_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64 * 9) / 10) + 1).unwrap()
+        NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64 * 9) / 10) + 1)
+            .expect("committee nodes with stake too low at {self.committee_nodes_with_stake.len()}")
     }
 
     fn get_committee(

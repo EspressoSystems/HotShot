@@ -88,10 +88,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let should_vote = self.should_vote;
                 // If the proposal does not match our upgrade target, we immediately exit.
                 if !should_vote(proposal.data.upgrade_proposal.clone()) {
-                    warn!(
-                        "Received unexpected upgrade proposal:\n{:?}",
-                        proposal.data
-                    );
+                    warn!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
                     return None;
                 }
 
@@ -173,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let maybe_task = collector.take();
 
                 if maybe_task.is_none()
-                    || vote.get_view_number() > maybe_task.as_ref().unwrap().view
+                    || vote.get_view_number() > maybe_task.as_ref().expect("task is missing!").view
                 {
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
@@ -191,7 +188,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     >(&info, vote.clone(), event)
                     .await;
                 } else {
-                    let result = maybe_task.unwrap().handle_event(event.clone()).await;
+                    let result = maybe_task
+                        .expect("task is missing")
+                        .handle_event(event.clone())
+                        .await;
 
                     if result.0 == Some(HotShotTaskCompleted::ShutDown) {
                         // The protocol has finished

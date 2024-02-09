@@ -258,5 +258,9 @@ pub fn get_random_handle<S>(
     handles: &[Arc<NetworkNodeHandle<S>>],
     rng: &mut dyn rand::RngCore,
 ) -> Arc<NetworkNodeHandle<S>> {
-    handles.iter().choose(rng).unwrap().clone()
+    handles
+        .iter()
+        .choose(rng)
+        .expect("Couldn't find any handles. Must have at least one handle.")
+        .clone()
 }

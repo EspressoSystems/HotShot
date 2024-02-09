@@ -95,14 +95,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
-                    let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
-                    vid.disperse(encoded_transactions.clone()).unwrap()
+                    let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs)
+                        .expect("Failed to create Vid Scheme during dispersal");
+                    vid.disperse(encoded_transactions.clone())
+                        .expect("Failed to disperse encoded transactions")
                 })
                 .await;
 
                 #[cfg(async_executor_impl = "tokio")]
                 // Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
-                let vid_disperse = vid_disperse.unwrap();
+                let vid_disperse = vid_disperse.expect("VID sub-task failed to disperse shares");
                 // send the commitment and metadata to consensus for block building
                 self.event_stream
                     .publish(HotShotEvent::SendPayloadCommitmentAndMetadata(

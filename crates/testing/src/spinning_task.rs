@@ -116,7 +116,7 @@ impl SpinningTaskDescription {
 
                             // if we have not seen this view before
                             if state.latest_view.is_none()
-                                || view_number > state.latest_view.unwrap()
+                                || view_number > state.latest_view.expect("Latest view is missing")
                             {
                                 // perform operations on the nodes
 
@@ -133,10 +133,10 @@ impl SpinningTaskDescription {
                                         for ChangeNode { idx, updown } in operations {
                                             match updown {
                                                 UpDown::Up => {
-                                                    if let Some(node) = state
-                                                        .late_start
-                                                        .remove(&idx.try_into().unwrap())
-                                                    {
+                                                    if let Some(node) = state.late_start.remove(
+                                                        &idx.try_into()
+                                                            .expect("Conversion failure"),
+                                                    ) {
                                                         tracing::error!(
                                                             "Node {} spinning up late",
                                                             idx
@@ -144,7 +144,9 @@ impl SpinningTaskDescription {
 
                                                         // create node and add to state, so we can shut them down properly later
                                                         let node = Node {
-                                                            node_id: idx.try_into().unwrap(),
+                                                            node_id: idx
+                                                                .try_into()
+                                                                .expect("Conversion failure"),
                                                             networks: node.networks,
                                                             handle: node.context.run_tasks().await,
                                                         };
@@ -220,7 +222,9 @@ impl SpinningTaskDescription {
                 .register_message_stream(MergeN::new(streams))
                 .register_event_handler(event_handler)
                 .register_state(state);
-                let task_id = builder.get_task_id().unwrap();
+                let task_id = builder
+                    .get_task_id()
+                    .expect("Task id does not exist. Shouldn't be possible.");
                 (task_id, SpinningTaskTypes::build(builder).launch())
             }
             .boxed()

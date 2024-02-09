@@ -153,7 +153,7 @@ impl Counter for ConsensusMetrics {
         *self
             .values
             .lock()
-            .unwrap()
+            .expect("Couldn't obtain consensus metrics lock!")
             .counters
             .entry(self.prefix.clone())
             .or_default() += amount;
@@ -165,13 +165,16 @@ impl Gauge for ConsensusMetrics {
         *self
             .values
             .lock()
-            .unwrap()
+            .expect("Couldn't obtain consensus metrics lock!")
             .gauges
             .entry(self.prefix.clone())
             .or_default() = amount;
     }
     fn update(&self, delta: i64) {
-        let mut values = self.values.lock().unwrap();
+        let mut values = self
+            .values
+            .lock()
+            .expect("Couldn't obtain consensus metrics lock!");
         let value = values.gauges.entry(self.prefix.clone()).or_default();
         let signed_value = i64::try_from(*value).unwrap_or(i64::MAX);
         *value = usize::try_from(signed_value + delta).unwrap_or(0);
@@ -182,7 +185,7 @@ impl Histogram for ConsensusMetrics {
     fn add_point(&self, point: f64) {
         self.values
             .lock()
-            .unwrap()
+            .expect("Couldn't obtain consensus metrics lock!")
             .histograms
             .entry(self.prefix.clone())
             .or_default()
@@ -195,7 +198,7 @@ impl Label for ConsensusMetrics {
         *self
             .values
             .lock()
-            .unwrap()
+            .expect("Couldn't obtain consensus metrics lock!")
             .labels
             .entry(self.prefix.clone())
             .or_default() = value;
@@ -332,11 +335,17 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     #[must_use]
     pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
-        let view = self.validated_state_map.get(&decided_view_num).unwrap();
+        let view = self
+            .validated_state_map
+            .get(&decided_view_num)
+            .expect("Decided leaf state is missing! Consensus internally inconsistent.");
         let leaf = view
             .get_leaf_commitment()
             .expect("Decided leaf not found! Consensus internally inconsistent");
-        self.saved_leaves.get(&leaf).unwrap().clone()
+        self.saved_leaves
+            .get(&leaf)
+            .expect("Decided leaf not saved! Consensus internally inconsistent.")
+            .clone()
     }
 
     /// Gets the validated state with the given view number, if in the state map.

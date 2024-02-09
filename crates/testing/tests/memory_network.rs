@@ -191,7 +191,7 @@ async fn memory_network_direct_queue() {
             .recv_msgs(TransmitType::Direct)
             .await
             .expect("Failed to receive message");
-        let recv_message = recv_messages.pop().unwrap();
+        let recv_message = recv_messages.pop().expect("Missing recv message");
         assert!(recv_messages.is_empty());
         fake_message_eq(sent_message, recv_message);
     }
@@ -209,7 +209,7 @@ async fn memory_network_direct_queue() {
             .recv_msgs(TransmitType::Direct)
             .await
             .expect("Failed to receive message");
-        let recv_message = recv_messages.pop().unwrap();
+        let recv_message = recv_messages.pop().expect("Missing recv message");
         assert!(recv_messages.is_empty());
         fake_message_eq(sent_message, recv_message);
     }
@@ -258,7 +258,7 @@ async fn memory_network_broadcast_queue() {
             .recv_msgs(TransmitType::Broadcast)
             .await
             .expect("Failed to receive message");
-        let recv_message = recv_messages.pop().unwrap();
+        let recv_message = recv_messages.pop().expect("Missing recv message");
         assert!(recv_messages.is_empty());
         fake_message_eq(sent_message, recv_message);
     }
@@ -279,7 +279,7 @@ async fn memory_network_broadcast_queue() {
             .recv_msgs(TransmitType::Broadcast)
             .await
             .expect("Failed to receive message");
-        let recv_message = recv_messages.pop().unwrap();
+        let recv_message = recv_messages.pop().expect("Missing recv message");
         assert!(recv_messages.is_empty());
         fake_message_eq(sent_message, recv_message);
     }
@@ -323,14 +323,14 @@ async fn memory_network_test_in_flight_message_count() {
         network1
             .direct_message(message.clone(), pub_key_2)
             .await
-            .unwrap();
+            .expect("Failed to direct message");
         // network 2 has received `count` broadcast messages and `count + 1` direct messages
         assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
 
         network2
             .broadcast_message(message.clone(), broadcast_recipients.clone())
             .await
-            .unwrap();
+            .expect("Failed to broadcast message");
         // network 1 has received `count` broadcast messages
         assert_eq!(network1.in_flight_message_count(), Some(count + 1));
 
@@ -338,16 +338,37 @@ async fn memory_network_test_in_flight_message_count() {
         assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
     }
 
-    while network1.in_flight_message_count().unwrap() > 0 {
-        network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
+    while network1
+        .in_flight_message_count()
+        .expect("In flight message count not positive")
+        > 0
+    {
+        network1
+            .recv_msgs(TransmitType::Broadcast)
+            .await
+            .expect("Expect to find one message that is broadcast");
     }
 
-    while network2.in_flight_message_count().unwrap() > messages.len() {
-        network2.recv_msgs(TransmitType::Direct).await.unwrap();
+    while network2
+        .in_flight_message_count()
+        .expect("In flight message count not positive")
+        > messages.len()
+    {
+        network2
+            .recv_msgs(TransmitType::Direct)
+            .await
+            .expect("Expect to find one message that is direct");
     }
 
-    while network2.in_flight_message_count().unwrap() > 0 {
-        network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
+    while network2
+        .in_flight_message_count()
+        .expect("In flight message count not positive")
+        > 0
+    {
+        network2
+            .recv_msgs(TransmitType::Broadcast)
+            .await
+            .expect("Expect to find one message that is broadcast");
     }
 
     assert_eq!(network1.in_flight_message_count(), Some(0));

@@ -37,7 +37,8 @@ async fn main() {
 
     // use configfile args
     let args = ConfigArgs::parse();
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+    let orchestrator_url =
+        Url::parse("http://localhost:4444").expect("Couldn't parse orchestrator url");
 
     // orchestrator
     async_spawn(run_orchestrator::<

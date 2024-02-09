@@ -159,22 +159,29 @@ mod test {
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     #[instrument]
     async fn memory_storage() {
-        let storage = MemoryStorage::construct_tmp_storage().unwrap();
+        let storage =
+            MemoryStorage::construct_tmp_storage().expect("Failure to construct tmp storage");
         let genesis = random_stored_view(<TestTypes as NodeType>::Time::genesis());
         storage
             .append_single_view(genesis.clone())
             .await
             .expect("Could not append block");
-        assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
+        assert_eq!(
+            storage.get_anchored_view().await.expect("Anchor missing"),
+            genesis
+        );
         storage
             .cleanup_storage_up_to_view(genesis.view_number)
             .await
-            .unwrap();
-        assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
+            .expect("Could not cleanup storage");
+        assert_eq!(
+            storage.get_anchored_view().await.expect("Anchor missing"),
+            genesis
+        );
         storage
             .cleanup_storage_up_to_view(genesis.view_number + 1)
             .await
-            .unwrap();
+            .expect("Could not cleanup storage");
         assert!(storage.get_anchored_view().await.is_err());
     }
 }

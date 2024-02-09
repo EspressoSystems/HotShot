@@ -96,7 +96,10 @@ impl TestableState for TestValidatedState {
         const RANDOM_TX_BASE_SIZE: usize = 8;
         TestTransaction(vec![
             0;
-            RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
+            RANDOM_TX_BASE_SIZE
+                + usize::try_from(padding).expect(
+                    "Couldn't convert padding {padding:?} to usize"
+                )
         ])
     }
 }

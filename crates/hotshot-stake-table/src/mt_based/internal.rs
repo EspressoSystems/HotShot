@@ -295,7 +295,9 @@ impl<K: Key> PersistentMerkleNode<K> {
                     .collect::<Vec<_>>();
                 proof.path.push(MerklePathEntry::Branch {
                     pos,
-                    siblings: siblings.try_into().unwrap(),
+                    siblings: siblings
+                        .try_into()
+                        .expect("Couldn't convert vec into array. Mismatched sizes"),
                 });
                 Ok(proof)
             }
@@ -565,7 +567,7 @@ impl<K: Key> Iterator for IntoIter<K> {
         }
 
         // This unwrap always succeed because `unvisited` is nonempty
-        let visiting = (*self.unvisited.pop().unwrap()).clone();
+        let visiting = (*self.unvisited.pop().expect("Impossible.")).clone();
         match visiting {
             PersistentMerkleNode::Empty => None,
             PersistentMerkleNode::Branch {
@@ -631,6 +633,7 @@ mod tests {
     type Key = ark_bn254::Fq;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn crypto_test_persistent_merkle_tree() {
         let height = 3;
         let mut roots = vec![Arc::new(PersistentMerkleNode::<Key>::Empty)];
@@ -643,9 +646,9 @@ mod tests {
             roots.push(
                 roots
                     .last()
-                    .unwrap()
+                    .expect("Roots are empty")
                     .register(height, &path[i], key, U256::from(100))
-                    .unwrap(),
+                    .expect("Failed to register"),
             );
         }
         // Check that if the insertion is perform correctly
@@ -658,7 +661,9 @@ mod tests {
             );
             assert_eq!(
                 U256::from(100),
-                roots[i + 1].simple_lookup(height, &path[i]).unwrap()
+                roots[i + 1]
+                    .simple_lookup(height, &path[i])
+                    .expect("Failed to look up {height} in merkle tree")
             );
         }
         // test get_key_by_stake
@@ -667,22 +672,34 @@ mod tests {
                 key,
                 roots
                     .last()
-                    .unwrap()
+                    .expect("Roots are empty")
                     .get_key_by_stake(U256::from(i as u64 * 100 + i as u64 + 1))
-                    .unwrap()
+                    .expect("Key does not exist")
                     .0
             );
         });
 
         // test for `lookup` and Merkle proof
         for i in 0..10 {
-            let proof = roots.last().unwrap().lookup(height, &path[i]).unwrap();
+            let proof = roots
+                .last()
+                .expect("Roots are empty")
+                .lookup(height, &path[i])
+                .expect("Failed to look up {height} in merkle tree");
             assert_eq!(height, proof.tree_height());
-            assert_eq!(&keys[i], proof.get_key().unwrap());
-            assert_eq!(&U256::from(100), proof.get_value().unwrap());
             assert_eq!(
-                roots.last().unwrap().commitment(),
-                proof.compute_root().unwrap()
+                &keys[i],
+                proof.get_key().expect("Failed to obtain proof key")
+            );
+            assert_eq!(
+                &U256::from(100),
+                proof.get_value().expect("Failed to obtain proof value")
+            );
+            assert_eq!(
+                roots.last().expect("Roots are empty").commitment(),
+                proof
+                    .compute_root()
+                    .expect("Failed to compute root from proof")
             );
         }
 
@@ -690,57 +707,63 @@ mod tests {
         // `set_value` with wrong key should fail
         assert!(roots
             .last()
-            .unwrap()
+            .expect("Roots are empty")
             .set_value(height, &path[2], &keys[1], U256::from(100))
             .is_err());
         // A successful `set_value`
         let (new_root, value) = roots
             .last()
-            .unwrap()
+            .expect("Roots are empty")
             .set_value(height, &path[2], &keys[2], U256::from(90))
-            .unwrap();
+            .expect("Unable to set value in merkle tree");
         roots.push(new_root);
         assert_eq!(U256::from(100), value);
         assert_eq!(
             U256::from(90),
             roots
                 .last()
-                .unwrap()
+                .expect("Roots are empty")
                 .simple_lookup(height, &path[2])
-                .unwrap()
+                .expect("Failed to look up {height}")
         );
-        assert_eq!(U256::from(990), roots.last().unwrap().total_stakes());
+        assert_eq!(
+            U256::from(990),
+            roots.last().expect("Roots are empty").total_stakes()
+        );
 
         // test for `update`
         // `update` with a wrong key should fail
         assert!(roots
             .last()
-            .unwrap()
+            .expect("Roots are empty")
             .update(height, &path[3], &keys[0], U256::from(10), false)
             .is_err());
         // `update` that results in a negative stake should fail
         assert!(roots
             .last()
-            .unwrap()
+            .expect("Roots are empty")
             .update(height, &path[3], &keys[3], U256::from(200), true)
             .is_err());
         // A successful `update`
         let (new_root, value) = roots
             .last()
-            .unwrap()
+            .expect("Roots are empty")
             .update(height, &path[2], &keys[2], U256::from(10), false)
-            .unwrap();
+            .expect("Failed to update node in merkle tree at height {height}");
         roots.push(new_root);
         assert_eq!(U256::from(100), value);
         assert_eq!(
             value,
             roots
                 .last()
-                .unwrap()
+                .expect("Roots are empty")
                 .simple_lookup(height, &path[2])
-                .unwrap()
+                .expect("Failed to update node in merkle tree at height {height}")
         );
-        assert_eq!(U256::from(1000), roots.last().unwrap().total_stakes());
+        assert_eq!(
+            U256::from(1000),
+            roots.last().expect("Roots are empty").total_stakes()
+        );
     }
 
     #[test]
@@ -762,7 +785,7 @@ mod tests {
             for i in 0..num_keys {
                 root = root
                     .register(height as usize, &paths[i], &keys[i], amounts[i])
-                    .unwrap();
+                    .expect("Failed to register");
             }
             for (i, (k, v, ())) in (*root).clone().into_iter().enumerate() {
                 assert_eq!((k, v), (keys[i], amounts[i]));

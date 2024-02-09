@@ -26,7 +26,10 @@ mod tests {
                 panic!("get_current_working_dir error: {:?}", e);
             }
         };
-        let filename = current_working_dir.into_os_string().into_string().unwrap()
+        let filename = current_working_dir
+            .into_os_string()
+            .into_string()
+            .expect("Failed to get current working directory")
             + "/../../config/ValidatorConfigOutput";
         match File::create(filename) {
             Err(why) => panic!("couldn't create file for output key pairs: {}", why),

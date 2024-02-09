@@ -140,7 +140,9 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
 
     // impossible for unwraps to fail
     // we *just* registered
-    let networking_task_id = networking_task_builder.get_task_id().unwrap();
+    let networking_task_id = networking_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
     let networking_task = NetworkMessageTaskTypes::build(networking_task_builder).launch();
 
     task_runner.add_task(
@@ -191,7 +193,9 @@ pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<T
 
     // impossible for unwraps to fail
     // we *just* registered
-    let networking_task_id = networking_task_builder.get_task_id().unwrap();
+    let networking_task_id = networking_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
     let networking_task = NetworkEventTaskTypes::build(networking_task_builder).launch();
 
     task_runner.add_task(
@@ -218,7 +222,7 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
     // Impossible for `unwrap` to fail on the genesis payload.
     let payload_commitment = vid_commitment(
-        &payload.encode().unwrap().collect(),
+        &payload.encode().expect("Couldn't encode payload").collect(),
         handle
             .hotshot
             .inner
@@ -310,7 +314,9 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     .register_event_handler(consensus_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let consensus_task_id = consensus_task_builder.get_task_id().unwrap();
+    let consensus_task_id = consensus_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
     let consensus_task = ConsensusTaskTypes::build(consensus_task_builder).launch();
 
     task_runner.add_task(
@@ -372,7 +378,9 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .register_event_handler(vid_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let vid_task_id = vid_task_builder.get_task_id().unwrap();
+    let vid_task_id = vid_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
     let vid_task = VIDTaskTypes::build(vid_task_builder).launch();
     task_runner.add_task(vid_task_id, vid_name.to_string(), vid_task)
 }
@@ -429,7 +437,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     .register_event_handler(upgrade_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let upgrade_task_id = upgrade_task_builder.get_task_id().unwrap();
+    let upgrade_task_id = upgrade_task_builder.get_task_id().expect("impossible");
     let upgrade_task = UpgradeTaskTypes::build(upgrade_task_builder).launch();
     task_runner.add_task(upgrade_task_id, upgrade_name.to_string(), upgrade_task)
 }
@@ -486,7 +494,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     .register_event_handler(da_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let da_task_id = da_task_builder.get_task_id().unwrap();
+    let da_task_id = da_task_builder.get_task_id().expect("Couldn't get task id");
     let da_task = DATaskTypes::build(da_task_builder).launch();
     task_runner.add_task(da_task_id, da_name.to_string(), da_task)
 }
@@ -543,7 +551,9 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     .register_event_handler(transactions_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let da_task_id = transactions_task_builder.get_task_id().unwrap();
+    let da_task_id = transactions_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
     let da_task = TransactionsTaskTypes::build(transactions_task_builder).launch();
     task_runner.add_task(da_task_id, transactions_name.to_string(), da_task)
 }
@@ -608,7 +618,9 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     .register_event_handler(view_sync_event_handler);
     // impossible for unwrap to fail
     // we *just* registered
-    let view_sync_task_id = view_sync_task_builder.get_task_id().unwrap();
+    let view_sync_task_id = view_sync_task_builder
+        .get_task_id()
+        .expect("Couldn't get task id");
 
     let view_sync_task = ViewSyncTaskStateTypes::build(view_sync_task_builder).launch();
     task_runner.add_task(

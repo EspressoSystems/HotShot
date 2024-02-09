@@ -110,7 +110,9 @@ pub fn load_config_from_file<TYPES: NodeType>(
         .map(|node_id| {
             TYPES::SignatureKey::generated_from_seed_indexed(
                 config.seed,
-                node_id.try_into().unwrap(),
+                node_id
+                    .try_into()
+                    .expect("Node id {node_id} could not be converted into u64"),
             )
             .0
         })
@@ -168,7 +170,7 @@ fn webserver_network_from_config<TYPES: NodeType>(
     let WebServerConfig {
         url,
         wait_between_polls,
-    }: WebServerConfig = config.web_server_config.unwrap();
+    }: WebServerConfig = config.web_server_config.expect("Web server config missing");
 
     WebServerNetwork::create(url, wait_between_polls, pub_key, false)
 }
@@ -193,11 +195,12 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         .bootstrap_nodes
         .iter()
         .map(|(addr, pair)| {
-            let kp = Keypair::from_protobuf_encoding(pair).unwrap();
+            let kp = Keypair::from_protobuf_encoding(pair)
+                .expect("Protobuf encoding couldn't be converted into keypair");
             let peer_id = PeerId::from_public_key(&kp.public());
             let multiaddr =
                 Multiaddr::from_str(&format!("/ip4/{}/udp/{}/quic-v1", addr.ip(), addr.port()))
-                    .unwrap();
+                    .expect("libp2p multiaddr couldn't be parsed");
             (peer_id, multiaddr)
         })
         .collect();
@@ -224,12 +227,13 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         libp2p_config.base_port as u64 + port_index
     )
     .parse()
-    .unwrap();
+    .expect("Bound address for libp2p node couldn't be parsed");
 
     // generate network
     let mut config_builder = NetworkNodeConfigBuilder::default();
     assert!(config.config.total_nodes.get() > 2);
-    let replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - 2).unwrap();
+    let replicated_nodes =
+        NonZeroUsize::new(config.config.total_nodes.get() - 2).expect("More libp2p nodes needed");
     config_builder.replication_factor(replicated_nodes);
     config_builder.identity(identity.clone());
 
@@ -271,7 +275,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         }
         all_keys.insert(pub_key);
     }
-    let node_config = config_builder.build().unwrap();
+    let node_config = config_builder.build().expect("Couldn't build config");
 
     #[allow(clippy::cast_possible_truncation)]
     Libp2pNetwork::new(
@@ -294,7 +298,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         da_keys.contains(&pub_key),
     )
     .await
-    .unwrap()
+    .expect("Couldn't create libp2p network from config")
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -347,7 +351,9 @@ pub trait RunDA<
         });
 
         let committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap(),
+            config.config.da_committee_size.try_into().expect(
+                "Couldn't convert da committee size {config.config.da_committee_size} to u64",
+            ),
         );
         let networks_bundle = Networks {
             quorum_network: quorum_network.clone(),
@@ -448,7 +454,10 @@ pub trait RunDA<
                                 for _ in 0..transactions_to_send_per_round {
                                     let tx = transactions.remove(0);
 
-                                    () = context.submit_transaction(tx).await.unwrap();
+                                    () = context
+                                        .submit_transaction(tx)
+                                        .await
+                                        .expect("Couldn't submit transaction {tx:?}");
                                     total_transactions_sent += 1;
                                 }
                             }
@@ -555,7 +564,10 @@ where
         let WebServerConfig {
             url,
             wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
+        }: WebServerConfig = config
+            .clone()
+            .da_web_server_config
+            .expect("DA web server config missing");
 
         // create and wait for underlying network
         let underlying_quorum_network =
@@ -772,7 +784,10 @@ where
         let WebServerConfig {
             url,
             wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
+        }: WebServerConfig = config
+            .clone()
+            .da_web_server_config
+            .expect("DA web server config missing");
 
         // create and wait for underlying webserver network
         let webserver_underlying_quorum_network =
@@ -871,7 +886,7 @@ pub async fn main_entry_point<
     // see what our public identity will be
     let public_ip = match args.public_ip {
         Some(ip) => ip,
-        None => local_ip_address::local_ip().unwrap(),
+        None => local_ip_address::local_ip().expect("Unable to find local ip"),
     };
 
     let orchestrator_client: OrchestratorClient =
@@ -953,6 +968,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&seed);
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
-    let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
+    let sk_bytes = SecretKey::try_from_bytes(new_seed)
+        .expect("Unable to gneerate secret key from seed for libp2p identity");
     <ed25519::Keypair as From<SecretKey>>::from(sk_bytes).into()
 }
