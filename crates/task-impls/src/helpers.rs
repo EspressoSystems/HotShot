@@ -23,7 +23,7 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
             );
         }
         Err(SendError(e)) => {
-            tracing::error!(
+            tracing::warn!(
                 "Event: {:?}\n Sending failed, event stream probably shutdown",
                 e
             );
