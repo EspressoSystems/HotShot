@@ -746,6 +746,30 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -756,7 +780,7 @@
 <span class="doccomment">/// a local caching layer for the DHT key value pairs
 </span><span class="kw">mod </span>cache;
 
-<span class="kw">use </span>async_compatibility_layer::art::async_block_on;
+<span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::kad::Behaviour <span class="kw">as </span>KademliaBehaviour;
 <span class="kw">use </span>libp2p::kad::Event <span class="kw">as </span>KademliaEvent;
@@ -1018,7 +1042,7 @@
 
     <span class="doccomment">/// update state based on recv-ed get query
     </span><span class="kw">fn </span>handle_get_query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record_results: GetRecordResult, id: QueryId, <span class="kw-2">mut </span>last: bool) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(query) = <span class="self">self</span>.in_progress_get_record_queries.get_mut(<span class="kw-2">&amp;</span>id) {
+        <span class="kw">let </span>num = <span class="kw">if let </span><span class="prelude-val">Some</span>(query) = <span class="self">self</span>.in_progress_get_record_queries.get_mut(<span class="kw-2">&amp;</span>id) {
             <span class="kw">match </span>record_results {
                 <span class="prelude-val">Ok</span>(results) =&gt; <span class="kw">match </span>results {
                     GetRecordOk::FoundRecord(record) =&gt; {
@@ -1026,27 +1050,34 @@
                             std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                                 <span class="kw">let </span>num_entries = o.get_mut();
                                 <span class="kw-2">*</span>num_entries += <span class="number">1</span>;
+                                <span class="kw-2">*</span>num_entries
                             }
                             std::collections::hash_map::Entry::Vacant(v) =&gt; {
                                 v.insert(<span class="number">1</span>);
-                            }
+                                <span class="number">1
+                            </span>}
                         }
                     }
                     GetRecordOk::FinishedWithNoAdditionalRecord {
                         cache_candidates: <span class="kw">_</span>,
-                    } =&gt; last = <span class="bool-val">true</span>,
+                    } =&gt; {
+                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;GetRecord Finished with No Additional Record&quot;</span>);
+                        last = <span class="bool-val">true</span>;
+                        <span class="number">0
+                    </span>}
                 },
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">error!</span>(<span class="string">&quot;GOT ERROR IN KAD QUERY {:?}&quot;</span>, err);
-                }
+                    <span class="number">0
+                </span>}
             }
         } <span class="kw">else </span>{
             <span class="comment">// inactive entry
             </span><span class="kw">return</span>;
-        }
+        };
 
         <span class="comment">// BUG
-        </span><span class="kw">if </span>last {
+        </span><span class="kw">if </span>num &gt; NUM_REPLICATED_TO_TRUST {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(KadGetQuery {
                 backoff,
                 progress,
@@ -1071,17 +1102,16 @@
                     .find(|(<span class="kw">_</span>, v)| <span class="kw-2">*</span>v &gt;= NUM_REPLICATED_TO_TRUST)
                 {
                     <span class="comment">// insert into cache
-                    </span>async_block_on(<span class="self">self</span>.cache.insert(key, r.clone()));
+                    // TODO we should find a better place to set the cache
+                    // https://github.com/EspressoSystems/HotShot/issues/2554
+                    </span><span class="kw">let </span>cache = <span class="self">self</span>.cache.clone();
+                    <span class="kw">let </span>val = r.clone();
+                    async_spawn(<span class="kw">async move </span>{ cache.insert(key, val).<span class="kw">await </span>});
 
                     <span class="comment">// return value
                     </span><span class="kw">if </span>notify.send(r).is_err() {
                         <span class="macro">error!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
                     }
-                }
-                <span class="comment">// lack of replication =&gt; error
-                </span><span class="kw">else if </span>records_len &lt; NUM_REPLICATED_TO_TRUST {
-                    <span class="macro">error!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, progress);
-                    <span class="self">self</span>.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
                 <span class="comment">// many records that don&#39;t match =&gt; disagreement
                 </span><span class="kw">else if </span>records_len &gt; MAX_DHT_QUERY_SIZE {
@@ -1100,6 +1130,24 @@
 
                     <span class="self">self</span>.get_record(key, notify, new_factor, backoff, retry_count);
                     <span class="macro">error!</span>(<span class="string">&quot;Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes&quot;</span>, progress);
+                }
+            }
+        } <span class="kw">else if </span>last {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(KadGetQuery {
+                backoff,
+                progress,
+                notify,
+                num_replicas,
+                key,
+                retry_count,
+                records,
+            }) = <span class="self">self</span>.in_progress_get_record_queries.remove(<span class="kw-2">&amp;</span>id)
+            {
+                <span class="kw">let </span>records_len = records.iter().fold(<span class="number">0</span>, |acc, (_k, v)| acc + v);
+                <span class="comment">// lack of replication =&gt; error
+                </span><span class="kw">if </span>records_len &lt; NUM_REPLICATED_TO_TRUST {
+                    <span class="macro">error!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, progress);
+                    <span class="self">self</span>.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
             }
         }

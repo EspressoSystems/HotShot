@@ -204,88 +204,6 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator&#39;s clients
@@ -295,14 +213,10 @@
 
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
-<span class="kw">use </span>std::{
-    io,
-    io::ErrorKind,
-    net::{IpAddr, SocketAddr},
-};
+<span class="kw">use </span>std::{io, io::ErrorKind};
 <span class="kw">use </span>tide_disco::{Api, App};
 
-<span class="kw">use </span>surf_disco::{error::ClientError, Url};
+<span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -334,8 +248,6 @@
 <span class="doccomment">/// The state of the orchestrator
 </span><span class="attr">#[derive(Default, Clone)]
 </span><span class="kw">struct </span>OrchestratorState&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
-    <span class="doccomment">/// Tracks the latest node index we have generated a configuration for
-    </span>latest_index: u16,
     <span class="doccomment">/// The network configuration
     </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
     <span class="doccomment">/// Whether nodes should start their HotShot instances
@@ -343,8 +255,6 @@
     </span>start: bool,
     <span class="doccomment">/// The total nodes that have posted they are ready to start
     </span><span class="kw">pub </span>nodes_connected: u64,
-    <span class="doccomment">/// connection to the web server
-    </span>client: <span class="prelude-ty">Option</span>&lt;surf_disco::Client&lt;ClientError&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
@@ -352,27 +262,16 @@
 {
     <span class="doccomment">/// create a new [`OrchestratorState`]
     </span><span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>web_client = <span class="prelude-val">None</span>;
-        <span class="kw">if </span>network_config.web_server_config.is_some() {
-            <span class="kw">let </span>base_url = <span class="string">&quot;http://0.0.0.0/9000&quot;</span>.to_string().parse().unwrap();
-            web_client = <span class="prelude-val">Some</span>(surf_disco::Client::&lt;ClientError&gt;::new(base_url));
-        }
         OrchestratorState {
-            latest_index: <span class="number">0</span>,
             config: network_config,
             start: <span class="bool-val">false</span>,
             nodes_connected: <span class="number">0</span>,
-            client: web_client,
         }
     }
 }
 
 <span class="doccomment">/// An api exposed by the orchestrator
 </span><span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
-    <span class="doccomment">/// post endpoint for identity
-    /// # Errors
-    /// if unable to serve
-    </span><span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
     <span class="doccomment">/// post endpoint for each node&#39;s config
     /// # Errors
     /// if unable to serve
@@ -399,56 +298,6 @@
     </span>KEY: serde::Serialize + Clone + SignatureKey,
     ELECTION: serde::Serialize + Clone + Send + ElectionConfig,
 {
-    <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt; {
-        <span class="kw">let </span>node_index = <span class="self">self</span>.latest_index;
-        <span class="self">self</span>.latest_index += <span class="number">1</span>;
-
-        <span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/850
-        </span><span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Network has reached capacity&quot;</span>.to_string(),
-            });
-        }
-
-        <span class="comment">//add new node&#39;s key to stake table
-        </span><span class="kw">if </span><span class="self">self</span>.config.web_server_config.clone().is_some() {
-            <span class="kw">let </span>new_key = <span class="kw-2">&amp;</span><span class="self">self</span>.config.config.my_own_validator_config.public_key;
-            <span class="kw">let </span>client_clone = <span class="self">self</span>.client.clone().unwrap();
-            <span class="kw">async move </span>{
-                client_clone
-                    .post::&lt;()&gt;(<span class="string">&quot;api/staketable&quot;</span>)
-                    .body_binary(<span class="kw-2">&amp;</span>new_key)
-                    .unwrap()
-                    .send()
-                    .<span class="kw">await
-            </span>}
-            .boxed();
-        }
-
-        <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.clone().is_some() {
-            <span class="kw">let </span>libp2p_config_clone = <span class="self">self</span>.config.libp2p_config.clone().unwrap();
-            <span class="comment">// Designate node as bootstrap node and store its identity information
-            </span><span class="kw">if </span>libp2p_config_clone.bootstrap_nodes.len() &lt; libp2p_config_clone.num_bootstrap_nodes {
-                <span class="kw">let </span>port_index = <span class="kw">if </span>libp2p_config_clone.index_ports {
-                    node_index
-                } <span class="kw">else </span>{
-                    <span class="number">0
-                </span>};
-                <span class="kw">let </span>socketaddr =
-                    SocketAddr::new(identity, libp2p_config_clone.base_port + port_index);
-                <span class="kw">let </span>keypair = libp2p_generate_indexed_identity(<span class="self">self</span>.config.seed, node_index.into());
-                <span class="self">self</span>.config
-                    .libp2p_config
-                    .as_mut()
-                    .unwrap()
-                    .bootstrap_nodes
-                    .push((socketaddr, keypair.to_protobuf_encoding().unwrap()));
-            }
-        }
-        <span class="prelude-val">Ok</span>(node_index)
-    }
-
     <span class="comment">// Assumes nodes will set their own index that they received from the
     // &#39;identity&#39; endpoint
     </span><span class="kw">fn </span>post_getconfig(
@@ -517,20 +366,7 @@
     </span>)))
     .expect(<span class="string">&quot;API file is not valid toml&quot;</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>api = Api::&lt;State, ServerError&gt;::new(api_toml)<span class="question-mark">?</span>;
-    api.post(<span class="string">&quot;postidentity&quot;</span>, |req, state| {
-        <span class="kw">async move </span>{
-            <span class="kw">let </span>identity = req.string_param(<span class="string">&quot;identity&quot;</span>)<span class="question-mark">?</span>.parse::&lt;IpAddr&gt;();
-            <span class="kw">if </span>identity.is_err() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
-                    message: <span class="string">&quot;Identity is not a properly formed IP address&quot;</span>.to_string(),
-                });
-            }
-            state.post_identity(identity.unwrap())
-        }
-        .boxed()
-    })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;post_getconfig&quot;</span>, |req, state| {
+    api.post(<span class="string">&quot;post_getconfig&quot;</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>node_index = req.integer_param(<span class="string">&quot;node_index&quot;</span>)<span class="question-mark">?</span>;
             state.post_getconfig(node_index)
