@@ -189,7 +189,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event: Self::Event,
         task: &mut Task<Self>,
     ) -> Option<HotShotTaskCompleted> {
-        // TODO: Don't clone the sender
         let sender = task.clone_sender();
         task.state_mut().handle(event, sender).await;
         None
