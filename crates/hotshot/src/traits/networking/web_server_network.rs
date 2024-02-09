@@ -317,14 +317,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     }
                     return false;
                 }
-                MessagePurpose::Vote => {
+                MessagePurpose::Vote | MessagePurpose::ViewSyncVote => {
                     let vote = deserialized_message.clone();
                     *vote_index += 1;
                     direct_poll_queue.write().await.push(vote);
 
                     return false;
                 }
-                MessagePurpose::DAC | MessagePurpose::ViewSyncVote => {
+                MessagePurpose::DAC => {
                     debug!(
                         "Received DAC from web server for view {} {}",
                         view_number, self.is_da
