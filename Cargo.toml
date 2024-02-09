@@ -22,7 +22,6 @@ members = [
         "crates/testing",
         "crates/types",
         "crates/utils",
-        "crates/examples",
 ]
 resolver = "2"
 
