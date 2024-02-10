@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_hash_of"],"struct":["Cache","CombinedCommChannel","CombinedNetworks","Libp2pCommChannel","Libp2pNetwork","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryStorage","NetworkingMetricsValue","WebCommChannel","WebServerNetwork"],"type":["PeerInfoVec"]};
+window.SIDEBAR_ITEMS = {"struct":["CombinedCommChannel","CombinedNetworks","Libp2pCommChannel","Libp2pNetwork","MasterMap","MemoryCommChannel","MemoryNetwork","MemoryStorage","NetworkingMetricsValue","WebCommChannel","WebServerNetwork"],"type":["PeerInfoVec"]};

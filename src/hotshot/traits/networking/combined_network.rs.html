@@ -420,6 +420,40 @@
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -464,7 +498,7 @@
 <span class="doccomment">/// A cache to keep track of the last n messages we&#39;ve seen, avoids reprocessing duplicates
 /// from multiple networks
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>Cache {
+</span><span class="kw">struct </span>Cache {
     <span class="doccomment">/// The maximum number of items to store in the cache
     </span>capacity: usize,
     <span class="doccomment">/// The cache itself
@@ -475,8 +509,7 @@
 
 <span class="kw">impl </span>Cache {
     <span class="doccomment">/// Create a new cache with the given capacity
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(capacity: usize) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">fn </span>new(capacity: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             capacity,
             inner: HashSet::with_capacity(capacity),
@@ -485,7 +518,7 @@
     }
 
     <span class="doccomment">/// Insert a hash into the cache
-    </span><span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: u64) {
+    </span><span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: u64) {
         <span class="kw">if </span><span class="self">self</span>.inner.contains(<span class="kw-2">&amp;</span>hash) {
             <span class="kw">return</span>;
         }
@@ -504,26 +537,19 @@
     }
 
     <span class="doccomment">/// Check if the cache contains a hash
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: u64) -&gt; bool {
+    </span><span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: u64) -&gt; bool {
         <span class="self">self</span>.inner.contains(<span class="kw-2">&amp;</span>hash)
     }
 
     <span class="doccomment">/// Get the number of items in the cache
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    </span><span class="attr">#[cfg(test)]
+    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.inner.len()
-    }
-
-    <span class="doccomment">/// True if the cache is empty false otherwise
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.inner.is_empty()
     }
 }
 
 <span class="doccomment">/// Helper function to calculate a hash of a type that implements Hash
-</span><span class="kw">pub fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
+</span><span class="kw">fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
     <span class="kw">let </span><span class="kw-2">mut </span>s = DefaultHasher::new();
     t.hash(<span class="kw-2">&amp;mut </span>s);
     s.finish()
@@ -814,6 +840,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
+    <span class="kw">use </span>hotshot_testing::block_types::TestTransaction;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>tracing::instrument;
 
@@ -840,6 +868,46 @@
         <span class="macro">assert!</span>(cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">2</span>));
         <span class="macro">assert!</span>(cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">3</span>));
         <span class="macro">assert!</span>(cache.hashes.contains(<span class="kw-2">&amp;</span><span class="number">4</span>));
+    }
+
+    <span class="attr">#[cfg_attr(
+        async_executor_impl = <span class="string">&quot;tokio&quot;</span>,
+        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)
+    )]
+    #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
+    #[instrument]
+    </span><span class="kw">async fn </span>test_hash_calculation() {
+        <span class="kw">let </span>message1 = TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message2 = TestTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
+
+        <span class="macro">assert_eq!</span>(calculate_hash_of(<span class="kw-2">&amp;</span>message1), calculate_hash_of(<span class="kw-2">&amp;</span>message1));
+        <span class="macro">assert_ne!</span>(calculate_hash_of(<span class="kw-2">&amp;</span>message1), calculate_hash_of(<span class="kw-2">&amp;</span>message2));
+    }
+
+    <span class="attr">#[cfg_attr(
+        async_executor_impl = <span class="string">&quot;tokio&quot;</span>,
+        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)
+    )]
+    #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
+    #[instrument]
+    </span><span class="kw">async fn </span>test_cache_integrity() {
+        <span class="kw">let </span>message1 = TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>message2 = TestTransaction(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>]);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = Cache::new(<span class="number">3</span>);
+
+        <span class="comment">// test insertion integrity
+        </span>cache.insert(calculate_hash_of(<span class="kw-2">&amp;</span>message1));
+        cache.insert(calculate_hash_of(<span class="kw-2">&amp;</span>message2));
+
+        <span class="macro">assert!</span>(cache.contains(calculate_hash_of(<span class="kw-2">&amp;</span>message1)));
+        <span class="macro">assert!</span>(cache.contains(calculate_hash_of(<span class="kw-2">&amp;</span>message2)));
+
+        <span class="comment">// check that the cache is not modified on duplicate entries
+        </span>cache.insert(calculate_hash_of(<span class="kw-2">&amp;</span>message1));
+        <span class="macro">assert!</span>(cache.contains(calculate_hash_of(<span class="kw-2">&amp;</span>message1)));
+        <span class="macro">assert!</span>(cache.contains(calculate_hash_of(<span class="kw-2">&amp;</span>message2)));
+        <span class="macro">assert_eq!</span>(cache.len(), <span class="number">2</span>);
     }
 }
 </code></pre></div></section></main></body></html>
