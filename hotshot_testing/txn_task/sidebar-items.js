@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TxnTaskDescription"],"struct":["TxnTask","TxnTaskErr","TxnTaskErrSnafu"],"type":["TxnTaskTypes"]};
+window.SIDEBAR_ITEMS = {"enum":["TxnTaskDescription"],"struct":["TxnTask","TxnTaskErr","TxnTaskErrSnafu"]};

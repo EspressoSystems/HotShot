@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","UpgradeTaskState"],"type":["UpgradeTaskTypes","VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","UpgradeTaskState"],"type":["VoteCollectorOption"]};

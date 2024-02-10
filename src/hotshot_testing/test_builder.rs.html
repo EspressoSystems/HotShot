@@ -298,21 +298,6 @@
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::NetworkReliability, types::SignatureKey};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -531,12 +516,8 @@
             min_transactions,
             timing_data,
             da_committee_size,
-            txn_description,
-            completion_task_description,
-            overall_safety_properties,
-            spinning_properties,
+
             unreliable_network,
-            view_sync_properties,
             ..
         } = <span class="self">self</span>.clone();
 
@@ -601,11 +582,6 @@
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        <span class="kw">let </span>txn_task_generator = txn_description.build();
-        <span class="kw">let </span>completion_task_generator = completion_task_description.build_and_launch();
-        <span class="kw">let </span>overall_safety_task_generator = overall_safety_properties.build();
-        <span class="kw">let </span>spinning_task_generator = spinning_properties.build();
-        <span class="kw">let </span>view_sync_task_generator = view_sync_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: &lt;I <span class="kw">as </span>TestableNodeImplementation&lt;TYPES&gt;&gt;::gen_comm_channels(
@@ -618,12 +594,6 @@
                 config,
             },
             metadata: <span class="self">self</span>,
-            txn_task_generator,
-            overall_safety_task_generator,
-            completion_task_generator,
-            spinning_task_generator,
-            view_sync_task_generator,
-            hooks: <span class="macro">vec!</span>[],
         }
         .modify_default_config(mod_config)
     }

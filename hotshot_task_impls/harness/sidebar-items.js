@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["handle_event","run_harness"],"struct":["TestHarnessState","TestHarnessTaskError","TestHarnessTaskSnafu"],"type":["TestHarnessTaskTypes"]};
+window.SIDEBAR_ITEMS = {"fn":["handle_event","run_harness"],"struct":["TestHarnessState"]};

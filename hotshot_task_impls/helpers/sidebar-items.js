@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["cancel_task"]};
+window.SIDEBAR_ITEMS = {"fn":["broadcast_event","cancel_task"]};

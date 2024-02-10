@@ -242,22 +242,15 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::HotShotEvent,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
 
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    global_registry::GlobalRegistry,
-    task::{HotShotTaskCompleted, TS},
-    task_impls::HSTWithEvent,
-};
+<span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -291,9 +284,6 @@
 &gt; {
     <span class="doccomment">/// The state&#39;s api
     </span><span class="kw">pub </span>api: A,
-    <span class="doccomment">/// Global registry task for the state
-    </span><span class="kw">pub </span>registry: GlobalRegistry,
-
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
@@ -308,9 +298,6 @@
     <span class="doccomment">/// The current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector:
         RwLock&lt;VoteCollectorOption&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;&gt;,
-
-    <span class="doccomment">/// Global events stream to publish events
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// This Nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -327,9 +314,10 @@
 {
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Upgrade Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-    </span><span class="kw">pub async fn </span>handle_event(
+    </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: HotShotEvent&lt;TYPES&gt;,
+        tx: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) =&gt; {
@@ -397,9 +385,7 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="macro">debug!</span>(<span class="string">&quot;Sending upgrade vote {:?}&quot;</span>, vote.get_view_number());
-                <span class="self">self</span>.event_stream
-                    .publish(HotShotEvent::UpgradeVoteSend(vote))
-                    .<span class="kw">await</span>;
+                broadcast_event(HotShotEvent::UpgradeVoteSend(vote), <span class="kw-2">&amp;</span>tx).<span class="kw">await</span>;
             }
             HotShotEvent::UpgradeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;Upgrade vote recv, Main Task {:?}&quot;</span>, vote.get_view_number());
@@ -415,34 +401,33 @@
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">let </span>maybe_task = collector.take();
-
-                <span class="kw">if </span>maybe_task.is_none()
-                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
                 {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: <span class="self">self</span>.quorum_membership.clone(),
                         view: vote.get_view_number(),
-                        event_stream: <span class="self">self</span>.event_stream.clone(),
                         id: <span class="self">self</span>.id,
-                        registry: <span class="self">self</span>.registry.clone(),
                     };
                     <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
                         TYPES,
                         UpgradeVote&lt;TYPES&gt;,
                         UpgradeCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event, <span class="kw-2">&amp;</span>tx)
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+                    <span class="kw">let </span>result = collector
+                        .as_mut()
+                        .unwrap()
+                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>tx)
+                        .<span class="kw">await</span>;
 
-                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
+                        <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
                         <span class="comment">// The protocol has finished
                         </span><span class="kw">return </span><span class="prelude-val">None</span>;
                     }
-                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
                 }
             }
             HotShotEvent::ViewChange(view) =&gt; {
@@ -459,7 +444,7 @@
             }
             HotShotEvent::Shutdown =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;Shutting down because of shutdown signal!&quot;</span>);
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
+                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;unexpected event {:?}&quot;</span>, event);
@@ -467,10 +452,31 @@
         }
         <span class="prelude-val">None
     </span>}
+}
 
-    <span class="doccomment">/// Filter the upgrade event.
-    </span><span class="kw">pub fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
+<span class="doccomment">/// task state implementation for DA Task
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TaskState
+    <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, A&gt;
+{
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
+
+    <span class="kw">async fn </span>handle_event(
+        event: <span class="self">Self</span>::Event,
+        task: <span class="kw-2">&amp;mut </span>hotshot_task::task::Task&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">let </span>sender = task.clone_sender();
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;sender queue len {}&quot;</span>, sender.len());
+        task.state_mut().handle(event, sender).<span class="kw">await
+    </span>}
+
+    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+    }
+
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        !<span class="macro">matches!</span>(
             event,
             HotShotEvent::UpgradeProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::UpgradeVoteRecv(<span class="kw">_</span>)
@@ -480,18 +486,4 @@
         )
     }
 }
-
-<span class="doccomment">/// task state implementation for DA Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TS
-    <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, A&gt;
-{
-}
-
-<span class="doccomment">/// Type alias for DA Task Types
-</span><span class="kw">pub type </span>UpgradeTaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
-    ConsensusTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    UpgradeTaskState&lt;TYPES, I, A&gt;,
-&gt;;
 </code></pre></div></section></main></body></html>

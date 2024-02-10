@@ -378,6 +378,7 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -393,7 +394,6 @@
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
 };
-<span class="kw">use </span>hotshot_task::event_stream::ChannelStream;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -412,6 +412,7 @@
     vote::HasViewNumber,
 };
 
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>bitvec::bitvec;
 <span class="kw">use </span>hotshot_types::simple_vote::QuorumData;
@@ -431,7 +432,8 @@
     node_id: u64,
 ) -&gt; (
     SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TestTypes&gt;&gt;,
+    Sender&lt;HotShotEvent&lt;TestTypes&gt;&gt;,
+    Receiver&lt;HotShotEvent&lt;TestTypes&gt;&gt;,
 ) {
     <span class="kw">let </span>builder = TestMetadata::default_multiple_rounds();
 

@@ -125,40 +125,38 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
+<span class="kw">use </span>async_broadcast::broadcast;
 
-<span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HandleEvent, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEvent, TaskBuilder},
-    task_launcher::TaskRunner,
-};
+<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
+<span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashMap, future::Future, sync::Arc};
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
 
 <span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
 </span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The expected events we get from the test.  Maps an event to the number of times we expect to see it
     </span>expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
+    <span class="doccomment">/// If true we won&#39;t fail the test if extra events come in
+    </span>allow_extra_output: bool,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TS <span class="kw">for </span>TestHarnessState&lt;TYPES&gt; {}
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskState <span class="kw">for </span>TestHarnessState&lt;TYPES&gt; {
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
 
-<span class="doccomment">/// Error emitted if the test harness task fails
-</span><span class="attr">#[derive(Snafu, Debug)]
-</span><span class="kw">pub struct </span>TestHarnessTaskError {}
+    <span class="kw">async fn </span>handle_event(
+        event: <span class="self">Self</span>::Event,
+        task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">let </span>extra = task.state_mut().allow_extra_output;
+        handle_event(event, task, extra)
+    }
 
-<span class="doccomment">/// Type alias for the Test Harness Task
-</span><span class="kw">pub type </span>TestHarnessTaskTypes&lt;TYPES&gt; = HSTWithEvent&lt;
-    TestHarnessTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    TestHarnessState&lt;TYPES&gt;,
-&gt;;
+    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+    }
+}
 
 <span class="doccomment">/// Runs a test by building the task using `build_fn` and then passing it the `input` events
 /// and testing the make sure all of the `expected_output` events are seen
@@ -171,46 +169,47 @@
 /// # Panics
 /// Panics if any state the test expects is not set. Panicing causes a test failure
 </span><span class="attr">#[allow(clippy::implicit_hasher)]
-</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, Fut&gt;(
+#[allow(clippy::panic)]
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt;&gt;(
     input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
-    event_stream: <span class="prelude-ty">Option</span>&lt;ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    build_fn: <span class="kw">impl </span>FnOnce(TaskRunner, ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; Fut,
+    state: S,
     allow_extra_output: bool,
 ) <span class="kw">where
     </span>TYPES: NodeType,
-    Fut: Future&lt;Output = TaskRunner&gt;,
+    S: Send + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">let </span>task_runner = TaskRunner::new();
-    <span class="kw">let </span>registry = task_runner.registry.clone();
-    <span class="kw">let </span>event_stream = event_stream.unwrap_or_default();
-    <span class="kw">let </span>state = TestHarnessState { expected_output };
-    <span class="kw">let </span>handler = HandleEvent(Arc::new(<span class="kw">move </span>|event, state| {
-        <span class="kw">async move </span>{ handle_event(event, state, allow_extra_output) }.boxed()
-    }));
-    <span class="kw">let </span>filter = FilterEvent::default();
-    <span class="kw">let </span>builder = TaskBuilder::&lt;TestHarnessTaskTypes&lt;TYPES&gt;&gt;::new(<span class="string">&quot;test_harness&quot;</span>.to_string())
-        .register_event_stream(event_stream.clone(), filter)
-        .<span class="kw">await
-        </span>.register_registry(<span class="kw-2">&amp;mut </span>registry.clone())
-        .<span class="kw">await
-        </span>.register_state(state)
-        .register_event_handler(handler);
+    <span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
+    <span class="kw">let </span><span class="kw-2">mut </span>tasks = <span class="macro">vec!</span>[];
+    <span class="comment">// set up two broadcast channels so the test sends to the task and the task back to the test
+    </span><span class="kw">let </span>(to_task, from_test) = broadcast(<span class="number">1024</span>);
+    <span class="kw">let </span>(to_test, from_task) = broadcast(<span class="number">1024</span>);
+    <span class="kw">let </span>test_state = TestHarnessState {
+        expected_output,
+        allow_extra_output,
+    };
 
-    <span class="kw">let </span>id = builder.get_task_id().unwrap();
+    <span class="kw">let </span>test_task = Task::new(
+        to_test.clone(),
+        from_task.clone(),
+        registry.clone(),
+        test_state,
+    );
+    <span class="kw">let </span>task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
-    <span class="kw">let </span>task = TestHarnessTaskTypes::build(builder).launch();
-
-    <span class="kw">let </span>task_runner = task_runner.add_task(id, <span class="string">&quot;test_harness&quot;</span>.to_string(), task);
-    <span class="kw">let </span>task_runner = build_fn(task_runner, event_stream.clone()).<span class="kw">await</span>;
-
-    <span class="kw">let </span>runner = async_spawn(<span class="kw">async move </span>{ task_runner.launch().<span class="kw">await </span>});
+    tasks.push(test_task.run());
+    tasks.push(task.run());
 
     <span class="kw">for </span>event <span class="kw">in </span>input {
-        <span class="kw">let </span>() = event_stream.publish(event).<span class="kw">await</span>;
+        to_task.broadcast_direct(event).<span class="kw">await</span>.unwrap();
     }
 
-    <span class="kw">let _ </span>= runner.<span class="kw">await</span>;
+    <span class="kw">if </span>async_timeout(Duration::from_secs(<span class="number">2</span>), futures::future::join_all(tasks))
+        .<span class="kw">await
+        </span>.is_err()
+    {
+        <span class="macro">panic!</span>(<span class="string">&quot;Test timeout out before all all expected outputs received&quot;</span>);
+    }
 }
 
 <span class="doccomment">/// Handles an event for the Test Harness Task.  If the event is expected, remove it from
@@ -225,12 +224,10 @@
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
 </span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType&gt;(
     event: HotShotEvent&lt;TYPES&gt;,
-    <span class="kw-2">mut </span>state: TestHarnessState&lt;TYPES&gt;,
+    task: <span class="kw-2">&amp;mut </span>Task&lt;TestHarnessState&lt;TYPES&gt;&gt;,
     allow_extra_output: bool,
-) -&gt; (
-    std::option::Option&lt;HotShotTaskCompleted&gt;,
-    TestHarnessState&lt;TYPES&gt;,
-) {
+) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    <span class="kw">let </span>state = task.state_mut();
     <span class="comment">// Check the output in either case:
     // * We allow outputs only in our expected output set.
     // * We haven&#39;t received all expected outputs yet.
@@ -249,9 +246,10 @@
     }
 
     <span class="kw">if </span>state.expected_output.is_empty() {
-        <span class="kw">return </span>(<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;test harness task completed&quot;</span>);
+        <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
     }
 
-    (<span class="prelude-val">None</span>, state)
-}
+    <span class="prelude-val">None
+</span>}
 </code></pre></div></section></main></body></html>

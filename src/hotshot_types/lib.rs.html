@@ -100,9 +100,26 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>displaydoc::Display;
-<span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
+<span class="kw">use </span>std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 <span class="kw">use </span>traits::{election::ElectionConfig, signature_key::SignatureKey};
 <span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>data;
@@ -119,6 +136,23 @@
 <span class="kw">pub mod </span>utils;
 <span class="kw">pub mod </span>vote;
 
+<span class="doccomment">/// Pinned future that is Send and Sync
+</span><span class="kw">pub type </span>BoxSyncFuture&lt;<span class="lifetime">&#39;a</span>, T&gt; = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;a</span>&gt;&gt;;
+
+<span class="doccomment">/// yoinked from futures crate
+</span><span class="kw">pub fn </span>assert_future&lt;T, F&gt;(future: F) -&gt; F
+<span class="kw">where
+    </span>F: Future&lt;Output = T&gt;,
+{
+    future
+}
+<span class="doccomment">/// yoinked from futures crate, adds sync bound that we need
+</span><span class="kw">pub fn </span>boxed_sync&lt;<span class="lifetime">&#39;a</span>, F&gt;(fut: F) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;a</span>, F::Output&gt;
+<span class="kw">where
+    </span>F: Future + Sized + Send + Sync + <span class="lifetime">&#39;a</span>,
+{
+    assert_future::&lt;F::Output, <span class="kw">_</span>&gt;(Box::pin(fut))
+}
 <span class="doccomment">/// the type of consensus to run. Either:
 /// wait for a signal to start a view,
 /// or constantly run

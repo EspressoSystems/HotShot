@@ -28,6 +28,9 @@
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -58,4 +61,7 @@
 
 <span class="doccomment">/// Constant for protocol version 0.1.
 </span><span class="kw">pub const </span>VERSION_0_1: Version = Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>};
+
+<span class="doccomment">/// Default Channel Size for consensus event sharing
+</span><span class="kw">pub const </span>EVENT_CHANNEL_SIZE: usize = <span class="number">100_000</span>;
 </code></pre></div></section></main></body></html>

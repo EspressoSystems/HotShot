@@ -569,6 +569,7 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -584,8 +585,8 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
-<span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
+    boxed_sync,
     message::{Message, MessageKind},
     traits::{
         election::Membership,
@@ -596,6 +597,7 @@
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>rand::Rng;
@@ -871,7 +873,7 @@
         message: M,
         recipients: BTreeSet&lt;K&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;Broadcasting message&quot;</span>);
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;Broadcasting message&quot;</span>);
         <span class="comment">// Bincode the message
         </span><span class="kw">let </span>vec = bincode_opts()
             .serialize(<span class="kw-2">&amp;</span>message)
@@ -919,8 +921,8 @@
 
     <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::direct_message&quot;</span>)]
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;Sending direct message&quot;</span>);
-        <span class="comment">// Bincode the message
+        <span class="comment">// debug!(?message, ?recipient, &quot;Sending direct message&quot;);
+        // Bincode the message
         </span><span class="kw">let </span>vec = bincode_opts()
             .serialize(<span class="kw-2">&amp;</span>message)
             .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;

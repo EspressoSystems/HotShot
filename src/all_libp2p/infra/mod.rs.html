@@ -955,7 +955,6 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -981,7 +980,6 @@
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
-<span class="kw">use </span>hotshot_task::task::FilterEvent;
 <span class="kw">use </span>hotshot_testing::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -1351,7 +1349,7 @@
     <span class="doccomment">/// Starts HotShot consensus, returns when consensus has finished
     </span><span class="kw">async fn </span>run_hotshot(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>context: SystemContextHandle&lt;TYPES, NODE&gt;,
+        context: SystemContextHandle&lt;TYPES, NODE&gt;,
         transactions: <span class="kw-2">&amp;mut </span>Vec&lt;TestTransaction&gt;,
         transactions_to_send_per_round: u64,
     ) {
@@ -1371,7 +1369,7 @@
         <span class="macro">error!</span>(<span class="string">&quot;Starting HotShot example!&quot;</span>);
         <span class="kw">let </span>start = Instant::now();
 
-        <span class="kw">let </span>(<span class="kw-2">mut </span>event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
         <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::Time = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
         <span class="kw">let </span><span class="kw-2">mut </span>num_successful_commits = <span class="number">0</span>;
 

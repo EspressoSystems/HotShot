@@ -1340,13 +1340,9 @@
 <a href="#1340" id="1340">1340</a>
 <a href="#1341" id="1341">1341</a>
 <a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::cancel_task,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -1356,12 +1352,10 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_constants::LOOK_AHEAD;
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    global_registry::GlobalRegistry,
-    task::{HotShotTaskCompleted, TS},
-    task_impls::HSTWithEvent,
-};
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+
+<span class="kw">use </span>async_broadcast::Sender;
+
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
@@ -1423,8 +1417,6 @@
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="doccomment">/// The global task registry
-    </span><span class="kw">pub </span>registry: GlobalRegistry,
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// View timeout from config.
@@ -1470,11 +1462,8 @@
     <span class="doccomment">/// last Timeout Certificate this node formed
     </span><span class="kw">pub </span>timeout_cert: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// Global events stream to publish events
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// Event stream to publish events to the application layer
-    </span><span class="kw">pub </span>output_event_stream: ChannelStream&lt;Event&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// Output events to application
+    </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// All the VID shares we&#39;ve received for current and future views.
     /// In the future we will need a different struct similar to VidDisperse except
@@ -1521,7 +1510,7 @@
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus vote if able&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
         <span class="kw">if </span>!<span class="self">self</span>.quorum_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;We were not chosen for consensus committee on {:?}&quot;</span>,
@@ -1586,9 +1575,7 @@
                         <span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>,
                         vote.get_view_number() + <span class="number">1
                     </span>);
-                    <span class="self">self</span>.event_stream
-                        .publish(HotShotEvent::QuorumVoteSend(vote))
-                        .<span class="kw">await</span>;
+                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).<span class="kw">await</span>;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
                         <span class="kw">if </span>commit_and_metadata.is_genesis {
                             <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
@@ -1689,9 +1676,7 @@
                         <span class="string">&quot;Sending vote to next quorum leader {:?}&quot;</span>,
                         vote.get_view_number() + <span class="number">1
                     </span>);
-                    <span class="self">self</span>.event_stream
-                        .publish(HotShotEvent::QuorumVoteSend(vote))
-                        .<span class="kw">await</span>;
+                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).<span class="kw">await</span>;
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
             }
@@ -1711,7 +1696,11 @@
     <span class="doccomment">/// Must only update the view and GC if the view actually changes
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus update view&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
-    </span><span class="kw">async fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::Time) -&gt; bool {
+    </span><span class="kw">async fn </span>update_view(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        new_view: TYPES::Time,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &lt; <span class="kw-2">*</span>new_view {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;Updating view from {} to {} in consensus task&quot;</span>,
@@ -1757,22 +1746,22 @@
                     .<span class="kw">await</span>;
             }
 
-            <span class="self">self</span>.event_stream
-                .publish(HotShotEvent::ViewChange(new_view))
-                .<span class="kw">await</span>;
+            broadcast_event(HotShotEvent::ViewChange(new_view), event_stream).<span class="kw">await</span>;
 
             <span class="comment">// Spawn a timeout task if we did actually update view
             </span><span class="kw">let </span>timeout = <span class="self">self</span>.timeout;
             <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
-                <span class="kw">let </span>stream = <span class="self">self</span>.event_stream.clone();
+                <span class="kw">let </span>stream = event_stream.clone();
                 <span class="comment">// Nuance: We timeout on the view + 1 here because that means that we have
                 // not seen evidence to transition to this new view
                 </span><span class="kw">let </span>view_number = <span class="self">self</span>.cur_view + <span class="number">1</span>;
                 <span class="kw">async move </span>{
                     async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
-                    stream
-                        .publish(HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number)))
-                        .<span class="kw">await</span>;
+                    broadcast_event(
+                        HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number)),
+                        <span class="kw-2">&amp;</span>stream,
+                    )
+                    .<span class="kw">await</span>;
                 }
             }));
             <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
@@ -1792,7 +1781,11 @@
 
     <span class="doccomment">/// Handles a consensus event received on the event stream
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Consensus replica task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-    </span><span class="kw">pub async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: HotShotEvent&lt;TYPES&gt;) {
+    </span><span class="kw">pub async fn </span>handle(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: HotShotEvent&lt;TYPES&gt;,
+        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ) {
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(
@@ -1849,7 +1842,7 @@
                 }
 
                 <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-                </span><span class="self">self</span>.update_view(view).<span class="kw">await</span>;
+                </span><span class="self">self</span>.update_view(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
 
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
 
@@ -1859,16 +1852,18 @@
                     </span><span class="kw">let </span>leaf = <span class="self">self</span>.genesis_leaf().<span class="kw">await</span>;
                     <span class="kw">match </span>leaf {
                         <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>leaf) =&gt; {
-                            <span class="self">self</span>.output_event_stream
-                                .publish(Event {
+                            broadcast_event(
+                                Event {
                                     view_number: TYPES::Time::genesis(),
                                     event: EventType::Decide {
                                         leaf_chain: Arc::new(<span class="macro">vec!</span>[leaf.clone()]),
                                         qc: Arc::new(justify_qc.clone()),
                                         block_size: <span class="prelude-val">None</span>,
                                     },
-                                })
-                                .<span class="kw">await</span>;
+                                },
+                                <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                            )
+                            .<span class="kw">await</span>;
                         }
                         <span class="prelude-val">None </span>=&gt; {
                             <span class="macro">error!</span>(
@@ -1944,10 +1939,10 @@
                                 <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
                                 <span class="kw-2">*</span>new_view
                             );
-                            <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                            <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
                                 .<span class="kw">await</span>;
                         }
-                        <span class="kw">if </span><span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
+                        <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                             <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                         }
                     }
@@ -2103,12 +2098,14 @@
                         </span>},
                     ) {
                         <span class="macro">error!</span>(<span class="string">&quot;view publish error {e}&quot;</span>);
-                        <span class="self">self</span>.output_event_stream
-                            .publish(Event {
+                        broadcast_event(
+                            Event {
                                 view_number: view,
                                 event: EventType::Error { error: e.into() },
-                            })
-                            .<span class="kw">await</span>;
+                            },
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                        )
+                        .<span class="kw">await</span>;
                     }
                 }
 
@@ -2133,17 +2130,17 @@
                 }
                 <span class="attr">#[allow(clippy::cast_precision_loss)]
                 </span><span class="kw">if </span>new_decide_reached {
-                    <span class="self">self</span>.event_stream
-                        .publish(HotShotEvent::LeafDecided(leaf_views.clone()))
-                        .<span class="kw">await</span>;
-                    <span class="kw">let </span>decide_sent = <span class="self">self</span>.output_event_stream.publish(Event {
-                        view_number: consensus.last_decided_view,
-                        event: EventType::Decide {
-                            leaf_chain: Arc::new(leaf_views),
-                            qc: Arc::new(new_decide_qc.unwrap()),
-                            block_size: <span class="prelude-val">Some</span>(included_txns_set.len().try_into().unwrap()),
+                    <span class="kw">let </span>decide_sent = broadcast_event(
+                        Event {
+                            view_number: consensus.last_decided_view,
+                            event: EventType::Decide {
+                                leaf_chain: Arc::new(leaf_views),
+                                qc: Arc::new(new_decide_qc.unwrap()),
+                                block_size: <span class="prelude-val">Some</span>(included_txns_set.len().try_into().unwrap()),
+                            },
                         },
-                    });
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                    );
                     <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
                     consensus
                         .collect_garbage(old_anchor_view, new_anchor_view)
@@ -2169,6 +2166,7 @@
                     <span class="macro">debug!</span>(<span class="string">&quot;Sending Decide for view {:?}&quot;</span>, consensus.last_decided_view);
                     <span class="macro">debug!</span>(<span class="string">&quot;Decided txns len {:?}&quot;</span>, included_txns_set.len());
                     decide_sent.<span class="kw">await</span>;
+                    <span class="macro">debug!</span>(<span class="string">&quot;decide send succeeded&quot;</span>);
                 }
 
                 <span class="kw">let </span>new_view = <span class="self">self</span>.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
@@ -2186,11 +2184,11 @@
                         <span class="string">&quot;Attempting to publish proposal after voting; now in view: {}&quot;</span>,
                         <span class="kw-2">*</span>new_view
                     );
-                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await</span>;
                 }
 
-                <span class="kw">if </span>!<span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
+                <span class="kw">if </span>!<span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="kw">return</span>;
                 }
                 <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
@@ -2213,34 +2211,33 @@
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">let </span>maybe_task = collector.take();
-
-                <span class="kw">if </span>maybe_task.is_none()
-                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
                 {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: <span class="self">self</span>.quorum_membership.clone(),
                         view: vote.get_view_number(),
-                        event_stream: <span class="self">self</span>.event_stream.clone(),
                         id: <span class="self">self</span>.id,
-                        registry: <span class="self">self</span>.registry.clone(),
                     };
                     <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
                         TYPES,
                         QuorumVote&lt;TYPES&gt;,
                         QuorumCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+                    <span class="kw">let </span>result = collector
+                        .as_mut()
+                        .unwrap()
+                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span>;
 
-                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
+                        <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
                         <span class="comment">// The protocol has finished
                         </span><span class="kw">return</span>;
                     }
-                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
                 }
             }
             HotShotEvent::TimeoutVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
@@ -2259,34 +2256,34 @@
                     <span class="kw">return</span>;
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.timeout_vote_collector.write().<span class="kw">await</span>;
-                <span class="kw">let </span>maybe_task = collector.take();
 
-                <span class="kw">if </span>maybe_task.is_none()
-                    || vote.get_view_number() &gt; maybe_task.as_ref().unwrap().view
+                <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
                 {
                     <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: <span class="self">self</span>.quorum_membership.clone(),
                         view: vote.get_view_number(),
-                        event_stream: <span class="self">self</span>.event_stream.clone(),
                         id: <span class="self">self</span>.id,
-                        registry: <span class="self">self</span>.registry.clone(),
                     };
                     <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
                         TYPES,
                         TimeoutVote&lt;TYPES&gt;,
                         TimeoutCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event)
+                    &gt;(<span class="kw-2">&amp;</span>info, vote.clone(), event, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>result = maybe_task.unwrap().handle_event(event.clone()).<span class="kw">await</span>;
+                    <span class="kw">let </span>result = collector
+                        .as_mut()
+                        .unwrap()
+                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span>;
 
-                    <span class="kw">if </span>result.<span class="number">0 </span>== <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown) {
+                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
+                        <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
                         <span class="comment">// The protocol has finished
                         </span><span class="kw">return</span>;
                     }
-                    <span class="kw-2">*</span>collector = <span class="prelude-val">Some</span>(result.<span class="number">1</span>);
                 }
             }
             HotShotEvent::QCFormed(cert) =&gt; {
@@ -2308,7 +2305,10 @@
 
                     <span class="kw">let </span>view = qc.view_number + <span class="number">1</span>;
 
-                    <span class="kw">if </span><span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">Some</span>(qc.clone())).<span class="kw">await </span>{
+                    <span class="kw">if </span><span class="self">self
+                        </span>.publish_proposal_if_able(view, <span class="prelude-val">Some</span>(qc.clone()), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await
+                    </span>{
                     } <span class="kw">else </span>{
                         <span class="macro">warn!</span>(<span class="string">&quot;Wasn&#39;t able to publish proposal&quot;</span>);
                     }
@@ -2331,7 +2331,7 @@
                     );
 
                     <span class="kw">if </span>!<span class="self">self
-                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>)
+                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await
                     </span>{
                         <span class="macro">debug!</span>(
@@ -2356,9 +2356,9 @@
                     .write()
                     .<span class="kw">await
                     </span>.saved_da_certs
-                    .insert(view, cert);
+                    .insert(view, cert.clone());
 
-                <span class="kw">if </span><span class="self">self</span>.vote_if_able().<span class="kw">await </span>{
+                <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }
             }
@@ -2423,19 +2423,21 @@
 
                 <span class="comment">// update the view in state to the one in the message
                 // Publish a view change event to the application
-                </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view).<span class="kw">await </span>{
+                </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="macro">debug!</span>(<span class="string">&quot;view not updated&quot;</span>);
                     <span class="kw">return</span>;
                 }
 
-                <span class="self">self</span>.output_event_stream
-                    .publish(Event {
+                broadcast_event(
+                    Event {
                         view_number: old_view_number,
                         event: EventType::ViewFinished {
                             view_number: old_view_number,
                         },
-                    })
-                    .<span class="kw">await</span>;
+                    },
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                )
+                .<span class="kw">await</span>;
             }
             HotShotEvent::Timeout(view) =&gt; {
                 <span class="comment">// NOTE: We may optionally have the timeout task listen for view change events
@@ -2470,19 +2472,20 @@
                     <span class="kw">return</span>;
                 };
 
-                <span class="self">self</span>.event_stream
-                    .publish(HotShotEvent::TimeoutVoteSend(vote))
-                    .<span class="kw">await</span>;
+                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;We did not receive evidence for view {} in time, sending timeout vote for that view!&quot;</span>,
                     <span class="kw-2">*</span>view
                 );
-                <span class="self">self</span>.output_event_stream
-                    .publish(Event {
+
+                broadcast_event(
+                    Event {
                         view_number: view,
                         event: EventType::ReplicaViewTimeout { view_number: view },
-                    })
-                    .<span class="kw">await</span>;
+                    },
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                )
+                .<span class="kw">await</span>;
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
             }
@@ -2496,14 +2499,19 @@
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
                 {
-                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span>;
                 }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = <span class="kw-2">&amp;</span><span class="self">self</span>.timeout_cert {
                     <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
                         == <span class="self">self</span>.public_key
                     {
-                        <span class="self">self</span>.publish_proposal_if_able(view, <span class="self">self</span>.timeout_cert.clone())
-                            .<span class="kw">await</span>;
+                        <span class="self">self</span>.publish_proposal_if_able(
+                            view,
+                            <span class="self">self</span>.timeout_cert.clone(),
+                            <span class="kw-2">&amp;</span>event_stream,
+                        )
+                        .<span class="kw">await</span>;
                     }
                 }
             }
@@ -2517,6 +2525,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
         timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
             <span class="comment">// This is expected for view 1, so skipping the logging.
@@ -2626,12 +2635,11 @@
                 leaf.view_number, <span class="string">&quot;&quot;
             </span>);
 
-            <span class="self">self</span>.event_stream
-                .publish(HotShotEvent::QuorumProposalSend(
-                    message.clone(),
-                    <span class="self">self</span>.public_key.clone(),
-                ))
-                .<span class="kw">await</span>;
+            broadcast_event(
+                HotShotEvent::QuorumProposalSend(message.clone(), <span class="self">self</span>.public_key.clone()),
+                event_stream,
+            )
+            .<span class="kw">await</span>;
 
             <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
             <span class="kw">return </span><span class="bool-val">true</span>;
@@ -2641,53 +2649,37 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt;&gt; TS
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TaskState
     <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, A&gt;
 {
-}
-
-<span class="doccomment">/// Type alias for Consensus task
-</span><span class="kw">pub type </span>ConsensusTaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
-    ConsensusTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    ConsensusTaskState&lt;TYPES, I, A&gt;,
-&gt;;
-
-<span class="doccomment">/// Event handle for consensus
-</span><span class="kw">pub async fn </span>sequencing_consensus_handle&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
-&gt;(
-    event: HotShotEvent&lt;TYPES&gt;,
-    <span class="kw-2">mut </span>state: ConsensusTaskState&lt;TYPES, I, A&gt;,
-) -&gt; (
-    std::option::Option&lt;HotShotTaskCompleted&gt;,
-    ConsensusTaskState&lt;TYPES, I, A&gt;,
-) {
-    <span class="kw">if let </span>HotShotEvent::Shutdown = event {
-        (<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state)
-    } <span class="kw">else </span>{
-        state.handle_event(event).<span class="kw">await</span>;
-        (<span class="prelude-val">None</span>, state)
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Output = ();
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+        !<span class="macro">matches!</span>(
+            event,
+            HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
+                | HotShotEvent::QCFormed(<span class="kw">_</span>)
+                | HotShotEvent::DACRecv(<span class="kw">_</span>)
+                | HotShotEvent::ViewChange(<span class="kw">_</span>)
+                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
+                | HotShotEvent::Timeout(<span class="kw">_</span>)
+                | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
+                | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::Shutdown,
+        )
     }
-}
-
-<span class="doccomment">/// Filter for consensus, returns true for event types the consensus task subscribes to.
-</span><span class="kw">pub fn </span>consensus_event_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-    <span class="macro">matches!</span>(
-        event,
-        HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
-            | HotShotEvent::QCFormed(<span class="kw">_</span>)
-            | HotShotEvent::DACRecv(<span class="kw">_</span>)
-            | HotShotEvent::ViewChange(<span class="kw">_</span>)
-            | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
-            | HotShotEvent::Timeout(<span class="kw">_</span>)
-            | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
-            | HotShotEvent::VidDisperseRecv(..)
-            | HotShotEvent::Shutdown,
-    )
+    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;
+    <span class="kw">where
+        </span><span class="self">Self</span>: Sized,
+    {
+        <span class="kw">let </span>sender = task.clone_sender();
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;sender queue len {}&quot;</span>, sender.len());
+        task.state_mut().handle(event, sender).<span class="kw">await</span>;
+        <span class="prelude-val">None
+    </span>}
+    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+    }
 }
 </code></pre></div></section></main></body></html>

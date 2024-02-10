@@ -618,6 +618,39 @@
 <a href="#618" id="618">618</a>
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -640,19 +673,19 @@
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+<span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>custom_debug::Debug;
 <span class="kw">use </span>futures::join;
-<span class="kw">use </span>hotshot_constants::VERSION_0_1;
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    task_launcher::TaskRunner,
-};
-<span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
+<span class="kw">use </span>hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
+<span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
+<span class="kw">use </span>hotshot_task_impls::helpers::broadcast_event;
+<span class="kw">use </span>hotshot_task_impls::network;
 
+<span class="kw">use </span>hotshot_task::task::TaskRegistry;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
@@ -680,7 +713,7 @@
     time::Duration,
 };
 <span class="kw">use </span>tasks::add_vid_task;
-<span class="kw">use </span>tracing::{debug, info, instrument, trace};
+<span class="kw">use </span>tracing::{debug, instrument, trace};
 
 <span class="comment">// -- Rexports
 // External
@@ -742,7 +775,7 @@
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
     <span class="doccomment">/// Configuration items for this hotshot instance
-    </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 
     <span class="doccomment">/// This `HotShot` instance&#39;s storage backend
     </span>storage: I::Storage,
@@ -761,13 +794,16 @@
 
     <span class="comment">// global_registry: GlobalRegistry,
     </span><span class="doccomment">/// Access to the output event stream.
-    </span>output_event_stream: ChannelStream&lt;Event&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
-    </span>internal_event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    </span>internal_event_stream: (
+        Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        InactiveReceiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ),
 
     <span class="doccomment">/// uid for instrumentation
-    </span>id: u64,
+    </span><span class="kw">pub </span>id: u64,
 }
 
 <span class="doccomment">/// Thread safe, shared view of a `HotShot`
@@ -856,6 +892,13 @@
         };
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
 
+        <span class="kw">let </span>(internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
+
+        <span class="comment">// This makes it so we won&#39;t block on broadcasting if there is not a receiver
+        // Our own copy of the receiver is inactive so it doesn&#39;t count.
+        </span>external_tx.set_await_active(<span class="bool-val">false</span>);
+
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
             id: nonce,
             consensus,
@@ -866,21 +909,27 @@
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
-            internal_event_stream: ChannelStream::new(),
-            output_event_stream: ChannelStream::new(),
+            internal_event_stream: (internal_tx, internal_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx.deactivate()),
         });
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ inner })
     }
 
     <span class="doccomment">/// &quot;Starts&quot; consensus by sending a `QCFormed` event
+    ///
+    /// # Panics
+    /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">debug!</span>(<span class="string">&quot;Starting Consensus&quot;</span>);
         <span class="self">self</span>.inner
             .internal_event_stream
-            .publish(HotShotEvent::QCFormed(either::Left(
+            .<span class="number">0
+            </span>.broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
-            .<span class="kw">await</span>;
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Genesis Broadcast failed&quot;</span>);
     }
 
     <span class="doccomment">/// Emit an external event
@@ -888,7 +937,7 @@
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_external_event&quot;</span>);
-        <span class="self">self</span>.inner.output_event_stream.publish(event).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Publishes a transaction asynchronously to the network
@@ -1017,7 +1066,8 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             SystemContextHandle&lt;TYPES, I&gt;,
-            ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+            Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+            Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         ),
         HotShotError&lt;TYPES&gt;,
     &gt; {
@@ -1035,9 +1085,9 @@
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>handle = hotshot.clone().run_tasks().<span class="kw">await</span>;
-        <span class="kw">let </span>internal_event_stream = hotshot.inner.internal_event_stream.clone();
+        <span class="kw">let </span>(tx, rx) = hotshot.inner.internal_event_stream.clone();
 
-        <span class="prelude-val">Ok</span>((handle, internal_event_stream))
+        <span class="prelude-val">Ok</span>((handle, tx, rx.activate()))
     }
     <span class="doccomment">/// return the timeout for a view for `self`
     </span><span class="attr">#[must_use]
@@ -1059,8 +1109,7 @@
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">pub async fn </span>run_tasks(<span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="comment">// ED Need to set first first number to 1, or properly trigger the change upon start
-        </span><span class="kw">let </span>task_runner = TaskRunner::new();
-        <span class="kw">let </span>registry = task_runner.registry.clone();
+        </span><span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
 
         <span class="kw">let </span>output_event_stream = <span class="self">self</span>.inner.output_event_stream.clone();
         <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.inner.internal_event_stream.clone();
@@ -1072,80 +1121,97 @@
         <span class="kw">let </span>vid_membership = <span class="self">self</span>.inner.memberships.vid_membership.clone();
         <span class="kw">let </span>view_sync_membership = <span class="self">self</span>.inner.memberships.view_sync_membership.clone();
 
+        <span class="kw">let </span>(event_tx, event_rx) = internal_event_stream.clone();
+
         <span class="kw">let </span>handle = SystemContextHandle {
-            registry,
+            registry: registry.clone(),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: <span class="self">self</span>.clone(),
             storage: <span class="self">self</span>.inner.storage.clone(),
         };
 
-        <span class="kw">let </span>task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
-            quorum_network.clone(),
-        )
-        .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
-            da_network.clone(),
-        )
-        .<span class="kw">await</span>;
+        add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).<span class="kw">await</span>;
+        add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).<span class="kw">await</span>;
 
-        <span class="kw">let </span>task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             quorum_membership,
-            NetworkTaskKind::Quorum,
+            network::quorum_filter,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             da_network.clone(),
             da_membership,
-            NetworkTaskKind::Committee,
+            network::committee_filter,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             view_sync_membership,
-            NetworkTaskKind::ViewSync,
+            network::view_sync_filter,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             vid_membership,
-            NetworkTaskKind::VID,
+            network::vid_filter,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner = add_consensus_task(
-            task_runner,
-            internal_event_stream.clone(),
-            output_event_stream.clone(),
-            handle.clone(),
+        add_consensus_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner =
-            add_da_task(task_runner, internal_event_stream.clone(), handle.clone()).<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner =
-            add_vid_task(task_runner, internal_event_stream.clone(), handle.clone()).<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner =
-            add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone()).<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner =
-            add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).<span class="kw">await</span>;
-        <span class="kw">let </span>task_runner =
-            add_upgrade_task(task_runner, internal_event_stream.clone(), handle.clone()).<span class="kw">await</span>;
-        async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let _ </span>= task_runner.launch().<span class="kw">await</span>;
-            <span class="macro">info!</span>(<span class="string">&quot;Task runner exited!&quot;</span>);
-        });
+        add_da_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        add_vid_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        add_transaction_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        add_view_sync_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        add_upgrade_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
         handle
     }
 }
@@ -1183,7 +1249,7 @@
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_event&quot;</span>);
-        <span class="self">self</span>.inner.output_event_stream.publish(event).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {

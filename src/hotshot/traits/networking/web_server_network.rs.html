@@ -1428,6 +1428,7 @@
 <a href="#1428" id="1428">1428</a>
 <a href="#1429" id="1429">1429</a>
 <a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1443,8 +1444,8 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>derive_more::{Deref, DerefMut};
 <span class="kw">use </span>hotshot_constants::VERSION_0_1;
-<span class="kw">use </span>hotshot_task::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
+    boxed_sync,
     message::{Message, MessagePurpose},
     traits::{
         network::{
@@ -1455,6 +1456,7 @@
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 <span class="kw">use </span>hotshot_utils::version::read_version;
 <span class="kw">use </span>hotshot_web_server::{<span class="self">self</span>, config};

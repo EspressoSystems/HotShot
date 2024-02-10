@@ -291,17 +291,17 @@ The votes all must be over the `Commitment` associated type.
     ///
     /// # Panics
     /// Panics if the vote comes from a node not in the stake table
-    </span><span class="kw">pub fn </span>accumulate(<span class="kw-2">mut </span><span class="self">self</span>, vote: <span class="kw-2">&amp;</span>VOTE, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; Either&lt;<span class="self">Self</span>, CERT&gt; {
+    </span><span class="kw">pub fn </span>accumulate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, vote: <span class="kw-2">&amp;</span>VOTE, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; Either&lt;(), CERT&gt; {
         <span class="kw">let </span>key = vote.get_signing_key();
 
         <span class="kw">let </span>vote_commitment = vote.get_data_commitment();
         <span class="kw">if </span>!key.validate(<span class="kw-2">&amp;</span>vote.get_signature(), vote_commitment.as_ref()) {
             <span class="macro">error!</span>(<span class="string">&quot;Invalid vote! Vote Data {:?}&quot;</span>, vote.get_data());
-            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+            <span class="kw">return </span>Either::Left(());
         }
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = membership.get_stake(<span class="kw-2">&amp;</span>key) <span class="kw">else </span>{
-            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+            <span class="kw">return </span>Either::Left(());
         };
         <span class="kw">let </span>stake_table = membership.get_committee_qc_stake_table();
         <span class="kw">let </span>vote_node_id = stake_table
@@ -319,7 +319,7 @@ The votes all must be over the `Commitment` associated type.
 
         <span class="comment">// Check for duplicate vote
         </span><span class="kw">if </span>total_vote_map.contains_key(<span class="kw-2">&amp;</span>key) {
-            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+            <span class="kw">return </span>Either::Left(());
         }
         <span class="kw">let </span>(signers, sig_list) = <span class="self">self
             </span>.signers
@@ -327,7 +327,7 @@ The votes all must be over the `Commitment` associated type.
             .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; membership.total_nodes()], Vec::new()));
         <span class="kw">if </span>signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
             <span class="macro">error!</span>(<span class="string">&quot;Node id is already in signers list&quot;</span>);
-            <span class="kw">return </span>Either::Left(<span class="self">self</span>);
+            <span class="kw">return </span>Either::Left(());
         }
         signers.set(vote_node_id, <span class="bool-val">true</span>);
         sig_list.push(original_signature);
@@ -358,7 +358,7 @@ The votes all must be over the `Commitment` associated type.
             );
             <span class="kw">return </span>Either::Right(cert);
         }
-        Either::Left(<span class="self">self</span>)
+        Either::Left(())
     }
 }
 

@@ -143,125 +143,18 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
-<span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
-<span class="kw">use </span>hotshot_task::{
-    event_stream::ChannelStream,
-    task::{FilterEvent, HandleEvent, HandleMessage, HotShotTaskCompleted, HotShotTaskTypes, TS},
-    task_impls::{HSTWithEventAndMessage, TaskBuilder},
-    MergeN,
-};
-<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::{
-    event::Event,
-    traits::node_implementation::{ConsensusTime, NodeType},
-};
-<span class="kw">use </span>snafu::Snafu;
 
-<span class="kw">use crate</span>::{
-    test_launcher::TaskGenerator,
-    test_runner::{LateStartNode, Node},
-};
+<span class="kw">use </span><span class="kw">crate</span>::test_runner::HotShotTaskCompleted;
+<span class="kw">use </span><span class="kw">crate</span>::test_runner::LateStartNode;
+<span class="kw">use </span><span class="kw">crate</span>::test_runner::Node;
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
+<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
+<span class="kw">use </span>hotshot_types::{event::Event, traits::node_implementation::NodeType};
+<span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::collections::BTreeMap;
 <span class="doccomment">/// convience type for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
@@ -283,7 +176,88 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) latest_view: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TS <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {
+    <span class="kw">type </span>Event = GlobalTestEvent;
+
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
+
+    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, _task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">if </span><span class="macro">matches!</span>(event, GlobalTestEvent::ShutDown) {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
+        }
+        <span class="prelude-val">None
+    </span>}
+
+    <span class="kw">fn </span>should_shutdown(_event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestTaskState
+    <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;
+{
+    <span class="kw">type </span>Message = Event&lt;TYPES&gt;;
+
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
+
+    <span class="kw">type </span>State = <span class="self">Self</span>;
+
+    <span class="kw">async fn </span>handle_message(
+        message: <span class="self">Self</span>::Message,
+        _id: usize,
+        task: <span class="kw-2">&amp;mut </span>hotshot_task::task::TestTask&lt;<span class="self">Self</span>::State, <span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">let </span>Event {
+            view_number,
+            event: <span class="kw">_</span>,
+        } = message;
+
+        <span class="kw">let </span>state = <span class="kw-2">&amp;mut </span>task.state_mut();
+
+        <span class="comment">// if we have not seen this view before
+        </span><span class="kw">if </span>state.latest_view.is_none() || view_number &gt; state.latest_view.unwrap() {
+            <span class="comment">// perform operations on the nodes
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = state.changes.remove(<span class="kw-2">&amp;</span>view_number) {
+                <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
+                    <span class="kw">match </span>updown {
+                        UpDown::Up =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.late_start.remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap()) {
+                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Node {} spinning up late&quot;</span>, idx);
+                                <span class="kw">let </span>handle = node.context.run_tasks().<span class="kw">await</span>;
+                                handle.hotshot.start_consensus().<span class="kw">await</span>;
+                            }
+                        }
+                        UpDown::Down =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
+                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Node {} shutting down&quot;</span>, idx);
+                                node.handle.shut_down().<span class="kw">await</span>;
+                            }
+                        }
+                        UpDown::NetworkUp =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Node {} networks resuming&quot;</span>, idx);
+                                handle.networks.<span class="number">0</span>.resume();
+                                handle.networks.<span class="number">1</span>.resume();
+                            }
+                        }
+                        UpDown::NetworkDown =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                                <span class="macro">tracing::error!</span>(<span class="string">&quot;Node {} networks pausing&quot;</span>, idx);
+                                handle.networks.<span class="number">0</span>.pause();
+                                handle.networks.<span class="number">1</span>.pause();
+                            }
+                        }
+                    }
+                }
+            }
+
+            <span class="comment">// update our latest view
+            </span>state.latest_view = <span class="prelude-val">Some</span>(view_number);
+        }
+
+        <span class="prelude-val">None
+    </span>}
+}
 
 <span class="doccomment">/// Spin the node up or down
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -314,166 +288,4 @@
     <span class="doccomment">/// the changes in node status, time -&gt; changes
     </span><span class="kw">pub </span>node_changes: Vec&lt;(u64, Vec&lt;ChangeNode&gt;)&gt;,
 }
-
-<span class="kw">impl </span>SpinningTaskDescription {
-    <span class="doccomment">/// build a task
-    /// # Panics
-    /// If there is no latest view
-    /// or if the node id is over `u32::MAX`
-    </span><span class="attr">#[must_use]
-    #[allow(clippy::too_many_lines)]
-    </span><span class="kw">pub fn </span>build&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
-        <span class="self">self</span>,
-    ) -&gt; TaskGenerator&lt;SpinningTask&lt;TYPES, I&gt;&gt; {
-        Box::new(<span class="kw">move </span>|<span class="kw-2">mut </span>state, <span class="kw-2">mut </span>registry, test_event_stream| {
-            <span class="kw">async move </span>{
-                <span class="kw">let </span>event_handler =
-                    HandleEvent::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(<span class="kw">move </span>|event, state| {
-                        <span class="kw">async move </span>{
-                            <span class="kw">match </span>event {
-                                GlobalTestEvent::ShutDown =&gt; {
-                                    <span class="comment">// We do this here as well as in the completion task
-                                    // because that task has no knowledge of our late start handles.
-                                    </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>state.handles {
-                                        node.handle.clone().shut_down().<span class="kw">await</span>;
-                                    }
-
-                                    (<span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown), state)
-                                }
-                            }
-                        }
-                        .boxed()
-                    }));
-
-                <span class="kw">let </span>message_handler = HandleMessage::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;(Arc::new(
-                    <span class="kw">move </span>|msg, <span class="kw-2">mut </span>state| {
-                        <span class="kw">async move </span>{
-                            <span class="kw">let </span>Event {
-                                view_number,
-                                event: <span class="kw">_</span>,
-                            } = msg.<span class="number">1</span>;
-
-                            <span class="comment">// if we have not seen this view before
-                            </span><span class="kw">if </span>state.latest_view.is_none()
-                                || view_number &gt; state.latest_view.unwrap()
-                            {
-                                <span class="comment">// perform operations on the nodes
-
-                                // We want to make sure we didn&#39;t miss any views (for example, there is no decide event
-                                // if we get a timeout)
-                                </span><span class="kw">let </span>views_with_relevant_changes: Vec&lt;<span class="kw">_</span>&gt; = state
-                                    .changes
-                                    .range(TYPES::Time::new(<span class="number">0</span>)..view_number)
-                                    .map(|(k, _v)| <span class="kw-2">*</span>k)
-                                    .collect();
-
-                                <span class="kw">for </span>view <span class="kw">in </span>views_with_relevant_changes {
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = state.changes.remove(<span class="kw-2">&amp;</span>view) {
-                                        <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
-                                            <span class="kw">match </span>updown {
-                                                UpDown::Up =&gt; {
-                                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state
-                                                        .late_start
-                                                        .remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap())
-                                                    {
-                                                        <span class="macro">tracing::error!</span>(
-                                                            <span class="string">&quot;Node {} spinning up late&quot;</span>,
-                                                            idx
-                                                        );
-
-                                                        <span class="comment">// create node and add to state, so we can shut them down properly later
-                                                        </span><span class="kw">let </span>node = Node {
-                                                            node_id: idx.try_into().unwrap(),
-                                                            networks: node.networks,
-                                                            handle: node.context.run_tasks().<span class="kw">await</span>,
-                                                        };
-
-                                                        <span class="comment">// bootstrap consensus by sending the event
-                                                        </span>node.handle.hotshot.start_consensus().<span class="kw">await</span>;
-
-                                                        <span class="comment">// add nodes to our state
-                                                        </span>state.handles.push(node);
-                                                    }
-                                                }
-                                                UpDown::Down =&gt; {
-                                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
-                                                        <span class="macro">tracing::error!</span>(
-                                                            <span class="string">&quot;Node {} shutting down&quot;</span>,
-                                                            idx
-                                                        );
-                                                        node.handle.shut_down().<span class="kw">await</span>;
-                                                    }
-                                                }
-                                                UpDown::NetworkUp =&gt; {
-                                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
-                                                        <span class="macro">tracing::error!</span>(
-                                                            <span class="string">&quot;Node {} networks resuming&quot;</span>,
-                                                            idx
-                                                        );
-                                                        handle.networks.<span class="number">0</span>.resume();
-                                                        handle.networks.<span class="number">1</span>.resume();
-                                                    }
-                                                }
-                                                UpDown::NetworkDown =&gt; {
-                                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
-                                                        <span class="macro">tracing::error!</span>(
-                                                            <span class="string">&quot;Node {} networks pausing&quot;</span>,
-                                                            idx
-                                                        );
-                                                        handle.networks.<span class="number">0</span>.pause();
-                                                        handle.networks.<span class="number">1</span>.pause();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                <span class="comment">// update our latest view
-                                </span>state.latest_view = <span class="prelude-val">Some</span>(view_number);
-                            }
-
-                            (<span class="prelude-val">None</span>, state)
-                        }
-                        .boxed()
-                    },
-                ));
-
-                <span class="kw">let </span><span class="kw-2">mut </span>streams = <span class="macro">vec!</span>[];
-                <span class="kw">for </span>handle <span class="kw">in </span><span class="kw-2">&amp;mut </span>state.handles {
-                    <span class="kw">let </span>s1 = handle
-                        .handle
-                        .get_event_stream_known_impl(FilterEvent::default())
-                        .<span class="kw">await
-                        </span>.<span class="number">0</span>;
-                    streams.push(s1);
-                }
-                <span class="kw">let </span>builder = TaskBuilder::&lt;SpinningTaskTypes&lt;TYPES, I&gt;&gt;::new(
-                    <span class="string">&quot;Test Spinning Task&quot;</span>.to_string(),
-                )
-                .register_event_stream(test_event_stream, FilterEvent::default())
-                .<span class="kw">await
-                </span>.register_registry(<span class="kw-2">&amp;mut </span>registry)
-                .<span class="kw">await
-                </span>.register_message_handler(message_handler)
-                .register_message_stream(MergeN::new(streams))
-                .register_event_handler(event_handler)
-                .register_state(state);
-                <span class="kw">let </span>task_id = builder.get_task_id().unwrap();
-                (task_id, SpinningTaskTypes::build(builder).launch())
-            }
-            .boxed()
-        })
-    }
-}
-
-<span class="doccomment">/// types for safety task
-</span><span class="kw">pub type </span>SpinningTaskTypes&lt;TYPES, I&gt; = HSTWithEventAndMessage&lt;
-    SpinningTaskErr,
-    GlobalTestEvent,
-    ChannelStream&lt;GlobalTestEvent&gt;,
-    (usize, Event&lt;TYPES&gt;),
-    MergeN&lt;UnboundedStream&lt;Event&lt;TYPES&gt;&gt;&gt;,
-    SpinningTask&lt;TYPES, I&gt;,
-&gt;;
 </code></pre></div></section></main></body></html>

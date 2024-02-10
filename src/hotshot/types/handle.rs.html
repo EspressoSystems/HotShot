@@ -178,43 +178,20 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedStream;
+<span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
+
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>hotshot_task::{
-    boxed_sync,
-    event_stream::{ChannelStream, EventStream, StreamId},
-    global_registry::GlobalRegistry,
-    task::FilterEvent,
-    BoxSyncFuture,
-};
+
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::election::Membership;
 
+<span class="kw">use </span>hotshot_task::task::TaskRegistry;
+<span class="kw">use </span>hotshot_types::{boxed_sync, BoxSyncFuture};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus, data::Leaf, error::HotShotError, traits::node_implementation::NodeType,
 };
@@ -225,13 +202,19 @@
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SystemContextHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The [sender](ChannelStream) for the output stream from the background process
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: ChannelStream&lt;Event&lt;TYPES&gt;&gt;,
-    <span class="doccomment">/// access to the internal ev ent stream, in case we need to, say, shut something down
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// The [sender](Sender) and an `InactiveReceiver` to keep the channel open.
+    /// The Channel will output all the events.  Subscribers will get an activated
+    /// clone of the `Receiver` when they get output stream.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: (
+        Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        InactiveReceiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ),
     <span class="doccomment">/// registry for controlling tasks
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: GlobalRegistry,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: Arc&lt;TaskRegistry&gt;,
 
     <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
     </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES, I&gt;,
@@ -240,51 +223,28 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>&gt; Clone
-    <span class="kw">for </span>SystemContextHandle&lt;TYPES, I&gt;
-{
-    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            registry: <span class="self">self</span>.registry.clone(),
-            output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
-            internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
-            hotshot: <span class="self">self</span>.hotshot.clone(),
-            storage: <span class="self">self</span>.storage.clone(),
-        }
-    }
-}
-
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
     <span class="doccomment">/// obtains a stream to expose to the user
-    </span><span class="kw">pub async fn </span>get_event_stream(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        filter: FilterEvent&lt;Event&lt;TYPES&gt;&gt;,
-    ) -&gt; (<span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt;, StreamId) {
-        <span class="self">self</span>.output_event_stream.subscribe(filter).<span class="kw">await
-    </span>}
+    </span><span class="kw">pub fn </span>get_event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
+    }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
-    </span><span class="kw">pub async fn </span>get_event_stream_known_impl(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        filter: FilterEvent&lt;Event&lt;TYPES&gt;&gt;,
-    ) -&gt; (UnboundedStream&lt;Event&lt;TYPES&gt;&gt;, StreamId) {
-        <span class="self">self</span>.output_event_stream.subscribe(filter).<span class="kw">await
-    </span>}
+    </span><span class="kw">pub fn </span>get_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Event&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
+    }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
-    </span><span class="kw">pub async fn </span>get_internal_event_stream_known_impl(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        filter: FilterEvent&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    ) -&gt; (UnboundedStream&lt;HotShotEvent&lt;TYPES&gt;&gt;, StreamId) {
-        <span class="self">self</span>.internal_event_stream.subscribe(filter).<span class="kw">await
-    </span>}
+    </span><span class="kw">pub fn </span>get_internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned()
+    }
 
     <span class="doccomment">/// Get the last decided validated state of the [`SystemContext`] instance.
     ///
@@ -364,7 +324,7 @@
     {
         boxed_sync(<span class="kw">async move </span>{
             <span class="self">self</span>.hotshot.inner.networks.shut_down_networks().<span class="kw">await</span>;
-            <span class="self">self</span>.registry.shutdown_all().<span class="kw">await</span>;
+            <span class="self">self</span>.registry.shutdown().<span class="kw">await</span>;
         })
     }
 

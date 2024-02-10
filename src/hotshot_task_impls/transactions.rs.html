@@ -359,7 +359,13 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_timeout,
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -367,12 +373,8 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    global_registry::GlobalRegistry,
-    task::{HotShotTaskCompleted, TS},
-    task_impls::HSTWithEvent,
-};
+
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -410,8 +412,6 @@
 &gt; {
     <span class="doccomment">/// The state&#39;s api
     </span><span class="kw">pub </span>api: A,
-    <span class="doccomment">/// Global registry task for the state
-    </span><span class="kw">pub </span>registry: GlobalRegistry,
 
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
@@ -431,9 +431,6 @@
     <span class="doccomment">/// Membership for teh quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
 
-    <span class="doccomment">/// Global events stream to publish events
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
@@ -448,9 +445,10 @@
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Transaction Handling Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
 
-    </span><span class="kw">pub async fn </span>handle_event(
+    </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: HotShotEvent&lt;TYPES&gt;,
+        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event {
             HotShotEvent::TransactionsRecv(transactions) =&gt; {
@@ -544,6 +542,7 @@
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;view change in transactions to view {:?}&quot;</span>, view);
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -557,6 +556,7 @@
 
                 <span class="comment">// return if we aren&#39;t the next leader or we skipped last view and aren&#39;t the current leader.
                 </span><span class="kw">if </span>!make_block &amp;&amp; <span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
+                    <span class="macro">debug!</span>(<span class="string">&quot;Not next leader for view {:?}&quot;</span>, <span class="self">self</span>.cur_view);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -612,18 +612,16 @@
 
                 <span class="comment">// send the sequenced transactions to VID and DA tasks
                 </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
-                <span class="self">self</span>.event_stream
-                    .publish(HotShotEvent::TransactionsSequenced(
-                        encoded_transactions,
-                        metadata,
-                        block_view,
-                    ))
-                    .<span class="kw">await</span>;
+                broadcast_event(
+                    HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, block_view),
+                    <span class="kw-2">&amp;</span>event_stream,
+                )
+                .<span class="kw">await</span>;
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::Shutdown =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
+                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -694,10 +692,18 @@
         //     .collect();
         </span><span class="prelude-val">Some</span>(txns)
     }
+}
 
-    <span class="doccomment">/// Event filter for the transaction task
-    </span><span class="kw">pub fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
+<span class="doccomment">/// task state implementation for Transactions Task
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TaskState
+    <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, A&gt;
+{
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
+
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+        !<span class="macro">matches!</span>(
             event,
             HotShotEvent::TransactionsRecv(<span class="kw">_</span>)
                 | HotShotEvent::LeafDecided(<span class="kw">_</span>)
@@ -705,19 +711,17 @@
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }
-}
 
-<span class="doccomment">/// task state implementation for Transactions Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TS
-    <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, A&gt;
-{
-}
+    <span class="kw">async fn </span>handle_event(
+        event: <span class="self">Self</span>::Event,
+        task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">let </span>sender = task.clone_sender();
+        task.state_mut().handle(event, sender).<span class="kw">await
+    </span>}
 
-<span class="doccomment">/// Type alias for DA Task Types
-</span><span class="kw">pub type </span>TransactionsTaskTypes&lt;TYPES, I, A&gt; = HSTWithEvent&lt;
-    ConsensusTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    TransactionTaskState&lt;TYPES, I, A&gt;,
-&gt;;
+    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+    }
+}
 </code></pre></div></section></main></body></html>

@@ -381,22 +381,18 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_constants::VERSION_0_1;
-<span class="kw">use </span>hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    task::{FilterEvent, HotShotTaskCompleted, TS},
-    task_impls::{HSTWithEvent, HSTWithMessage},
-    GeneratedStream, Merge,
-};
+
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, Messages,
-        SequencingMessage,
+        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
     },
     traits::{
         election::Membership,
@@ -405,31 +401,82 @@
     },
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::error;
 <span class="kw">use </span>tracing::instrument;
 
-<span class="doccomment">/// the type of network task
-</span><span class="attr">#[derive(Clone, Copy, Debug)]
-</span><span class="kw">pub enum </span>NetworkTaskKind {
-    <span class="doccomment">/// quorum: the normal &quot;everyone&quot; committee
-    </span>Quorum,
-    <span class="doccomment">/// da committee
-    </span>Committee,
-    <span class="doccomment">/// view sync
-    </span>ViewSync,
-    <span class="doccomment">/// vid
-    </span>VID,
+<span class="doccomment">/// quorum filter
+</span><span class="kw">pub fn </span>quorum_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    !<span class="macro">matches!</span>(
+        event,
+        HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::DACSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewChange(<span class="kw">_</span>)
+            | HotShotEvent::TimeoutVoteSend(<span class="kw">_</span>)
+    )
 }
 
+<span class="doccomment">/// committee filter
+</span><span class="kw">pub fn </span>committee_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    !<span class="macro">matches!</span>(
+        event,
+        HotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::DAVoteSend(<span class="kw">_</span>)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::ViewChange(<span class="kw">_</span>)
+    )
+}
+
+<span class="doccomment">/// vid filter
+</span><span class="kw">pub fn </span>vid_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    !<span class="macro">matches!</span>(
+        event,
+        HotShotEvent::Shutdown | HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::ViewChange(<span class="kw">_</span>)
+    )
+}
+
+<span class="doccomment">/// view sync filter
+</span><span class="kw">pub fn </span>view_sync_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    !<span class="macro">matches!</span>(
+        event,
+        HotShotEvent::ViewSyncPreCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncFinalizeCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncPreCommitVoteSend(<span class="kw">_</span>)
+            | HotShotEvent::ViewSyncCommitVoteSend(<span class="kw">_</span>)
+            | HotShotEvent::ViewSyncFinalizeVoteSend(<span class="kw">_</span>)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::ViewChange(<span class="kw">_</span>)
+    )
+}
 <span class="doccomment">/// the network message task state
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>NetworkMessageTaskState&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// event stream (used for publishing)
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// Sender to send internal events this task generates to other tasks
+    </span><span class="kw">pub </span>event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TS <span class="kw">for </span>NetworkMessageTaskState&lt;TYPES&gt; {}
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskState <span class="kw">for </span>NetworkMessageTaskState&lt;TYPES&gt; {
+    <span class="kw">type </span>Event = Vec&lt;Message&lt;TYPES&gt;&gt;;
+    <span class="kw">type </span>Output = ();
+
+    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;
+    <span class="kw">where
+        </span><span class="self">Self</span>: Sized,
+    {
+        task.state_mut().handle_messages(event).<span class="kw">await</span>;
+        <span class="prelude-val">None
+    </span>}
+
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>should_shutdown(_event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkMessageTaskState&lt;TYPES&gt; {
     <span class="doccomment">/// Handle the message.
@@ -497,7 +544,7 @@
                     <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
                     // &lt;https://github.com/EspressoSystems/HotShot/issues/1428&gt;
-                    </span><span class="self">self</span>.event_stream.publish(event).<span class="kw">await</span>;
+                    </span>broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.event_stream).<span class="kw">await</span>;
                 }
                 MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
@@ -507,9 +554,11 @@
             };
         }
         <span class="kw">if </span>!transactions.is_empty() {
-            <span class="self">self</span>.event_stream
-                .publish(HotShotEvent::TransactionsRecv(transactions))
-                .<span class="kw">await</span>;
+            broadcast_event(
+                HotShotEvent::TransactionsRecv(transactions),
+                <span class="kw-2">&amp;</span><span class="self">self</span>.event_stream,
+            )
+            .<span class="kw">await</span>;
         }
     }
 }
@@ -518,16 +567,41 @@
 </span><span class="kw">pub struct </span>NetworkEventTaskState&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// comm channel
     </span><span class="kw">pub </span>channel: COMMCHANNEL,
-    <span class="doccomment">/// event stream
-    </span><span class="kw">pub </span>event_stream: ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// view number
     </span><span class="kw">pub </span>view: TYPES::Time,
+    <span class="doccomment">/// membership for the channel
+    </span><span class="kw">pub </span>membership: TYPES::Membership,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?
-</span>}
+    </span><span class="doccomment">/// Filter which returns false for the events that this specific network task cares about
+    </span><span class="kw">pub </span>filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool,
+}
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt; TS
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt; TaskState
     <span class="kw">for </span>NetworkEventTaskState&lt;TYPES, COMMCHANNEL&gt;
 {
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+
+    <span class="kw">type </span>Output = HotShotTaskCompleted;
+
+    <span class="kw">async fn </span>handle_event(
+        event: <span class="self">Self</span>::Event,
+        task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">let </span>membership = task.state_mut().membership.clone();
+        task.state_mut().handle_event(event, <span class="kw-2">&amp;</span>membership).<span class="kw">await
+    </span>}
+
+    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        <span class="kw">if </span><span class="macro">matches!</span>(event, HotShotEvent::Shutdown) {
+            <span class="macro">error!</span>(<span class="string">&quot;Network Task received Shutdown event&quot;</span>);
+            <span class="kw">return </span><span class="bool-val">true</span>;
+        }
+        <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
+        (<span class="self">self</span>.filter)(event)
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt;
@@ -661,7 +735,7 @@
             }
             HotShotEvent::Shutdown =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;Networking task shutting down&quot;</span>);
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
+                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }
             event =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;Receieved unexpected message in network task {:?}&quot;</span>, event);
@@ -689,85 +763,5 @@
 
         <span class="prelude-val">None
     </span>}
-
-    <span class="doccomment">/// network filter
-    </span><span class="kw">pub fn </span>filter(task_kind: NetworkTaskKind) -&gt; FilterEvent&lt;HotShotEvent&lt;TYPES&gt;&gt; {
-        <span class="kw">match </span>task_kind {
-            NetworkTaskKind::Quorum =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::quorum_filter)),
-            NetworkTaskKind::Committee =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::committee_filter)),
-            NetworkTaskKind::ViewSync =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::view_sync_filter)),
-            NetworkTaskKind::VID =&gt; FilterEvent(Arc::new(<span class="self">Self</span>::vid_filter)),
-        }
-    }
-
-    <span class="doccomment">/// quorum filter
-    </span><span class="kw">fn </span>quorum_filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
-            event,
-            HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::DACSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-                | HotShotEvent::TimeoutVoteSend(<span class="kw">_</span>)
-        )
-    }
-
-    <span class="doccomment">/// committee filter
-    </span><span class="kw">fn </span>committee_filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
-            event,
-            HotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::DAVoteSend(<span class="kw">_</span>)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-        )
-    }
-
-    <span class="doccomment">/// vid filter
-    </span><span class="kw">fn </span>vid_filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
-            event,
-            HotShotEvent::Shutdown
-                | HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-        )
-    }
-
-    <span class="doccomment">/// view sync filter
-    </span><span class="kw">fn </span>view_sync_filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(
-            event,
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::ViewSyncCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::ViewSyncPreCommitVoteSend(<span class="kw">_</span>)
-                | HotShotEvent::ViewSyncCommitVoteSend(<span class="kw">_</span>)
-                | HotShotEvent::ViewSyncFinalizeVoteSend(<span class="kw">_</span>)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-        )
-    }
 }
-
-<span class="doccomment">/// network error (no errors right now, only stub)
-</span><span class="attr">#[derive(Snafu, Debug)]
-</span><span class="kw">pub struct </span>NetworkTaskError {}
-
-<span class="doccomment">/// networking message task types
-</span><span class="kw">pub type </span>NetworkMessageTaskTypes&lt;TYPES&gt; = HSTWithMessage&lt;
-    NetworkTaskError,
-    Either&lt;Messages&lt;TYPES&gt;, Messages&lt;TYPES&gt;&gt;,
-    <span class="comment">// A combination of broadcast and direct streams.
-    </span>Merge&lt;GeneratedStream&lt;Messages&lt;TYPES&gt;&gt;, GeneratedStream&lt;Messages&lt;TYPES&gt;&gt;&gt;,
-    NetworkMessageTaskState&lt;TYPES&gt;,
-&gt;;
-
-<span class="doccomment">/// network event task types
-</span><span class="kw">pub type </span>NetworkEventTaskTypes&lt;TYPES, COMMCHANNEL&gt; = HSTWithEvent&lt;
-    NetworkTaskError,
-    HotShotEvent&lt;TYPES&gt;,
-    ChannelStream&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    NetworkEventTaskState&lt;TYPES, COMMCHANNEL&gt;,
-&gt;;
 </code></pre></div></section></main></body></html>
