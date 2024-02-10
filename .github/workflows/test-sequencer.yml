@@ -55,7 +55,6 @@ jobs:
           hotshot-state-prover = { path = "${GITHUB_WORKSPACE}/hotshot/crates/hotshot-state-prover" }
           hotshot-orchestrator = { path = "${GITHUB_WORKSPACE}/hotshot/crates/orchestrator" }
           hotshot-web-server = { path = "${GITHUB_WORKSPACE}/hotshot/crates/web_server" }
-          hotshot-task = { path = "${GITHUB_WORKSPACE}/hotshot/crates/task" }
           hotshot-task-impls = { path = "${GITHUB_WORKSPACE}/hotshot/crates/task-impls" }
           hotshot-testing = { path = "${GITHUB_WORKSPACE}/hotshot/crates/testing" }
           hotshot-types = { path = "${GITHUB_WORKSPACE}/hotshot/crates/types" }
