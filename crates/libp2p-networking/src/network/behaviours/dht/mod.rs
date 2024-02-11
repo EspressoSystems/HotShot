@@ -532,6 +532,9 @@ impl DHTBehaviour {
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
+            e => {
+                error!("UNHANDLED NEW SWARM VARIANT: {e:?}");
+            }
         }
     }
 }
@@ -692,6 +695,9 @@ impl NetworkBehaviour for DHTBehaviour {
                 }
                 ToSwarm::ExternalAddrExpired(c) => {
                     return Poll::Ready(ToSwarm::ExternalAddrExpired(c));
+                }
+                e => {
+                    error!("UNHANDLED NEW SWARM VARIANT: {e:?}");
                 }
             }
         }

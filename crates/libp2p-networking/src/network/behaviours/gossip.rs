@@ -121,6 +121,9 @@ impl NetworkBehaviour for GossipBehaviour {
                 ToSwarm::ExternalAddrExpired(c) => {
                     return Poll::Ready(ToSwarm::ExternalAddrExpired(c));
                 }
+                e => {
+                    error!("UNHANDLED NEW SWARM VARIANT: {e:?}");
+                }
             }
         }
         if !self.out_event_queue.is_empty() {

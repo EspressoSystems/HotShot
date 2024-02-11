@@ -22,7 +22,7 @@ use super::{
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMEvent},
-    direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
+    direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
 };
@@ -30,7 +30,6 @@ use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use either::Either;
 use futures::{select, FutureExt, StreamExt};
 use hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::core::transport::ListenerId;
@@ -56,7 +55,6 @@ use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
-    io::Error,
     iter,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
@@ -268,10 +266,11 @@ impl NetworkNode {
 
             let rrconfig = RequestResponseConfig::default();
 
-            let request_response = RequestResponse::new(
-                [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
-                rrconfig,
-            );
+            let request_response: libp2p::request_response::Behaviour<DirectMessageCodec> =
+                RequestResponse::new(
+                    [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                    rrconfig,
+                );
 
             let network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
