@@ -13,7 +13,6 @@ use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
 };
-use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -32,6 +31,7 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use hotshot_types::simple_vote::QuorumData;
@@ -42,7 +42,7 @@ use hotshot_types::vote::Certificate;
 use hotshot_types::vote::Vote;
 
 use serde::Serialize;
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -51,7 +51,8 @@ pub async fn build_system_handle(
     node_id: u64,
 ) -> (
     SystemContextHandle<TestTypes, MemoryImpl>,
-    ChannelStream<HotShotEvent<TestTypes>>,
+    Sender<HotShotEvent<TestTypes>>,
+    Receiver<HotShotEvent<TestTypes>>,
 ) {
     let builder = TestMetadata::default_multiple_rounds();
 
@@ -238,10 +239,11 @@ async fn build_quorum_proposal_and_signature(
             .quorum_membership
             .total_nodes(),
     );
-    let mut parent_state =
-        <TestValidatedState as ValidatedState>::from_header(&parent_leaf.block_header);
+    let mut parent_state = Arc::new(<TestValidatedState as ValidatedState>::from_header(
+        &parent_leaf.block_header,
+    ));
     let block_header = TestBlockHeader::new(
-        &parent_state,
+        &*parent_state,
         &TestInstanceState {},
         &parent_leaf.block_header,
         payload_commitment,
@@ -269,9 +271,11 @@ async fn build_quorum_proposal_and_signature(
 
     // Only view 2 is tested, higher views are not tested
     for cur_view in 2..=view {
-        let state_new_view = parent_state
-            .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
-            .unwrap();
+        let state_new_view = Arc::new(
+            parent_state
+                .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
+                .unwrap(),
+        );
         // save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         consensus.validated_state_map.insert(

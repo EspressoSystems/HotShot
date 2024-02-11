@@ -1,20 +1,17 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
-use async_compatibility_layer::channel::UnboundedStream;
+use async_broadcast::{InactiveReceiver, Receiver, Sender};
+
 use async_lock::RwLock;
 use futures::Stream;
-use hotshot_task::{
-    boxed_sync,
-    event_stream::{ChannelStream, EventStream, StreamId},
-    global_registry::GlobalRegistry,
-    task::FilterEvent,
-    BoxSyncFuture,
-};
+
 use hotshot_task_impls::events::HotShotEvent;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::election::Membership;
 
+use hotshot_task::task::TaskRegistry;
+use hotshot_types::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
     consensus::Consensus, data::Leaf, error::HotShotError, traits::node_implementation::NodeType,
 };
@@ -25,13 +22,19 @@ use std::sync::Arc;
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
+#[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// The [sender](ChannelStream) for the output stream from the background process
-    pub(crate) output_event_stream: ChannelStream<Event<TYPES>>,
-    /// access to the internal ev ent stream, in case we need to, say, shut something down
-    pub(crate) internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
+    /// The [sender](Sender) and an `InactiveReceiver` to keep the channel open.
+    /// The Channel will output all the events.  Subscribers will get an activated
+    /// clone of the `Receiver` when they get output stream.
+    pub(crate) output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+    /// access to the internal event stream, in case we need to, say, shut something down
+    pub(crate) internal_event_stream: (
+        Sender<HotShotEvent<TYPES>>,
+        InactiveReceiver<HotShotEvent<TYPES>>,
+    ),
     /// registry for controlling tasks
-    pub(crate) registry: GlobalRegistry,
+    pub(crate) registry: Arc<TaskRegistry>,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: SystemContext<TYPES, I>,
@@ -40,38 +43,18 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) storage: I::Storage,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone
-    for SystemContextHandle<TYPES, I>
-{
-    fn clone(&self) -> Self {
-        Self {
-            registry: self.registry.clone(),
-            output_event_stream: self.output_event_stream.clone(),
-            internal_event_stream: self.internal_event_stream.clone(),
-            hotshot: self.hotshot.clone(),
-            storage: self.storage.clone(),
-        }
-    }
-}
-
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// obtains a stream to expose to the user
-    pub async fn get_event_stream(
-        &mut self,
-        filter: FilterEvent<Event<TYPES>>,
-    ) -> (impl Stream<Item = Event<TYPES>>, StreamId) {
-        self.output_event_stream.subscribe(filter).await
+    pub fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
+        self.output_event_stream.1.activate_cloned()
     }
 
     /// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
-    pub async fn get_event_stream_known_impl(
-        &mut self,
-        filter: FilterEvent<Event<TYPES>>,
-    ) -> (UnboundedStream<Event<TYPES>>, StreamId) {
-        self.output_event_stream.subscribe(filter).await
+    pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
+        self.output_event_stream.1.activate_cloned()
     }
 
     /// HACK so we can know the types when running tests...
@@ -79,19 +62,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
-    pub async fn get_internal_event_stream_known_impl(
-        &mut self,
-        filter: FilterEvent<HotShotEvent<TYPES>>,
-    ) -> (UnboundedStream<HotShotEvent<TYPES>>, StreamId) {
-        self.internal_event_stream.subscribe(filter).await
+    pub fn get_internal_event_stream_known_impl(&self) -> Receiver<HotShotEvent<TYPES>> {
+        self.internal_event_stream.1.activate_cloned()
     }
 
     /// Get the last decided validated state of the [`SystemContext`] instance.
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+    pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
         self.hotshot.get_decided_state().await
+    }
+
+    /// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+        self.hotshot.get_state(view).await
     }
 
     /// Get the last decided leaf of the [`SystemContext`] instance.
@@ -153,7 +144,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     {
         boxed_sync(async move {
             self.hotshot.inner.networks.shut_down_networks().await;
-            self.registry.shutdown_all().await;
+            self.registry.shutdown().await;
         })
     }
 

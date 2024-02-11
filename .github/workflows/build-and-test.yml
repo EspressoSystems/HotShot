@@ -135,13 +135,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download executables AMD
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: target/amd64/debug/examples
 
       - name: Download executables ARM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: target/arm64/debug/examples

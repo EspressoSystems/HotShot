@@ -1,6 +1,5 @@
 //! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
-//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]
@@ -16,24 +15,24 @@ pub mod tasks;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_view_sync_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
     types::{Event, SystemContextHandle},
 };
+use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use custom_debug::Debug;
 use futures::join;
-use hotshot_constants::VERSION_0_1;
-use hotshot_task::{
-    event_stream::{ChannelStream, EventStream},
-    task_launcher::TaskRunner,
-};
-use hotshot_task_impls::{events::HotShotEvent, network::NetworkTaskKind};
+use hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
+use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::helpers::broadcast_event;
+use hotshot_task_impls::network;
 
+use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
@@ -61,7 +60,7 @@ use std::{
     time::Duration,
 };
 use tasks::add_vid_task;
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, instrument, trace};
 
 // -- Rexports
 // External
@@ -123,7 +122,7 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
@@ -142,13 +141,16 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    output_event_stream: ChannelStream<Event<TYPES>>,
+    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
-    internal_event_stream: ChannelStream<HotShotEvent<TYPES>>,
+    internal_event_stream: (
+        Sender<HotShotEvent<TYPES>>,
+        InactiveReceiver<HotShotEvent<TYPES>>,
+    ),
 
     /// uid for instrumentation
-    id: u64,
+    pub id: u64,
 }
 
 /// Thread safe, shared view of a `HotShot`
@@ -192,7 +194,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         // insert genesis (or latest block) to state map
         let mut validated_state_map = BTreeMap::default();
-        let validated_state = TYPES::ValidatedState::genesis(&instance_state);
+        let validated_state = Arc::new(TYPES::ValidatedState::genesis(&instance_state));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -237,6 +239,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
         let consensus = Arc::new(RwLock::new(consensus));
 
+        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
+
+        // This makes it so we won't block on broadcasting if there is not a receiver
+        // Our own copy of the receiver is inactive so it doesn't count.
+        external_tx.set_await_active(false);
+
         let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
             id: nonce,
             consensus,
@@ -247,21 +256,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
-            internal_event_stream: ChannelStream::new(),
-            output_event_stream: ChannelStream::new(),
+            internal_event_stream: (internal_tx, internal_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx.deactivate()),
         });
 
         Ok(Self { inner })
     }
 
     /// "Starts" consensus by sending a `QCFormed` event
+    ///
+    /// # Panics
+    /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
+        debug!("Starting Consensus");
         self.inner
             .internal_event_stream
-            .publish(HotShotEvent::QCFormed(either::Left(
+            .0
+            .broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
             )))
-            .await;
+            .await
+            .expect("Genesis Broadcast failed");
     }
 
     /// Emit an external event
@@ -269,7 +284,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        self.inner.output_event_stream.publish(event).await;
+        broadcast_event(event, &self.inner.output_event_stream.0).await;
     }
 
     /// Publishes a transaction asynchronously to the network
@@ -346,17 +361,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .map(|guard| guard.get_decided_leaf())
     }
 
-    /// Returns a copy of the last decided validated state.
+    /// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_state(&self) -> TYPES::ValidatedState {
+    pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
         self.inner
             .consensus
             .read()
             .await
             .get_decided_state()
             .clone()
+    }
+
+    /// Get the validated state from a given `view`.
+    ///
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// tracks views that have not yet been decided but could be in the future. This function may
+    /// return [`None`] if the requested view has already been decided (but see
+    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// view to ever be decided.
+    pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+        self.inner.consensus.read().await.get_state(view).cloned()
     }
 
     /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
@@ -387,7 +413,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
-            ChannelStream<HotShotEvent<TYPES>>,
+            Sender<HotShotEvent<TYPES>>,
+            Receiver<HotShotEvent<TYPES>>,
         ),
         HotShotError<TYPES>,
     > {
@@ -405,11 +432,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
-        let internal_event_stream = hotshot.inner.internal_event_stream.clone();
+        let (tx, rx) = hotshot.inner.internal_event_stream.clone();
 
-        Ok((handle, internal_event_stream))
+        Ok((handle, tx, rx.activate()))
     }
-
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
@@ -430,8 +456,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
-        let task_runner = TaskRunner::new();
-        let registry = task_runner.registry.clone();
+        let registry = Arc::new(TaskRegistry::default());
 
         let output_event_stream = self.inner.output_event_stream.clone();
         let internal_event_stream = self.inner.internal_event_stream.clone();
@@ -443,78 +468,97 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let vid_membership = self.inner.memberships.vid_membership.clone();
         let view_sync_membership = self.inner.memberships.view_sync_membership.clone();
 
+        let (event_tx, event_rx) = internal_event_stream.clone();
+
         let handle = SystemContextHandle {
-            registry,
+            registry: registry.clone(),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone(),
             storage: self.inner.storage.clone(),
         };
 
-        let task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
-            quorum_network.clone(),
-        )
-        .await;
-        let task_runner = add_network_message_task(
-            task_runner,
-            internal_event_stream.clone(),
-            da_network.clone(),
-        )
-        .await;
+        add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;
+        add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).await;
 
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             quorum_membership,
-            NetworkTaskKind::Quorum,
+            network::quorum_filter,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             da_network.clone(),
             da_membership,
-            NetworkTaskKind::Committee,
+            network::committee_filter,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             view_sync_membership,
-            NetworkTaskKind::ViewSync,
+            network::view_sync_filter,
         )
         .await;
-        let task_runner = add_network_event_task(
-            task_runner,
-            internal_event_stream.clone(),
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
             quorum_network.clone(),
             vid_membership,
-            NetworkTaskKind::VID,
+            network::vid_filter,
         )
         .await;
-        let task_runner = add_consensus_task(
-            task_runner,
-            internal_event_stream.clone(),
-            output_event_stream.clone(),
-            handle.clone(),
+        add_consensus_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
         )
         .await;
-        let task_runner =
-            add_da_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        let task_runner =
-            add_vid_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        let task_runner =
-            add_transaction_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        let task_runner =
-            add_view_sync_task(task_runner, internal_event_stream.clone(), handle.clone()).await;
-        async_spawn(async move {
-            let _ = task_runner.launch().await;
-            info!("Task runner exited!");
-        });
+        add_da_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_vid_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_transaction_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_view_sync_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_upgrade_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
         handle
     }
 }
@@ -552,7 +596,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        self.inner.output_event_stream.publish(event).await;
+        broadcast_event(event, &self.inner.output_event_stream.0).await;
     }
 
     fn public_key(&self) -> &TYPES::SignatureKey {
