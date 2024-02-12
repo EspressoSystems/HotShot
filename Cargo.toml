@@ -79,6 +79,7 @@ toml = "0.8.10"
 tracing = "0.1.40"
 typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.53.2", features = [
+        "cbor",
         "macros",
         "autonat",
         "dns",

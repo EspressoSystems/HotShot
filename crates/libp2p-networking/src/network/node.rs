@@ -21,7 +21,7 @@ use super::{
 
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMEvent},
+    direct_message::{DMBehaviour, DMEvent, SerializedReq, SerializedResp},
     direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
@@ -266,9 +266,9 @@ impl NetworkNode {
 
             let rrconfig = RequestResponseConfig::default();
 
-            let request_response: libp2p::request_response::Behaviour<DirectMessageCodec> =
+            let request_response: libp2p::request_response::cbor::Behaviour<SerializedReq, SerializedResp> =
                 RequestResponse::new(
-                    [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                    [todo!()].into_iter(),
                     rrconfig,
                 );
 
