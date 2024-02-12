@@ -52,6 +52,22 @@ test_success:
   echo Testing success test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
+test_with_failures_one:
+  echo Testing one node leaving the network
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_one -- --test-threads=1 --nocapture
+
+test_with_failures_half_f:
+  echo Testing f/2 nodes leaving the network
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_half_f -- --test-threads=1 --nocapture
+
+test_with_failures_f:
+  echo Testing f nodes leaving the network
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_f -- --test-threads=1 --nocapture
+
+test_with_failures_2:
+  echo Testing that a good leader can succeed in the view directly after view sync
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures_2 -- --test-threads=1 --nocapture
+
 test_timeout:
   echo Testing timeout test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture

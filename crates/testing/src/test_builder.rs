@@ -152,14 +152,14 @@ impl TestMetadata {
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // Increase the duration to get the expected number of successful views.
-                    duration: Duration::new(340, 0),
+                    duration: Duration::new(3400, 0),
                 },
             ),
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 ..Default::default()
             },
             timing_data: TimingData {
-                next_view_timeout: 5000,
+                next_view_timeout: 50000,
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
@@ -171,7 +171,7 @@ impl TestMetadata {
 impl Default for TestMetadata {
     /// by default, just a single round
     fn default() -> Self {
-        let num_nodes = 5;
+        let num_nodes = 6;
         Self {
             timing_data: TimingData::default(),
             min_transactions: 0,
