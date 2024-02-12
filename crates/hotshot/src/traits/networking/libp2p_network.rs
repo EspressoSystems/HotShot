@@ -13,10 +13,10 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
+    boxed_sync,
     data::ViewNumber,
     message::{Message, MessageKind},
     traits::{
@@ -28,6 +28,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
@@ -367,7 +368,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
                 // https://github.com/EspressoSystems/HotShot/issues/2088
-                dht_timeout: Duration::from_secs(2),
+                dht_timeout: Duration::from_secs(120),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
                 topic_map,

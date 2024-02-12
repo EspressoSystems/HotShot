@@ -13,8 +13,8 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
 use hotshot_constants::VERSION_0_1;
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 use hotshot_types::{
+    boxed_sync,
     message::{Message, MessagePurpose},
     traits::{
         network::{
@@ -25,6 +25,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 use hotshot_utils::version::read_version;
 use hotshot_web_server::{self, config};
@@ -317,7 +318,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     }
                     return false;
                 }
-                MessagePurpose::Vote => {
+                MessagePurpose::Vote | MessagePurpose::ViewSyncVote => {
                     let vote = deserialized_message.clone();
                     *vote_index += 1;
                     direct_poll_queue.write().await.push(vote);
@@ -349,13 +350,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                     // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     return true;
-                }
-                MessagePurpose::ViewSyncVote => {
-                    let vote = deserialized_message.clone();
-                    *vote_index += 1;
-                    direct_poll_queue.write().await.push(vote);
-
-                    return false;
                 }
                 MessagePurpose::ViewSyncCertificate => {
                     // TODO ED Special case this for view sync

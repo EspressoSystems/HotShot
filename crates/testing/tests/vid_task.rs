@@ -1,10 +1,10 @@
-use hotshot::{tasks::add_vid_task, types::SignatureKey, HotShotConsensusApi};
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_testing::{
+use hotshot::{types::SignatureKey, HotShotConsensusApi};
+use hotshot_example_types::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
-    task_helpers::vid_init,
 };
+use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
+use hotshot_testing::task_helpers::{build_system_handle, vid_init};
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
     data::{DAProposal, VidDisperse, VidSchemeTrait, ViewNumber},
@@ -20,7 +20,6 @@ use std::marker::PhantomData;
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_task() {
     use hotshot_task_impls::harness::run_harness;
-    use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::message::Proposal;
 
     async_compatibility_layer::logging::setup_logging();
@@ -68,7 +67,6 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
 
-    // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
@@ -88,15 +86,9 @@ async fn test_vid_task() {
     input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
     input.push(HotShotEvent::Shutdown);
 
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-    output.insert(
-        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
-        1,
-    );
-
     output.insert(
         HotShotEvent::BlockReady(vid_disperse, ViewNumber::new(2)),
-        2,
+        1,
     );
 
     output.insert(
@@ -105,14 +97,19 @@ async fn test_vid_task() {
     );
     output.insert(
         HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key),
-        2, // 2 occurrences: 1 from `input`, 1 from the DA task
+        1,
     );
 
-    output.insert(HotShotEvent::VidDisperseRecv(vid_proposal, pub_key), 1);
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
-    output.insert(HotShotEvent::Shutdown, 1);
-
-    let build_fn = |task_runner, event_stream| add_vid_task(task_runner, event_stream, handle);
-
-    run_harness(input, output, None, build_fn, false).await;
+    let vid_state = VIDTaskState {
+        api: api.clone(),
+        consensus: handle.hotshot.get_consensus(),
+        cur_view: ViewNumber::new(0),
+        vote_collector: None,
+        network: api.inner.networks.quorum_network.clone().into(),
+        membership: api.inner.memberships.vid_membership.clone().into(),
+        public_key: *api.public_key(),
+        private_key: api.private_key().clone(),
+        id: handle.hotshot.inner.id,
+    };
+    run_harness(input, output, vid_state, false).await;
 }
