@@ -413,7 +413,6 @@
 <span class="kw">use crate</span>::{
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
-    state_types::TestInstanceState,
     test_launcher::{Networks, TestLauncher},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
@@ -421,6 +420,7 @@
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
+<span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
 
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 

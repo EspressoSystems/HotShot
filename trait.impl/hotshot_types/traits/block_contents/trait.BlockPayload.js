@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"hotshot_testing":[["impl <a class=\"trait\" href=\"hotshot_types/traits/block_contents/trait.BlockPayload.html\" title=\"trait hotshot_types::traits::block_contents::BlockPayload\">BlockPayload</a> for <a class=\"struct\" href=\"hotshot_testing/block_types/struct.TestBlockPayload.html\" title=\"struct hotshot_testing::block_types::TestBlockPayload\">TestBlockPayload</a>"]]
+"hotshot_example_types":[["impl <a class=\"trait\" href=\"hotshot_types/traits/block_contents/trait.BlockPayload.html\" title=\"trait hotshot_types::traits::block_contents::BlockPayload\">BlockPayload</a> for <a class=\"struct\" href=\"hotshot_example_types/block_types/struct.TestBlockPayload.html\" title=\"struct hotshot_example_types::block_types::TestBlockPayload\">TestBlockPayload</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -379,15 +379,17 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use crate</span>::{
+<span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
-    test_builder::TestMetadata,
 };
+
+<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestMetadata;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot::{
