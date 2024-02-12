@@ -3873,6 +3873,7 @@ dependencies = [
  "futures",
  "hotshot-constants",
  "hotshot-utils",
+ "lazy_static",
  "libp2p",
  "libp2p-identity",
  "libp2p-swarm-derive",
