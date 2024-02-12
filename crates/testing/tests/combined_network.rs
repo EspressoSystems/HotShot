@@ -1,8 +1,8 @@
 use std::time::Duration;
 
+use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
 use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    node_types::{CombinedImpl, TestTypes},
     overall_safety_task::OverallSafetyPropertiesDescription,
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::{TestMetadata, TimingData},
@@ -11,7 +11,7 @@ use rand::Rng;
 use tracing::instrument;
 
 use hotshot::traits::implementations::{calculate_hash_of, Cache};
-use hotshot_testing::block_types::TestTransaction;
+use hotshot_example_types::block_types::TestTransaction;
 
 #[cfg(test)]
 #[cfg_attr(

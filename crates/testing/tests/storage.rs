@@ -1,7 +1,7 @@
 use commit::Committable;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::traits::Storage;
-use hotshot_testing::{
+use hotshot_example_types::{
     block_types::{genesis_vid_commitment, TestBlockHeader, TestBlockPayload},
     node_types::TestTypes,
 };

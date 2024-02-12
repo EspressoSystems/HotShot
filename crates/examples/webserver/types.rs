@@ -1,6 +1,6 @@
 use crate::infra::WebServerDARun;
 use hotshot::traits::implementations::{MemoryStorage, WebCommChannel};
-use hotshot_testing::state_types::TestTypes;
+use hotshot_example_types::state_types::TestTypes;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

@@ -35,6 +35,7 @@ async-lock = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 hotshot-task = { path = "../task" }
+hotshot-example-types = { path = "../example-types" }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

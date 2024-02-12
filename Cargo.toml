@@ -23,6 +23,7 @@ members = [
         "crates/types",
         "crates/utils",
         "crates/examples",
+        "crates/example-types",
 ]
 resolver = "2"
 
