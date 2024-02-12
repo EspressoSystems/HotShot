@@ -8,7 +8,7 @@ use std::{
 /// a local caching layer for the DHT key value pairs
 mod cache;
 
-use async_compatibility_layer::art::async_block_on;
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use futures::channel::oneshot::Sender;
 use libp2p::kad::Behaviour as KademliaBehaviour;
 use libp2p::kad::Event as KademliaEvent;
@@ -26,11 +26,10 @@ use tracing::{error, info, warn};
 
 /// the number of nodes required to get an answer from
 /// in order to trust that the answer is correct when retrieving from the DHT
-/// TODO why are there two of these?
-/// <https://github.com/EspressoSystems/HotShot/issues/2434>
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
+
 /// the maximum number of nodes to query in the DHT at any one time
-const MAX_DHT_QUERY_SIZE: usize = 5;
+const MAX_DHT_QUERY_SIZE: usize = 50;
 
 use self::cache::Cache;
 
@@ -250,9 +249,10 @@ impl DHTBehaviour {
         if let Some(entry) = async_block_on(self.cache.get(&key)) {
             // exists in cache
             if chan.send(entry.value().clone()).is_err() {
-                warn!("Get DHT: channel closed before get record request result could be sent");
+                error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
+            tracing::debug!("DHT cache miss, key: {:?}", key);
             // doesn't exist in cache, actually propagate request
             let qid = self.kadem.get_record(key.clone().into());
             let query = KadGetQuery {
@@ -269,25 +269,43 @@ impl DHTBehaviour {
     }
 
     /// update state based on recv-ed get query
-    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, last: bool) {
-        if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
-            if let Ok(GetRecordOk::FoundRecord(record)) = record_results {
-                match query.records.entry(record.record.value) {
-                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                        let num_entries = o.get_mut();
-                        *num_entries += 1;
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, mut last: bool) {
+        let num = if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
+            match record_results {
+                Ok(results) => match results {
+                    GetRecordOk::FoundRecord(record) => {
+                        match query.records.entry(record.record.value) {
+                            std::collections::hash_map::Entry::Occupied(mut o) => {
+                                let num_entries = o.get_mut();
+                                *num_entries += 1;
+                                *num_entries
+                            }
+                            std::collections::hash_map::Entry::Vacant(v) => {
+                                v.insert(1);
+                                1
+                            }
+                        }
                     }
-                    std::collections::hash_map::Entry::Vacant(v) => {
-                        v.insert(1);
+                    GetRecordOk::FinishedWithNoAdditionalRecord {
+                        cache_candidates: _,
+                    } => {
+                        tracing::debug!("GetRecord Finished with No Additional Record");
+                        last = true;
+                        0
                     }
+                },
+                Err(err) => {
+                    error!("GOT ERROR IN KAD QUERY {:?}", err);
+                    0
                 }
             }
         } else {
             // inactive entry
             return;
-        }
+        };
 
-        if last {
+        // BUG
+        if num > NUM_REPLICATED_TO_TRUST {
             if let Some(KadGetQuery {
                 backoff,
                 progress,
@@ -312,21 +330,20 @@ impl DHTBehaviour {
                     .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
                 {
                     // insert into cache
-                    async_block_on(self.cache.insert(key, r.clone()));
+                    // TODO we should find a better place to set the cache
+                    // https://github.com/EspressoSystems/HotShot/issues/2554
+                    let cache = self.cache.clone();
+                    let val = r.clone();
+                    async_spawn(async move { cache.insert(key, val).await });
 
                     // return value
                     if notify.send(r).is_err() {
-                        warn!("Get DHT: channel closed before get record request result could be sent");
+                        error!("Get DHT: channel closed before get record request result could be sent");
                     }
-                }
-                // lack of replication => error
-                else if records_len < NUM_REPLICATED_TO_TRUST {
-                    warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
-                    self.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
                 // many records that don't match => disagreement
                 else if records_len > MAX_DHT_QUERY_SIZE {
-                    warn!(
+                    error!(
                         "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
                         progress
                     );
@@ -340,7 +357,25 @@ impl DHTBehaviour {
                         NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
 
                     self.get_record(key, notify, new_factor, backoff, retry_count);
-                    warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                    error!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                }
+            }
+        } else if last {
+            if let Some(KadGetQuery {
+                backoff,
+                progress,
+                notify,
+                num_replicas,
+                key,
+                retry_count,
+                records,
+            }) = self.in_progress_get_record_queries.remove(&id)
+            {
+                let records_len = records.iter().fold(0, |acc, (_k, v)| acc + v);
+                // lack of replication => error
+                if records_len < NUM_REPLICATED_TO_TRUST {
+                    error!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                    self.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
             }
         }
@@ -606,6 +641,7 @@ impl NetworkBehaviour for DHTBehaviour {
                 self.queued_get_record_queries.push_back(req);
             }
         }
+
         while let Some(req) = self.queued_put_record_queries.pop_front() {
             if req.backoff.is_expired() {
                 self.put_record(req);

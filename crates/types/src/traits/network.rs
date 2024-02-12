@@ -6,7 +6,6 @@ use async_compatibility_layer::art::async_sleep;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
 use dyn_clone::DynClone;
-use hotshot_task::{boxed_sync, BoxSyncFuture};
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
@@ -16,6 +15,7 @@ use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::ViewNumber,
     message::{Message, MessagePurpose},
+    BoxSyncFuture,
 };
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
@@ -147,8 +147,8 @@ pub enum ConsensusIntentEvent<K: SignatureKey> {
     PollForProposal(u64),
     /// Poll for VID disperse data for a particular view
     PollForVIDDisperse(u64),
-    /// Poll for the most recent quorum proposal the webserver has
-    PollForLatestQuorumProposal,
+    /// Poll for the most recent [quorum/da] proposal the webserver has
+    PollForLatestProposal,
     /// Poll for the most recent view sync proposal the webserver has
     PollForLatestViewSyncCertificate,
     /// Poll for a DAC for a particular view
@@ -203,7 +203,7 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
             | ConsensusIntentEvent::PollForTransactions(view_number)
             | ConsensusIntentEvent::CancelPollForTransactions(view_number)
             | ConsensusIntentEvent::PollFutureLeader(view_number, _) => *view_number,
-            ConsensusIntentEvent::PollForLatestQuorumProposal
+            ConsensusIntentEvent::PollForLatestProposal
             | ConsensusIntentEvent::PollForLatestViewSyncCertificate => 1,
         }
     }
@@ -214,6 +214,8 @@ pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
 {
 }
+
+impl NetworkMsg for Vec<u8> {}
 
 /// a message
 pub trait ViewMessage<TYPES: NodeType> {
@@ -449,7 +451,7 @@ pub trait NetworkReliability: Debug + Sync + std::marker::Send + DynClone + 'sta
                 }
             }
         };
-        boxed_sync(closure)
+        Box::pin(closure)
     }
 }
 

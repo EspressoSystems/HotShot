@@ -5,7 +5,7 @@ use std::{
     marker::PhantomData,
 };
 
-use bitvec::vec::BitVec;
+use bitvec::{bitvec, vec::BitVec};
 use commit::Commitment;
 use either::Either;
 use ethereum_types::U256;
@@ -73,7 +73,14 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Get the vote commitment which the votes commit to
     fn get_data_commitment(&self) -> Commitment<Self::Voteable>;
 }
-
+/// Mapping of vote commitment to sigatures and bitvec
+type SignersMap<COMMITMENT, KEY> = HashMap<
+    COMMITMENT,
+    (
+        BitVec,
+        Vec<<KEY as SignatureKey>::PureAssembledSignatureType>,
+    ),
+>;
 /// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 pub struct VoteAccumulator<
     TYPES: NodeType,
@@ -86,10 +93,9 @@ pub struct VoteAccumulator<
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     >,
-    /// A list of valid signatures for certificate aggregation
-    pub sig_lists: Vec<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType>,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
-    pub signers: BitVec,
+    /// And a list of valid signatures for certificate aggregation
+    pub signers: SignersMap<Commitment<VOTE::Commitment>, TYPES::SignatureKey>,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
@@ -102,17 +108,17 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
     ///
     /// # Panics
     /// Panics if the vote comes from a node not in the stake table
-    pub fn accumulate(mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<Self, CERT> {
+    pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.get_signing_key();
 
         let vote_commitment = vote.get_data_commitment();
         if !key.validate(&vote.get_signature(), vote_commitment.as_ref()) {
             error!("Invalid vote! Vote Data {:?}", vote.get_data());
-            return Either::Left(self);
+            return Either::Left(());
         }
 
         let Some(stake_table_entry) = membership.get_stake(&key) else {
-            return Either::Left(self);
+            return Either::Left(());
         };
         let stake_table = membership.get_committee_qc_stake_table();
         let vote_node_id = stake_table
@@ -130,15 +136,18 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
         // Check for duplicate vote
         if total_vote_map.contains_key(&key) {
-            return Either::Left(self);
+            return Either::Left(());
         }
-
-        if self.signers.get(vote_node_id).as_deref() == Some(&true) {
+        let (signers, sig_list) = self
+            .signers
+            .entry(vote_commitment)
+            .or_insert((bitvec![0; membership.total_nodes()], Vec::new()));
+        if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
-            return Either::Left(self);
+            return Either::Left(());
         }
-        self.signers.set(vote_node_id, true);
-        self.sig_lists.push(original_signature);
+        signers.set(vote_node_id, true);
+        sig_list.push(original_signature);
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.get_stake();
@@ -154,8 +163,8 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(
                 &real_qc_pp,
-                self.signers.as_bitslice(),
-                &self.sig_lists[..],
+                signers.as_bitslice(),
+                &sig_list[..],
             );
 
             let cert = CERT::create_signed_certificate(
@@ -166,7 +175,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             );
             return Either::Right(cert);
         }
-        Either::Left(self)
+        Either::Left(())
     }
 }
 

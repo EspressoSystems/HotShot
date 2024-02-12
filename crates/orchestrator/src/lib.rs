@@ -15,7 +15,7 @@ use std::{
 };
 use tide_disco::{Api, App};
 
-use surf_disco::{error::ClientError, Url};
+use surf_disco::Url;
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -61,8 +61,6 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
-    /// connection to the web server
-    _client: Option<surf_disco::Client<ClientError>>,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -70,11 +68,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 {
     /// create a new [`OrchestratorState`]
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
-        let mut web_client = None;
-        if network_config.web_server_config.is_some() {
-            let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
-            web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
-        }
         OrchestratorState {
             latest_index: 0,
             config: network_config,
@@ -83,7 +76,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             pub_posted: HashSet::new(),
             nodes_connected: 0,
             start: false,
-            _client: web_client,
         }
     }
 }
