@@ -264,15 +264,7 @@ pub struct RoundResult<TYPES: NodeType> {
 
     /// Nodes that committed this round
     /// id -> (leaf, qc)
-    // TODO GG: isn't it infeasible to store a Vec<Leaf<TYPES>>?
-    #[allow(clippy::type_complexity)]
-    success_nodes: HashMap<
-        u64,
-        (
-            Vec<(Leaf<TYPES>, Option<VidDisperse<TYPES>>)>,
-            QuorumCertificate<TYPES>,
-        ),
-    >,
+    success_nodes: HashMap<u64, (LeafChain<TYPES>, QuorumCertificate<TYPES>)>,
 
     /// Nodes that failed to commit this round
     pub failed_nodes: HashMap<u64, Arc<HotShotError<TYPES>>>,
