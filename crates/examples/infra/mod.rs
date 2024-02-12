@@ -17,16 +17,15 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::TestInstanceState,
+};
 use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
-};
-use hotshot_task::task::FilterEvent;
-use hotshot_testing::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::TestInstanceState,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -393,7 +392,7 @@ pub trait RunDA<
     /// Starts HotShot consensus, returns when consensus has finished
     async fn run_hotshot(
         &self,
-        mut context: SystemContextHandle<TYPES, NODE>,
+        context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
     ) {
@@ -413,7 +412,7 @@ pub trait RunDA<
         error!("Starting HotShot example!");
         let start = Instant::now();
 
-        let (mut event_stream, _streamid) = context.get_event_stream(FilterEvent::default()).await;
+        let mut event_stream = context.get_event_stream();
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
 
@@ -436,7 +435,7 @@ pub trait RunDA<
                             block_size,
                         } => {
                             // this might be a obob
-                            if let Some(leaf) = leaf_chain.first() {
+                            if let Some((leaf, _)) = leaf_chain.first() {
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;
