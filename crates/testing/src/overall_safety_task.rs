@@ -362,8 +362,8 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         self.success_nodes.insert(idx as u64, result.clone());
 
         let maybe_leaf: Option<(Leaf<TYPES>, _)> = result.0.into_iter().last();
-        if let Some(leaf) = maybe_leaf.clone() {
-            match self.leaf_map.entry(leaf.0.clone()) {
+        if let Some((leaf, _)) = maybe_leaf.clone() {
+            match self.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
                     *o.get_mut() += 1;
                 }
@@ -372,7 +372,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                 }
             }
 
-            let payload_commitment = leaf.0.get_payload_commitment();
+            let payload_commitment = leaf.get_payload_commitment();
 
             match self.block_map.entry(payload_commitment) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
@@ -475,8 +475,8 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
 
         for (leaf_vec, _) in self.success_nodes.values() {
             let most_recent_leaf = leaf_vec.iter().last();
-            if let Some(leaf) = most_recent_leaf {
-                match leaves.entry(leaf.0.clone()) {
+            if let Some((leaf, _)) = most_recent_leaf {
+                match leaves.entry(leaf.clone()) {
                     std::collections::hash_map::Entry::Occupied(mut o) => {
                         *o.get_mut() += 1;
                     }
