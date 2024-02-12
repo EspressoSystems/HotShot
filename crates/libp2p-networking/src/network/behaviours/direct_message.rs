@@ -13,8 +13,6 @@ use libp2p_identity::PeerId;
 use tracing::{error, info};
 
 use super::exponential_backoff::ExponentialBackoff;
-/// Maximum size of a direct message
-pub const MAX_MSG_SIZE_DM: usize = 100_000_000;
 
 /// Request to direct message a peert
 pub struct DMRequest {

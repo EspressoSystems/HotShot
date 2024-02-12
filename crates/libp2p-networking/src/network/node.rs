@@ -21,7 +21,7 @@ use super::{
 
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMEvent, MAX_MSG_SIZE_DM},
+    direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
 };
@@ -59,6 +59,9 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+/// Maximum size of a message
+pub const MAX_GOSSIP_MSG_SIZE: usize = 200_000_000;
 
 /// Wrapped num of connections
 pub const ESTABLISHED_LIMIT: NonZeroU32 =
@@ -210,7 +213,7 @@ impl NetworkNode {
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
                 .history_length(500)
-                .max_transmit_size(2 * MAX_MSG_SIZE_DM)
+                .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
