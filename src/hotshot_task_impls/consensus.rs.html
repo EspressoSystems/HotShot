@@ -1340,6 +1340,7 @@
 <a href="#1340" id="1340">1340</a>
 <a href="#1341" id="1341">1341</a>
 <a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1381,7 +1382,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
@@ -1468,9 +1469,8 @@
     <span class="doccomment">/// All the VID shares we&#39;ve received for current and future views.
     /// In the future we will need a different struct similar to VidDisperse except
     /// it stores only one share.
-    /// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/2146&gt;
     /// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1732&gt;
-    </span><span class="kw">pub </span>vid_shares: HashMap&lt;TYPES::Time, Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>vid_shares: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -1585,19 +1585,17 @@
                 }
             }
 
-            <span class="comment">// TODO: re-enable this when HotShot/the sequencer needs the shares for something
-            // issue: https://github.com/EspressoSystems/HotShot/issues/2236
-            // Only vote if you has seen the VID share for this view
-            // if let Some(_vid_share) = self.vid_shares.get(&amp;proposal.view_number) {
-            // } else {
-            //     debug!(
-            //         &quot;We have not seen the VID share for this view {:?} yet, so we cannot vote.&quot;,
-            //         proposal.view_number
-            //     );
-            //     return false;
-            // }
+            <span class="comment">// Only vote if you has seen the VID share for this view
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = <span class="self">self</span>.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
+            } <span class="kw">else </span>{
+                <span class="macro">debug!</span>(
+                    <span class="string">&quot;We have not seen the VID share for this view {:?} yet, so we cannot vote.&quot;</span>,
+                    proposal.view_number
+                );
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            }
 
-            // Only vote if you have the DA cert
+            <span class="comment">// Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
                 </span>.consensus
@@ -1856,7 +1854,7 @@
                                 Event {
                                     view_number: TYPES::Time::genesis(),
                                     event: EventType::Decide {
-                                        leaf_chain: Arc::new(<span class="macro">vec!</span>[leaf.clone()]),
+                                        leaf_chain: Arc::new(<span class="macro">vec!</span>[(leaf.clone(), <span class="prelude-val">None</span>)]),
                                         qc: Arc::new(justify_qc.clone()),
                                         block_size: <span class="prelude-val">None</span>,
                                     },
@@ -2085,7 +2083,11 @@
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                leaf_views.push(leaf.clone());
+                                <span class="kw">let </span>vid = <span class="self">self
+                                    </span>.vid_shares
+                                    .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
+                                    .map(|vid_proposal| vid_proposal.data.clone());
+                                leaf_views.push((leaf.clone(), vid));
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
                                     <span class="kw">for </span>txn <span class="kw">in </span>payload
                                         .transaction_commitments(leaf.get_block_header().metadata())
@@ -2145,6 +2147,7 @@
                     consensus
                         .collect_garbage(old_anchor_view, new_anchor_view)
                         .<span class="kw">await</span>;
+                    <span class="self">self</span>.vid_shares = <span class="self">self</span>.vid_shares.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
                     consensus.metrics.invalid_qc.set(<span class="number">0</span>);
                     consensus
@@ -2405,10 +2408,9 @@
                     .<span class="kw">await</span>;
 
                 <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
-                // TODO: re-enable this when HotShot/the sequencer needs the shares for something
-                // issue: https://github.com/EspressoSystems/HotShot/issues/2236
-                // self.vid_shares.insert(view, disperse);
-            </span>}
+                </span><span class="self">self</span>.vid_shares.insert(view, disperse);
+                <span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+            }
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;View Change event for view {} in consensus task&quot;</span>, <span class="kw-2">*</span>new_view);
 
