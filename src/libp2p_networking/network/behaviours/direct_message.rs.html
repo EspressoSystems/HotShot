@@ -306,24 +306,19 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
 };
 
 <span class="kw">use </span>libp2p::{
-    request_response::{Behaviour, Event, Message, RequestId, ResponseChannel},
+    request_response::{Behaviour, Event, Message, OutboundRequestId, ResponseChannel},
     swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>tracing::{error, info};
+<span class="comment">// use libp2p_request_response::Behaviour;
+</span><span class="kw">use </span>tracing::{error, info};
 
 <span class="kw">use super</span>::{
     direct_message_codec::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
@@ -348,7 +343,7 @@
     <span class="doccomment">/// The wrapped behaviour
     </span>request_response: Behaviour&lt;DirectMessageCodec&gt;,
     <span class="doccomment">/// In progress queries
-    </span>in_progress_rr: HashMap&lt;RequestId, DMRequest&gt;,
+    </span>in_progress_rr: HashMap&lt;OutboundRequestId, DMRequest&gt;,
     <span class="doccomment">/// Failed queries to be retried
     </span>failed_rr: VecDeque&lt;DMRequest&gt;,
     <span class="doccomment">/// lsit of out events for parent behaviour
@@ -370,17 +365,13 @@
         <span class="kw">match </span>event {
             Event::InboundFailure {
                 peer,
-                request_id,
+                request_id: <span class="kw">_</span>,
                 error,
             } =&gt; {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;inbound failure to send message to {:?} with error {:?}&quot;</span>,
                     peer, error
                 );
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
-                    req.backoff.start_next(<span class="bool-val">false</span>);
-                    <span class="self">self</span>.failed_rr.push_back(req);
-                }
             }
             Event::OutboundFailure {
                 peer,
@@ -436,10 +427,7 @@
 
     <span class="kw">type </span>ToSwarm = DMEvent;
 
-    <span class="kw">fn </span>on_swarm_event(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">&#39;_</span>, <span class="self">Self</span>::ConnectionHandler&gt;,
-    ) {
+    <span class="kw">fn </span>on_swarm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">&#39;_</span>&gt;) {
         <span class="self">self</span>.request_response.on_swarm_event(event);
     }
 
@@ -456,7 +444,6 @@
     <span class="kw">fn </span>poll(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-        params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>libp2p::swarm::PollParameters,
     ) -&gt; Poll&lt;ToSwarm&lt;DMEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
         <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.failed_rr.pop_front() {
             <span class="kw">if </span>req.backoff.is_expired() {
@@ -465,9 +452,7 @@
                 <span class="self">self</span>.failed_rr.push_back(req);
             }
         }
-        <span class="kw">while let </span>Poll::Ready(ready) =
-            NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, cx, params)
-        {
+        <span class="kw">while let </span>Poll::Ready(ready) = NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, cx) {
             <span class="kw">match </span>ready {
                 <span class="comment">// NOTE: this generates request
                 </span>ToSwarm::GenerateEvent(e) =&gt; {
@@ -510,6 +495,9 @@
                 }
                 ToSwarm::ExternalAddrExpired(c) =&gt; {
                     <span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(c));
+                }
+                e =&gt; {
+                    <span class="macro">error!</span>(<span class="string">&quot;UNHANDLED NEW SWARM VARIANT: {e:?}&quot;</span>);
                 }
             }
         }

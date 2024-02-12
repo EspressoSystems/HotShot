@@ -641,6 +641,16 @@
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -665,7 +675,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMEvent},
-    direct_message_codec::{DirectMessageProtocol, MAX_MSG_SIZE_DM},
+    direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
 };
@@ -673,7 +683,6 @@
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-<span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 <span class="kw">use </span>libp2p::core::transport::ListenerId;
@@ -699,7 +708,6 @@
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
-    io::Error,
     iter,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
@@ -860,7 +868,12 @@
                 <span class="comment">// Use the (blake3) hash of a message as its ID
                 </span>.message_id_fn(message_id_fn)
                 .build()
-                .map_err(|s| GossipsubConfigSnafu { message: s }.build())<span class="question-mark">?</span>;
+                .map_err(|s| {
+                    GossipsubConfigSnafu {
+                        message: s.to_string(),
+                    }
+                    .build()
+                })<span class="question-mark">?</span>;
 
             <span class="comment">// - Build a gossipsub network behavior
             </span><span class="kw">let </span>gossipsub: Gossipsub = Gossipsub::new(
@@ -906,10 +919,11 @@
 
             <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
-            <span class="kw">let </span>request_response = RequestResponse::new(
-                [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
-                rrconfig,
-            );
+            <span class="kw">let </span>request_response: libp2p::request_response::Behaviour&lt;DirectMessageCodec&gt; =
+                RequestResponse::new(
+                    [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                    rrconfig,
+                );
 
             <span class="kw">let </span>network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
@@ -1083,10 +1097,7 @@
     #[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">async fn </span>handle_swarm_events(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: SwarmEvent&lt;
-            NetworkEventInternal,
-            Either&lt;Either&lt;Either&lt;void::Void, Error&gt;, Error&gt;, void::Void&gt;,
-        &gt;,
+        event: SwarmEvent&lt;NetworkEventInternal&gt;,
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Make the match cleaner
@@ -1146,6 +1157,9 @@
                 listener_id: <span class="kw">_</span>,
                 address: <span class="kw">_</span>,
             }
+            | SwarmEvent::NewExternalAddrCandidate { .. }
+            | SwarmEvent::ExternalAddrConfirmed { .. }
+            | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: <span class="kw">_</span>,
                 local_addr: <span class="kw">_</span>,
@@ -1230,6 +1244,12 @@
             }
             SwarmEvent::ListenerError { listener_id, error } =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;LISTENER ERROR {:?} {:?}&quot;</span>, listener_id, error);
+            }
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">error!</span>(
+                    <span class="string">&quot;Unhandled swarm event {:?}. This should not be possible.&quot;</span>,
+                    event
+                );
             }
         }
         <span class="prelude-val">Ok</span>(())

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_MSG_SIZE_DM"],"struct":["DirectMessageCodec","DirectMessageProtocol","DirectMessageRequest","DirectMessageResponse"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_MSG_SIZE_DM"],"fn":["read_length_prefixed","read_varint","write_length_prefixed","write_varint"],"struct":["DirectMessageCodec","DirectMessageProtocol","DirectMessageRequest","DirectMessageResponse"]};
