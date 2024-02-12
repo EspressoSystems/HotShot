@@ -21,8 +21,7 @@ use super::{
 
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMEvent},
-    direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
+    direct_message::{DMBehaviour, DMEvent, MAX_MSG_SIZE_DM},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
 };
@@ -32,7 +31,7 @@ use async_compatibility_layer::{
 };
 use futures::{select, FutureExt, StreamExt};
 use hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::core::transport::ListenerId;
+use libp2p::{core::transport::ListenerId, StreamProtocol};
 use libp2p::{
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder,
@@ -266,9 +265,13 @@ impl NetworkNode {
 
             let rrconfig = RequestResponseConfig::default();
 
-            let request_response: libp2p::request_response::Behaviour<DirectMessageCodec> =
+            let request_response: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
                 RequestResponse::new(
-                    [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                    [(
+                        StreamProtocol::new("/HotShot/request_response/1.0"),
+                        ProtocolSupport::Full,
+                    )]
+                    .into_iter(),
                     rrconfig,
                 );
 
