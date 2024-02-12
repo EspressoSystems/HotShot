@@ -3,6 +3,8 @@
   * Aggegated signature is valid against the data the certificate commits to
   * Aggregated signature represents a proper threshold for that certificate
 
+Overall idea is for the leader to separately send the DA proposal, DA cert, Qproposal, and VID share. 
+
 ## Data Structures
 ```
 state_map {
