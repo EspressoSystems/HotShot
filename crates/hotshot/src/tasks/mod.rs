@@ -3,6 +3,7 @@
 use crate::{types::SystemContextHandle, HotShotConsensusApi};
 use async_compatibility_layer::art::async_sleep;
 use futures::FutureExt;
+use hotshot_constants::VERSION_0_1;
 use hotshot_task::{
     boxed_sync,
     event_stream::ChannelStream,
@@ -244,6 +245,8 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         timeout_task: None,
         timeout_cert: None,
         upgrade_cert: None,
+        decided_upgrade_cert: None,
+        current_network_version: VERSION_0_1,
         event_stream: event_stream.clone(),
         output_event_stream: output_stream,
         vid_shares: HashMap::new(),

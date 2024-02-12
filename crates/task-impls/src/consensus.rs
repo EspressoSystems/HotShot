@@ -9,6 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
+use hotshot_constants::Version;
 use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::{
     event_stream::{ChannelStream, EventStream},
@@ -126,6 +127,13 @@ pub struct ConsensusTaskState<
 
     /// last Upgrade Certificate this node formed
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+
+    /// most recent decided upgrade certificate
+    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+
+    /// The current version of the network.
+    /// Updated on view change based on the most recent decided upgrade certificate.
+    pub current_network_version: Version,
 
     /// Global events stream to publish events
     pub event_stream: ChannelStream<HotShotEvent<TYPES>>,
@@ -743,6 +751,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .last_synced_block_height
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
+                                if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
+                                    self.decided_upgrade_cert = Some(upgrade_cert.clone());
+                                }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
                                 if let Some(encoded_txns) =
@@ -1103,6 +1114,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if !self.update_view(new_view).await {
                     debug!("view not updated");
                     return;
+                }
+
+                // If we have a decided upgrade certificate, 
+                // we may need to upgrade the protocol version on a view change.
+                if let Some(ref cert) = self.decided_upgrade_cert {
+                  if new_view >= cert.data.new_version_first_block {
+                    self.current_network_version = cert.data.new_version;
+                    // Discard the old upgrade certificate, which is no longer relevant.
+                    self.decided_upgrade_cert = None;
+                  }
                 }
 
                 self.output_event_stream
