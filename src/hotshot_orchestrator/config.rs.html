@@ -583,6 +583,7 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, ValidatorConfig,
@@ -785,6 +786,7 @@
         file: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; (NetworkConfig&lt;K, E&gt;, NetworkConfigSource) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = file {
+            <span class="macro">error!</span>(<span class="string">&quot;Retrieving config from the file&quot;</span>);
             <span class="comment">// if we pass in file, try there first
             </span><span class="kw">match </span><span class="self">Self</span>::from_file(file.clone()) {
                 <span class="prelude-val">Ok</span>(config) =&gt; (config, NetworkConfigSource::File),

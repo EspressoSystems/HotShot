@@ -106,6 +106,9 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the web server
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -137,9 +140,12 @@
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">&quot;tokio&quot;</span>, tokio::main)]
 #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::main)]
 </span><span class="kw">async fn </span>main() {
+    <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+    setup_logging();
+    setup_backtrace();
+
     <span class="comment">// use configfile args
     </span><span class="kw">let </span>args = ConfigArgs::parse();
-
     <span class="comment">// spawn web servers
     </span><span class="kw">let </span>(server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     <span class="kw">let </span>(server_shutdown_sender_da, server_shutdown_da) = oneshot();
@@ -204,7 +210,7 @@
                 NodeImpl,
                 ThisRun,
             &gt;(ValidatorArgs {
-                url: orchestrator_url,
+                url: orchestrator_url.clone(),
                 public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                 network_config_file: <span class="prelude-val">None</span>,
             })
