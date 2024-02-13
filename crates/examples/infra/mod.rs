@@ -17,15 +17,15 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::TestInstanceState,
+};
 use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
-};
-use hotshot_testing::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::TestInstanceState,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -440,7 +440,7 @@ pub trait RunDA<
                             block_size,
                         } => {
                             // this might be a obob
-                            if let Some(leaf) = leaf_chain.first() {
+                            if let Some((leaf, _)) = leaf_chain.first() {
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;
