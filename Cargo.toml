@@ -83,6 +83,7 @@ typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.53.2", features = [
         "macros",
         "autonat",
+        "cbor",
         "dns",
         "floodsub",
         "gossipsub",
