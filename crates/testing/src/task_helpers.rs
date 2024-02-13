@@ -1,19 +1,19 @@
 #![allow(clippy::panic)]
 use std::marker::PhantomData;
 
-use crate::{
+use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
-    test_builder::TestMetadata,
 };
+
+use crate::test_builder::TestMetadata;
 use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
 };
-use hotshot_task::event_stream::ChannelStream;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -32,6 +32,7 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use hotshot_types::simple_vote::QuorumData;
@@ -51,7 +52,8 @@ pub async fn build_system_handle(
     node_id: u64,
 ) -> (
     SystemContextHandle<TestTypes, MemoryImpl>,
-    ChannelStream<HotShotEvent<TestTypes>>,
+    Sender<HotShotEvent<TestTypes>>,
+    Receiver<HotShotEvent<TestTypes>>,
 ) {
     let builder = TestMetadata::default_multiple_rounds();
 

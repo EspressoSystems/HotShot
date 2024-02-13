@@ -8,13 +8,14 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::{
+    collections::HashSet,
     io,
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
 use tide_disco::{Api, App};
 
-use surf_disco::{error::ClientError, Url};
+use surf_disco::Url;
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -29,7 +30,6 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
-
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed
@@ -50,13 +50,17 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY, ELECTION>,
+    /// The total nodes that have posted their public keys
+    pub nodes_with_pubkey: u64,
+    /// Whether the network configuration has been updated with all the peer's public keys/configs
+    peer_pub_ready: bool,
+    /// The set of index for nodes that have posted their public keys/configs
+    pub_posted: HashSet<u64>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
-    /// connection to the web server
-    client: Option<surf_disco::Client<ClientError>>,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -64,17 +68,14 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 {
     /// create a new [`OrchestratorState`]
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
-        let mut web_client = None;
-        if network_config.web_server_config.is_some() {
-            let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
-            web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
-        }
         OrchestratorState {
             latest_index: 0,
             config: network_config,
-            start: false,
+            nodes_with_pubkey: 0,
+            peer_pub_ready: false,
+            pub_posted: HashSet::new(),
             nodes_connected: 0,
-            client: web_client,
+            start: false,
         }
     }
 }
@@ -90,8 +91,24 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// if unable to serve
     fn post_getconfig(
         &mut self,
-        node_index: u16,
+        _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    /// post endpoint for each node's public key
+    /// # Errors
+    /// if unable to serve
+    fn register_public_key(
+        &mut self,
+        node_index: u64,
+        pubkey: &mut Vec<u8>,
+    ) -> Result<(), ServerError>;
+    /// post endpoint for whether or not all peers public keys are ready
+    /// # Errors
+    /// if unable to serve
+    fn peer_pub_ready(&self) -> Result<bool, ServerError>;
+    /// get endpoint for the network config after all peers public keys are collected
+    /// # Errors
+    /// if unable to serve
+    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -121,21 +138,6 @@ where
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Network has reached capacity".to_string(),
             });
-        }
-
-        //add new node's key to stake table
-        if self.config.web_server_config.clone().is_some() {
-            let new_key = &self.config.config.my_own_validator_config.public_key;
-            let client_clone = self.client.clone().unwrap();
-            async move {
-                client_clone
-                    .post::<()>("api/staketable")
-                    .body_binary(&new_key)
-                    .unwrap()
-                    .send()
-                    .await
-            }
-            .boxed();
         }
 
         if self.config.libp2p_config.clone().is_some() {
@@ -179,6 +181,58 @@ where
         Ok(self.config.clone())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
+    fn register_public_key(
+        &mut self,
+        node_index: u64,
+        pubkey: &mut Vec<u8>,
+    ) -> Result<(), ServerError> {
+        if self.pub_posted.contains(&node_index) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Node has already posted public key".to_string(),
+            });
+        }
+        self.pub_posted.insert(node_index);
+
+        // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
+        // The guess is extra bytes are from orchestrator serialization
+        pubkey.drain(..8);
+        let register_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
+        let register_pub_key_with_stake = register_pub_key.get_stake_table_entry(1u64);
+        self.config.config.known_nodes_with_stake[node_index as usize] =
+            register_pub_key_with_stake;
+        self.nodes_with_pubkey += 1;
+        println!(
+            "Node {:?} posted public key, now total num posted public key: {:?}",
+            node_index, self.nodes_with_pubkey
+        );
+        if self.nodes_with_pubkey >= (self.config.config.total_nodes.get() as u64) {
+            self.peer_pub_ready = true;
+        }
+        Ok(())
+    }
+
+    fn peer_pub_ready(&self) -> Result<bool, ServerError> {
+        if !self.peer_pub_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Peer's public configs are not ready".to_string(),
+            });
+        }
+        Ok(self.peer_pub_ready)
+    }
+
+    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+        if !self.peer_pub_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Peer's public configs are not ready".to_string(),
+            });
+        }
+        Ok(self.config.clone())
+    }
+
     fn get_start(&self) -> Result<bool, ServerError> {
         // println!("{}", self.start);
         if !self.start {
@@ -195,15 +249,7 @@ where
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
-        if self.nodes_connected
-            >= self
-                .config
-                .config
-                .known_nodes_with_stake
-                .len()
-                .try_into()
-                .unwrap()
-        {
+        if self.nodes_connected >= (self.config.config.total_nodes.get() as u64) {
             self.start = true;
         }
         Ok(())
@@ -249,9 +295,24 @@ where
         }
         .boxed()
     })?
-    .post("postready", |_req, state| {
-        async move { state.post_ready() }.boxed()
+    .post("postpubkey", |req, state| {
+        async move {
+            let node_index = req.integer_param("node_index")?;
+            let mut pubkey = req.body_bytes();
+            state.register_public_key(node_index, &mut pubkey)
+        }
+        .boxed()
     })?
+    .get("peer_pubconfig_ready", |_req, state| {
+        async move { state.peer_pub_ready() }.boxed()
+    })?
+    .get("config_after_peer_collected", |_req, state| {
+        async move { state.get_config_after_peer_collected() }.boxed()
+    })?
+    .post(
+        "postready",
+        |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
+    )?
     .get("getstart", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
