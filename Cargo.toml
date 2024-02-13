@@ -52,7 +52,7 @@ blake3 = "1.5"
 commit = { git = "https://github.com/EspressoSystems/commit" }
 custom_debug = "0.5"
 digest = "0.10"
-either = { version = "1.8" }
+either = { version = "1.10" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.30"
