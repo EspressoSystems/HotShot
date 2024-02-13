@@ -5,13 +5,10 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
 use futures::StreamExt;
-use hotshot::traits::implementations::{CombinedNetworks, CombinedNetworks};
+use hotshot::traits::implementations::{CombinedNetworks, UnderlyingCombinedNetworks};
 use hotshot::{
     traits::{
-        implementations::{
-            Libp2pNetwork, Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork,
-            WebServerNetwork,
-        },
+        implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
@@ -344,8 +341,8 @@ pub trait RunDA<
             config.config.da_committee_size.try_into().unwrap(),
         );
         let networks_bundle = Networks {
-            quorum_network: quorum_network.clone(),
-            da_network: da_network.clone(),
+            quorum_network: quorum_network.clone().into(),
+            da_network: da_network.clone().into(),
             _pd: PhantomData,
         };
 
@@ -539,17 +536,12 @@ where
 
         underlying_quorum_network.wait_for_ready().await;
 
-        // create communication channels
-        let quorum_channel: WebServerNetwork<TYPES> =
-            WebServerNetwork::new(underlying_quorum_network.clone().into());
-
-        let da_channel: WebServerNetwork<TYPES> = WebServerNetwork::new(
-            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true).into(),
-        );
+        let da_channel: WebServerNetwork<TYPES> =
+            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true);
 
         WebServerDARun {
             config,
-            quorum_channel,
+            quorum_channel: underlying_quorum_network,
             da_channel,
         }
     }
@@ -574,9 +566,9 @@ pub struct Libp2pDARun<TYPES: NodeType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: Libp2pNetwork<TYPES>,
+    quorum_channel: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
     /// data availability channel
-    da_channel: Libp2pNetwork<TYPES>,
+    da_channel: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 }
 
 #[async_trait]
@@ -589,11 +581,17 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = Libp2pNetwork<TYPES>,
-            CommitteeNetwork = Libp2pNetwork<TYPES>,
+            QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+            CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             Storage = MemoryStorage<TYPES>,
         >,
-    > RunDA<TYPES, Libp2pNetwork<TYPES>, Libp2pNetwork<TYPES>, NODE> for Libp2pDARun<TYPES>
+    >
+    RunDA<
+        TYPES,
+        Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        NODE,
+    > for Libp2pDARun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -608,8 +606,8 @@ where
         // create and wait for underlying network
         let quorum_channel = libp2p_network_from_config::<TYPES>(config.clone(), pub_key).await;
 
-        let da_channel = underlying_quorum_network.clone().into();
-        underlying_quorum_network.wait_for_ready().await;
+        let da_channel = quorum_channel.clone();
+        quorum_channel.wait_for_ready().await;
 
         Libp2pDARun {
             config,
@@ -618,11 +616,11 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> Libp2pNetwork<TYPES> {
+    fn get_da_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> Libp2pNetwork<TYPES> {
+    fn get_quorum_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         self.quorum_channel.clone()
     }
 
@@ -687,34 +685,22 @@ where
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         // create and wait for underlying webserver network
-        let webserver_underlying_quorum_network =
+        let web_quorum_network =
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
 
-        let webserver_underlying_da_network =
-            WebServerNetwork::create(url, wait_between_polls, pub_key, true);
+        let web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, true);
 
-        webserver_underlying_quorum_network.wait_for_ready().await;
+        web_quorum_network.wait_for_ready().await;
 
-        // combine the two communication channels
-        let quorum_channel = CombinedNetworks::new(Arc::new(CombinedNetworks(
-            webserver_underlying_quorum_network.clone(),
+        // combine the two communication channel
+
+        let da_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
+            web_da_network.clone(),
             libp2p_underlying_quorum_network.clone(),
         )));
-
-        let view_sync_channel = CombinedNetworks::new(Arc::new(CombinedNetworks(
-            webserver_underlying_quorum_network.clone(),
+        let quorum_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
+            web_quorum_network.clone(),
             libp2p_underlying_quorum_network.clone(),
-        )));
-
-        let da_channel: CombinedNetworks<TYPES> =
-            CombinedNetworks::new(Arc::new(CombinedNetworks(
-                webserver_underlying_da_network,
-                libp2p_underlying_quorum_network.clone(),
-            )));
-
-        let vid_channel = CombinedNetworks::new(Arc::new(CombinedNetworks(
-            webserver_underlying_quorum_network,
-            libp2p_underlying_quorum_network,
         )));
 
         CombinedDARun {
@@ -755,7 +741,7 @@ pub async fn main_entry_point<
         CommitteeNetwork = DACHANNEL,
         Storage = MemoryStorage<TYPES>,
     >,
-    RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, VIEWSYNCCHANNEL, VIDCHANNEL, NODE>,
+    RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
     args: ValidatorArgs,
 ) where

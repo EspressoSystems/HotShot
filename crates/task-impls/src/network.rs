@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -186,7 +188,7 @@ pub struct NetworkEventTaskState<
     COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
 > {
     /// comm channel
-    pub channel: COMMCHANNEL,
+    pub channel: Arc<COMMCHANNEL>,
     /// view number
     pub view: TYPES::Time,
     /// membership for the channel

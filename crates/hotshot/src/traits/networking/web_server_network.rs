@@ -51,18 +51,6 @@ use tracing::{debug, error, info, warn};
 /// convenience alias alias for the result of getting transactions from the web server
 pub type TxnResult = Result<Option<(u64, Vec<Vec<u8>>)>, ClientError>;
 
-/// Represents the communication channel abstraction for the web server
-#[derive(Clone, Debug)]
-pub struct WebCommChannel<TYPES: NodeType>(Arc<WebServerNetwork<TYPES>>);
-
-impl<TYPES: NodeType> WebCommChannel<TYPES> {
-    /// Create new communication channel
-    #[must_use]
-    pub fn new(network: Arc<WebServerNetwork<TYPES>>) -> Self {
-        Self(network)
-    }
-}
-
 /// # Note
 ///
 /// This function uses `DefaultHasher` instead of cryptographic hash functions like SHA-256 because of an `AsRef` requirement.

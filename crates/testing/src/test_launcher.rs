@@ -2,6 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{
+    message::Message,
     traits::{network::ConnectedNetwork, node_implementation::NodeType},
     HotShotConfig,
 };
@@ -10,8 +11,8 @@ use super::{test_builder::TestMetadata, test_runner::TestRunner};
 
 /// convience type alias for the networks available
 pub type Networks<TYPES, I> = (
-    <I as NodeImplementation<TYPES>>::QuorumNetwork,
-    <I as NodeImplementation<TYPES>>::QuorumNetwork,
+    Arc<<I as NodeImplementation<TYPES>>::QuorumNetwork>,
+    Arc<<I as NodeImplementation<TYPES>>::QuorumNetwork>,
 );
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.

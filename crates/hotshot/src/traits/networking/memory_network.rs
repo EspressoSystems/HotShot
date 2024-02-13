@@ -454,17 +454,3 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         boxed_sync(closure)
     }
 }
-
-/// memory identity communication channel
-#[derive(Clone, Debug)]
-pub struct MemoryCommChannel<TYPES: NodeType>(
-    Arc<MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>>,
-);
-
-impl<TYPES: NodeType> MemoryCommChannel<TYPES> {
-    /// create new communication channel
-    #[must_use]
-    pub fn new(network: Arc<MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>>) -> Self {
-        Self(network)
-    }
-}

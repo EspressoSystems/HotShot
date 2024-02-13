@@ -20,7 +20,6 @@ use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemCont
 
 use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::traits::{network::ConnectedNetwork, node_implementation::NodeImplementation};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::{
@@ -28,6 +27,10 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
+};
+use hotshot_types::{
+    message::Message,
+    traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
