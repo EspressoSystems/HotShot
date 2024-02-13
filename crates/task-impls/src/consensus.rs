@@ -509,6 +509,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Validate the upgrade certificate, if one is attached.
                 // Continue unless the certificate is invalid.
+                //
+                // Note: we are *not* directly voting on the upgrade certificate here.
+                // Once a certificate has been (allegedly) formed, it has already been voted on.
+                // The certificate is either valid or invalid, and we are simply validating it.
+                //
+                // SS: It is possible that we may wish to vote against any quorum proposal
+                // if it attaches an upgrade certificate that we cannot support.
+                // But I don't think there's much point in this -- if the UpgradeCertificate
+                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis 
+                // will probably be completely symbolic anyway.
+                //
+                // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
+                // that we do not support.
                 if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
                     if !upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
                         error!("Invalid upgrade_cert in proposal for view {}", *view);
