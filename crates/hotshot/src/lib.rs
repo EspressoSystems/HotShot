@@ -194,7 +194,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         // insert genesis (or latest block) to state map
         let mut validated_state_map = BTreeMap::default();
-        let validated_state = Arc::new(TYPES::ValidatedState::genesis(&instance_state));
+        let validated_state = Arc::new(TYPES::ValidatedState::from_header(
+            &anchored_leaf.block_header,
+        ));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -631,7 +633,7 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// Instance-level state.
     instance_state: TYPES::InstanceState,
 
-    /// Starting view number.
+    /// Starting view number that we are confident won't lead to a double vote after restart.
     start_view: TYPES::Time,
 }
 
@@ -652,8 +654,8 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// Reload previous state based on most recent leaf and the instance-level state.
     ///
     /// # Arguments
-    /// *  `start_view` - The minimum view number that we are confident won't lead to a double
-    /// vote after restart.
+    /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
+    /// after restart.
     pub fn from_reload(
         anchor_leaf: Leaf<TYPES>,
         instance_state: TYPES::InstanceState,

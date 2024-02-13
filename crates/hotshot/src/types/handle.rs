@@ -173,7 +173,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Wrapper to get this node's current view
-    #[cfg(feature = "hotshot-testing")]
     pub async fn get_current_view(&self) -> TYPES::Time {
         self.hotshot.inner.consensus.read().await.cur_view
     }
