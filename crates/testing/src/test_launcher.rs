@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{
-    traits::{network::CommunicationChannel, node_implementation::NodeType},
+    traits::{network::ConnectedNetwork, node_implementation::NodeType},
     HotShotConfig,
 };
 
@@ -16,12 +16,6 @@ pub type Networks<TYPES, I> = (
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
-
-/// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
-
-/// Wrapper Type for view sync function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-pub type ViewSyncNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 
 /// generators for resources used by each node
 pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -44,7 +38,9 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// launch the test
     #[must_use]
-    pub fn launch<N: CommunicationChannel<TYPES>>(self) -> TestRunner<TYPES, I, N> {
+    pub fn launch<N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>>(
+        self,
+    ) -> TestRunner<TYPES, I, N> {
         TestRunner::<TYPES, I, N> {
             launcher: self,
             nodes: Vec::new(),

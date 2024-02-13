@@ -18,9 +18,8 @@ use hotshot_types::{
     message::{Message, MessagePurpose},
     traits::{
         network::{
-            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
-            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
-            WebServerNetworkError,
+            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
+            TestableNetworkingImplementation, TransmitType, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -100,18 +99,6 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
         result.map_err(|_e| NetworkError::WebServer {
             source: WebServerNetworkError::ClientError,
         })
-    }
-
-    /// Pauses the underlying network
-    pub fn pause(&self) {
-        error!("Pausing CDN network");
-        self.inner.running.store(false, Ordering::Relaxed);
-    }
-
-    /// Resumes the underlying network
-    pub fn resume(&self) {
-        error!("Resuming CDN network");
-        self.inner.running.store(true, Ordering::Relaxed);
     }
 }
 
@@ -724,105 +711,6 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType> CommunicationChannel<TYPES> for WebCommChannel<TYPES> {
-    type NETWORK = WebServerNetwork<TYPES>;
-    /// Blocks until node is successfully initialized
-    /// into the network
-    async fn wait_for_ready(&self) {
-        <WebServerNetwork<_> as ConnectedNetwork<
-            Message<TYPES>,
-            TYPES::SignatureKey,
-        >>::wait_for_ready(&self.0)
-        .await;
-    }
-
-    fn pause(&self) {
-        self.0.pause();
-    }
-
-    fn resume(&self) {
-        self.0.resume();
-    }
-
-    /// checks if the network is ready
-    /// nonblocking
-    async fn is_ready(&self) -> bool {
-        <WebServerNetwork<_> as ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>>::is_ready(
-            &self.0,
-        )
-        .await
-    }
-
-    /// Shut down this network. Afterwards this network should no longer be used.
-    ///
-    /// This should also cause other functions to immediately return with a [`NetworkError`]
-    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            <WebServerNetwork<_> as ConnectedNetwork<
-                Message<TYPES>,
-                TYPES::SignatureKey,
-            >>::shut_down(&self.0)
-            .await;
-        };
-        boxed_sync(closure)
-    }
-
-    /// broadcast message to those listening on the communication channel
-    /// blocking
-    async fn broadcast_message(
-        &self,
-        message: Message<TYPES>,
-        _election: &TYPES::Membership,
-    ) -> Result<(), NetworkError> {
-        self.0.broadcast_message(message, BTreeSet::new()).await
-    }
-
-    /// Sends a direct message to a specific node
-    /// blocking
-    async fn direct_message(
-        &self,
-        message: Message<TYPES>,
-        recipient: TYPES::SignatureKey,
-    ) -> Result<(), NetworkError> {
-        self.0.direct_message(message, recipient).await
-    }
-
-    /// Moves out the entire queue of received messages of 'transmit_type`
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    fn recv_msgs<'a, 'b>(
-        &'a self,
-        transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            <WebServerNetwork<_> as ConnectedNetwork<
-                Message<TYPES>,
-                TYPES::SignatureKey,
-            >>::recv_msgs(&self.0, transmit_type)
-            .await
-        };
-        boxed_sync(closure)
-    }
-
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_> as ConnectedNetwork<
-            Message<TYPES>,
-            TYPES::SignatureKey,
-        >>::inject_consensus_info(&self.0, event)
-        .await;
-    }
-}
-
-#[async_trait]
 impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for WebServerNetwork<TYPES>
 {
@@ -832,7 +720,15 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             async_sleep(Duration::from_secs(1)).await;
         }
     }
+    fn pause(&self) {
+        error!("Pausing CDN network");
+        self.inner.running.store(false, Ordering::Relaxed);
+    }
 
+    fn resume(&self) {
+        error!("Resuming CDN network");
+        self.inner.running.store(true, Ordering::Relaxed);
+    }
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
@@ -1394,38 +1290,5 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
 
     fn in_flight_message_count(&self) -> Option<usize> {
         None
-    }
-}
-
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebCommChannel<TYPES> {
-    fn generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-        da_committee_size: usize,
-        is_da: bool,
-        _reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let generator = <WebServerNetwork<TYPES> as TestableNetworkingImplementation<_>>::generator(
-            expected_node_count,
-            num_bootstrap,
-            network_id,
-            da_committee_size,
-            is_da,
-            // network reliability is a testing feature
-            // not yet implemented for webcommchannel
-            None,
-        );
-        Box::new(move |node_id| Self(generator(node_id).into()))
-    }
-
-    fn in_flight_message_count(&self) -> Option<usize> {
-        None
-    }
-}
-
-impl<TYPES: NodeType> TestableChannelImplementation<TYPES> for WebCommChannel<TYPES> {
-    fn generate_network() -> Box<dyn Fn(Arc<WebServerNetwork<TYPES>>) -> Self + 'static> {
-        Box::new(move |network| WebCommChannel::new(network))
     }
 }

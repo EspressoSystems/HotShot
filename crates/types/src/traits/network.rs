@@ -304,6 +304,12 @@ pub trait CommunicationChannel<TYPES: NodeType>: Clone + Debug + Send + Sync + '
 pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
+    /// Pauses the underlying network
+    fn pause(&self);
+
+    /// Resumes the underlying network
+    fn resume(&self);
+
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self);
 

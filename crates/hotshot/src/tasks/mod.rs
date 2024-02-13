@@ -15,17 +15,20 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     event::Event,
     message::Messages,
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
-        network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
+        network::{ConsensusIntentEvent, TransmitType},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
+};
+use hotshot_types::{
+    message::Message,
+    traits::{election::Membership, network::ConnectedNetwork},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -45,7 +48,10 @@ pub enum GlobalEvent {
 }
 
 /// Add the network task to handle messages and publish events.
-pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel<TYPES>>(
+pub async fn add_network_message_task<
+    TYPES: NodeType,
+    NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+>(
     task_reg: Arc<TaskRegistry>,
     event_stream: Sender<HotShotEvent<TYPES>>,
     channel: NET,
@@ -105,7 +111,10 @@ pub async fn add_network_message_task<TYPES: NodeType, NET: CommunicationChannel
 }
 
 /// Add the network task to handle events and send messages.
-pub async fn add_network_event_task<TYPES: NodeType, NET: CommunicationChannel<TYPES>>(
+pub async fn add_network_event_task<
+    TYPES: NodeType,
+    NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<HotShotEvent<TYPES>>,
     rx: Receiver<HotShotEvent<TYPES>>,
