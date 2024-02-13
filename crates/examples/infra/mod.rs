@@ -400,6 +400,7 @@ pub trait RunDA<
         context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
+        transaction_size_in_bytes: u64,
     ) {
         let NetworkConfig {
             rounds,
@@ -484,10 +485,10 @@ pub trait RunDA<
         }
 
         // Output run results
-        let total_time_elapsed = start.elapsed().as_secs(); // in seconds
-        let tx_size = transactions[0].0.len() as u64; // in bytes
-        let throughput = total_transactions_committed * tx_size / total_time_elapsed;
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits} - Throughput: {throughput} bytes/sec");
+        let total_time_elapsed = start.elapsed(); // in seconds
+        let throughput = total_transactions_committed * transaction_size_in_bytes / total_time_elapsed.as_secs();
+        error!("[{node_index}]: Throughput: {throughput} bytes/sec");
+        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run
@@ -951,6 +952,7 @@ pub async fn main_entry_point<
         hotshot,
         &mut transactions,
         transactions_to_send_per_round as u64,
+        (transaction_size + 8) as u64,
     )
     .await;
 }

@@ -140,7 +140,7 @@ impl OrchestratorClient {
 
         let mut config = self.wait_for_fn_from_orchestrator(f).await;
         config.node_index = From::<u16>::from(node_index);
-        // The orchestrator will generate keys for validator if it doesn't load keys from file
+        // The orchestrator will generate keys for validator because it doesn't load keys from file if this func is called
         config.config.my_own_validator_config =
             ValidatorConfig::<K>::generated_from_seed_indexed(config.seed, config.node_index, 1);
 

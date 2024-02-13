@@ -195,8 +195,7 @@ where
         }
         self.pub_posted.insert(node_index);
 
-        // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
-        // The guess is extra bytes are from orchestrator serialization
+        // The guess is the first extra 8 bytes are from orchestrator serialization
         pubkey.drain(..8);
         let register_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
         let register_pub_key_with_stake = register_pub_key.get_stake_table_entry(1u64);
