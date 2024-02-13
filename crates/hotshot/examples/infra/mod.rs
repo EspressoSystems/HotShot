@@ -479,8 +479,10 @@ pub trait RunDA<
         }
 
         // Output run results
-        let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        let total_time_elapsed = start.elapsed().as_secs(); // in seconds
+        let tx_size = transactions[0].0.len() as u64; // in bytes
+        let throughput = total_transactions_committed * tx_size / total_time_elapsed;
+        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits} - Throughput: {throughput} bytes/sec");
     }
 
     /// Returns the da network for this run
