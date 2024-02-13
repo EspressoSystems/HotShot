@@ -87,7 +87,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                                 let node = Node {
                                     node_id,
                                     networks: node.networks,
-                                    handle,
+                                    handle: handle.clone(),
                                 };
                                 state.handles.push(node);
 
