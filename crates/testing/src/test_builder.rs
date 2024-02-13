@@ -10,16 +10,15 @@ use hotshot_types::{
 };
 
 use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
-use crate::{
-    spinning_task::SpinningTaskDescription,
-    state_types::TestInstanceState,
-    test_launcher::{ResourceGenerators, TestLauncher},
-    view_sync_task::ViewSyncTaskDescription,
-};
-
 use super::{
     overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
 };
+use crate::{
+    spinning_task::SpinningTaskDescription,
+    test_launcher::{ResourceGenerators, TestLauncher},
+    view_sync_task::ViewSyncTaskDescription,
+};
+use hotshot_example_types::state_types::TestInstanceState;
 /// data describing how a round should be timed.
 #[derive(Clone, Debug, Copy)]
 pub struct TimingData {
@@ -69,7 +68,7 @@ pub struct TestMetadata {
 impl Default for TimingData {
     fn default() -> Self {
         Self {
-            next_view_timeout: 1500,
+            next_view_timeout: 2500,
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,
@@ -185,7 +184,7 @@ impl Default for TestMetadata {
             },
             overall_safety_properties: OverallSafetyPropertiesDescription::default(),
             // arbitrary, haven't done the math on this
-            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
+            txn_description: TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(100)),
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // TODO ED Put a configurable time here - 10 seconds for now
@@ -220,12 +219,8 @@ impl TestMetadata {
             min_transactions,
             timing_data,
             da_committee_size,
-            txn_description,
-            completion_task_description,
-            overall_safety_properties,
-            spinning_properties,
+
             unreliable_network,
-            view_sync_properties,
             ..
         } = self.clone();
 
@@ -290,11 +285,6 @@ impl TestMetadata {
                 a.propose_max_round_time = propose_max_round_time;
             };
 
-        let txn_task_generator = txn_description.build();
-        let completion_task_generator = completion_task_description.build_and_launch();
-        let overall_safety_task_generator = overall_safety_properties.build();
-        let spinning_task_generator = spinning_properties.build();
-        let view_sync_task_generator = view_sync_properties.build();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_comm_channels(
@@ -307,12 +297,6 @@ impl TestMetadata {
                 config,
             },
             metadata: self,
-            txn_task_generator,
-            overall_safety_task_generator,
-            completion_task_generator,
-            spinning_task_generator,
-            view_sync_task_generator,
-            hooks: vec![],
         }
         .modify_default_config(mod_config)
     }
