@@ -22,6 +22,8 @@ members = [
         "crates/testing",
         "crates/types",
         "crates/utils",
+        "crates/examples",
+        "crates/example-types",
 ]
 resolver = "2"
 
@@ -65,7 +67,7 @@ jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
-libp2p-swarm-derive = { version = "=0.33.0" }
+libp2p-swarm-derive = { version = "0.34.1" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.196", features = ["derive"] }
@@ -78,10 +80,9 @@ time = "0.3.34"
 toml = "0.8.10"
 tracing = "0.1.40"
 typenum = "1.17.0"
-libp2p = { package = "libp2p", version = "0.52.4", features = [
+libp2p = { package = "libp2p", version = "0.53.2", features = [
         "macros",
         "autonat",
-        "deflate",
         "dns",
         "floodsub",
         "gossipsub",
@@ -100,7 +101,6 @@ libp2p = { package = "libp2p", version = "0.52.4", features = [
         "serde",
         "tcp",
         "uds",
-        "wasm-ext",
         "websocket",
         "yamux",
 ] }
