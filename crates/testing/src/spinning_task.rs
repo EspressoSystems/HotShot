@@ -79,7 +79,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = state.late_start.remove(&node_id) {
                                 tracing::error!("Node {} spinning up late", idx);
-                                let handle = node.context.run_tasks().await;
 
                                 // Create the node and add it to the state, so we can shut them
                                 // down properly later to avoid the overflow error in the overall
@@ -87,11 +86,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                                 let node = Node {
                                     node_id,
                                     networks: node.networks,
-                                    handle: handle.clone(),
+                                    handle: node.context.run_tasks().await,
                                 };
-                                state.handles.push(node);
+                                state.handles.push(node.clone());
 
-                                handle.hotshot.start_consensus().await;
+                                node.handle.hotshot.start_consensus().await;
                             }
                         }
                         UpDown::Down => {
