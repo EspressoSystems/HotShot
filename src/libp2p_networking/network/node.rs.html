@@ -652,6 +652,12 @@
 <a href="#651" id="651">651</a>
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -676,7 +682,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMEvent},
-    direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
 };
@@ -686,7 +691,7 @@
 };
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-<span class="kw">use </span>libp2p::core::transport::ListenerId;
+<span class="kw">use </span>libp2p::{core::transport::ListenerId, StreamProtocol};
 <span class="kw">use </span>libp2p::{
     gossipsub::{
         Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder,
@@ -714,6 +719,9 @@
     time::Duration,
 };
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+<span class="doccomment">/// Maximum size of a message
+</span><span class="kw">pub const </span>MAX_GOSSIP_MSG_SIZE: usize = <span class="number">200_000_000</span>;
 
 <span class="doccomment">/// Wrapped num of connections
 </span><span class="kw">pub const </span>ESTABLISHED_LIMIT: NonZeroU32 =
@@ -865,7 +873,7 @@
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
                 .history_length(<span class="number">500</span>)
-                .max_transmit_size(<span class="number">2 </span>* MAX_MSG_SIZE_DM)
+                .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 <span class="comment">// Use the (blake3) hash of a message as its ID
                 </span>.message_id_fn(message_id_fn)
                 .build()
@@ -920,9 +928,13 @@
 
             <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
-            <span class="kw">let </span>request_response: libp2p::request_response::Behaviour&lt;DirectMessageCodec&gt; =
+            <span class="kw">let </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; =
                 RequestResponse::new(
-                    [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                    [(
+                        StreamProtocol::new(<span class="string">"/HotShot/request_response/1.0"</span>),
+                        ProtocolSupport::Full,
+                    )]
+                    .into_iter(),
                     rrconfig,
                 );
 

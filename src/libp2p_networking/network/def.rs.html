@@ -173,11 +173,6 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::IdentTopic <span class="kw">as </span>Topic,
@@ -193,7 +188,6 @@
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent, DMRequest},
-        direct_message_codec::DirectMessageResponse,
         exponential_backoff::ExponentialBackoff,
         gossip::{GossipBehaviour, GossipEvent},
     },
@@ -325,11 +319,7 @@
     }
 
     <span class="doccomment">/// Add a direct response for a channel
-    </span><span class="kw">pub fn </span>add_direct_response(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        chan: ResponseChannel&lt;DirectMessageResponse&gt;,
-        msg: Vec&lt;u8&gt;,
-    ) {
+    </span><span class="kw">pub fn </span>add_direct_response(<span class="kw-2">&amp;mut </span><span class="self">self</span>, chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;, msg: Vec&lt;u8&gt;) {
         <span class="self">self</span>.request_response.add_direct_response(chan, msg);
     }
 }

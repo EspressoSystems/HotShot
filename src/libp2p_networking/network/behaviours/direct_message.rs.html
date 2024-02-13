@@ -298,33 +298,21 @@
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
 };
 
+<span class="kw">use </span>libp2p::request_response::cbor::Behaviour;
 <span class="kw">use </span>libp2p::{
-    request_response::{Behaviour, Event, Message, OutboundRequestId, ResponseChannel},
+    request_response::{Event, Message, OutboundRequestId, ResponseChannel},
     swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="comment">// use libp2p_request_response::Behaviour;
-</span><span class="kw">use </span>tracing::{error, info};
+<span class="kw">use </span>tracing::{error, info};
 
-<span class="kw">use super</span>::{
-    direct_message_codec::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
-    exponential_backoff::ExponentialBackoff,
-};
+<span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
 
 <span class="doccomment">/// Request to direct message a peert
 </span><span class="kw">pub struct </span>DMRequest {
@@ -342,7 +330,7 @@
 /// usage: direct message peer
 </span><span class="kw">pub struct </span>DMBehaviour {
     <span class="doccomment">/// The wrapped behaviour
-    </span>request_response: Behaviour&lt;DirectMessageCodec&gt;,
+    </span>request_response: Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// In progress queries
     </span>in_progress_rr: HashMap&lt;OutboundRequestId, DMRequest&gt;,
     <span class="doccomment">/// Failed queries to be retried
@@ -355,14 +343,14 @@
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>DMEvent {
     <span class="doccomment">/// We received as Direct Request
-    </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;DirectMessageResponse&gt;),
+    </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;Vec&lt;u8&gt;&gt;),
     <span class="doccomment">/// We received a Direct Response
     </span>DirectResponse(Vec&lt;u8&gt;, PeerId),
 }
 
 <span class="kw">impl </span>DMBehaviour {
     <span class="doccomment">/// handle a direct message event
-    </span><span class="kw">fn </span>handle_dm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event&lt;DirectMessageRequest, DirectMessageResponse&gt;) {
+    </span><span class="kw">fn </span>handle_dm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;) {
         <span class="kw">match </span>event {
             Event::InboundFailure {
                 peer,
@@ -392,7 +380,7 @@
             }
             Event::Message { message, peer, .. } =&gt; <span class="kw">match </span>message {
                 Message::Request {
-                    request: DirectMessageRequest(msg),
+                    request: msg,
                     channel,
                     ..
                 } =&gt; {
@@ -404,7 +392,7 @@
                 }
                 Message::Response {
                     request_id,
-                    response: DirectMessageResponse(msg),
+                    response: msg,
                 } =&gt; {
                     <span class="comment">// success, finished.
                     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
@@ -424,7 +412,7 @@
 }
 
 <span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>DMBehaviour {
-    <span class="kw">type </span>ConnectionHandler = &lt;Behaviour&lt;DirectMessageCodec&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
+    <span class="kw">type </span>ConnectionHandler = &lt;Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
 
     <span class="kw">type </span>ToSwarm = DMEvent;
 
@@ -566,7 +554,7 @@
 <span class="kw">impl </span>DMBehaviour {
     <span class="doccomment">/// Create new behaviour based on request response
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(request_response: Behaviour&lt;DirectMessageCodec&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(request_response: Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             request_response,
             in_progress_rr: HashMap::default(),
@@ -595,21 +583,15 @@
 
         <span class="kw">let </span>request_id = <span class="self">self
             </span>.request_response
-            .send_request(<span class="kw-2">&amp;</span>req.peer_id, DirectMessageRequest(req.data.clone()));
+            .send_request(<span class="kw-2">&amp;</span>req.peer_id, req.data.clone());
         <span class="macro">info!</span>(<span class="string">"direct message request with id {:?}"</span>, request_id);
 
         <span class="self">self</span>.in_progress_rr.insert(request_id, req);
     }
 
     <span class="doccomment">/// Add a direct response for a channel
-    </span><span class="kw">pub fn </span>add_direct_response(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        chan: ResponseChannel&lt;DirectMessageResponse&gt;,
-        msg: Vec&lt;u8&gt;,
-    ) {
-        <span class="kw">let </span>res = <span class="self">self
-            </span>.request_response
-            .send_response(chan, DirectMessageResponse(msg));
+    </span><span class="kw">pub fn </span>add_direct_response(<span class="kw-2">&amp;mut </span><span class="self">self</span>, chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;, msg: Vec&lt;u8&gt;) {
+        <span class="kw">let </span>res = <span class="self">self</span>.request_response.send_response(chan, msg);
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
             <span class="macro">error!</span>(<span class="string">"Error replying to direct message. {:?}"</span>, e);
         }
