@@ -80,7 +80,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                             if let Some(node) = state.late_start.remove(&node_id) {
                                 tracing::error!("Node {} spinning up late", idx);
                                 let handle = node.context.run_tasks().await;
-                                handle.hotshot.start_consensus().await;
 
                                 // Create the node and add it to the state, so we can shut them
                                 // down properly later to avoid the overflow error in the overall
@@ -91,6 +90,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                                     handle,
                                 };
                                 state.handles.push(node);
+
+                                handle.hotshot.start_consensus().await;
                             }
                         }
                         UpDown::Down => {
