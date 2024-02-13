@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/node/handle.rs`."><title>handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/node/handle.rs`."><title>handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -775,7 +776,7 @@
     <span class="doccomment">/// send an action to the networkbehaviour
     </span>send_network: UnboundedSender&lt;ClientRequest&gt;,
 
-    <span class="doccomment">/// the local address we&#39;re listening on
+    <span class="doccomment">/// the local address we're listening on
     </span>listen_addr: Multiaddr,
 
     <span class="doccomment">/// the peer id of the networkbehaviour
@@ -839,7 +840,7 @@
             .start_listen(listen_addr)
             .<span class="kw">await
             </span>.context(NetworkSnafu)<span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;LISTEN ADDRESS IS {:?}&quot;</span>, listen_addr);
+        <span class="macro">info!</span>(<span class="string">"LISTEN ADDRESS IS {:?}"</span>, listen_addr);
         <span class="comment">// pin here to force the future onto the heap since it can be large
         // in the case of flume
         </span><span class="kw">let </span>(send_chan, recv_chan) = Box::pin(network.spawn_listeners())
@@ -878,13 +879,13 @@
 
     </span><span class="kw">pub async fn </span>spawn_handler&lt;F, RET&gt;(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, cb: F) -&gt; <span class="kw">impl </span>Future
     <span class="kw">where
-        </span>F: Fn(NetworkEvent, Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;) -&gt; RET + Sync + Send + <span class="lifetime">&#39;static</span>,
-        RET: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
-        S: Send + <span class="lifetime">&#39;static</span>,
+        </span>F: Fn(NetworkEvent, Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;) -&gt; RET + Sync + Send + <span class="lifetime">'static</span>,
+        RET: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt;&gt; + Send + <span class="lifetime">'static</span>,
+        S: Send + <span class="lifetime">'static</span>,
     {
         <span class="macro">assert!</span>(
             !<span class="self">self</span>.receiver.receiver_spawned.swap(<span class="bool-val">true</span>, Ordering::Relaxed),
-            <span class="string">&quot;Handler is already spawned, this is a bug&quot;
+            <span class="string">"Handler is already spawned, this is a bug"
         </span>);
 
         <span class="kw">let </span>handle = Arc::clone(<span class="self">self</span>);
@@ -892,7 +893,7 @@
             <span class="kw">let </span>receiver = handle.receiver.receiver.lock().<span class="kw">await</span>;
             <span class="kw">let </span><span class="prelude-val">Some</span>(kill_switch) = handle.receiver.recv_kill.lock().<span class="kw">await</span>.take() <span class="kw">else </span>{
                 <span class="macro">tracing::error!</span>(
-                    <span class="string">&quot;`spawn_handle` was called on a network handle that was already closed&quot;
+                    <span class="string">"`spawn_handle` was called on a network handle that was already closed"
                 </span>);
                 <span class="kw">return</span>;
             };
@@ -904,14 +905,14 @@
                         <span class="kw">let </span>incoming_message = <span class="kw">match </span>incoming_message {
                             <span class="prelude-val">Ok</span>(msg) =&gt; msg,
                             <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;NetworkNodeHandle::spawn_handle was unable to receive more messages&quot;</span>);
+                                <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>e, <span class="string">"NetworkNodeHandle::spawn_handle was unable to receive more messages"</span>);
                                 <span class="kw">return</span>;
                             }
                         };
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = cb(incoming_message, handle.clone()).<span class="kw">await </span>{
                             <span class="macro">tracing::error!</span>(
                                 <span class="question-mark">?</span>e,
-                                <span class="string">&quot;NetworkNodeHandle::spawn_handle returned an error&quot;
+                                <span class="string">"NetworkNodeHandle::spawn_handle returned an error"
                             </span>);
                             <span class="kw">return</span>;
                         }
@@ -955,7 +956,7 @@
             async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
             <span class="kw">let </span>num_connected = <span class="self">self</span>.num_connected().<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="macro">info!</span>(
-                <span class="string">&quot;WAITING TO CONNECT, connected to {} / {} peers ON NODE {}&quot;</span>,
+                <span class="string">"WAITING TO CONNECT, connected to {} / {} peers ON NODE {}"</span>,
                 num_connected, num_peers, node_id
             );
             connected_ok = num_connected &gt;= num_peers;
@@ -979,7 +980,7 @@
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(kill_switch) = <span class="self">self</span>.receiver.kill_switch.lock().<span class="kw">await</span>.take() {
             kill_switch.send(());
         } <span class="kw">else </span>{
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;The network node handle is shutting down, but the kill switch was already consumed&quot;</span>);
+            <span class="macro">tracing::warn!</span>(<span class="string">"The network node handle is shutting down, but the kill switch was already consumed"</span>);
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -993,7 +994,7 @@
         <span class="self">self</span>.send_request(req).<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Get a reference to the network node handle&#39;s listen addr.
+    <span class="doccomment">/// Get a reference to the network node handle's listen addr.
     </span><span class="kw">pub fn </span>listen_addr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Multiaddr {
         <span class="self">self</span>.listen_addr.clone()
     }
@@ -1011,7 +1012,7 @@
         r.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| NetworkNodeHandleError::RecvError)
     }
 
-    <span class="doccomment">/// Look up a peer&#39;s addresses in kademlia
+    <span class="doccomment">/// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors
     /// if the client has stopped listening for a response
@@ -1022,10 +1023,10 @@
         r.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| NetworkNodeHandleError::RecvError)
     }
 
-    <span class="doccomment">/// Looks up a node&#39;s `PeerId` and attempts to validate routing
+    <span class="doccomment">/// Looks up a node's `PeerId` and attempts to validate routing
     /// # Errors
     /// if the peer was unable to be looked up (did not provide a response, DNE)
-    </span><span class="kw">pub async fn </span>lookup_node&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize&gt;(
+    </span><span class="kw">pub async fn </span>lookup_node&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; + Serialize&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: V,
         dht_timeout: Duration,
@@ -1070,7 +1071,7 @@
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;&gt;(
+    </span><span class="kw">pub async fn </span>get_record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         retry_count: u8,
@@ -1099,7 +1100,7 @@
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;&gt;(
+    </span><span class="kw">pub async fn </span>get_record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         timeout: Duration,
@@ -1226,10 +1227,10 @@
     <span class="doccomment">/// Forcefully disconnect from a peer
     /// # Errors
     /// If the channel is closed somehow
-    /// Shouldnt&#39; happen.
+    /// Shouldnt' happen.
     /// # Panics
     /// If channel errors out
-    /// shouldn&#39;t happen.
+    /// shouldn't happen.
     </span><span class="kw">pub async fn </span>prune_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
         <span class="kw">let </span>req = ClientRequest::Prune(pid);
         <span class="self">self</span>.send_request(req).<span class="kw">await
@@ -1268,7 +1269,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         known_peers: Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;ADDING KNOWN PEERS TO {:?}&quot;</span>, <span class="self">self</span>.peer_id);
+        <span class="macro">info!</span>(<span class="string">"ADDING KNOWN PEERS TO {:?}"</span>, <span class="self">self</span>.peer_id);
         <span class="kw">let </span>req = ClientRequest::AddKnownPeers(known_peers);
         <span class="self">self</span>.send_request(req).<span class="kw">await
     </span>}
@@ -1278,7 +1279,7 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     </span><span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ClientRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;peerid {:?}\t\tsending message {:?}&quot;</span>, <span class="self">self</span>.peer_id, req);
+        <span class="macro">debug!</span>(<span class="string">"peerid {:?}\t\tsending message {:?}"</span>, <span class="self">self</span>.peer_id, req);
         <span class="self">self</span>.send_network
             .send(req)
             .<span class="kw">await
@@ -1289,10 +1290,10 @@
     <span class="doccomment">/// Returns number of peers this node is connected to
     /// # Errors
     /// If the channel is closed somehow
-    /// Shouldnt&#39; happen.
+    /// Shouldnt' happen.
     /// # Panics
     /// If channel errors out
-    /// shouldn&#39;t happen.
+    /// shouldn't happen.
     </span><span class="kw">pub async fn </span>num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetConnectedPeerNum(s);
@@ -1303,10 +1304,10 @@
     <span class="doccomment">/// return hashset of PIDs this node is connected to
     /// # Errors
     /// If the channel is closed somehow
-    /// Shouldnt&#39; happen.
+    /// Shouldnt' happen.
     /// # Panics
     /// If channel errors out
-    /// shouldn&#39;t happen.
+    /// shouldn't happen.
     </span><span class="kw">pub async fn </span>connected_pids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashSet&lt;PeerId&gt;, NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetConnectedPeers(s);
@@ -1314,12 +1315,12 @@
         <span class="prelude-val">Ok</span>(r.<span class="kw">await</span>.unwrap())
     }
 
-    <span class="doccomment">/// Get a reference to the network node handle&#39;s id.
+    <span class="doccomment">/// Get a reference to the network node handle's id.
     </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.id
     }
 
-    <span class="doccomment">/// Get a reference to the network node handle&#39;s peer id.
+    <span class="doccomment">/// Get a reference to the network node handle's peer id.
     </span><span class="kw">pub fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerId {
         <span class="self">self</span>.peer_id
     }
@@ -1350,7 +1351,7 @@
         receiver
     }
 
-    <span class="doccomment">/// Call `wait_timeout_until` on the state&#39;s [`SubscribableMutex`]
+    <span class="doccomment">/// Call `wait_timeout_until` on the state's [`SubscribableMutex`]
     /// # Errors
     /// Will throw a [`NetworkNodeHandleError::TimeoutError`] error upon timeout
     </span><span class="kw">pub async fn </span>state_wait_timeout_until&lt;F&gt;(
@@ -1367,19 +1368,19 @@
             </span>.context(TimeoutSnafu)
     }
 
-    <span class="doccomment">/// Call `wait_timeout_until_with_trigger` on the state&#39;s [`SubscribableMutex`]
-    </span><span class="kw">pub fn </span>state_wait_timeout_until_with_trigger&lt;<span class="lifetime">&#39;a</span>, F&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    <span class="doccomment">/// Call `wait_timeout_until_with_trigger` on the state's [`SubscribableMutex`]
+    </span><span class="kw">pub fn </span>state_wait_timeout_until_with_trigger&lt;<span class="lifetime">'a</span>, F&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         timeout: Duration,
         f: F,
-    ) -&gt; stream::to::Timeout&lt;FuturesOrdered&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">&#39;a</span>&gt;&gt;
+    ) -&gt; stream::to::Timeout&lt;FuturesOrdered&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">'a</span>&gt;&gt;
     <span class="kw">where
-        </span>F: FnMut(<span class="kw-2">&amp;</span>S) -&gt; bool + <span class="lifetime">&#39;a</span>,
+        </span>F: FnMut(<span class="kw-2">&amp;</span>S) -&gt; bool + <span class="lifetime">'a</span>,
     {
         <span class="self">self</span>.state.wait_timeout_until_with_trigger(timeout, f)
     }
 
-    <span class="doccomment">/// Call `wait_until` on the state&#39;s [`SubscribableMutex`]
+    <span class="doccomment">/// Call `wait_until` on the state's [`SubscribableMutex`]
     /// # Errors
     /// Will throw a [`NetworkNodeHandleError::TimeoutError`] error upon timeout
     </span><span class="kw">pub async fn </span>state_wait_until&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt;

@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/orchestrator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -349,7 +350,7 @@
 <a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
-/// The orchestrator&#39;s clients
+/// The orchestrator's clients
 </span><span class="kw">pub mod </span>client;
 <span class="doccomment">/// Configuration for the orchestrator
 </span><span class="kw">pub mod </span>config;
@@ -401,7 +402,7 @@
     </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
     <span class="doccomment">/// The total nodes that have posted their public keys
     </span><span class="kw">pub </span>nodes_with_pubkey: u64,
-    <span class="doccomment">/// Whether the network configuration has been updated with all the peer&#39;s public keys/configs
+    <span class="doccomment">/// Whether the network configuration has been updated with all the peer's public keys/configs
     </span>peer_pub_ready: bool,
     <span class="doccomment">/// The set of index for nodes that have posted their public keys/configs
     </span>pub_posted: HashSet&lt;u64&gt;,
@@ -412,7 +413,7 @@
     </span><span class="kw">pub </span>nodes_connected: u64,
 }
 
-<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
+<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>, ELECTION: ElectionConfig + <span class="lifetime">'static</span>&gt;
     OrchestratorState&lt;KEY, ELECTION&gt;
 {
     <span class="doccomment">/// create a new [`OrchestratorState`]
@@ -435,14 +436,14 @@
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt;;
-    <span class="doccomment">/// post endpoint for each node&#39;s config
+    <span class="doccomment">/// post endpoint for each node's config
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _node_index: u16,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
-    <span class="doccomment">/// post endpoint for each node&#39;s public key
+    <span class="doccomment">/// post endpoint for each node's public key
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>register_public_key(
@@ -485,7 +486,7 @@
         </span><span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Network has reached capacity&quot;</span>.to_string(),
+                message: <span class="string">"Network has reached capacity"</span>.to_string(),
             });
         }
 
@@ -513,7 +514,7 @@
     }
 
     <span class="comment">// Assumes nodes will set their own index that they received from the
-    // &#39;identity&#39; endpoint
+    // 'identity' endpoint
     </span><span class="kw">fn </span>post_getconfig(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _node_index: u16,
@@ -523,7 +524,7 @@
             <span class="kw">if </span>libp2p_config.bootstrap_nodes.len() &lt; libp2p_config.num_bootstrap_nodes {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
-                    message: <span class="string">&quot;Not enough bootstrap nodes have registered&quot;</span>.to_string(),
+                    message: <span class="string">"Not enough bootstrap nodes have registered"</span>.to_string(),
                 });
             }
         }
@@ -539,12 +540,12 @@
         <span class="kw">if </span><span class="self">self</span>.pub_posted.contains(<span class="kw-2">&amp;</span>node_index) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Node has already posted public key&quot;</span>.to_string(),
+                message: <span class="string">"Node has already posted public key"</span>.to_string(),
             });
         }
         <span class="self">self</span>.pub_posted.insert(node_index);
 
-        <span class="comment">// Sishan NOTE: let me know if there&#39;s a better way to remove the first extra 8 bytes
+        <span class="comment">// Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
         // The guess is extra bytes are from orchestrator serialization
         </span>pubkey.drain(..<span class="number">8</span>);
         <span class="kw">let </span>register_pub_key = &lt;KEY <span class="kw">as </span>SignatureKey&gt;::from_bytes(pubkey).unwrap();
@@ -553,7 +554,7 @@
             register_pub_key_with_stake;
         <span class="self">self</span>.nodes_with_pubkey += <span class="number">1</span>;
         <span class="macro">println!</span>(
-            <span class="string">&quot;Node {:?} posted public key, now total num posted public key: {:?}&quot;</span>,
+            <span class="string">"Node {:?} posted public key, now total num posted public key: {:?}"</span>,
             node_index, <span class="self">self</span>.nodes_with_pubkey
         );
         <span class="kw">if </span><span class="self">self</span>.nodes_with_pubkey &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
@@ -566,7 +567,7 @@
         <span class="kw">if </span>!<span class="self">self</span>.peer_pub_ready {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Peer&#39;s public configs are not ready&quot;</span>.to_string(),
+                message: <span class="string">"Peer's public configs are not ready"</span>.to_string(),
             });
         }
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.peer_pub_ready)
@@ -576,28 +577,28 @@
         <span class="kw">if </span>!<span class="self">self</span>.peer_pub_ready {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Peer&#39;s public configs are not ready&quot;</span>.to_string(),
+                message: <span class="string">"Peer's public configs are not ready"</span>.to_string(),
             });
         }
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.config.clone())
     }
 
     <span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt; {
-        <span class="comment">// println!(&quot;{}&quot;, self.start);
+        <span class="comment">// println!("{}", self.start);
         </span><span class="kw">if </span>!<span class="self">self</span>.start {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: <span class="string">&quot;Network is not ready to start&quot;</span>.to_string(),
+                message: <span class="string">"Network is not ready to start"</span>.to_string(),
             });
         }
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.start)
     }
 
-    <span class="comment">// Assumes nodes do not post &#39;ready&#39; twice
-    // TODO ED Add a map to verify which nodes have posted they&#39;re ready
+    <span class="comment">// Assumes nodes do not post 'ready' twice
+    // TODO ED Add a map to verify which nodes have posted they're ready
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;Nodes connected: {}&quot;</span>, <span class="self">self</span>.nodes_connected);
+        <span class="macro">println!</span>(<span class="string">"Nodes connected: {}"</span>, <span class="self">self</span>.nodes_connected);
         <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
             <span class="self">self</span>.start = <span class="bool-val">true</span>;
         }
@@ -613,59 +614,59 @@
 </span><span class="kw">fn </span>define_api&lt;KEY: SignatureKey, ELECTION: ElectionConfig, State&gt;(
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError&gt;, ApiError&gt;
 <span class="kw">where
-    </span>State: <span class="lifetime">&#39;static </span>+ Send + Sync + ReadState + WriteState,
+    </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ELECTION&gt;,
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
     <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
-        <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
-        <span class="string">&quot;/api.toml&quot;
+        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+        <span class="string">"/api.toml"
     </span>)))
-    .expect(<span class="string">&quot;API file is not valid toml&quot;</span>);
+    .expect(<span class="string">"API file is not valid toml"</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>api = Api::&lt;State, ServerError&gt;::new(api_toml)<span class="question-mark">?</span>;
-    api.post(<span class="string">&quot;postidentity&quot;</span>, |req, state| {
+    api.post(<span class="string">"postidentity"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>identity = req.string_param(<span class="string">&quot;identity&quot;</span>)<span class="question-mark">?</span>.parse::&lt;IpAddr&gt;();
+            <span class="kw">let </span>identity = req.string_param(<span class="string">"identity"</span>)<span class="question-mark">?</span>.parse::&lt;IpAddr&gt;();
             <span class="kw">if </span>identity.is_err() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
-                    message: <span class="string">&quot;Identity is not a properly formed IP address&quot;</span>.to_string(),
+                    message: <span class="string">"Identity is not a properly formed IP address"</span>.to_string(),
                 });
             }
             state.post_identity(identity.unwrap())
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;post_getconfig&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"post_getconfig"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>node_index = req.integer_param(<span class="string">&quot;node_index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>node_index = req.integer_param(<span class="string">"node_index"</span>)<span class="question-mark">?</span>;
             state.post_getconfig(node_index)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postpubkey&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postpubkey"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>node_index = req.integer_param(<span class="string">&quot;node_index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>node_index = req.integer_param(<span class="string">"node_index"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>pubkey = req.body_bytes();
             state.register_public_key(node_index, <span class="kw-2">&amp;mut </span>pubkey)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;peer_pubconfig_ready&quot;</span>, |_req, state| {
+    </span>.get(<span class="string">"peer_pubconfig_ready"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.peer_pub_ready() }.boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;config_after_peer_collected&quot;</span>, |_req, state| {
+    </span>.get(<span class="string">"config_after_peer_collected"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_config_after_peer_collected() }.boxed()
     })<span class="question-mark">?
     </span>.post(
-        <span class="string">&quot;postready&quot;</span>,
+        <span class="string">"postready"</span>,
         |_req, state: <span class="kw-2">&amp;mut </span>&lt;State <span class="kw">as </span>ReadState&gt;::State| <span class="kw">async move </span>{ state.post_ready() }.boxed(),
     )<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getstart&quot;</span>, |_req, state| {
+    </span>.get(<span class="string">"getstart"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_start() }.boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postresults&quot;</span>, |_req, state| {
+    </span>.post(<span class="string">"postresults"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.post_run_results() }.boxed()
     })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(api)
@@ -681,19 +682,19 @@
     url: Url,
 ) -&gt; io::Result&lt;()&gt;
 <span class="kw">where
-    </span>KEY: SignatureKey + <span class="lifetime">&#39;static </span>+ serde::Serialize,
-    ELECTION: ElectionConfig + <span class="lifetime">&#39;static </span>+ serde::Serialize,
+    </span>KEY: SignatureKey + <span class="lifetime">'static </span>+ serde::Serialize,
+    ELECTION: ElectionConfig + <span class="lifetime">'static </span>+ serde::Serialize,
 {
     <span class="kw">let </span>web_api =
-        define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">&quot;Failed to define api&quot;</span>));
+        define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">"Failed to define api"</span>));
 
     <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
         RwLock::new(OrchestratorState::new(network_config));
 
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
-    app.register_module(<span class="string">&quot;api&quot;</span>, web_api.unwrap())
-        .expect(<span class="string">&quot;Error registering api&quot;</span>);
-    <span class="macro">tracing::error!</span>(<span class="string">&quot;listening on {:?}&quot;</span>, url);
+    app.register_module(<span class="string">"api"</span>, web_api.unwrap())
+        .expect(<span class="string">"Error registering api"</span>);
+    <span class="macro">tracing::error!</span>(<span class="string">"listening on {:?}"</span>, url);
     app.serve(url).<span class="kw">await
 </span>}
 </code></pre></div></section></main></body></html>

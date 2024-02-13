@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task/src/task.rs`."><title>task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task/src/task.rs`."><title>task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -457,20 +458,20 @@
 
 <span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
 <span class="kw">use </span>futures::{future::select_all, Future};
 
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>futures::future::join_all;
 
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>futures::future::try_join_all;
 
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::{
     sync::RwLock,
     task::{spawn, JoinHandle},
@@ -485,7 +486,7 @@
 <span class="doccomment">/// Type for mutable task state that can be used as the state for a `Task`
 </span><span class="kw">pub trait </span>TaskState: Send {
     <span class="doccomment">/// Type of event sent and received by the task
-    </span><span class="kw">type </span>Event: Clone + Send + Sync + <span class="lifetime">&#39;static</span>;
+    </span><span class="kw">type </span>Event: Clone + Send + Sync + <span class="lifetime">'static</span>;
     <span class="doccomment">/// The result returned when this task compeltes
     </span><span class="kw">type </span>Output: Send;
     <span class="doccomment">/// Handle event and update state.  Return true if the task is finished
@@ -499,7 +500,7 @@
 
     <span class="doccomment">/// Return true if the event should be filtered
     </span><span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="comment">// default doesn&#39;t filter
+        <span class="comment">// default doesn't filter
         </span><span class="bool-val">false
     </span>}
     <span class="doccomment">/// Do something with the result of the task before it shuts down
@@ -521,7 +522,7 @@
 /// different input streams.
 </span><span class="kw">pub trait </span>TestTaskState: Send {
     <span class="doccomment">/// Message type handled by the task
-    </span><span class="kw">type </span>Message: Clone + Send + Sync + <span class="lifetime">&#39;static</span>;
+    </span><span class="kw">type </span>Message: Clone + Send + Sync + <span class="lifetime">'static</span>;
     <span class="doccomment">/// Result returned by the test task on completion
     </span><span class="kw">type </span>Output: Send;
     <span class="doccomment">/// The state type
@@ -537,10 +538,10 @@
 }
 
 <span class="doccomment">/// A basic task which loops waiting for events to come from `event_receiver`
-/// and then handles them using it&#39;s state
+/// and then handles them using it's state
 /// It sends events to other `Task`s through `event_sender`
 /// This should be used as the primary building block for long running
-/// or medium running tasks (i.e. anything that can&#39;t be described as a dependency task)
+/// or medium running tasks (i.e. anything that can't be described as a dependency task)
 </span><span class="kw">pub struct </span>Task&lt;S: TaskState&gt; {
     <span class="doccomment">/// Sends events all tasks including itself
     </span>event_sender: Sender&lt;S::Event&gt;,
@@ -554,7 +555,7 @@
     </span>state: S,
 }
 
-<span class="kw">impl</span>&lt;S: TaskState + Send + <span class="lifetime">&#39;static</span>&gt; Task&lt;S&gt; {
+<span class="kw">impl</span>&lt;S: TaskState + Send + <span class="lifetime">'static</span>&gt; Task&lt;S&gt; {
     <span class="doccomment">/// Create a new task
     </span><span class="kw">pub fn </span>new(
         tx: Sender&lt;S::Event&gt;,
@@ -590,14 +591,14 @@
                         }
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">&quot;Failed to receiving from event stream Error: {}&quot;</span>, e);
+                        <span class="macro">tracing::error!</span>(<span class="string">"Failed to receiving from event stream Error: {}"</span>, e);
                     }
                 }
             }
         })
     }
 
-    <span class="doccomment">/// Create a new event `Receiver` from this Task&#39;s receiver.
+    <span class="doccomment">/// Create a new event `Receiver` from this Task's receiver.
     /// The returned receiver will get all messages not yet seen by this task
     </span><span class="kw">pub fn </span>subscribe(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;S::Event&gt; {
         <span class="self">self</span>.event_receiver.clone()
@@ -645,8 +646,8 @@
 }
 
 <span class="kw">impl</span>&lt;
-        S: TaskState + Send + <span class="lifetime">&#39;static</span>,
-        T: TestTaskState&lt;State = S, Output = S::Output&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+        S: TaskState + Send + <span class="lifetime">'static</span>,
+        T: TestTaskState&lt;State = S, Output = S::Output&gt; + Send + Sync + <span class="lifetime">'static</span>,
     &gt; TestTask&lt;S, T&gt;
 {
     <span class="doccomment">/// Create a test task
@@ -668,7 +669,7 @@
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(event) = <span class="self">self</span>.task.event_receiver.try_recv() {
                     <span class="kw">if </span>S::should_shutdown(<span class="kw-2">&amp;</span>event) {
                         <span class="self">self</span>.task.state.shutdown().<span class="kw">await</span>;
-                        <span class="macro">tracing::error!</span>(<span class="string">&quot;Shutting down test task TODO!&quot;</span>);
+                        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down test task TODO!"</span>);
                         <span class="macro">todo!</span>();
                     }
                     <span class="kw">if </span>!<span class="self">self</span>.state().filter(<span class="kw-2">&amp;</span>event) {
@@ -693,10 +694,10 @@
                         }
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;Failed to get event from task. Error: {:?}&quot;</span>, e);
+                        <span class="macro">error!</span>(<span class="string">"Failed to get event from task. Error: {:?}"</span>, e);
                     }
                     <span class="prelude-val">Ok</span>((<span class="prelude-val">Err</span>(e), <span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;A task channel returned an Error: {:?}&quot;</span>, e);
+                        <span class="macro">error!</span>(<span class="string">"A task channel returned an Error: {:?}"</span>, e);
                     }
                 }
             }
@@ -714,7 +715,7 @@
     <span class="doccomment">/// Send an event to other listening test tasks
     ///
     /// # Panics
-    /// panics if the event can&#39;t be sent (ok to panic in test)
+    /// panics if the event can't be sent (ok to panic in test)
     </span><span class="kw">pub async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: S::Event) {
         <span class="self">self</span>.task.send(event).<span class="kw">await</span>.unwrap();
     }
@@ -736,23 +737,23 @@
     </span><span class="kw">pub async fn </span>shutdown(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>handles = <span class="self">self</span>.task_handles.write().<span class="kw">await</span>;
         <span class="kw">while let </span><span class="prelude-val">Some</span>(handle) = handles.pop() {
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
             </span>handle.cancel().<span class="kw">await</span>;
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
             </span>handle.abort();
         }
     }
     <span class="doccomment">/// Take a task, run it, and register it
     </span><span class="kw">pub async fn </span>run_task&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: Task&lt;S&gt;)
     <span class="kw">where
-        </span>S: TaskState + Send + <span class="lifetime">&#39;static</span>,
+        </span>S: TaskState + Send + <span class="lifetime">'static</span>,
     {
         <span class="self">self</span>.register(task.run()).<span class="kw">await</span>;
     }
     <span class="doccomment">/// Create a new `DependencyTask` run it, and register it
     </span><span class="kw">pub async fn </span>spawn_dependency_task&lt;T, H&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        dep: <span class="kw">impl </span>Dependency&lt;T&gt; + Send + <span class="lifetime">&#39;static</span>,
+        dep: <span class="kw">impl </span>Dependency&lt;T&gt; + Send + <span class="lifetime">'static</span>,
         handle: <span class="kw">impl </span>HandleDepOutput&lt;Output = T&gt;,
     ) {
         <span class="kw">let </span>join_handle = DependencyTask { dep, handle }.run();
@@ -762,9 +763,9 @@
     /// # Panics
     /// Panics if one of the tasks paniced
     </span><span class="kw">pub async fn </span>join_all(<span class="self">self</span>) -&gt; Vec&lt;()&gt; {
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span><span class="kw">let </span>ret = join_all(<span class="self">self</span>.task_handles.into_inner()).<span class="kw">await</span>;
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
         </span><span class="kw">let </span>ret = try_join_all(<span class="self">self</span>.task_handles.into_inner()).<span class="kw">await</span>.unwrap();
         ret
     }
@@ -774,10 +775,10 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>async_broadcast::broadcast;
-    <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+    <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
     </span><span class="kw">use </span>async_std::task::sleep;
     <span class="kw">use </span>std::{collections::HashSet, time::Duration};
-    <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+    <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
     </span><span class="kw">use </span>tokio::time::sleep;
 
     <span class="attr">#[derive(Default)]
@@ -798,7 +799,7 @@
                 state.val = event;
                 <span class="macro">assert!</span>(
                     state.val &lt; <span class="number">100</span>,
-                    <span class="string">&quot;Test should shutdown before getting an event for 100&quot;
+                    <span class="string">"Test should shutdown before getting an event for 100"
                 </span>);
                 task.send(event + <span class="number">1</span>).<span class="kw">await</span>.unwrap();
             }
@@ -824,17 +825,17 @@
             <span class="kw">_</span>: usize,
             <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>TestTask&lt;<span class="self">Self</span>::State, <span class="self">Self</span>&gt;,
         ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-            <span class="kw">if </span>message == <span class="kw-2">*</span><span class="string">&quot;done&quot;</span>.to_string() {
+            <span class="kw">if </span>message == <span class="kw-2">*</span><span class="string">"done"</span>.to_string() {
                 <span class="kw">return </span><span class="prelude-val">Some</span>(());
             }
             <span class="prelude-val">None
         </span>}
     }
     <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">&quot;tokio&quot;</span>,
-        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)
+        async_executor_impl = <span class="string">"tokio"</span>,
+        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
     )]
-    #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
+    #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     #[allow(unused_must_use)]
     </span><span class="kw">async fn </span>it_works() {
         <span class="kw">let </span>reg = Arc::new(TaskRegistry::default());
@@ -858,10 +859,10 @@
     }
 
     <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">&quot;tokio&quot;</span>,
-        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">10</span>)
+        async_executor_impl = <span class="string">"tokio"</span>,
+        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">10</span>)
     )]
-    #[cfg_attr(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_std::test)]
+    #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     </span><span class="kw">async fn </span>test_works() {
@@ -893,13 +894,13 @@
         <span class="kw">let </span>handle = test1.run();
         <span class="kw">let </span>handle2 = test2.run();
         sleep(Duration::from_millis(<span class="number">30</span>)).<span class="kw">await</span>;
-        msg_tx.broadcast(<span class="string">&quot;done&quot;</span>.into()).<span class="kw">await</span>.unwrap();
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+        msg_tx.broadcast(<span class="string">"done"</span>.into()).<span class="kw">await</span>.unwrap();
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
         </span>{
             handle.<span class="kw">await</span>.unwrap();
             handle2.<span class="kw">await</span>.unwrap();
         }
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span>{
             handle.<span class="kw">await</span>;
             handle2.<span class="kw">await</span>;

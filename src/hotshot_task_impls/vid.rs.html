@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/vid.rs`."><title>vid.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/vid.rs`."><title>vid.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -210,7 +211,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::helpers::broadcast_event;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::spawn_blocking;
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
@@ -230,7 +231,7 @@
     data::{test_srs, VidScheme, VidSchemeTrait},
     traits::network::ConsensusIntentEvent,
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
 
 <span class="kw">use </span>snafu::Snafu;
@@ -246,9 +247,9 @@
 </span><span class="kw">pub struct </span>VIDTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
+    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
 &gt; {
-    <span class="doccomment">/// The state&#39;s api
+    <span class="doccomment">/// The state's api
     </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// View number this view is executing in.
@@ -266,15 +267,15 @@
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
-    <span class="doccomment">/// This state&#39;s ID
+    <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
     VIDTaskState&lt;TYPES, I, A&gt;
 {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;VID Main Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"VID Main Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: HotShotEvent&lt;TYPES&gt;,
@@ -300,8 +301,8 @@
                 })
                 .<span class="kw">await</span>;
 
-                <span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
-                </span><span class="comment">// Unwrap here will just propogate any panic from the spawned task, it&#39;s not a new place we can panic.
+                <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+                </span><span class="comment">// Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
                 </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(
@@ -330,10 +331,10 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                     vid_disperse.payload_commitment.as_ref().as_ref(),
                 ) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;VID: failed to sign dispersal payload&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal payload"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
-                <span class="macro">debug!</span>(<span class="string">&quot;publishing VID disperse for view {}&quot;</span>, <span class="kw-2">*</span>view_number);
+                <span class="macro">debug!</span>(<span class="string">"publishing VID disperse for view {}"</span>, <span class="kw-2">*</span>view_number);
                 broadcast_event(
                     HotShotEvent::VidDisperseSend(
                         Proposal {
@@ -354,7 +355,7 @@
                 }
 
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
+                    <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
 
@@ -367,7 +368,7 @@
 
                 <span class="comment">// If we are not the next leader, we should exit
                 </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
-                    <span class="comment">// panic!(&quot;We are not the DA leader for view {}&quot;, *self.cur_view + 1);
+                    <span class="comment">// panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -378,7 +379,7 @@
                 <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;unexpected event {:?}&quot;</span>, event);
+                <span class="macro">error!</span>(<span class="string">"unexpected event {:?}"</span>, event);
             }
         }
         <span class="prelude-val">None
@@ -386,7 +387,7 @@
 }
 
 <span class="doccomment">/// task state implementation for VID Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TaskState
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>VIDTaskState&lt;TYPES, I, A&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;

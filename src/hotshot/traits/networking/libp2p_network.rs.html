@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/libp2p_network.rs`."><title>libp2p_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/libp2p_network.rs`."><title>libp2p_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1040,7 +1041,7 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_block_on;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1051,7 +1052,7 @@
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
@@ -1070,7 +1071,7 @@
 };
 <span class="kw">use </span>hotshot_utils::{bincode::bincode_opts, version::read_version};
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 <span class="kw">use </span>libp2p_networking::{
@@ -1083,7 +1084,7 @@
 
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
 <span class="kw">use </span>std::{
@@ -1103,7 +1104,7 @@
 </span><span class="kw">pub type </span>BootstrapAddrs = Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;;
 
 <span class="doccomment">/// hardcoded topic of QC used
-</span><span class="kw">pub const </span>QC_TOPIC: <span class="kw-2">&amp;</span>str = <span class="string">&quot;global&quot;</span>;
+</span><span class="kw">pub const </span>QC_TOPIC: <span class="kw-2">&amp;</span>str = <span class="string">"global"</span>;
 
 <span class="doccomment">/// Stubbed out Ack
 ///
@@ -1119,9 +1120,9 @@
     </span>version: Version,
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Libp2p&quot;</span>).field(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;inner&quot;</span>).finish()
+<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"Libp2p"</span>).field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="string">"inner"</span>).finish()
     }
 }
 
@@ -1130,8 +1131,8 @@
 
 <span class="doccomment">/// The underlying state of the libp2p network
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>Libp2pNetworkInner&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; {
-    <span class="doccomment">/// this node&#39;s public key
+</span><span class="kw">struct </span>Libp2pNetworkInner&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+    <span class="doccomment">/// this node's public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
@@ -1154,9 +1155,9 @@
     </span>is_ready: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// max time before dropping message due to DHT error
     </span>dht_timeout: Duration,
-    <span class="doccomment">/// whether or not we&#39;ve bootstrapped into the DHT yet
+    <span class="doccomment">/// whether or not we've bootstrapped into the DHT yet
     </span>is_bootstrapped: Arc&lt;AtomicBool&gt;,
-    <span class="doccomment">/// The networking metrics we&#39;re keeping track of
+    <span class="doccomment">/// The networking metrics we're keeping track of
     </span>metrics: NetworkingMetricsValue,
     <span class="doccomment">/// topic map
     /// hash(hashset) -&gt; topic
@@ -1164,24 +1165,24 @@
     </span>topic_map: RwLock&lt;BiHashMap&lt;BTreeSet&lt;K&gt;, String&gt;&gt;,
     <span class="doccomment">/// the latest view number (for node lookup purposes)
     /// NOTE: supposed to represent a ViewNumber but we
-    /// haven&#39;t made that atomic yet and we prefer lock-free
+    /// haven't made that atomic yet and we prefer lock-free
     </span>latest_seen_view: Arc&lt;AtomicU64&gt;,
-    <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="doccomment">/// reliability_config
     </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    <span class="doccomment">/// if we&#39;re a member of the DA committee or not
+    <span class="doccomment">/// if we're a member of the DA committee or not
     </span>is_da: bool,
 }
 
 <span class="doccomment">/// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Libp2pNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>Libp2pNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// holds the state of the libp2p network
     </span>inner: Arc&lt;Libp2pNetworkInner&lt;M, K&gt;&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
     <span class="kw">for </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
 <span class="kw">where
@@ -1195,7 +1196,7 @@
     /// Returned function may panic either:
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
-    /// - An inability to spin up the replica&#39;s network
+    /// - An inability to spin up the replica's network
     </span><span class="attr">#[allow(clippy::panic)]
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
@@ -1204,13 +1205,13 @@
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
         <span class="macro">assert!</span>(
             da_committee_size &lt;= expected_node_count,
-            <span class="string">&quot;DA committee size must be less than or equal to total # nodes&quot;
+            <span class="string">"DA committee size must be less than or equal to total # nodes"
         </span>);
         <span class="kw">let </span>bootstrap_addrs: PeerInfoVec = Arc::default();
-        <span class="comment">// We assign known_nodes&#39; public key and stake value rather than read from config file since it&#39;s a test
+        <span class="comment">// We assign known_nodes' public key and stake value rather than read from config file since it's a test
         </span><span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
         <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
 
@@ -1228,18 +1229,18 @@
         </span>Box::new({
             <span class="kw">move </span>|node_id| {
                 <span class="macro">info!</span>(
-                    <span class="string">&quot;GENERATOR: Node id {:?}, is bootstrap: {:?}&quot;</span>,
+                    <span class="string">"GENERATOR: Node id {:?}, is bootstrap: {:?}"</span>,
                     node_id,
                     node_id &lt; num_bootstrap <span class="kw">as </span>u64
                 );
 
                 <span class="comment">// pick a free, unused UDP port for testing
-                </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">&quot;Could not find an open port&quot;</span>);
+                </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">"Could not find an open port"</span>);
 
                 <span class="kw">let </span>addr =
-                    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/udp/{port}/quic-v1&quot;</span>)).unwrap();
+                    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/ip4/127.0.0.1/udp/{port}/quic-v1"</span>)).unwrap();
 
-                <span class="comment">// We assign node&#39;s public key and stake value rather than read from config file since it&#39;s a test
+                <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
                 </span><span class="kw">let </span>privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
                 <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
@@ -1267,8 +1268,8 @@
                         .unwrap()
                 } <span class="kw">else </span>{
                     NetworkNodeConfigBuilder::default()
-                        <span class="comment">// NOTE I&#39;m hardcoding these because this is probably the MAX
-                        // parameters. If there aren&#39;t this many nodes, gossip keeps looking
+                        <span class="comment">// NOTE I'm hardcoding these because this is probably the MAX
+                        // parameters. If there aren't this many nodes, gossip keeps looking
                         // for more. That is fine.
                         </span>.mesh_params(<span class="prelude-val">Some</span>(MeshParams {
                             mesh_n_high: <span class="number">15</span>,
@@ -1299,7 +1300,7 @@
                         num_bootstrap,
                         usize::try_from(node_id).unwrap(),
                         keys,
-                        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+                        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                         </span>reliability_config_dup,
                         da.clone(),
                         da.contains(<span class="kw-2">&amp;</span>pubkey),
@@ -1308,7 +1309,7 @@
                     </span>{
                         <span class="prelude-val">Ok</span>(network) =&gt; network,
                         <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">panic!</span>(<span class="string">&quot;Failed to create libp2p network: {err:?}&quot;</span>);
+                            <span class="macro">panic!</span>(<span class="string">"Failed to create libp2p network: {err:?}"</span>);
                         }
                     }
                 })
@@ -1321,7 +1322,7 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; Libp2pNetwork&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; Libp2pNetwork&lt;M, K&gt; {
     <span class="doccomment">/// Returns when network is ready
     </span><span class="kw">pub async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">loop </span>{
@@ -1330,7 +1331,7 @@
             }
             async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
         }
-        <span class="macro">info!</span>(<span class="string">&quot;LIBP2P: IS READY GOT TRIGGERED!!&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"LIBP2P: IS READY GOT TRIGGERED!!"</span>);
     }
 
     <span class="doccomment">/// Constructs new network for a node. Note that this network is unconnected.
@@ -1355,11 +1356,11 @@
         id: usize,
         <span class="comment">// HACK
         </span>committee_pks: BTreeSet&lt;K&gt;,
-        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
+        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         da_pks: BTreeSet&lt;K&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
-        <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
+        <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">"Need at least 5 bootstrap nodes"</span>);
         <span class="kw">let </span>network_handle = Arc::new(
             Box::pin(NetworkNodeHandle::&lt;()&gt;::new(config, id))
                 .<span class="kw">await
@@ -1383,7 +1384,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>topic_map = BiHashMap::new();
         topic_map.insert(committee_pks, QC_TOPIC.to_string());
-        topic_map.insert(da_pks, <span class="string">&quot;DA&quot;</span>.to_string());
+        topic_map.insert(da_pks, <span class="string">"DA"</span>.to_string());
 
         <span class="kw">let </span>topic_map = RwLock::new(topic_map);
 
@@ -1411,11 +1412,11 @@
                 metrics,
                 topic_map,
                 node_lookup_send,
-                <span class="comment">// Start the latest view from 0. &quot;Latest&quot; refers to &quot;most recent view we are polling for
-                // proposals on&quot;. We need this because to have consensus info injected we need a working
-                // network already. In the worst case, we send a few lookups we don&#39;t need.
+                <span class="comment">// Start the latest view from 0. "Latest" refers to "most recent view we are polling for
+                // proposals on". We need this because to have consensus info injected we need a working
+                // network already. In the worst case, we send a few lookups we don't need.
                 </span>latest_seen_view: Arc::new(AtomicU64::new(<span class="number">0</span>)),
-                <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                 </span>reliability_config,
                 is_da,
             }),
@@ -1443,13 +1444,13 @@
                 </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
                 </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
 
-                <span class="macro">info!</span>(<span class="string">&quot;Performing lookup for peer {:?}&quot;</span>, pk);
+                <span class="macro">info!</span>(<span class="string">"Performing lookup for peer {:?}"</span>, pk);
 
                 <span class="comment">// only run if we are not too close to the next view number
                 </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
                     <span class="comment">// look up
                     </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle.lookup_node::&lt;K&gt;(pk.clone(), dht_timeout).<span class="kw">await </span>{
-                        <span class="macro">error!</span>(<span class="string">&quot;Failed to perform lookup for key {:?}: {}&quot;</span>, pk, err);
+                        <span class="macro">error!</span>(<span class="string">"Failed to perform lookup for key {:?}: {}"</span>, pk, err);
                     };
                 }
             }
@@ -1477,7 +1478,7 @@
                         <span class="kw">break </span>bs_addrs;
                     }
                     <span class="macro">info!</span>(
-                        <span class="string">&quot;NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}&quot;</span>,
+                        <span class="string">"NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}"</span>,
                         id,
                         bs_addrs.len(),
                         num_bootstrap
@@ -1488,7 +1489,7 @@
                 <span class="comment">// 10 minute timeout
                 </span><span class="kw">let </span>timeout_duration = Duration::from_secs(<span class="number">600</span>);
                 <span class="comment">// perform connection
-                </span><span class="macro">info!</span>(<span class="string">&quot;WAITING TO CONNECT ON NODE {:?}&quot;</span>, id);
+                </span><span class="macro">info!</span>(<span class="string">"WAITING TO CONNECT ON NODE {:?}"</span>, id);
                 handle
                     .wait_to_connect(<span class="number">4</span>, id, timeout_duration)
                     .<span class="kw">await
@@ -1508,15 +1509,15 @@
 
                 <span class="comment">// only subscribe to DA events if we are DA
                 </span><span class="kw">if </span>is_da {
-                    handle.subscribe(<span class="string">&quot;DA&quot;</span>.to_string()).<span class="kw">await</span>.unwrap();
+                    handle.subscribe(<span class="string">"DA"</span>.to_string()).<span class="kw">await</span>.unwrap();
                 }
 
                 <span class="comment">// TODO figure out some way of passing in ALL keypairs. That way we can add the
                 // global topic to the topic map
-                // NOTE this wont&#39; work without this change
+                // NOTE this wont' work without this change
 
                 </span><span class="macro">info!</span>(
-                    <span class="string">&quot;peer {:?} waiting for publishing, type: {:?}&quot;</span>,
+                    <span class="string">"peer {:?} waiting for publishing, type: {:?}"</span>,
                     handle.peer_id(),
                     node_type
                 );
@@ -1528,7 +1529,7 @@
                 }
 
                 <span class="macro">info!</span>(
-                    <span class="string">&quot;Node {:?} is ready, type: {:?}&quot;</span>,
+                    <span class="string">"Node {:?} is ready, type: {:?}"</span>,
                     handle.peer_id(),
                     node_type
                 );
@@ -1538,13 +1539,13 @@
                 }
 
                 <span class="macro">info!</span>(
-                    <span class="string">&quot;node {:?} is barring bootstrap, type: {:?}&quot;</span>,
+                    <span class="string">"node {:?} is barring bootstrap, type: {:?}"</span>,
                     handle.peer_id(),
                     node_type
                 );
 
                 is_ready.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-                <span class="macro">info!</span>(<span class="string">&quot;STARTING CONSENSUS ON {:?}&quot;</span>, handle.peer_id());
+                <span class="macro">info!</span>(<span class="string">"STARTING CONSENSUS ON {:?}"</span>, handle.peer_id());
                 <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
         });
@@ -1601,7 +1602,7 @@
                     .<span class="kw">await
                     </span>.is_err()
                 {
-                    <span class="macro">error!</span>(<span class="string">&quot;failed to ack!&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"failed to ack!"</span>);
                 };
             }
             DirectResponse(msg, <span class="kw">_</span>) =&gt; {
@@ -1610,7 +1611,7 @@
                     .context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">"handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible."</span>);
             }
         }
         <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
@@ -1641,13 +1642,13 @@
                             }
                             <span class="prelude-val">Some</span>(version) =&gt; {
                                 <span class="macro">warn!</span>(
-                            <span class="string">&quot;Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}&quot;</span>,
+                            <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
                             version, message
                         );
                             }
                             <span class="kw">_ </span>=&gt; {
                                 <span class="macro">warn!</span>(
-                            <span class="string">&quot;Received message with unreadable version number.\n\nPayload:\n\n{:?}&quot;</span>,
+                            <span class="string">"Received message with unreadable version number.\n\nPayload:\n\n{:?}"</span>,
                             message
                         );
                             }
@@ -1655,32 +1656,32 @@
                     }
                 }
             }
-            <span class="macro">warn!</span>(<span class="string">&quot;Network receiver shut down!&quot;</span>);
+            <span class="macro">warn!</span>(<span class="string">"Network receiver shut down!"</span>);
         });
     }
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready_blocking&quot;</span>, skip_all)]
+</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::ready_blocking"</span>, skip_all)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready_nonblocking&quot;</span>, skip_all)]
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::ready_nonblocking"</span>, skip_all)]
     </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.inner.is_ready.load(Ordering::Relaxed)
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::shut_down&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::shut_down"</span>, skip_all)]
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-                <span class="macro">error!</span>(<span class="string">&quot;Called shut down when already shut down! Noop.&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">"Called shut down when already shut down! Noop."</span>);
             } <span class="kw">else </span>{
                 <span class="kw">let _ </span>= <span class="self">self</span>.inner.node_lookup_send.send(<span class="prelude-val">None</span>).<span class="kw">await</span>;
                 <span class="kw">let _ </span>= <span class="self">self</span>.inner.handle.shutdown().<span class="kw">await</span>;
@@ -1689,7 +1690,7 @@
         boxed_sync(closure)
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::broadcast_message&quot;</span>, skip_all)]
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::broadcast_message"</span>, skip_all)]
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: M,
@@ -1701,7 +1702,7 @@
 
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
         <span class="macro">info!</span>(
-            <span class="string">&quot;broadcasting msg: {:?} with nodes: {:?} connected&quot;</span>,
+            <span class="string">"broadcasting msg: {:?} with nodes: {:?} connected"</span>,
             message,
             <span class="self">self</span>.inner.handle.connected_pids().<span class="kw">await
         </span>);
@@ -1713,9 +1714,9 @@
                 source: NetworkNodeHandleError::NoSuchTopic,
             })<span class="question-mark">?
             </span>.clone();
-        <span class="macro">info!</span>(<span class="string">&quot;broadcasting to topic: {}&quot;</span>, topic);
+        <span class="macro">info!</span>(<span class="string">"broadcasting to topic: {}"</span>, topic);
 
-        <span class="comment">// gossip doesn&#39;t broadcast from itself, so special case
+        <span class="comment">// gossip doesn't broadcast from itself, so special case
         </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {
             <span class="comment">// send to self
             </span><span class="self">self</span>.inner
@@ -1726,7 +1727,7 @@
         }
 
         <span class="comment">// NOTE: metrics is threadsafe, so clone is fine (and lightweight)
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span>{
             <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
@@ -1745,7 +1746,7 @@
                             <span class="kw">match </span>handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
                                 <span class="prelude-val">Err</span>(e) =&gt; {
                                     metrics_2.message_failed_to_send.add(<span class="number">1</span>);
-                                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to broadcast to libp2p: {:?}&quot;</span>, e);
+                                    <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                                 }
                                 <span class="prelude-val">Ok</span>(()) =&gt; {
                                     metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
@@ -1771,13 +1772,13 @@
         }
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::direct_message&quot;</span>, skip_all)]
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::direct_message"</span>, skip_all)]
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
 
-        <span class="comment">// short circuit if we&#39;re dming ourselves
+        <span class="comment">// short circuit if we're dming ourselves
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.inner.pk {
             <span class="comment">// panic if we already shut down?
             </span><span class="self">self</span>.inner
@@ -1800,14 +1801,14 @@
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
                 <span class="macro">error!</span>(
-                    <span class="string">&quot;Failed to message {:?} because could not find recipient peer id for pk {:?}&quot;</span>,
+                    <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
                     message, recipient
                 );
                 <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: err });
             }
         };
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span>{
             <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
@@ -1825,7 +1826,7 @@
                             <span class="kw">match </span>handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{
                                 <span class="prelude-val">Err</span>(e) =&gt; {
                                     metrics_2.message_failed_to_send.add(<span class="number">1</span>);
-                                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to broadcast to libp2p: {:?}&quot;</span>, e);
+                                    <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                                 }
                                 <span class="prelude-val">Ok</span>(()) =&gt; {
                                     metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
@@ -1845,14 +1846,14 @@
         }
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::recv_msgs&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
@@ -1891,7 +1892,7 @@
         boxed_sync(closure)
     }
 
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::queue_node_lookup&quot;</span>, skip_all)]
+    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::queue_node_lookup"</span>, skip_all)]
     </span><span class="kw">async fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: ViewNumber,
@@ -1909,7 +1910,7 @@
                 <span class="kw">let _ </span>= <span class="self">self
                     </span>.queue_node_lookup(ViewNumber::new(future_view), future_leader)
                     .<span class="kw">await
-                    </span>.map_err(|err| <span class="macro">warn!</span>(<span class="string">&quot;failed to process node lookup request: {}&quot;</span>, err));
+                    </span>.map_err(|err| <span class="macro">warn!</span>(<span class="string">"failed to process node lookup request: {}"</span>, err));
             }
 
             ConsensusIntentEvent::PollForProposal(new_view) =&gt; {
@@ -1940,7 +1941,7 @@
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES&gt;
 <span class="kw">where
     </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
@@ -1953,7 +1954,7 @@
     /// Returned function may panic either:
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
-    /// - An inability to spin up the replica&#39;s network
+    /// - An inability to spin up the replica's network
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -1961,7 +1962,7 @@
         da_committee_size: usize,
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>generator = &lt;Libp2pNetwork&lt;
             Message&lt;TYPES&gt;,
             TYPES::SignatureKey,
@@ -1981,9 +1982,9 @@
     </span>}
 }
 
-<span class="comment">// FIXME maybe we should macro this...? It&#39;s repeated at verbatum EXCEPT for impl generics at the
+<span class="comment">// FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
-// we don&#39;t really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
+// we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
 </span><span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; CommunicationChannel&lt;TYPES&gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES&gt;
 <span class="kw">where
@@ -1992,11 +1993,11 @@
     <span class="kw">type </span>NETWORK = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;;
 
     <span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">unimplemented!</span>(<span class="string">&quot;Pausing not implemented for the Libp2p network&quot;</span>);
+        <span class="macro">unimplemented!</span>(<span class="string">"Pausing not implemented for the Libp2p network"</span>);
     }
 
     <span class="kw">fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">unimplemented!</span>(<span class="string">&quot;Resuming not implemented for the Libp2p network&quot;</span>);
+        <span class="macro">unimplemented!</span>(<span class="string">"Resuming not implemented for the Libp2p network"</span>);
     }
 
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -2007,10 +2008,10 @@
         <span class="self">self</span>.<span class="number">0</span>.is_ready().<span class="kw">await
     </span>}
 
-    <span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    <span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="self">self</span>.<span class="number">0</span>.shut_down().<span class="kw">await</span>;
@@ -2038,13 +2039,13 @@
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
     </span>}
 
-    <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await </span>};
         boxed_sync(closure)
@@ -2069,7 +2070,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableChannelImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pCommChannel&lt;TYPES&gt; {
     <span class="kw">fn </span>generate_network(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt;
     {
         Box::new(<span class="kw">move </span>|network| Libp2pCommChannel::new(network))
     }

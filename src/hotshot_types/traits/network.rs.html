@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/traits/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/traits/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -665,14 +666,14 @@
 //! Contains types and traits used by `HotShot` to abstract over network access
 
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;async-std&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::future::TimeoutError;
 <span class="kw">use </span>dyn_clone::DynClone;
 <span class="kw">use </span>libp2p_networking::network::NetworkNodeHandleError;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">&quot;tokio&quot;</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
-<span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">&quot;async-std&quot;</span>, async_executor_impl = <span class="string">&quot;tokio&quot;</span>)))]
-</span><span class="macro">compile_error! </span>{<span class="string">&quot;Either config option \&quot;async-std\&quot; or \&quot;tokio\&quot; must be enabled for this crate.&quot;</span>}
+<span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
+</span><span class="macro">compile_error! </span>{<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{
     data::ViewNumber,
@@ -873,7 +874,7 @@
 
 <span class="doccomment">/// common traits we would like our network messages to implement
 </span><span class="kw">pub trait </span>NetworkMsg:
-    Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Clone + Sync + Send + Debug + <span class="lifetime">&#39;static
+    Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; + Clone + Sync + Send + Debug + <span class="lifetime">'static
 </span>{
 }
 
@@ -891,8 +892,8 @@
 <span class="doccomment">/// API for interacting directly with a consensus committee
 /// intended to be implemented for both DA and for validating consensus committees
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>CommunicationChannel&lt;TYPES: NodeType&gt;: Clone + Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
-    <span class="doccomment">/// Underlying Network implementation&#39;s type
+</span><span class="kw">pub trait </span>CommunicationChannel&lt;TYPES: NodeType&gt;: Clone + Debug + Send + Sync + <span class="lifetime">'static </span>{
+    <span class="doccomment">/// Underlying Network implementation's type
     </span><span class="kw">type </span>NETWORK;
     <span class="doccomment">/// Blocks until node is successfully initialized
     /// into the network
@@ -911,10 +912,10 @@
     <span class="doccomment">/// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>;
 
     <span class="doccomment">/// broadcast message to those listening on the communication channel
     /// blocking
@@ -932,17 +933,17 @@
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
+    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>;
 
     <span class="doccomment">/// queues looking up a node
     </span><span class="kw">async fn </span>queue_node_lookup(
@@ -963,8 +964,8 @@
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt;:
-    Clone + Send + Sync + <span class="lifetime">&#39;static
+</span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt;:
+    Clone + Send + Sync + <span class="lifetime">'static
 </span>{
     <span class="doccomment">/// Blocks until the network is successfully initialized
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>);
@@ -975,10 +976,10 @@
 
     <span class="doccomment">/// Blocks until the network is shut down
     /// then returns true
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>;
 
     <span class="doccomment">/// broadcast message to some subset of nodes
     /// blocking
@@ -992,17 +993,17 @@
     /// blocking
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
+    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>;
 
     <span class="doccomment">/// queues lookup of a node
     </span><span class="kw">async fn </span>queue_node_lookup(
@@ -1029,7 +1030,7 @@
         da_committee_size: usize,
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt;;
 
     <span class="doccomment">/// Get the number of messages in-flight.
     ///
@@ -1038,10 +1039,10 @@
 }
 <span class="doccomment">/// Describes additional functionality needed by the test communication channel
 </span><span class="kw">pub trait </span>TestableChannelImplementation&lt;TYPES: NodeType&gt;: CommunicationChannel&lt;TYPES&gt; {
-    <span class="doccomment">/// generates the `CommunicationChannel` given it&#39;s associated network type
+    <span class="doccomment">/// generates the `CommunicationChannel` given it's associated network type
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">fn </span>generate_network(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;&lt;<span class="self">Self </span><span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;&lt;<span class="self">Self </span><span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt;;
 }
 
 <span class="doccomment">/// Changes that can occur in the network
@@ -1056,7 +1057,7 @@
 
 <span class="doccomment">/// interface describing how reliable the network is
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>NetworkReliability: Debug + Sync + std::marker::Send + DynClone + <span class="lifetime">&#39;static </span>{
+</span><span class="kw">pub trait </span>NetworkReliability: Debug + Sync + std::marker::Send + DynClone + <span class="lifetime">'static </span>{
     <span class="doccomment">/// Sample from bernoulli distribution to decide whether
     /// or not to keep a packet
     /// # Panics
@@ -1095,8 +1096,8 @@
     </span><span class="kw">fn </span>chaos_send_msg(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         msg: Vec&lt;u8&gt;,
-        send_fn: Arc&lt;<span class="kw">dyn </span>Send + Sync + <span class="lifetime">&#39;static </span>+ Fn(Vec&lt;u8&gt;) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; {
+        send_fn: Arc&lt;<span class="kw">dyn </span>Send + Sync + <span class="lifetime">'static </span>+ Fn(Vec&lt;u8&gt;) -&gt; BoxSyncFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'static</span>, ()&gt; {
         <span class="kw">let </span>sample_keep = <span class="self">self</span>.sample_keep();
         <span class="kw">let </span>delay = <span class="self">self</span>.sample_delay();
         <span class="kw">let </span>repeats = <span class="self">self</span>.sample_repeat();
@@ -1207,7 +1208,7 @@
             <span class="kw">if </span><span class="self">self</span>.asynchronous.sample_keep() {
                 <span class="self">self</span>.asynchronous.sample_delay()
             } <span class="kw">else </span>{
-                <span class="comment">// assume packet was &quot;dropped&quot; and will arrive after gst
+                <span class="comment">// assume packet was "dropped" and will arrive after gst
                 </span><span class="self">self</span>.synchronous.sample_delay() + <span class="self">self</span>.gst
             }
         } <span class="kw">else </span>{

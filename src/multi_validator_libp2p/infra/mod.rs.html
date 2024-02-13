@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/examples/libp2p/../infra/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="multi_validator_libp2p" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/examples/libp2p/../infra/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="multi_validator_libp2p" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1033,8 +1034,8 @@
 
 <span class="attr">#[derive(Parser, Debug, Clone)]
 #[command(
-    name = <span class="string">&quot;Multi-machine consensus&quot;</span>,
-    about = <span class="string">&quot;Simulates consensus among multiple machines&quot;
+    name = <span class="string">"Multi-machine consensus"</span>,
+    about = <span class="string">"Simulates consensus among multiple machines"
 </span>)]
 </span><span class="doccomment">/// Arguments passed to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorArgs {
@@ -1046,8 +1047,8 @@
 
 <span class="attr">#[derive(Parser, Debug, Clone)]
 #[command(
-    name = <span class="string">&quot;Multi-machine consensus&quot;</span>,
-    about = <span class="string">&quot;Simulates consensus among multiple machines&quot;
+    name = <span class="string">"Multi-machine consensus"</span>,
+    about = <span class="string">"Simulates consensus among multiple machines"
 </span>)]
 </span><span class="doccomment">/// The configuration file to be used for this run
 </span><span class="kw">pub struct </span>ConfigArgs {
@@ -1061,7 +1062,7 @@
 /// # Note
 /// This derived config is used for initialization of orchestrator,
 /// therefore `known_nodes_with_stake` will be an initialized
-/// vector full of the node&#39;s own config.
+/// vector full of the node's own config.
 /// `my_own_validator_config` will be generated from seed here
 /// for loading config from orchestrator,
 /// or else it will be loaded from file.
@@ -1070,16 +1071,16 @@
     config_file: <span class="kw-2">&amp;</span>str,
 ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
     <span class="kw">let </span>config_file_as_string: String = fs::read_to_string(config_file)
-        .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Could not read config file located at {config_file}&quot;</span>));
+        .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Could not read config file located at {config_file}"</span>));
     <span class="kw">let </span>config_toml: NetworkConfigFile&lt;TYPES::SignatureKey&gt; =
         toml::from_str::&lt;NetworkConfigFile&lt;TYPES::SignatureKey&gt;&gt;(<span class="kw-2">&amp;</span>config_file_as_string)
-            .expect(<span class="string">&quot;Unable to convert config file to TOML&quot;</span>);
+            .expect(<span class="string">"Unable to convert config file to TOML"</span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
         config_toml.into();
 
     <span class="comment">// my_own_validator_config would be best to load from file,
-    // but its type is too complex to load so we&#39;ll generate it from seed now
+    // but its type is too complex to load so we'll generate it from seed now
     </span>config.config.my_own_validator_config =
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>);
     <span class="kw">let </span>my_own_validator_config_with_stake = config
@@ -1087,7 +1088,7 @@
         .my_own_validator_config
         .public_key
         .get_stake_table_entry(<span class="number">1u64</span>);
-    <span class="comment">// initialize it with size for better assignment of other peers&#39; config
+    <span class="comment">// initialize it with size for better assignment of other peers' config
     </span>config.config.known_nodes_with_stake =
         <span class="macro">vec!</span>[my_own_validator_config_with_stake; config.config.total_nodes.get() <span class="kw">as </span>usize];
 
@@ -1105,7 +1106,7 @@
 &gt;(
     OrchestratorArgs { url, config_file }: OrchestratorArgs,
 ) {
-    <span class="macro">error!</span>(<span class="string">&quot;Starting orchestrator&quot;</span>,);
+    <span class="macro">error!</span>(<span class="string">"Starting orchestrator"</span>,);
     <span class="kw">let </span>run_config = load_config_from_file::&lt;TYPES&gt;(<span class="kw-2">&amp;</span>config_file);
     <span class="kw">let </span>_result = hotshot_orchestrator::run_orchestrator::&lt;
         TYPES::SignatureKey,
@@ -1130,7 +1131,7 @@
 
 <span class="doccomment">/// create a web server network from a config file + public key
 /// # Panics
-/// Panics if the web server config doesn&#39;t exist in `config`
+/// Panics if the web server config doesn't exist in `config`
 </span><span class="kw">fn </span>webserver_network_from_config&lt;TYPES: NodeType&gt;(
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     pub_key: TYPES::SignatureKey,
@@ -1158,7 +1159,7 @@
     <span class="kw">let </span>libp2p_config = config
         .libp2p_config
         .take()
-        .expect(<span class="string">&quot;Configuration is not for a Libp2p network&quot;</span>);
+        .expect(<span class="string">"Configuration is not for a Libp2p network"</span>);
     <span class="kw">let </span>bs_len = libp2p_config.bootstrap_nodes.len();
     <span class="kw">let </span>bootstrap_nodes: Vec&lt;(PeerId, Multiaddr)&gt; = libp2p_config
         .bootstrap_nodes
@@ -1167,7 +1168,7 @@
             <span class="kw">let </span>kp = Keypair::from_protobuf_encoding(pair).unwrap();
             <span class="kw">let </span>peer_id = PeerId::from_public_key(<span class="kw-2">&amp;</span>kp.public());
             <span class="kw">let </span>multiaddr =
-                Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/udp/{}/quic-v1&quot;</span>, addr.ip(), addr.port()))
+                Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/ip4/{}/udp/{}/quic-v1"</span>, addr.ip(), addr.port()))
                     .unwrap();
             (peer_id, multiaddr)
         })
@@ -1185,11 +1186,11 @@
         <span class="number">0
     </span>};
     <span class="kw">let </span>bound_addr: Multiaddr = <span class="macro">format!</span>(
-        <span class="string">&quot;/{}/{}/udp/{}/quic-v1&quot;</span>,
+        <span class="string">"/{}/{}/udp/{}/quic-v1"</span>,
         <span class="kw">if </span>libp2p_config.public_ip.is_ipv4() {
-            <span class="string">&quot;ip4&quot;
+            <span class="string">"ip4"
         </span>} <span class="kw">else </span>{
-            <span class="string">&quot;ip6&quot;
+            <span class="string">"ip6"
         </span>},
         libp2p_config.public_ip,
         libp2p_config.base_port <span class="kw">as </span>u64 + port_index
@@ -1214,7 +1215,7 @@
     config_builder.to_connect_addrs(to_connect_addrs);
 
     <span class="kw">let </span>mesh_params =
-        <span class="comment">// NOTE I&#39;m arbitrarily choosing these.
+        <span class="comment">// NOTE I'm arbitrarily choosing these.
         </span><span class="kw">match </span>node_type {
             NetworkNodeType::Bootstrap =&gt; MeshParams {
                 mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
@@ -1268,7 +1269,7 @@
     </span>.unwrap()
 }
 
-<span class="doccomment">/// Defines the behavior of a &quot;run&quot; of the network with a given configuration
+<span class="doccomment">/// Defines the behavior of a "run" of the network with a given configuration
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>RunDA&lt;
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
@@ -1300,7 +1301,7 @@
     /// Note: sequencing leaf does not have state, so does not return state
     </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE&gt; {
         <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {})
-            .expect(<span class="string">&quot;Couldn&#39;t generate genesis block&quot;</span>);
+            .expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.get_config();
 
@@ -1357,7 +1358,7 @@
             ConsensusMetricsValue::default(),
         )
         .<span class="kw">await
-        </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>)
+        </span>.expect(<span class="string">"Could not init hotshot"</span>)
         .<span class="number">0
     </span>}
 
@@ -1378,10 +1379,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions_committed = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions_sent = <span class="number">0</span>;
 
-        <span class="macro">error!</span>(<span class="string">&quot;Sleeping for {start_delay_seconds} seconds before starting hotshot!&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
         async_sleep(Duration::from_secs(start_delay_seconds)).<span class="kw">await</span>;
 
-        <span class="macro">error!</span>(<span class="string">&quot;Starting HotShot example!&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"Starting HotShot example!"</span>);
         <span class="kw">let </span>start = Instant::now();
 
         <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
@@ -1393,12 +1394,12 @@
         <span class="kw">loop </span>{
             <span class="kw">match </span>event_stream.next().<span class="kw">await </span>{
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="macro">panic!</span>(<span class="string">&quot;Error! Event stream completed before consensus ended.&quot;</span>);
+                    <span class="macro">panic!</span>(<span class="string">"Error! Event stream completed before consensus ended."</span>);
                 }
                 <span class="prelude-val">Some</span>(Event { event, .. }) =&gt; {
                     <span class="kw">match </span>event {
                         EventType::Error { error } =&gt; {
-                            <span class="macro">error!</span>(<span class="string">&quot;Error in consensus: {:?}&quot;</span>, error);
+                            <span class="macro">error!</span>(<span class="string">"Error in consensus: {:?}"</span>, error);
                             <span class="comment">// TODO what to do here
                         </span>}
                         EventType::Decide {
@@ -1408,7 +1409,7 @@
                         } =&gt; {
                             <span class="comment">// this might be a obob
                             </span><span class="kw">if let </span><span class="prelude-val">Some</span>((leaf, <span class="kw">_</span>)) = leaf_chain.first() {
-                                <span class="macro">info!</span>(<span class="string">&quot;Decide event for leaf: {}&quot;</span>, <span class="kw-2">*</span>leaf.view_number);
+                                <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.view_number);
 
                                 <span class="kw">let </span>new_anchor = leaf.view_number;
                                 <span class="kw">if </span>new_anchor &gt;= anchor_view {
@@ -1434,15 +1435,15 @@
                             }
 
                             <span class="kw">if </span>leaf_chain.len() &gt; <span class="number">1 </span>{
-                                <span class="macro">warn!</span>(<span class="string">&quot;Leaf chain is greater than 1 with len {}&quot;</span>, leaf_chain.len());
+                                <span class="macro">warn!</span>(<span class="string">"Leaf chain is greater than 1 with len {}"</span>, leaf_chain.len());
                             }
                             <span class="comment">// when we make progress, submit new events
                         </span>}
                         EventType::ReplicaViewTimeout { view_number } =&gt; {
-                            <span class="macro">warn!</span>(<span class="string">&quot;Timed out as a replicas in view {:?}&quot;</span>, view_number);
+                            <span class="macro">warn!</span>(<span class="string">"Timed out as a replicas in view {:?}"</span>, view_number);
                         }
                         EventType::NextLeaderViewTimeout { view_number } =&gt; {
-                            <span class="macro">warn!</span>(<span class="string">&quot;Timed out as the next leader in view {:?}&quot;</span>, view_number);
+                            <span class="macro">warn!</span>(<span class="string">"Timed out as the next leader in view {:?}"</span>, view_number);
                         }
                         <span class="kw">_ </span>=&gt; {}
                     }
@@ -1452,7 +1453,7 @@
 
         <span class="comment">// Output run results
         </span><span class="kw">let </span>total_time_elapsed = start.elapsed();
-        <span class="macro">error!</span>(<span class="string">&quot;[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}"</span>);
     }
 
     <span class="doccomment">/// Returns the da network for this run
@@ -1837,7 +1838,7 @@
     setup_logging();
     setup_backtrace();
 
-    <span class="macro">error!</span>(<span class="string">&quot;Starting validator&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">"Starting validator"</span>);
 
     <span class="comment">// see what our public identity will be
     </span><span class="kw">let </span>public_ip = <span class="kw">match </span>args.public_ip {
@@ -1857,9 +1858,9 @@
         .<span class="kw">await</span>;
 
     <span class="kw">let </span>node_index = run_config.node_index;
-    <span class="macro">error!</span>(<span class="string">&quot;Retrieved config; our node index is {node_index}&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}"</span>);
 
-    <span class="comment">// one more round of orchestrator here to get peer&#39;s public key/config
+    <span class="comment">// one more round of orchestrator here to get peer's public key/config
     </span><span class="kw">let </span>updated_config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
         orchestrator_client
             .post_and_wait_all_public_keys::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;(
@@ -1869,7 +1870,7 @@
             .<span class="kw">await</span>;
     run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-    <span class="macro">error!</span>(<span class="string">&quot;Initializing networking&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">"Initializing networking"</span>);
     <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone()).<span class="kw">await</span>;
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
@@ -1905,13 +1906,13 @@
     }
 
     <span class="kw">if let </span>NetworkConfigSource::Orchestrator = source {
-        <span class="macro">error!</span>(<span class="string">&quot;Waiting for the start command from orchestrator&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"Waiting for the start command from orchestrator"</span>);
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .<span class="kw">await</span>;
     }
 
-    <span class="macro">error!</span>(<span class="string">&quot;Starting HotShot&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">"Starting HotShot"</span>);
     run.run_hotshot(
         hotshot,
         <span class="kw-2">&amp;mut </span>transactions,

@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -280,9 +281,9 @@
 </span><span class="kw">pub struct </span>UpgradeTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
+    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
 &gt; {
-    <span class="doccomment">/// The state&#39;s api
+    <span class="doccomment">/// The state's api
     </span><span class="kw">pub </span>api: A,
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
@@ -305,15 +306,15 @@
     <span class="doccomment">/// This Nodes private key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
-    <span class="doccomment">/// This state&#39;s ID
+    <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
     UpgradeTaskState&lt;TYPES, I, A&gt;
 {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Upgrade Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Upgrade Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: HotShotEvent&lt;TYPES&gt;,
@@ -324,14 +325,14 @@
                 <span class="kw">let </span>should_vote = <span class="self">self</span>.should_vote;
                 <span class="comment">// If the proposal does not match our upgrade target, we immediately exit.
                 </span><span class="kw">if </span>!should_vote(proposal.data.upgrade_proposal.clone()) {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Received unexpected upgrade proposal:\n{:?}&quot;</span>, proposal.data);
+                    <span class="macro">warn!</span>(<span class="string">"Received unexpected upgrade proposal:\n{:?}"</span>, proposal.data);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
                 <span class="comment">// If we have an upgrade target, we validate that the proposal is relevant for the current view.
 
                 </span><span class="macro">debug!</span>(
-                    <span class="string">&quot;Upgrade proposal received for view: {:?}&quot;</span>,
+                    <span class="string">"Upgrade proposal received for view: {:?}"</span>,
                     proposal.data.get_view_number()
                 );
                 <span class="comment">// NOTE: Assuming that the next view leader is the one who sends an upgrade proposal for this view
@@ -342,10 +343,10 @@
                 // `self.cur_view` should be at least 1 since there is a view change before getting
                 // the `UpgradeProposalRecv` event. Otherewise, the view number subtraction below will
                 // cause an overflow error.
-                // TODO Come back to this - we probably don&#39;t need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn&#39;t make one for the genesis block
+                // TODO Come back to this - we probably don't need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn't make one for the genesis block
 
                 </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">&quot;Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}.&quot;</span>,
+                    <span class="macro">warn!</span>(<span class="string">"Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}."</span>,
                       view,
                       <span class="self">self</span>.cur_view
                     );
@@ -355,11 +356,11 @@
                 <span class="comment">// We then validate that the proposal was issued by the leader for the view.
                 </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.get_leader(view);
                 <span class="kw">if </span>view_leader_key != sender {
-                    <span class="macro">error!</span>(<span class="string">&quot;Upgrade proposal doesn&#39;t have expected leader key for view {} \n Upgrade proposal is: {:?}&quot;</span>, <span class="kw-2">*</span>view, proposal.data.clone());
+                    <span class="macro">error!</span>(<span class="string">"Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}"</span>, <span class="kw-2">*</span>view, proposal.data.clone());
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="comment">// At this point, we&#39;ve checked that:
+                <span class="comment">// At this point, we've checked that:
                 //   * the proposal was expected,
                 //   * the proposal is valid, and
                 //   * the proposal is recent,
@@ -381,19 +382,19 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 ) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;Failed to sign UpgradeVote!&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"Failed to sign UpgradeVote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
-                <span class="macro">debug!</span>(<span class="string">&quot;Sending upgrade vote {:?}&quot;</span>, vote.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"Sending upgrade vote {:?}"</span>, vote.get_view_number());
                 broadcast_event(HotShotEvent::UpgradeVoteSend(vote), <span class="kw-2">&amp;</span>tx).<span class="kw">await</span>;
             }
             HotShotEvent::UpgradeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Upgrade vote recv, Main Task {:?}&quot;</span>, vote.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"Upgrade vote recv, Main Task {:?}"</span>, vote.get_view_number());
                 <span class="comment">// Check if we are the leader.
                 </span><span class="kw">let </span>view = vote.get_view_number();
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
                     <span class="macro">error!</span>(
-                        <span class="string">&quot;We are not the leader for view {} are we leader for next view? {}&quot;</span>,
+                        <span class="string">"We are not the leader for view {} are we leader for next view? {}"</span>,
                         <span class="kw-2">*</span>view,
                         <span class="self">self</span>.quorum_membership.get_leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key
                     );
@@ -403,7 +404,7 @@
 
                 <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
                 {
-                    <span class="macro">debug!</span>(<span class="string">&quot;Starting vote handle for view {:?}&quot;</span>, vote.get_view_number());
+                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: <span class="self">self</span>.quorum_membership.clone(),
@@ -436,18 +437,18 @@
                 }
 
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">&quot;View changed by more than 1 going to view {:?}&quot;</span>, view);
+                    <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::Shutdown =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Shutting down because of shutdown signal!&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">"Shutting down because of shutdown signal!"</span>);
                 <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;unexpected event {:?}&quot;</span>, event);
+                <span class="macro">error!</span>(<span class="string">"unexpected event {:?}"</span>, event);
             }
         }
         <span class="prelude-val">None
@@ -455,7 +456,7 @@
 }
 
 <span class="doccomment">/// task state implementation for DA Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; TaskState
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, A&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
@@ -467,7 +468,7 @@
         task: <span class="kw-2">&amp;mut </span>hotshot_task::task::Task&lt;<span class="self">Self</span>&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">let </span>sender = task.clone_sender();
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;sender queue len {}&quot;</span>, sender.len());
+        <span class="macro">tracing::trace!</span>(<span class="string">"sender queue len {}"</span>, sender.len());
         task.state_mut().handle(event, sender).<span class="kw">await
     </span>}
 

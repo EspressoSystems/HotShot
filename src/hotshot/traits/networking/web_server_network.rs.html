@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/web_server_network.rs`."><title>web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/traits/networking/web_server_network.rs`."><title>web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1527,7 +1528,7 @@
             .unwrap()
             .send()
             .<span class="kw">await</span>;
-        <span class="comment">// error!(&quot;POST message error for endpoint {} is {:?}&quot;, &amp;message.get_endpoint(), result.clone());
+        <span class="comment">// error!("POST message error for endpoint {} is {:?}", &amp;message.get_endpoint(), result.clone());
         </span>result.map_err(|_e| NetworkError::WebServer {
             source: WebServerNetworkError::ClientError,
         })
@@ -1535,13 +1536,13 @@
 
     <span class="doccomment">/// Pauses the underlying network
     </span><span class="kw">pub fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">error!</span>(<span class="string">&quot;Pausing CDN network&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"Pausing CDN network"</span>);
         <span class="self">self</span>.inner.running.store(<span class="bool-val">false</span>, Ordering::Relaxed);
     }
 
     <span class="doccomment">/// Resumes the underlying network
     </span><span class="kw">pub fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">error!</span>(<span class="string">&quot;Resuming CDN network&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">"Resuming CDN network"</span>);
         <span class="self">self</span>.inner.running.store(<span class="bool-val">true</span>, Ordering::Relaxed);
     }
 }
@@ -1674,7 +1675,7 @@
         <span class="kw">let </span>broadcast_poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.broadcast_poll_queue_0_1;
         <span class="kw">if </span>first_tx_index &gt; <span class="kw-2">*</span>tx_index + <span class="number">1 </span>{
             <span class="macro">debug!</span>(
-                <span class="string">&quot;missed txns from {} to {}&quot;</span>,
+                <span class="string">"missed txns from {} to {}"</span>,
                 <span class="kw-2">*</span>tx_index + <span class="number">1</span>,
                 first_tx_index - <span class="number">1
             </span>);
@@ -1695,13 +1696,13 @@
             async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
         }
 
-        <span class="macro">debug!</span>(<span class="string">&quot;tx index is {}&quot;</span>, tx_index);
+        <span class="macro">debug!</span>(<span class="string">"tx index is {}"</span>, tx_index);
     }
 
     <span class="doccomment">/// Handle version 0.1 messages
     ///
     /// Returns `should_return` as a boolean, which is:
-    ///   * `true` if we&#39;ve seen enough this round and the `poll_web_server` function should return
+    ///   * `true` if we've seen enough this round and the `poll_web_server` function should return
     ///   * `false` if we want to receive further messages from the server.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">async fn </span>handle_message_0_1(
@@ -1721,7 +1722,7 @@
             };
             <span class="kw">match </span>message_purpose {
                 MessagePurpose::Data =&gt; {
-                    <span class="macro">error!</span>(<span class="string">&quot;We should not receive transactions in this function&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"We should not receive transactions in this function"</span>);
                 }
                 MessagePurpose::Proposal =&gt; {
                     <span class="kw">let </span>proposal = deserialized_message.clone();
@@ -1758,7 +1759,7 @@
                 }
                 MessagePurpose::DAC =&gt; {
                     <span class="macro">debug!</span>(
-                        <span class="string">&quot;Received DAC from web server for view {} {}&quot;</span>,
+                        <span class="string">"Received DAC from web server for view {} {}"</span>,
                         view_number, <span class="self">self</span>.is_da
                     );
                     broadcast_poll_queue
@@ -1793,7 +1794,7 @@
                 }
 
                 MessagePurpose::Internal =&gt; {
-                    <span class="macro">error!</span>(<span class="string">&quot;Received internal message in web server network&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"Received internal message in web server network"</span>);
 
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
@@ -1827,7 +1828,7 @@
 
         <span class="kw">if </span>message_purpose == MessagePurpose::Data {
             tx_index = <span class="kw-2">*</span><span class="self">self</span>.tx_index.read().<span class="kw">await</span>;
-            <span class="macro">debug!</span>(<span class="string">&quot;Previous tx index was {}&quot;</span>, tx_index);
+            <span class="macro">debug!</span>(<span class="string">"Previous tx index was {}"</span>, tx_index);
         };
 
         <span class="kw">while </span><span class="self">self</span>.running.load(Ordering::Relaxed) {
@@ -1871,7 +1872,7 @@
                         // So we use the fact that the bincode serialization of Option(_) is a single leading byte
                         // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message&lt;TYPES&gt;.
                         //
-                        // It would be nice to do this with serde primitives, but I&#39;m not sure how.
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
 
                         </span><span class="kw">match </span>tx_raw.first() {
                             <span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; {
@@ -1887,21 +1888,21 @@
                                     }
                                     <span class="prelude-val">Some</span>(version) =&gt; {
                                         <span class="macro">warn!</span>(
-                                      <span class="string">&quot;Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}&quot;</span>,
+                                      <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
                                       version,
                                       tx
                                   );
                                     }
                                     <span class="kw">_ </span>=&gt; {
                                         <span class="macro">warn!</span>(
-                                      <span class="string">&quot;Received message with unreadable version number.\n\nPayload:\n\n{:?}&quot;</span>,
+                                      <span class="string">"Received message with unreadable version number.\n\nPayload:\n\n{:?}"</span>,
                                       tx
                                   );
                                     }
                                 }
                             }
                             <span class="kw">_ </span>=&gt; {
-                                <span class="macro">warn!</span>(<span class="string">&quot;Could not deserialize transaction: {:?}&quot;</span>, tx_raw);
+                                <span class="macro">warn!</span>(<span class="string">"Could not deserialize transaction: {:?}"</span>, tx_raw);
                             }
                         }
                     }
@@ -1924,7 +1925,7 @@
                         // So we use the fact that the bincode serialization of Option(_) is a single leading byte
                         // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message&lt;TYPES&gt;.
                         //
-                        // It would be nice to do this with serde primitives, but I&#39;m not sure how.
+                        // It would be nice to do this with serde primitives, but I'm not sure how.
 
                         </span><span class="kw">match </span>message_raw.first() {
                             <span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; {
@@ -1955,21 +1956,21 @@
                                     }
                                     <span class="prelude-val">Some</span>(version) =&gt; {
                                         <span class="macro">warn!</span>(
-                                      <span class="string">&quot;Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}&quot;</span>,
+                                      <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
                                       version,
                                       message
                                   );
                                     }
                                     <span class="kw">_ </span>=&gt; {
                                         <span class="macro">warn!</span>(
-                                      <span class="string">&quot;Received message with unreadable version number.\n\nPayload:\n\n{:?}&quot;</span>,
+                                      <span class="string">"Received message with unreadable version number.\n\nPayload:\n\n{:?}"</span>,
                                       message
                                   );
                                     }
                                 }
                             }
                             <span class="kw">_ </span>=&gt; {
-                                <span class="macro">warn!</span>(<span class="string">&quot;Could not deserialize message: {:?}&quot;</span>, message_raw);
+                                <span class="macro">warn!</span>(<span class="string">"Could not deserialize message: {:?}"</span>, message_raw);
                             }
                         }
                     }
@@ -1994,7 +1995,7 @@
                         )
                         | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) =&gt; {
                             <span class="kw">if </span>view_number == event_view {
-                                <span class="macro">debug!</span>(<span class="string">&quot;Shutting down polling task for view {}&quot;</span>, event_view);
+                                <span class="macro">debug!</span>(<span class="string">"Shutting down polling task for view {}"</span>, event_view);
                                 <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                             }
                         }
@@ -2005,7 +2006,7 @@
                             <span class="kw-2">*</span>lock = tx_index;
 
                             <span class="kw">if </span>view_number == event_view {
-                                <span class="macro">debug!</span>(<span class="string">&quot;Shutting down polling task for view {}&quot;</span>, event_view);
+                                <span class="macro">debug!</span>(<span class="string">"Shutting down polling task for view {}"</span>, event_view);
                                 <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                             }
                         }
@@ -2017,7 +2018,7 @@
                 }
                 <span class="comment">// Nothing on receiving channel
                 </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;Nothing on receiving channel&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Nothing on receiving channel"</span>);
                 }
             }
         }
@@ -2026,7 +2027,7 @@
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+#[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="doccomment">/// A message being sent to the web server
 </span><span class="kw">pub struct </span>SendMsg&lt;M: NetworkMsg&gt; {
     <span class="doccomment">/// The optional message, or body, to send
@@ -2037,7 +2038,7 @@
 
 <span class="doccomment">/// A message being received from the web server
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+#[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>RecvMsg&lt;M: NetworkMsg&gt; {
     <span class="doccomment">/// The optional message being received
     </span>message: <span class="prelude-ty">Option</span>&lt;M&gt;,
@@ -2076,7 +2077,7 @@
 <span class="kw">impl</span>&lt;M: NetworkMsg&gt; NetworkMsg <span class="kw">for </span>SendMsg&lt;M&gt; {}
 <span class="kw">impl</span>&lt;M: NetworkMsg&gt; NetworkMsg <span class="kw">for </span>RecvMsg&lt;M&gt; {}
 
-<span class="kw">impl</span>&lt;TYPES: NodeType + <span class="lifetime">&#39;static</span>&gt; WebServerNetwork&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType + <span class="lifetime">'static</span>&gt; WebServerNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
@@ -2086,7 +2087,7 @@
         key: TYPES::SignatureKey,
         is_da_server: bool,
     ) -&gt; <span class="self">Self </span>{
-        <span class="macro">info!</span>(<span class="string">&quot;Connecting to web server at {url:?} is da: {is_da_server}&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"Connecting to web server at {url:?} is da: {is_da_server}"</span>);
 
         <span class="comment">// TODO ED Wait for healthcheck
         </span><span class="kw">let </span>client = surf_disco::Client::&lt;ClientError&gt;::new(url);
@@ -2137,7 +2138,7 @@
                 <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError)
             }
             MessagePurpose::ViewSyncCertificate =&gt; {
-                <span class="comment">// error!(&quot;Posting view sync proposal route is: {}&quot;, config::post_view_sync_certificate_route(*view_number));
+                <span class="comment">// error!("Posting view sync proposal route is: {}", config::post_view_sync_certificate_route(*view_number));
                 </span>config::post_view_sync_certificate_route(<span class="kw-2">*</span>view_number)
             }
             MessagePurpose::ViewSyncVote =&gt; config::post_view_sync_vote_route(<span class="kw-2">*</span>view_number),
@@ -2187,10 +2188,10 @@
     <span class="doccomment">/// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             &lt;WebServerNetwork&lt;<span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
@@ -2222,17 +2223,17 @@
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
+    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             &lt;WebServerNetwork&lt;<span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
@@ -2254,7 +2255,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
     <span class="kw">for </span>WebServerNetwork&lt;TYPES&gt;
 {
     <span class="doccomment">/// Blocks until the network is successfully initialized
@@ -2272,10 +2273,10 @@
 
     <span class="doccomment">/// Blocks until the network is shut down
     /// then returns true
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, ()&gt;
+    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="comment">// Cancel poll for latest proposal on shutdown
@@ -2304,7 +2305,7 @@
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// short circuit if we are shut down
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span>!<span class="self">self</span>.inner.running.load(Ordering::Relaxed) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
@@ -2326,14 +2327,14 @@
         _recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// short circuit if we are shut down
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span>!<span class="self">self</span>.inner.running.load(Ordering::Relaxed) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
         <span class="kw">let </span>network_msg = <span class="self">Self</span>::parse_post_message(message);
         <span class="kw">match </span>network_msg {
             <span class="prelude-val">Ok</span>(network_msg) =&gt; {
-                <span class="comment">// error!(&quot;network msg is {:?}&quot;, network_msg.clone());
+                <span class="comment">// error!("network msg is {:?}", network_msg.clone());
 
                 </span><span class="self">self</span>.post_message_to_web_server(network_msg).<span class="kw">await
             </span>}
@@ -2343,17 +2344,17 @@
         }
     }
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
+    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">&#39;b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
+    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>,
-        <span class="self">Self</span>: <span class="lifetime">&#39;b</span>,
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
+        <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
             <span class="kw">match </span>transmit_type {
@@ -2382,21 +2383,21 @@
 
     <span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
-        <span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span>!<span class="self">self</span>.inner.running.load(Ordering::Relaxed) {
             <span class="kw">return</span>;
         }
 
         <span class="macro">debug!</span>(
-            <span class="string">&quot;Injecting event: {:?} is da {}&quot;</span>,
+            <span class="string">"Injecting event: {:?} is da {}"</span>,
             event.clone(),
             <span class="self">self</span>.inner.is_da
         );
 
-        <span class="comment">// TODO ED Need to handle canceling tasks that don&#39;t receive their expected output (such a proposal that never comes)
+        <span class="comment">// TODO ED Need to handle canceling tasks that don't receive their expected output (such a proposal that never comes)
         </span><span class="kw">match </span>event {
             ConsensusIntentEvent::PollForProposal(view_number) =&gt; {
-                <span class="comment">// Check if we already have a task for this (we shouldn&#39;t)
+                <span class="comment">// Check if we already have a task for this (we shouldn't)
 
                 // Going to do a write lock since mostly likely we will need it - can change to upgradable read in the future
                 </span><span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.proposal_task_map.write().<span class="kw">await</span>;
@@ -2418,14 +2419,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive proposal polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2434,7 +2435,7 @@
                     .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::PollForVIDDisperse(view_number) =&gt; {
-                <span class="comment">// Check if we already have a task for this (we shouldn&#39;t)
+                <span class="comment">// Check if we already have a task for this (we shouldn't)
 
                 // Going to do a write lock since mostly likely we will need it - can change to upgradable read in the future
                 </span><span class="kw">let </span><span class="kw-2">mut </span>task_map = <span class="self">self</span>.inner.vid_disperse_task_map.write().<span class="kw">await</span>;
@@ -2456,14 +2457,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive VID disperse polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive VID disperse polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2472,7 +2473,7 @@
                     .<span class="kw">await</span>;
             }
             ConsensusIntentEvent::PollForLatestProposal =&gt; {
-                <span class="comment">// Only start this task if we haven&#39;t already started it.
+                <span class="comment">// Only start this task if we haven't already started it.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_proposal_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
                     <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
@@ -2493,7 +2494,7 @@
                             .<span class="kw">await
                         </span>{
                             <span class="macro">warn!</span>(
-                                <span class="string">&quot;Background receive latest quorum proposal polling encountered an error: {:?}&quot;</span>,
+                                <span class="string">"Background receive latest quorum proposal polling encountered an error: {:?}"</span>,
                                 e
                             );
                         }
@@ -2501,7 +2502,7 @@
                 }
             }
             ConsensusIntentEvent::PollForLatestViewSyncCertificate =&gt; {
-                <span class="comment">// Only start this task if we haven&#39;t already started it.
+                <span class="comment">// Only start this task if we haven't already started it.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_view_sync_certificate_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
                     <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
@@ -2522,7 +2523,7 @@
                             .<span class="kw">await
                         </span>{
                             <span class="macro">warn!</span>(
-                                <span class="string">&quot;Background receive latest view sync certificate polling encountered an error: {:?}&quot;</span>,
+                                <span class="string">"Background receive latest view sync certificate polling encountered an error: {:?}"</span>,
                                 e
                             );
                         }
@@ -2548,14 +2549,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive proposal polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2583,14 +2584,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive proposal polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2631,14 +2632,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive proposal polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2668,14 +2669,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                    <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                                    <span class="string">"Background receive proposal polling encountered an error: {:?}"</span>,
                                     e
                                 );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2734,14 +2735,14 @@
                                 .<span class="kw">await
                             </span>{
                                 <span class="macro">warn!</span>(
-                                                               <span class="string">&quot;Background receive transaction polling encountered an error: {:?}&quot;</span>,
+                                                               <span class="string">"Background receive transaction polling encountered an error: {:?}"</span>,
                                                                  e
                                                                );
                             }
                         }
                     });
                 } <span class="kw">else </span>{
-                    <span class="macro">debug!</span>(<span class="string">&quot;Somehow task already existed!&quot;</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Somehow task already existed!"</span>);
                 }
 
                 <span class="comment">// Cancel old, stale tasks
@@ -2760,7 +2761,7 @@
                         .send(ConsensusIntentEvent::CancelPollForTransactions(view_number))
                         .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
-                    <span class="macro">info!</span>(<span class="string">&quot;Task map entry should have existed&quot;</span>);
+                    <span class="macro">info!</span>(<span class="string">"Task map entry should have existed"</span>);
                 };
             }
 
@@ -2777,15 +2778,15 @@
         _da_committee_size: usize,
         is_da: bool,
         _reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
 
         <span class="comment">// pick random, unused port
-        </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">&quot;Could not find an open port&quot;</span>);
+        </span><span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">"Could not find an open port"</span>);
 
-        <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">&quot;http://localhost:{port}&quot;</span>).as_str()).unwrap();
-        <span class="macro">info!</span>(<span class="string">&quot;Launching web server on port {port}&quot;</span>);
+        <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">"http://localhost:{port}"</span>).as_str()).unwrap();
+        <span class="macro">info!</span>(<span class="string">"Launching web server on port {port}"</span>);
         <span class="comment">// Start web server
         </span>async_spawn(<span class="kw">async </span>{
             <span class="kw">match </span>hotshot_web_server::run_web_server::&lt;TYPES::SignatureKey&gt;(
@@ -2794,12 +2795,12 @@
             )
             .<span class="kw">await
             </span>{
-                <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">error!</span>(<span class="string">&quot;Web server future finished unexpectedly&quot;</span>),
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">&quot;Web server task failed: {e}&quot;</span>),
+                <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">error!</span>(<span class="string">"Web server future finished unexpectedly"</span>),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Web server task failed: {e}"</span>),
             }
         });
 
-        <span class="comment">// We assign known_nodes&#39; public key and stake value rather than read from config file since it&#39;s a test
+        <span class="comment">// We assign known_nodes' public key and stake value rather than read from config file since it's a test
         </span><span class="kw">let </span>known_nodes = (<span class="number">0</span>..expected_node_count <span class="kw">as </span>u64)
             .map(|id| {
                 TYPES::SignatureKey::from_private(
@@ -2808,10 +2809,10 @@
             })
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="comment">// Start each node&#39;s web server client
+        <span class="comment">// Start each node's web server client
         </span>Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>sender = Arc::clone(<span class="kw-2">&amp;</span>sender);
-            <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">&quot;http://localhost:{port}&quot;</span>).as_str()).unwrap();
+            <span class="kw">let </span>url = Url::parse(<span class="macro">format!</span>(<span class="string">"http://localhost:{port}"</span>).as_str()).unwrap();
             <span class="kw">let </span><span class="kw-2">mut </span>network = WebServerNetwork::create(
                 url,
                 Duration::from_millis(<span class="number">100</span>),
@@ -2836,7 +2837,7 @@
         da_committee_size: usize,
         is_da: bool,
         _reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>generator = &lt;WebServerNetwork&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,
@@ -2856,7 +2857,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableChannelImplementation&lt;TYPES&gt; <span class="kw">for </span>WebCommChannel&lt;TYPES&gt; {
-    <span class="kw">fn </span>generate_network() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;WebServerNetwork&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
+    <span class="kw">fn </span>generate_network() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;WebServerNetwork&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
         Box::new(<span class="kw">move </span>|network| WebCommChannel::new(network))
     }
 }

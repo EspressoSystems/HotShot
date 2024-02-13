@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/hotshot/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -655,7 +656,7 @@
 //!
 
 </span><span class="comment">// Documentation module
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"docs"</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
 <span class="doccomment">/// Contains traits consumed by [`SystemContext`]
@@ -777,7 +778,7 @@
     <span class="doccomment">/// Configuration items for this hotshot instance
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 
-    <span class="doccomment">/// This `HotShot` instance&#39;s storage backend
+    <span class="doccomment">/// This `HotShot` instance's storage backend
     </span>storage: I::Storage,
 
     <span class="doccomment">/// Networks used by the instance of hotshot
@@ -833,7 +834,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">"Creating a new hotshot"</span>);
 
         <span class="kw">let </span>consensus_metrics = Arc::new(metrics);
         <span class="kw">let </span>anchored_leaf = initializer.inner;
@@ -895,8 +896,8 @@
         <span class="kw">let </span>(internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
 
-        <span class="comment">// This makes it so we won&#39;t block on broadcasting if there is not a receiver
-        // Our own copy of the receiver is inactive so it doesn&#39;t count.
+        <span class="comment">// This makes it so we won't block on broadcasting if there is not a receiver
+        // Our own copy of the receiver is inactive so it doesn't count.
         </span>external_tx.set_await_active(<span class="bool-val">false</span>);
 
         <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
@@ -916,12 +917,12 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ inner })
     }
 
-    <span class="doccomment">/// &quot;Starts&quot; consensus by sending a `QCFormed` event
+    <span class="doccomment">/// "Starts" consensus by sending a `QCFormed` event
     ///
     /// # Panics
     /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">debug!</span>(<span class="string">&quot;Starting Consensus&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
         <span class="self">self</span>.inner
             .internal_event_stream
             .<span class="number">0
@@ -929,14 +930,14 @@
                 QuorumCertificate::genesis(),
             )))
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;Genesis Broadcast failed&quot;</span>);
+            </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
     }
 
     <span class="doccomment">/// Emit an external event
     </span><span class="comment">// A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_external_event&quot;</span>);
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_external_event"</span>);
         broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
@@ -944,16 +945,16 @@
     ///
     /// # Errors
     ///
-    /// Always returns Ok; does not return an error if the transaction couldn&#39;t be published to the network
+    /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), err)]
     </span><span class="kw">pub async fn </span>publish_transaction_async(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transaction: TYPES::Transaction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
-        <span class="macro">trace!</span>(<span class="string">&quot;Adding transaction to our own queue&quot;</span>);
+        <span class="macro">trace!</span>(<span class="string">"Adding transaction to our own queue"</span>);
         <span class="comment">// Wrap up a message
         // TODO place a view number here that makes sense
-        // we haven&#39;t worked out how this will work yet
+        // we haven't worked out how this will work yet
         </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), TYPES::Time::new(<span class="number">0</span>));
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
 
@@ -961,7 +962,7 @@
             <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.inner.memberships.da_membership.clone();
             <span class="macro">join! </span>{
                 <span class="comment">// TODO We should have a function that can return a network error if there is one
-                // but first we&#39;d need to ensure our network implementations can support that
+                // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
                 //
                 </span>api
@@ -1105,7 +1106,7 @@
 
     <span class="doccomment">/// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
-    /// For a list of which tasks are being spawned, see this module&#39;s documentation.
+    /// For a list of which tasks are being spawned, see this module's documentation.
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">pub async fn </span>run_tasks(<span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="comment">// ED Need to set first first number to 1, or properly trigger the change upon start
@@ -1248,7 +1249,7 @@
     }
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_event&quot;</span>);
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_event"</span>);
         broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 

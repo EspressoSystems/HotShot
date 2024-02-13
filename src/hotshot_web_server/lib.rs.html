@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/web_server/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_web_server" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/web_server/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_web_server" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1050,7 +1051,7 @@
     </span>_prng: StdRng,
 }
 
-<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt; WebServerState&lt;KEY&gt; {
+<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>&gt; WebServerState&lt;KEY&gt; {
     <span class="doccomment">/// Create new web server state
     </span><span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -1095,7 +1096,7 @@
     </span><span class="kw">pub fn </span>with_shutdown_signal(<span class="kw-2">mut </span><span class="self">self</span>, shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(
             <span class="self">self</span>.shutdown.is_none(),
-            <span class="string">&quot;A shutdown signal is already registered and can not be registered twice&quot;
+            <span class="string">"A shutdown signal is already registered and can not be registered twice"
         </span>);
         <span class="self">self</span>.shutdown = shutdown_listener;
         <span class="self">self
@@ -1231,7 +1232,7 @@
                 <span class="kw">if </span>proposal.<span class="number">1</span>.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal empty for view {view_number}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">"Proposal empty for view {view_number}"</span>),
                     })
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[proposal.<span class="number">1</span>.clone()]))
@@ -1239,7 +1240,7 @@
             }
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {view_number}&quot;</span>),
+                message: <span class="macro">format!</span>(<span class="string">"Proposal not found for view {view_number}"</span>),
             }),
         }
     }
@@ -1251,7 +1252,7 @@
                 <span class="kw">if </span>disperse.<span class="number">1</span>.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;VID disperse not found for view {view_number}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">"VID disperse not found for view {view_number}"</span>),
                     })
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[disperse.<span class="number">1</span>.clone()]))
@@ -1259,7 +1260,7 @@
             }
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;VID disperse not found for view {view_number}&quot;</span>),
+                message: <span class="macro">format!</span>(<span class="string">"VID disperse not found for view {view_number}"</span>),
             }),
         }
     }
@@ -1373,10 +1374,10 @@
             <span class="prelude-val">Err</span>(ServerError {
                 <span class="comment">// TODO ED: Why does NoContent status code cause errors?
                 </span>status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;Transaction not found for index {index}&quot;</span>),
+                message: <span class="macro">format!</span>(<span class="string">"Transaction not found for index {index}"</span>),
             })
         } <span class="kw">else </span>{
-            <span class="macro">debug!</span>(<span class="string">&quot;Returning this many txs {}&quot;</span>, txns_to_return.len());
+            <span class="macro">debug!</span>(<span class="string">"Returning this many txs {}"</span>, txns_to_return.len());
             <span class="comment">//starting_index is the oldest index of the returned txns
             </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((starting_index <span class="kw">as </span>u64, txns_to_return)))
         }
@@ -1389,7 +1390,7 @@
                 <span class="kw">if </span>cert.<span class="number">1</span>.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;DA Certificate not found for view {index}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">"DA Certificate not found for view {index}"</span>),
                     })
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[cert.<span class="number">1</span>.clone()]))
@@ -1397,7 +1398,7 @@
             }
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {index}&quot;</span>),
+                message: <span class="macro">format!</span>(<span class="string">"Proposal not found for view {index}"</span>),
             }),
         }
     }
@@ -1409,7 +1410,7 @@
                 <span class="kw">if </span>vid_cert.<span class="number">1</span>.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;VID Certificate not found for view {index}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">"VID Certificate not found for view {index}"</span>),
                     })
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[vid_cert.<span class="number">1</span>.clone()]))
@@ -1417,7 +1418,7 @@
             }
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;VID certificate not found for view {index}&quot;</span>),
+                message: <span class="macro">format!</span>(<span class="string">"VID certificate not found for view {index}"</span>),
             }),
         }
     }
@@ -1432,11 +1433,11 @@
             }
         }
 
-        <span class="comment">// don&#39;t accept the vote if it is too old
+        <span class="comment">// don't accept the vote if it is too old
         </span><span class="kw">if </span><span class="self">self</span>.oldest_vote &gt; view_number {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::Gone,
-                message: <span class="string">&quot;Posted vote is too old&quot;</span>.to_string(),
+                message: <span class="string">"Posted vote is too old"</span>.to_string(),
             });
         }
 
@@ -1461,11 +1462,11 @@
             }
         }
 
-        <span class="comment">// don&#39;t accept the vote if it is too old
+        <span class="comment">// don't accept the vote if it is too old
         </span><span class="kw">if </span><span class="self">self</span>.oldest_vid_vote &gt; view_number {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::Gone,
-                message: <span class="string">&quot;Posted vid vote is too old&quot;</span>.to_string(),
+                message: <span class="string">"Posted vid vote is too old"</span>.to_string(),
             });
         }
 
@@ -1492,11 +1493,11 @@
             }
         }
 
-        <span class="comment">// don&#39;t accept the vote if it is too old
+        <span class="comment">// don't accept the vote if it is too old
         </span><span class="kw">if </span><span class="self">self</span>.oldest_view_sync_vote &gt; view_number {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::Gone,
-                message: <span class="string">&quot;Posted view sync vote is too old&quot;</span>.to_string(),
+                message: <span class="string">"Posted view sync vote is too old"</span>.to_string(),
             });
         }
 
@@ -1512,7 +1513,7 @@
     }
     <span class="doccomment">/// Stores a received proposal in the `WebServerState`
     </span><span class="kw">fn </span>post_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
+        <span class="macro">info!</span>(<span class="string">"Received proposal for view {}"</span>, view_number);
 
         <span class="kw">if </span>view_number &gt; <span class="self">self</span>.latest_proposal {
             <span class="self">self</span>.latest_proposal = view_number;
@@ -1530,7 +1531,7 @@
     }
 
     <span class="kw">fn </span>post_vid_disperse(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>disperse: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;Received VID disperse for view {}&quot;</span>, view_number);
+        <span class="macro">info!</span>(<span class="string">"Received VID disperse for view {}"</span>, view_number);
         <span class="kw">if </span>view_number &gt; <span class="self">self</span>.recent_vid_disperse {
             <span class="self">self</span>.recent_vid_disperse = view_number;
         }
@@ -1578,7 +1579,7 @@
 
     <span class="doccomment">/// Stores a received DA certificate in the `WebServerState`
     </span><span class="kw">fn </span>post_da_certificate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>cert: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Received DA Certificate for view {}&quot;</span>, view_number);
+        <span class="macro">debug!</span>(<span class="string">"Received DA Certificate for view {}"</span>, view_number);
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.da_certificates.len() &gt;= MAX_VIEWS {
@@ -1599,7 +1600,7 @@
         view_number: u64,
         <span class="kw-2">mut </span>certificate: Vec&lt;u8&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;Received VID Certificate for view {}&quot;</span>, view_number);
+        <span class="macro">info!</span>(<span class="string">"Received VID Certificate for view {}"</span>, view_number);
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of view
         </span><span class="kw">if </span><span class="self">self</span>.vid_certificates.len() &gt;= MAX_VIEWS {
@@ -1631,7 +1632,7 @@
         <span class="self">self</span>.num_txns += <span class="number">1</span>;
 
         <span class="macro">debug!</span>(
-            <span class="string">&quot;Received transaction!  Number of transactions received is: {}&quot;</span>,
+            <span class="string">"Received transaction!  Number of transactions received is: {}"</span>,
             <span class="self">self</span>.num_txns
         );
 
@@ -1642,10 +1643,10 @@
         <span class="comment">// KALEY TODO: need security checks here
         </span><span class="kw">let </span>new_key = KEY::from_bytes(<span class="kw-2">&amp;</span>key).map_err(|<span class="kw">_</span>| ServerError {
             status: StatusCode::BadRequest,
-            message: <span class="string">&quot;Only signature keys can be added to stake table&quot;</span>.to_string(),
+            message: <span class="string">"Only signature keys can be added to stake table"</span>.to_string(),
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>node_index = <span class="self">self</span>.stake_table.len() <span class="kw">as </span>u64;
-        <span class="comment">//generate secret for leader&#39;s first submission endpoint when key is added
+        <span class="comment">//generate secret for leader's first submission endpoint when key is added
         </span><span class="kw">let </span>secret = thread_rng()
             .sample_iter(<span class="kw-2">&amp;</span>Alphanumeric)
             .take(<span class="number">30</span>)
@@ -1663,7 +1664,7 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::BadRequest,
-                message: <span class="string">&quot;Transaction Not Found&quot;</span>.to_string(),
+                message: <span class="string">"Transaction Not Found"</span>.to_string(),
             })
         }
     }
@@ -1675,7 +1676,7 @@
         view_number: u64,
         <span class="kw-2">mut </span>proposal: Vec&lt;u8&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Received proposal for view {}&quot;</span>, view_number);
+        <span class="macro">debug!</span>(<span class="string">"Received proposal for view {}"</span>, view_number);
 
         <span class="comment">// Only keep proposal history for MAX_VIEWS number of views
         </span><span class="kw">if </span><span class="self">self</span>.proposals.len() &gt;= MAX_VIEWS {
@@ -1701,7 +1702,7 @@
 <span class="doccomment">/// configurability options for the web server
 </span><span class="attr">#[derive(Args, Default)]
 </span><span class="kw">pub struct </span>Options {
-    <span class="attr">#[arg(long = <span class="string">&quot;web-server-api-path&quot;</span>, env = <span class="string">&quot;WEB_SERVER_API_PATH&quot;</span>)]
+    <span class="attr">#[arg(long = <span class="string">"web-server-api-path"</span>, env = <span class="string">"WEB_SERVER_API_PATH"</span>)]
     </span><span class="doccomment">/// path to API
     </span><span class="kw">pub </span>api_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
@@ -1710,14 +1711,14 @@
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">fn </span>define_api&lt;State, KEY&gt;(options: <span class="kw-2">&amp;</span>Options) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error&gt;, ApiError&gt;
 <span class="kw">where
-    </span>State: <span class="lifetime">&#39;static </span>+ Send + Sync + ReadState + WriteState,
+    </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + WebServerDataSource&lt;KEY&gt;,
     KEY: SignatureKey,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = <span class="kw">match </span><span class="kw-2">&amp;</span>options.api_path {
         <span class="prelude-val">Some</span>(path) =&gt; Api::&lt;State, Error&gt;::from_file(path)<span class="question-mark">?</span>,
         <span class="prelude-val">None </span>=&gt; {
-            <span class="kw">let </span>toml: toml::Value = toml::from_str(<span class="macro">include_str!</span>(<span class="string">&quot;../api.toml&quot;</span>)).map_err(|err| {
+            <span class="kw">let </span>toml: toml::Value = toml::from_str(<span class="macro">include_str!</span>(<span class="string">"../api.toml"</span>)).map_err(|err| {
                 ApiError::CannotReadToml {
                     reason: err.to_string(),
                 }
@@ -1725,122 +1726,122 @@
             Api::&lt;State, Error&gt;::new(toml)<span class="question-mark">?
         </span>}
     };
-    api.get(<span class="string">&quot;getproposal&quot;</span>, |req, state| {
+    api.get(<span class="string">"getproposal"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             state.get_proposal(view_number)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getviddisperse&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"getviddisperse"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             state.get_vid_disperse(view_number)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;get_latest_proposal&quot;</span>, |_req, state| {
+    </span>.get(<span class="string">"get_latest_proposal"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_latest_proposal() }.boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;get_latest_view_sync_certificate&quot;</span>, |_req, state| {
+    </span>.get(<span class="string">"get_latest_view_sync_certificate"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_latest_view_sync_certificate() }.boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getviewsynccertificate&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"getviewsynccertificate"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">&quot;index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">"index"</span>)<span class="question-mark">?</span>;
             state.get_view_sync_certificate(view_number, index)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getcertificate&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"getcertificate"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             state.get_da_certificate(view_number)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getvotes&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"getvotes"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">&quot;index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">"index"</span>)<span class="question-mark">?</span>;
             state.get_votes(view_number, index)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;getviewsyncvotes&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"getviewsyncvotes"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">&quot;index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">"index"</span>)<span class="question-mark">?</span>;
             state.get_view_sync_votes(view_number, index)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">&quot;gettransactions&quot;</span>, |req, state| {
+    </span>.get(<span class="string">"gettransactions"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">&quot;index&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>index: u64 = req.integer_param(<span class="string">"index"</span>)<span class="question-mark">?</span>;
             state.get_transactions(index)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postvote&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postvote"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="comment">// Using body_bytes because we don&#39;t want to deserialize; body_auto or body_json deserializes automatically
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="comment">// Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
             </span><span class="kw">let </span>vote = req.body_bytes();
             state.post_vote(view_number, vote)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postviewsyncvote&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postviewsyncvote"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="comment">// Using body_bytes because we don&#39;t want to deserialize; body_auto or body_json deserializes automatically
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="comment">// Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
             </span><span class="kw">let </span>vote = req.body_bytes();
             state.post_view_sync_vote(view_number, vote)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postproposal&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postproposal"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postviddisperse&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postviddisperse"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>disperse = req.body_bytes();
             state.post_vid_disperse(view_number, disperse)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postviewsynccertificate&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postviewsynccertificate"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>proposal = req.body_bytes();
             state.post_view_sync_certificate(view_number, proposal)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postcertificate&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postcertificate"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>cert = req.body_bytes();
             state.post_da_certificate(view_number, cert)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;posttransaction&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"posttransaction"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>txns = req.body_bytes();
             state.post_transaction(txns)
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;poststaketable&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"poststaketable"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="comment">//works one key at a time for now
             </span><span class="kw">let </span>key = req.body_bytes();
@@ -1848,7 +1849,7 @@
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;postcompletedtransaction&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"postcompletedtransaction"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="comment">//works one txn at a time for now
             </span><span class="kw">let </span>txn = req.body_bytes();
@@ -1856,10 +1857,10 @@
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">&quot;secret&quot;</span>, |req, state| {
+    </span>.post(<span class="string">"secret"</span>, |req, state| {
         <span class="kw">async move </span>{
-            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">&quot;view_number&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>secret: <span class="kw-2">&amp;</span>str = req.string_param(<span class="string">&quot;secret&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>view_number: u64 = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>secret: <span class="kw-2">&amp;</span>str = req.string_param(<span class="string">"secret"</span>)<span class="question-mark">?</span>;
             <span class="comment">//if secret is correct and view_number-&gt;proposal is empty, proposal is valid
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = state.proposal(view_number) {
                 <span class="kw">if </span>prop.<span class="number">1</span>.is_empty() {
@@ -1870,20 +1871,20 @@
                         <span class="prelude-val">Err</span>(ServerError {
                             status: StatusCode::BadRequest,
                             message: <span class="macro">format!</span>(
-                                <span class="string">&quot;Wrong secret value for proposal for view {view_number:?}&quot;
+                                <span class="string">"Wrong secret value for proposal for view {view_number:?}"
                             </span>),
                         })
                     }
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::BadRequest,
-                        message: <span class="macro">format!</span>(<span class="string">&quot;Proposal already submitted for view {view_number:?}&quot;</span>),
+                        message: <span class="macro">format!</span>(<span class="string">"Proposal already submitted for view {view_number:?}"</span>),
                     })
                 }
             } <span class="kw">else </span>{
                 <span class="prelude-val">Err</span>(ServerError {
                     status: StatusCode::BadRequest,
-                    message: <span class="macro">format!</span>(<span class="string">&quot;No endpoint for view number {view_number:?} yet&quot;</span>),
+                    message: <span class="macro">format!</span>(<span class="string">"No endpoint for view number {view_number:?} yet"</span>),
                 })
             }
         }
@@ -1898,7 +1899,7 @@
 /// this looks like it will panic not error
 /// # Panics
 /// on errors creating or registering the tide disco api
-</span><span class="kw">pub async fn </span>run_web_server&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">pub async fn </span>run_web_server&lt;KEY: SignatureKey + <span class="lifetime">'static</span>&gt;(
     shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;,
     url: Url,
 ) -&gt; io::Result&lt;()&gt; {
@@ -1908,7 +1909,7 @@
     <span class="kw">let </span>state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error&gt;::with_state(state);
 
-    app.register_module(<span class="string">&quot;api&quot;</span>, web_api).unwrap();
+    app.register_module(<span class="string">"api"</span>, web_api).unwrap();
 
     <span class="kw">let </span>app_future = app.serve(url);
 

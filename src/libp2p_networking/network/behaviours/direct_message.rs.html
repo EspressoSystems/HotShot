@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/behaviours/direct_message.rs`."><title>direct_message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/behaviours/direct_message.rs`."><title>direct_message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -337,7 +338,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) retry_count: u8,
 }
 
-<span class="doccomment">/// Wrapper metadata around libp2p&#39;s request response
+<span class="doccomment">/// Wrapper metadata around libp2p's request response
 /// usage: direct message peer
 </span><span class="kw">pub struct </span>DMBehaviour {
     <span class="doccomment">/// The wrapped behaviour
@@ -369,7 +370,7 @@
                 error,
             } =&gt; {
                 <span class="macro">error!</span>(
-                    <span class="string">&quot;inbound failure to send message to {:?} with error {:?}&quot;</span>,
+                    <span class="string">"inbound failure to send message to {:?} with error {:?}"</span>,
                     peer, error
                 );
             }
@@ -379,7 +380,7 @@
                 error,
             } =&gt; {
                 <span class="macro">error!</span>(
-                    <span class="string">&quot;outbound failure to send message to {:?} with error {:?}&quot;</span>,
+                    <span class="string">"outbound failure to send message to {:?} with error {:?}"</span>,
                     peer, error
                 );
                 <span class="comment">// RM TODO: make direct messages have n (and not infinite) retries
@@ -395,9 +396,9 @@
                     channel,
                     ..
                 } =&gt; {
-                    <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT REQUEST {:?}&quot;</span>, msg);
+                    <span class="macro">info!</span>(<span class="string">"recv-ed DIRECT REQUEST {:?}"</span>, msg);
                     <span class="comment">// receiver, not initiator.
-                    // don&#39;t track. If we are disconnected, sender will reinitiate
+                    // don't track. If we are disconnected, sender will reinitiate
                     </span><span class="self">self</span>.out_event_queue
                         .push(DMEvent::DirectRequest(msg, peer, channel));
                 }
@@ -407,16 +408,16 @@
                 } =&gt; {
                     <span class="comment">// success, finished.
                     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
-                        <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT RESPONSE {:?}&quot;</span>, msg);
+                        <span class="macro">info!</span>(<span class="string">"recv-ed DIRECT RESPONSE {:?}"</span>, msg);
                         <span class="self">self</span>.out_event_queue
                             .push(DMEvent::DirectResponse(msg, req.peer_id));
                     } <span class="kw">else </span>{
-                        <span class="macro">error!</span>(<span class="string">&quot;recv-ed a direct response, but is no longer tracking message!&quot;</span>);
+                        <span class="macro">error!</span>(<span class="string">"recv-ed a direct response, but is no longer tracking message!"</span>);
                     }
                 }
             },
             e @ Event::ResponseSent { .. } =&gt; {
-                <span class="macro">info!</span>(<span class="question-mark">?</span>e, <span class="string">&quot; sending response&quot;</span>);
+                <span class="macro">info!</span>(<span class="question-mark">?</span>e, <span class="string">" sending response"</span>);
             }
         }
     }
@@ -427,7 +428,7 @@
 
     <span class="kw">type </span>ToSwarm = DMEvent;
 
-    <span class="kw">fn </span>on_swarm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">&#39;_</span>&gt;) {
+    <span class="kw">fn </span>on_swarm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">'_</span>&gt;) {
         <span class="self">self</span>.request_response.on_swarm_event(event);
     }
 
@@ -443,7 +444,7 @@
 
     <span class="kw">fn </span>poll(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;ToSwarm&lt;DMEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
         <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.failed_rr.pop_front() {
             <span class="kw">if </span>req.backoff.is_expired() {
@@ -497,7 +498,7 @@
                     <span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(c));
                 }
                 e =&gt; {
-                    <span class="macro">error!</span>(<span class="string">&quot;UNHANDLED NEW SWARM VARIANT: {e:?}&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"UNHANDLED NEW SWARM VARIANT: {e:?}"</span>);
                 }
             }
         }
@@ -595,7 +596,7 @@
         <span class="kw">let </span>request_id = <span class="self">self
             </span>.request_response
             .send_request(<span class="kw-2">&amp;</span>req.peer_id, DirectMessageRequest(req.data.clone()));
-        <span class="macro">info!</span>(<span class="string">&quot;direct message request with id {:?}&quot;</span>, request_id);
+        <span class="macro">info!</span>(<span class="string">"direct message request with id {:?}"</span>, request_id);
 
         <span class="self">self</span>.in_progress_rr.insert(request_id, req);
     }
@@ -610,7 +611,7 @@
             </span>.request_response
             .send_response(chan, DirectMessageResponse(msg));
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
-            <span class="macro">error!</span>(<span class="string">&quot;Error replying to direct message. {:?}&quot;</span>, e);
+            <span class="macro">error!</span>(<span class="string">"Error replying to direct message. {:?}"</span>, e);
         }
     }
 }

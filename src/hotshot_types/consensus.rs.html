@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/consensus.rs`."><title>consensus.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/consensus.rs`."><title>consensus.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -397,7 +398,7 @@
     <span class="doccomment">/// The validated states that are currently loaded in memory.
     </span><span class="kw">pub </span>validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// All the DA certs we&#39;ve received for current and future views.
+    <span class="doccomment">/// All the DA certs we've received for current and future views.
     /// view -&gt; DA cert
     </span><span class="kw">pub </span>saved_da_certs: HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt;,
 
@@ -427,7 +428,7 @@
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
 }
 
-<span class="doccomment">/// Contains several `ConsensusMetrics` that we&#39;re interested in from the consensus interfaces
+<span class="doccomment">/// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ConsensusMetricsValue {
     <span class="doccomment">/// The number of last synced block height
@@ -440,7 +441,7 @@
     </span><span class="kw">pub </span>number_of_views_since_last_decide: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of views that are in-flight since the last anchor view
     </span><span class="kw">pub </span>number_of_views_per_decide_event: Box&lt;<span class="kw">dyn </span>Histogram&gt;,
-    <span class="doccomment">/// Number of invalid QCs we&#39;ve seen since the last commit.
+    <span class="doccomment">/// Number of invalid QCs we've seen since the last commit.
     </span><span class="kw">pub </span>invalid_qc: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of outstanding transactions
     </span><span class="kw">pub </span>outstanding_transactions: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
@@ -479,7 +480,7 @@
         <span class="kw">let </span>prefix = <span class="kw">if </span><span class="self">self</span>.prefix.is_empty() {
             name
         } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">&quot;{}-{name}&quot;</span>, <span class="self">self</span>.prefix)
+            <span class="macro">format!</span>(<span class="string">"{}-{name}"</span>, <span class="self">self</span>.prefix)
         };
         <span class="self">Self </span>{
             prefix,
@@ -570,19 +571,19 @@
     </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             last_synced_block_height: metrics
-                .create_gauge(String::from(<span class="string">&quot;last_synced_block_height&quot;</span>), <span class="prelude-val">None</span>),
-            last_decided_view: metrics.create_gauge(String::from(<span class="string">&quot;last_decided_view&quot;</span>), <span class="prelude-val">None</span>),
-            current_view: metrics.create_gauge(String::from(<span class="string">&quot;current_view&quot;</span>), <span class="prelude-val">None</span>),
+                .create_gauge(String::from(<span class="string">"last_synced_block_height"</span>), <span class="prelude-val">None</span>),
+            last_decided_view: metrics.create_gauge(String::from(<span class="string">"last_decided_view"</span>), <span class="prelude-val">None</span>),
+            current_view: metrics.create_gauge(String::from(<span class="string">"current_view"</span>), <span class="prelude-val">None</span>),
             number_of_views_since_last_decide: metrics
-                .create_gauge(String::from(<span class="string">&quot;number_of_views_since_last_decide&quot;</span>), <span class="prelude-val">None</span>),
+                .create_gauge(String::from(<span class="string">"number_of_views_since_last_decide"</span>), <span class="prelude-val">None</span>),
             number_of_views_per_decide_event: metrics
-                .create_histogram(String::from(<span class="string">&quot;number_of_views_per_decide_event&quot;</span>), <span class="prelude-val">None</span>),
-            invalid_qc: metrics.create_gauge(String::from(<span class="string">&quot;invalid_qc&quot;</span>), <span class="prelude-val">None</span>),
+                .create_histogram(String::from(<span class="string">"number_of_views_per_decide_event"</span>), <span class="prelude-val">None</span>),
+            invalid_qc: metrics.create_gauge(String::from(<span class="string">"invalid_qc"</span>), <span class="prelude-val">None</span>),
             outstanding_transactions: metrics
-                .create_gauge(String::from(<span class="string">&quot;outstanding_transactions&quot;</span>), <span class="prelude-val">None</span>),
+                .create_gauge(String::from(<span class="string">"outstanding_transactions"</span>), <span class="prelude-val">None</span>),
             outstanding_transactions_memory_size: metrics
-                .create_gauge(String::from(<span class="string">&quot;outstanding_transactions_memory_size&quot;</span>), <span class="prelude-val">None</span>),
-            number_of_timeouts: metrics.create_counter(String::from(<span class="string">&quot;number_of_timeouts&quot;</span>), <span class="prelude-val">None</span>),
+                .create_gauge(String::from(<span class="string">"outstanding_transactions_memory_size"</span>), <span class="prelude-val">None</span>),
+            number_of_timeouts: metrics.create_counter(String::from(<span class="string">"number_of_timeouts"</span>), <span class="prelude-val">None</span>),
         }
     }
 }
@@ -618,12 +619,12 @@
             view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: <span class="macro">format!</span>(
-                        <span class="string">&quot;Visited failed view {start_from:?} leaf. Expected successfuil leaf&quot;
+                        <span class="string">"Visited failed view {start_from:?} leaf. Expected successfuil leaf"
                     </span>),
                 })<span class="question-mark">?
         </span>} <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(HotShotError::InvalidState {
-                context: <span class="macro">format!</span>(<span class="string">&quot;View {start_from:?} leaf does not exist in state map &quot;</span>),
+                context: <span class="macro">format!</span>(<span class="string">"View {start_from:?} leaf does not exist in state map "</span>),
             });
         };
 
@@ -667,10 +668,10 @@
             </span>.validated_state_map
             .iter()
             .next()
-            .expect(<span class="string">&quot;INCONSISTENT STATE: anchor leaf not in state map!&quot;</span>);
+            .expect(<span class="string">"INCONSISTENT STATE: anchor leaf not in state map!"</span>);
         <span class="kw">if </span><span class="kw-2">*</span>anchor_entry.<span class="number">0 </span>!= old_anchor_view {
             <span class="macro">error!</span>(
-                <span class="string">&quot;Something about GC has failed. Older leaf exists than the previous anchor leaf.&quot;
+                <span class="string">"Something about GC has failed. Older leaf exists than the previous anchor leaf."
             </span>);
         }
         <span class="comment">// perform gc
@@ -689,7 +690,7 @@
     <span class="doccomment">/// Gets the last decided leaf.
     ///
     /// # Panics
-    /// if the last decided view&#39;s leaf does not exist in the state map or saved leaves, which
+    /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
@@ -697,7 +698,7 @@
         <span class="kw">let </span>view = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>decided_view_num).unwrap();
         <span class="kw">let </span>leaf = view
             .get_leaf_commitment()
-            .expect(<span class="string">&quot;Decided leaf not found! Consensus internally inconsistent&quot;</span>);
+            .expect(<span class="string">"Decided leaf not found! Consensus internally inconsistent"</span>);
         <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf).unwrap().clone()
     }
 
@@ -713,13 +714,13 @@
     <span class="doccomment">/// Gets the last decided validated state.
     ///
     /// # Panics
-    /// If the last decided view&#39;s state does not exist in the state map, which should never
+    /// If the last decided view's state does not exist in the state map, which should never
     /// happen.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
         <span class="self">self</span>.get_state(decided_view_num)
-            .expect(<span class="string">&quot;Decided state not found! Consensus internally inconsistent&quot;</span>)
+            .expect(<span class="string">"Decided state not found! Consensus internally inconsistent"</span>)
     }
 }
 </code></pre></div></section></main></body></html>
