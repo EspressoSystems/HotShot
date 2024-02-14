@@ -194,7 +194,6 @@ async fn test_memory_network_partially_sync() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
         overall_safety_properties: OverallSafetyPropertiesDescription {
-            check_leaf: true,
             num_failed_views: 2,
             ..Default::default()
         },
@@ -242,7 +241,6 @@ async fn libp2p_network_partially_sync() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
         overall_safety_properties: OverallSafetyPropertiesDescription {
-            check_leaf: true,
             num_failed_views: 2,
             ..Default::default()
         },
