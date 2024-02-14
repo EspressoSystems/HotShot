@@ -144,6 +144,17 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
@@ -222,10 +233,21 @@
                 <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
                     <span class="kw">match </span>updown {
                         UpDown::Up =&gt; {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.late_start.remove(<span class="kw-2">&amp;</span>idx.try_into().unwrap()) {
+                            <span class="kw">let </span>node_id = idx.try_into().unwrap();
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.late_start.remove(<span class="kw-2">&amp;</span>node_id) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} spinning up late"</span>, idx);
-                                <span class="kw">let </span>handle = node.context.run_tasks().<span class="kw">await</span>;
-                                handle.hotshot.start_consensus().<span class="kw">await</span>;
+
+                                <span class="comment">// Create the node and add it to the state, so we can shut them
+                                // down properly later to avoid the overflow error in the overall
+                                // safety task.
+                                </span><span class="kw">let </span>node = Node {
+                                    node_id,
+                                    networks: node.networks,
+                                    handle: node.context.run_tasks().<span class="kw">await</span>,
+                                };
+                                state.handles.push(node.clone());
+
+                                node.handle.hotshot.start_consensus().<span class="kw">await</span>;
                             }
                         }
                         UpDown::Down =&gt; {

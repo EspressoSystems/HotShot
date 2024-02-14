@@ -536,7 +536,6 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
@@ -958,7 +957,6 @@
     ) {
         <span class="kw">let </span>num_decided = <span class="self">self</span>.success_nodes.len();
         <span class="kw">let </span>num_failed = <span class="self">self</span>.failed_nodes.len();
-        <span class="kw">let </span>remaining_nodes = total_num_nodes - (num_decided + num_failed);
 
         <span class="kw">if </span>check_leaf &amp;&amp; <span class="self">self</span>.leaf_map.len() != <span class="number">1 </span>{
             <span class="macro">error!</span>(<span class="string">"LEAF MAP (that is mismatched) IS: {:?}"</span>, <span class="self">self</span>.leaf_map);
@@ -1001,7 +999,7 @@
             }
         }
 
-        <span class="kw">let </span>is_success_possible = remaining_nodes + num_decided &gt;= threshold;
+        <span class="kw">let </span>is_success_possible = total_num_nodes - num_failed &gt;= threshold;
         <span class="kw">if </span>!is_success_possible {
             <span class="self">self</span>.status = ViewStatus::Failed;
         }

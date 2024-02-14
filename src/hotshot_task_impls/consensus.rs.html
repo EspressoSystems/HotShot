@@ -1310,38 +1310,6 @@
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
 <a href="#1311" id="1311">1311</a>
-<a href="#1312" id="1312">1312</a>
-<a href="#1313" id="1313">1313</a>
-<a href="#1314" id="1314">1314</a>
-<a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
-<a href="#1320" id="1320">1320</a>
-<a href="#1321" id="1321">1321</a>
-<a href="#1322" id="1322">1322</a>
-<a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1485,29 +1453,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
     ConsensusTaskState&lt;TYPES, I, A&gt;
 {
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus genesis leaf"</span>, level = <span class="string">"error"</span>)]
-
-    </span><span class="kw">async fn </span>genesis_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-
-        <span class="kw">let </span><span class="prelude-val">Some</span>(genesis_view) = consensus.validated_state_map.get(<span class="kw-2">&amp;</span>TYPES::Time::genesis()) <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Couldn't find genesis view in state map."</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = genesis_view.get_leaf_commitment() <span class="kw">else </span>{
-            <span class="macro">error!</span>(
-                <span class="question-mark">?</span>genesis_view,
-                <span class="string">"Genesis view points to a view without a leaf"
-            </span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to find genesis leaf."</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="prelude-val">Some</span>(leaf.clone())
-    }
-
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus vote if able"</span>, level = <span class="string">"error"</span>)]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
@@ -1521,6 +1466,8 @@
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_proposal {
+            <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+
             <span class="comment">// ED Need to account for the genesis DA cert
             // No need to check vid share nor da cert for genesis
             </span><span class="kw">if </span>proposal.justify_qc.is_genesis &amp;&amp; proposal.view_number == TYPES::Time::new(<span class="number">1</span>) {
@@ -1529,12 +1476,10 @@
                 <span class="kw">let </span>view = TYPES::Time::new(<span class="kw-2">*</span>proposal.view_number);
                 <span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
                 <span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
-                    <span class="self">self</span>.genesis_leaf().<span class="kw">await
-                </span>} <span class="kw">else </span>{
-                    <span class="self">self</span>.consensus
-                        .read()
-                        .<span class="kw">await
-                        </span>.saved_leaves
+                    <span class="prelude-val">Some</span>(Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state))
+                } <span class="kw">else </span>{
+                    consensus
+                        .saved_leaves
                         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
                         .cloned()
                 };
@@ -1598,23 +1543,15 @@
 
             <span class="comment">// Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
-                </span>.consensus
-                .read()
-                .<span class="kw">await
-                </span>.saved_da_certs
-                .get(<span class="kw-2">&amp;</span>(proposal.get_view_number()))
-            {
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = consensus.saved_da_certs.get(<span class="kw-2">&amp;</span>(proposal.get_view_number())) {
                 <span class="kw">let </span>view = cert.view_number;
                 <span class="comment">// TODO: do some of this logic without the vote token check, only do that when voting.
                 </span><span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
                 <span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
-                    <span class="self">self</span>.genesis_leaf().<span class="kw">await
-                </span>} <span class="kw">else </span>{
-                    <span class="self">self</span>.consensus
-                        .read()
-                        .<span class="kw">await
-                        </span>.saved_leaves
+                    <span class="prelude-val">Some</span>(Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state))
+                } <span class="kw">else </span>{
+                    consensus
+                        .saved_leaves
                         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
                         .cloned()
                 };
@@ -1845,37 +1782,40 @@
 
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
 
-                <span class="comment">// Get the parent leaf.
+                <span class="comment">// Get the parent leaf and state.
                 </span><span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
                     <span class="comment">// Send the `Decide` event for the genesis block if the justify QC is genesis.
-                    </span><span class="kw">let </span>leaf = <span class="self">self</span>.genesis_leaf().<span class="kw">await</span>;
-                    <span class="kw">match </span>leaf {
-                        <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>leaf) =&gt; {
-                            broadcast_event(
-                                Event {
-                                    view_number: TYPES::Time::genesis(),
-                                    event: EventType::Decide {
-                                        leaf_chain: Arc::new(<span class="macro">vec!</span>[(leaf.clone(), <span class="prelude-val">None</span>)]),
-                                        qc: Arc::new(justify_qc.clone()),
-                                        block_size: <span class="prelude-val">None</span>,
-                                    },
-                                },
-                                <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
-                            )
-                            .<span class="kw">await</span>;
-                        }
-                        <span class="prelude-val">None </span>=&gt; {
-                            <span class="macro">error!</span>(
-                                <span class="string">"Failed to find the genesis leaf while the justify QC is genesis."
-                            </span>);
-                        }
-                    }
-                    leaf
+                    </span><span class="kw">let </span>leaf = Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state);
+                    broadcast_event(
+                        Event {
+                            view_number: TYPES::Time::genesis(),
+                            event: EventType::Decide {
+                                leaf_chain: Arc::new(<span class="macro">vec!</span>[(leaf.clone(), <span class="prelude-val">None</span>)]),
+                                qc: Arc::new(justify_qc.clone()),
+                                block_size: <span class="prelude-val">None</span>,
+                            },
+                        },
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                    )
+                    .<span class="kw">await</span>;
+                    <span class="kw">let </span>state = Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>consensus.instance_state));
+                    <span class="prelude-val">Some</span>((leaf, state))
                 } <span class="kw">else </span>{
-                    consensus
+                    <span class="kw">match </span>consensus
                         .saved_leaves
                         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
                         .cloned()
+                    {
+                        <span class="prelude-val">Some</span>(leaf) =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = consensus.get_state(leaf.view_number) {
+                                <span class="prelude-val">Some</span>((leaf, state.clone()))
+                            } <span class="kw">else </span>{
+                                <span class="macro">error!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
+                                <span class="kw">return</span>;
+                            }
+                        }
+                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+                    }
                 };
 
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
@@ -1886,7 +1826,7 @@
                 }
 
                 <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
+                </span><span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, parent_state)) = parent <span class="kw">else </span>{
                     <span class="macro">error!</span>(
                         <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
                         justify_qc.get_data().leaf_commit
@@ -1949,20 +1889,16 @@
 
                     <span class="kw">return</span>;
                 };
-                <span class="kw">let </span><span class="prelude-val">Some</span>(parent_state) = consensus.get_state(parent.view_number) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
-                    <span class="kw">return</span>;
-                };
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(state) = parent_state.validate_and_apply_header(
                     <span class="kw-2">&amp;</span>consensus.instance_state,
-                    <span class="kw-2">&amp;</span>parent.block_header.clone(),
+                    <span class="kw-2">&amp;</span>parent_leaf.block_header.clone(),
                     <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
                 ) <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">"Block header doesn't extend the proposal"</span>,);
                     <span class="kw">return</span>;
                 };
                 <span class="kw">let </span>state = Arc::new(state);
-                <span class="kw">let </span>parent_commitment = parent.commit();
+                <span class="kw">let </span>parent_commitment = parent_leaf.commit();
                 <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf {
                     view_number: view,
                     justify_qc: justify_qc.clone(),
