@@ -698,7 +698,6 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
     }
 
     /// Generates a single webserver network, for use in tests
-    #[cfg(feature = "hotshot-testing")]
     fn single_generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
