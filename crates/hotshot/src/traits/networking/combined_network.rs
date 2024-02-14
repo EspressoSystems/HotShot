@@ -184,12 +184,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             let (quorum_web, da_web) = generators.0(node_id);
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                Arc::into_inner(da_web).unwrap(),
-                Arc::into_inner(da_p2p).unwrap(),
+                Arc::<WebServerNetwork<TYPES>>::into_inner(da_web).unwrap(),
+                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::into_inner(quorum_web).unwrap(),
-                Arc::into_inner(quorum_p2p).unwrap(),
+                Arc::<WebServerNetwork<TYPES>>::into_inner(quorum_web).unwrap(),
+                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(quorum_p2p),
             );
             let quorum_net = Self {
                 networks: Arc::new(quorum_networks),
