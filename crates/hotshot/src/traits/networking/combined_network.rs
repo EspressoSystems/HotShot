@@ -189,7 +189,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             );
             let quorum_networks = UnderlyingCombinedNetworks(
                 Arc::<WebServerNetwork<TYPES>>::into_inner(quorum_web).unwrap(),
-                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(quorum_p2p),
+                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
+                    quorum_p2p,
+                ),
             );
             let quorum_net = Self {
                 networks: Arc::new(quorum_networks),
