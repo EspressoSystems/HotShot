@@ -517,7 +517,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // SS: It is possible that we may wish to vote against any quorum proposal
                 // if it attaches an upgrade certificate that we cannot support.
                 // But I don't think there's much point in this -- if the UpgradeCertificate
-                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis 
+                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis
                 // will probably be completely symbolic anyway.
                 //
                 // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
@@ -761,6 +761,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
+                                    info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
                                 }
                                 // If the block payload is available for this leaf, include it in
@@ -1332,18 +1333,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return false;
             };
 
-            let upgrade_cert;
-
-            // Check if the upgrade certificate we have is for the current view.
-            if let Some(cert) = self.upgrade_cert.clone() {
-                if cert.view_number == view {
-                    upgrade_cert = Some(cert);
-                } else {
-                    upgrade_cert = None;
-                }
+            let upgrade_cert = if self
+                .upgrade_cert
+                .as_ref()
+                .is_some_and(|cert| cert.view_number == view)
+            {
+                // If the cert view number matches, set upgrade_cert to self.upgrade_cert
+                // and set self.upgrade_cert to None.
+                //
+                // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
+                self.upgrade_cert.take()
             } else {
-                upgrade_cert = None;
-            }
+                // Otherwise, set upgrade_cert to None.
+                None
+            };
 
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
