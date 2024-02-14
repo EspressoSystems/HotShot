@@ -370,12 +370,17 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 
+<span class="kw">use </span>hotshot_constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
@@ -543,6 +548,9 @@
         timeout_vote_collector: <span class="prelude-val">None</span>.into(),
         timeout_task: <span class="prelude-val">None</span>,
         timeout_cert: <span class="prelude-val">None</span>,
+        upgrade_cert: <span class="prelude-val">None</span>,
+        decided_upgrade_cert: <span class="prelude-val">None</span>,
+        current_network_version: VERSION_0_1,
         output_event_stream: output_stream,
         vid_shares: BTreeMap::new(),
         current_proposal: <span class="prelude-val">None</span>,

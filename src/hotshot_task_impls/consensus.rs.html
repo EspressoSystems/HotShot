@@ -1310,6 +1310,81 @@
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
 <a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1321,6 +1396,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>hotshot_constants::Version;
 <span class="kw">use </span>hotshot_constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 
@@ -1331,7 +1407,7 @@
     data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -1431,6 +1507,16 @@
 
     <span class="doccomment">/// last Timeout Certificate this node formed
     </span><span class="kw">pub </span>timeout_cert: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// last Upgrade Certificate this node formed
+    </span><span class="kw">pub </span>upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// most recent decided upgrade certificate
+    </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// The current version of the network.
+    /// Updated on view change based on the most recent decided upgrade certificate.
+    </span><span class="kw">pub </span>current_network_version: Version,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -1777,6 +1863,28 @@
                     <span class="kw">return</span>;
                 }
 
+                <span class="comment">// Validate the upgrade certificate, if one is attached.
+                // Continue unless the certificate is invalid.
+                //
+                // Note: we are *not* directly voting on the upgrade certificate here.
+                // Once a certificate has been (allegedly) formed, it has already been voted on.
+                // The certificate is either valid or invalid, and we are simply validating it.
+                //
+                // SS: It is possible that we may wish to vote against any quorum proposal
+                // if it attaches an upgrade certificate that we cannot support.
+                // But I don't think there's much point in this -- if the UpgradeCertificate
+                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis
+                // will probably be completely symbolic anyway.
+                //
+                // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
+                // that we do not support.
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>upgrade_cert) = proposal.data.upgrade_certificate {
+                    <span class="kw">if </span>!upgrade_cert.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
+                        <span class="macro">error!</span>(<span class="string">"Invalid upgrade_cert in proposal for view {}"</span>, <span class="kw-2">*</span>view);
+                        <span class="kw">return</span>;
+                    }
+                }
+
                 <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
                 </span><span class="self">self</span>.update_view(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
 
@@ -2006,6 +2114,10 @@
                                         .metrics
                                         .last_synced_block_height
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(<span class="number">0</span>));
+                                }
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>upgrade_cert) = proposal.data.upgrade_certificate {
+                                    <span class="macro">info!</span>(<span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>, upgrade_cert);
+                                    <span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">Some</span>(upgrade_cert.clone());
                                 }
                                 <span class="comment">// If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
@@ -2280,6 +2392,17 @@
                     }
                 }
             }
+            HotShotEvent::UpgradeCertificateFormed(cert) =&gt; {
+                <span class="macro">debug!</span>(
+                    <span class="string">"Upgrade certificate received for view {}!"</span>,
+                    <span class="kw-2">*</span>cert.view_number
+                );
+
+                <span class="comment">// Update our current upgrade_cert as long as it's still relevant.
+                </span><span class="kw">if </span>cert.view_number &gt;= <span class="self">self</span>.cur_view {
+                    <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert);
+                }
+            }
             HotShotEvent::DACRecv(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
@@ -2365,6 +2488,16 @@
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="macro">debug!</span>(<span class="string">"view not updated"</span>);
                     <span class="kw">return</span>;
+                }
+
+                <span class="comment">// If we have a decided upgrade certificate,
+                // we may need to upgrade the protocol version on a view change.
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) = <span class="self">self</span>.decided_upgrade_cert {
+                    <span class="kw">if </span>new_view &gt;= cert.data.new_version_first_block {
+                        <span class="self">self</span>.current_network_version = cert.data.new_version;
+                        <span class="comment">// Discard the old upgrade certificate, which is no longer relevant.
+                        </span><span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">None</span>;
+                    }
                 }
 
                 broadcast_event(
@@ -2554,12 +2687,29 @@
                 <span class="macro">error!</span>(<span class="string">"Failed to sign leaf.commit()!"</span>);
                 <span class="kw">return </span><span class="bool-val">false</span>;
             };
+
+            <span class="kw">let </span>upgrade_cert = <span class="kw">if </span><span class="self">self
+                </span>.upgrade_cert
+                .as_ref()
+                .is_some_and(|cert| cert.view_number == view)
+            {
+                <span class="comment">// If the cert view number matches, set upgrade_cert to self.upgrade_cert
+                // and set self.upgrade_cert to None.
+                //
+                // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
+                </span><span class="self">self</span>.upgrade_cert.take()
+            } <span class="kw">else </span>{
+                <span class="comment">// Otherwise, set upgrade_cert to None.
+                </span><span class="prelude-val">None
+            </span>};
+
             <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             </span><span class="kw">let </span>proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| <span class="prelude-val">None</span>),
+                upgrade_certificate: upgrade_cert,
                 proposer_id: leaf.proposer_id,
             };
 

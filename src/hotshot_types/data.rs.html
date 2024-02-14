@@ -520,13 +520,16 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use crate</span>::{
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::UpgradeProposalData,
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},
@@ -736,6 +739,9 @@
 
     <span class="doccomment">/// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
     </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// Possible upgrade certificate, which the leader may optionally attach.
+    </span><span class="kw">pub </span>upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
