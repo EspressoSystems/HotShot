@@ -399,28 +399,6 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -431,7 +409,7 @@
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
 <span class="kw">use </span>std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -449,11 +427,7 @@
     data::ViewNumber,
     message::Message,
     traits::{
-        election::Membership,
-        network::{
-            CommunicationChannel, ConnectedNetwork, ConsensusIntentEvent,
-            TestableChannelImplementation, TransmitType, ViewMessage,
-        },
+        network::{ConnectedNetwork, ConsensusIntentEvent, TransmitType},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -533,9 +507,9 @@
 <span class="doccomment">/// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>CombinedCommChannel&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The two networks we'll use for send/recv
-    </span>networks: Arc&lt;CombinedNetworks&lt;TYPES&gt;&gt;,
+    </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Last n seen messages to prevent processing duplicates
     </span>message_cache: Arc&lt;RwLock&lt;Cache&gt;&gt;,
@@ -544,10 +518,10 @@
     </span>primary_down: Arc&lt;AtomicU64&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; CombinedCommChannel&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; CombinedNetworks&lt;TYPES&gt; {
     <span class="doccomment">/// Constructor
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(networks: Arc&lt;CombinedNetworks&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
@@ -572,7 +546,7 @@
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType&gt;(
     <span class="kw">pub </span>WebServerNetwork&lt;TYPES&gt;,
     <span class="kw">pub </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
 );
@@ -586,7 +560,7 @@
         da_committee_size: usize,
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>generators = (
             &lt;WebServerNetwork&lt;
                 TYPES,
@@ -607,39 +581,30 @@
                 reliability_config,
             )
         );
-        Box::new(<span class="kw">move </span>|node_id| CombinedNetworks(generators.<span class="number">0</span>(node_id), generators.<span class="number">1</span>(node_id)))
-    }
-
-    <span class="doccomment">/// Get the number of messages in-flight.
-    ///
-    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    </span><span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="prelude-val">None
-    </span>}
-}
-
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedCommChannel&lt;TYPES&gt; {
-    <span class="kw">fn </span>generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-        da_committee_size: usize,
-        is_da: bool,
-        reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
-        <span class="kw">let </span>generator = &lt;CombinedNetworks&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
-            expected_node_count,
-            num_bootstrap,
-            network_id,
-            da_committee_size,
-            is_da,
-            reliability_config,
-        );
-        Box::new(<span class="kw">move </span>|node_id| <span class="self">Self </span>{
-            networks: generator(node_id).into(),
-            message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
-            primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+        Box::new(<span class="kw">move </span>|node_id| {
+            <span class="kw">let </span>(quorum_web, da_web) = generators.<span class="number">0</span>(node_id);
+            <span class="kw">let </span>(quorum_p2p, da_p2p) = generators.<span class="number">1</span>(node_id);
+            <span class="kw">let </span>da_networks = UnderlyingCombinedNetworks(
+                Arc::&lt;WebServerNetwork&lt;TYPES&gt;&gt;::into_inner(da_web).unwrap(),
+                Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(da_p2p),
+            );
+            <span class="kw">let </span>quorum_networks = UnderlyingCombinedNetworks(
+                Arc::&lt;WebServerNetwork&lt;TYPES&gt;&gt;::into_inner(quorum_web).unwrap(),
+                Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(
+                    quorum_p2p,
+                ),
+            );
+            <span class="kw">let </span>quorum_net = <span class="self">Self </span>{
+                networks: Arc::new(quorum_networks),
+                message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+                primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            };
+            <span class="kw">let </span>da_net = <span class="self">Self </span>{
+                networks: Arc::new(da_networks),
+                message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+                primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            };
+            (quorum_net.into(), da_net.into())
         })
     }
 
@@ -652,9 +617,9 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; CommunicationChannel&lt;TYPES&gt; <span class="kw">for </span>CombinedCommChannel&lt;TYPES&gt; {
-    <span class="kw">type </span>NETWORK = CombinedNetworks&lt;TYPES&gt;;
-
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
+    <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt;
+{
     <span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.networks.<span class="number">0</span>.pause();
     }
@@ -688,11 +653,8 @@
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
-        election: <span class="kw-2">&amp;</span>TYPES::Membership,
+        recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>recipients =
-            &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::get_committee(election, message.get_view_number());
-
         <span class="comment">// broadcast optimistically on both networks, but if the primary network is down, skip it
         </span><span class="kw">let </span>primary_down = <span class="self">self</span>.primary_down.load(Ordering::Relaxed);
         <span class="kw">if </span>primary_down &lt; COMBINED_NETWORK_MIN_PRIMARY_FAILURES
@@ -804,12 +766,6 @@
 
         &lt;Libp2pNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;Message&lt;TYPES&gt;,TYPES::SignatureKey&gt;&gt;::
             inject_consensus_info(<span class="self">self</span>.secondary(), event).<span class="kw">await</span>;
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableChannelImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedCommChannel&lt;TYPES&gt; {
-    <span class="kw">fn </span>generate_network() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;<span class="self">Self</span>::NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt; {
-        Box::new(<span class="kw">move </span>|network| CombinedCommChannel::new(network))
     }
 }
 

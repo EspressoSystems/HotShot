@@ -590,77 +590,6 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -675,11 +604,7 @@
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error! </span>{<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
-<span class="kw">use crate</span>::{
-    data::ViewNumber,
-    message::{Message, MessagePurpose},
-    BoxSyncFuture,
-};
+<span class="kw">use crate</span>::{data::ViewNumber, message::MessagePurpose, BoxSyncFuture};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>rand::{
@@ -889,76 +814,6 @@
     </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose;
 }
 
-<span class="doccomment">/// API for interacting directly with a consensus committee
-/// intended to be implemented for both DA and for validating consensus committees
-</span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>CommunicationChannel&lt;TYPES: NodeType&gt;: Clone + Debug + Send + Sync + <span class="lifetime">'static </span>{
-    <span class="doccomment">/// Underlying Network implementation's type
-    </span><span class="kw">type </span>NETWORK;
-    <span class="doccomment">/// Blocks until node is successfully initialized
-    /// into the network
-    </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>);
-
-    <span class="doccomment">/// Pauses the underlying network
-    </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>);
-
-    <span class="doccomment">/// Resumes the underlying network
-    </span><span class="kw">fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>);
-
-    <span class="doccomment">/// checks if the network is ready
-    /// nonblocking
-    </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
-
-    <span class="doccomment">/// Shut down this network. Afterwards this network should no longer be used.
-    ///
-    /// This should also cause other functions to immediately return with a [`NetworkError`]
-    </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
-    <span class="kw">where
-        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
-        <span class="self">Self</span>: <span class="lifetime">'b</span>;
-
-    <span class="doccomment">/// broadcast message to those listening on the communication channel
-    /// blocking
-    </span><span class="kw">async fn </span>broadcast_message(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
-        election: <span class="kw-2">&amp;</span>TYPES::Membership,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
-
-    <span class="doccomment">/// Sends a direct message to a specific node
-    /// blocking
-    </span><span class="kw">async fn </span>direct_message(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
-        recipient: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
-
-    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        transmit_type: TransmitType,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
-    <span class="kw">where
-        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
-        <span class="self">Self</span>: <span class="lifetime">'b</span>;
-
-    <span class="doccomment">/// queues looking up a node
-    </span><span class="kw">async fn </span>queue_node_lookup(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: ViewNumber,
-        _pk: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Injects consensus data such as view number into the networking implementation
-    /// blocking
-    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {}
-}
-
 <span class="doccomment">/// represents a networking implmentration
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
@@ -967,6 +822,12 @@
 </span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt;:
     Clone + Send + Sync + <span class="lifetime">'static
 </span>{
+    <span class="doccomment">/// Pauses the underlying network
+    </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>);
+
+    <span class="doccomment">/// Resumes the underlying network
+    </span><span class="kw">fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>);
+
     <span class="doccomment">/// Blocks until the network is successfully initialized
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
@@ -1021,8 +882,12 @@
 }
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation
-</span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;TYPES: NodeType&gt;
+<span class="kw">where
+    </span><span class="self">Self</span>: Sized,
+{
     <span class="doccomment">/// generates a network given an expected node count
+    </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -1030,19 +895,12 @@
         da_committee_size: usize,
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt;;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt;;
 
     <span class="doccomment">/// Get the number of messages in-flight.
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
     </span><span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
-}
-<span class="doccomment">/// Describes additional functionality needed by the test communication channel
-</span><span class="kw">pub trait </span>TestableChannelImplementation&lt;TYPES: NodeType&gt;: CommunicationChannel&lt;TYPES&gt; {
-    <span class="doccomment">/// generates the `CommunicationChannel` given it's associated network type
-    </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">fn </span>generate_network(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;&lt;<span class="self">Self </span><span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">'static</span>&gt;;
 }
 
 <span class="doccomment">/// Changes that can occur in the network

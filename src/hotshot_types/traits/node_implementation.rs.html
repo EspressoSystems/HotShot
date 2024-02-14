@@ -248,27 +248,6 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -277,16 +256,17 @@
 </span><span class="kw">use super</span>::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
-    network::{CommunicationChannel, NetworkReliability, TestableNetworkingImplementation},
+    network::{ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation},
     states::TestableState,
     storage::{StorageError, StorageState, TestableStorage},
     ValidatedState,
 };
 <span class="kw">use crate</span>::{
     data::{Leaf, TestableLeaf},
+    message::Message,
     traits::{
-        election::Membership, network::TestableChannelImplementation, signature_key::SignatureKey,
-        states::InstanceState, storage::Storage, BlockPayload,
+        election::Membership, signature_key::SignatureKey, states::InstanceState, storage::Storage,
+        BlockPayload,
     },
 };
 <span class="kw">use </span>async_trait::async_trait;
@@ -315,9 +295,9 @@
     </span><span class="kw">type </span>Storage: Storage&lt;TYPES&gt; + Clone;
 
     <span class="doccomment">/// Network for all nodes
-    </span><span class="kw">type </span>QuorumNetwork: CommunicationChannel&lt;TYPES&gt;;
+    </span><span class="kw">type </span>QuorumNetwork: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;;
     <span class="doccomment">/// Network for those in the DA committee
-    </span><span class="kw">type </span>CommitteeNetwork: CommunicationChannel&lt;TYPES&gt;;
+    </span><span class="kw">type </span>CommitteeNetwork: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;;
 }
 
 <span class="doccomment">/// extra functions required on a node implementation to be usable by hotshot-testing
@@ -365,12 +345,12 @@
     </span><span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES&gt;;
 
     <span class="doccomment">/// Generate the communication channels for testing
-    </span><span class="kw">fn </span>gen_comm_channels(
+    </span><span class="kw">fn </span>gen_networks(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (<span class="self">Self</span>::QuorumNetwork, <span class="self">Self</span>::QuorumNetwork)&gt;;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -379,12 +359,8 @@
     </span>TYPES::ValidatedState: TestableState,
     TYPES::BlockPayload: TestableBlock,
     I::Storage: TestableStorage&lt;TYPES&gt;,
-    I::QuorumNetwork: TestableChannelImplementation&lt;TYPES&gt;,
-    I::CommitteeNetwork: TestableChannelImplementation&lt;TYPES&gt;,
-    &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK:
-        TestableNetworkingImplementation&lt;TYPES&gt;,
-    &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK:
-        TestableNetworkingImplementation&lt;TYPES&gt;,
+    I::QuorumNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
+    I::CommitteeNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
 {
     <span class="kw">type </span>CommitteeElectionConfig = TYPES::ElectionConfigType;
 
@@ -424,38 +400,20 @@
     <span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES&gt; {
         &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES&gt;&gt;::get_full_state(storage).<span class="kw">await
     </span>}
-    <span class="kw">fn </span>gen_comm_channels(
+    <span class="kw">fn </span>gen_networks(
         expected_node_count: usize,
         num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (<span class="self">Self</span>::QuorumNetwork, <span class="self">Self</span>::QuorumNetwork)&gt; {
-        <span class="kw">let </span>quorum_generator = &lt;&lt;I::QuorumNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
-                expected_node_count,
-                num_bootstrap,
-                <span class="number">0</span>,
-                da_committee_size,
-                <span class="bool-val">false</span>,
-                reliability_config.clone(),
-            );
-        <span class="kw">let </span>da_generator = &lt;&lt;I::QuorumNetwork <span class="kw">as </span>CommunicationChannel&lt;TYPES&gt;&gt;::NETWORK <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt; {
+        &lt;I::QuorumNetwork <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,
-            <span class="number">1</span>,
+            <span class="number">0</span>,
             da_committee_size,
             <span class="bool-val">false</span>,
-            reliability_config,
-        );
-
-        Box::new(<span class="kw">move </span>|id| {
-            <span class="kw">let </span>quorum = Arc::new(quorum_generator(id));
-            <span class="kw">let </span>da = Arc::new(da_generator(id));
-            <span class="kw">let </span>quorum_chan =
-                &lt;I::QuorumNetwork <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>&gt;&gt;::generate_network()(quorum);
-            <span class="kw">let </span>committee_chan =
-                &lt;I::QuorumNetwork <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>&gt;&gt;::generate_network()(da);
-            (quorum_chan, committee_chan)
-        })
+            reliability_config.clone(),
+        )
     }
 }
 

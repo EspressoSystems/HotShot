@@ -61,14 +61,12 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_types::{
-    traits::{network::CommunicationChannel, node_implementation::NodeType},
+    message::Message,
+    traits::{network::ConnectedNetwork, node_implementation::NodeType},
     HotShotConfig,
 };
 
@@ -76,18 +74,12 @@
 
 <span class="doccomment">/// convience type alias for the networks available
 </span><span class="kw">pub type </span>Networks&lt;TYPES, I&gt; = (
-    &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork,
-    &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork,
+    Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork&gt;,
+    Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumNetwork&gt;,
 );
 
 <span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 </span><span class="kw">pub type </span>Generator&lt;T&gt; = Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; T + <span class="lifetime">'static</span>&gt;;
-
-<span class="doccomment">/// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-</span><span class="kw">pub type </span>CommitteeNetworkGenerator&lt;N, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;N&gt;) -&gt; T + <span class="lifetime">'static</span>&gt;;
-
-<span class="doccomment">/// Wrapper Type for view sync function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-</span><span class="kw">pub type </span>ViewSyncNetworkGenerator&lt;N, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;N&gt;) -&gt; T + <span class="lifetime">'static</span>&gt;;
 
 <span class="doccomment">/// generators for resources used by each node
 </span><span class="kw">pub struct </span>ResourceGenerators&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
@@ -110,7 +102,9 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
     <span class="doccomment">/// launch the test
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>launch&lt;N: CommunicationChannel&lt;TYPES&gt;&gt;(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I, N&gt; {
+    </span><span class="kw">pub fn </span>launch&lt;N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;(
+        <span class="self">self</span>,
+    ) -&gt; TestRunner&lt;TYPES, I, N&gt; {
         TestRunner::&lt;TYPES, I, N&gt; {
             launcher: <span class="self">self</span>,
             nodes: Vec::new(),

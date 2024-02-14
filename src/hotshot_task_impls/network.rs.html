@@ -382,7 +382,19 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
@@ -397,7 +409,7 @@
     },
     traits::{
         election::Membership,
-        network::{CommunicationChannel, TransmitType},
+        network::{ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::NodeType,
     },
     vote::{HasViewNumber, Vote},
@@ -565,9 +577,12 @@
 }
 
 <span class="doccomment">/// network event task state
-</span><span class="kw">pub struct </span>NetworkEventTaskState&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>NetworkEventTaskState&lt;
+    TYPES: NodeType,
+    COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+&gt; {
     <span class="doccomment">/// comm channel
-    </span><span class="kw">pub </span>channel: COMMCHANNEL,
+    </span><span class="kw">pub </span>channel: Arc&lt;COMMCHANNEL&gt;,
     <span class="doccomment">/// view number
     </span><span class="kw">pub </span>view: TYPES::Time,
     <span class="doccomment">/// membership for the channel
@@ -577,7 +592,7 @@
     </span><span class="kw">pub </span>filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt; TaskState
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt; TaskState
     <span class="kw">for </span>NetworkEventTaskState&lt;TYPES, COMMCHANNEL&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
@@ -605,7 +620,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: CommunicationChannel&lt;TYPES&gt;&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;
     NetworkEventTaskState&lt;TYPES, COMMCHANNEL&gt;
 {
     <span class="doccomment">/// Handle the given event.
@@ -748,13 +763,18 @@
             sender,
             kind: message_kind,
         };
+        <span class="kw">let </span>view = message.kind.get_view_number();
         <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {
             TransmitType::Direct =&gt; {
                 <span class="self">self</span>.channel
                     .direct_message(message, recipient.unwrap())
                     .<span class="kw">await
             </span>}
-            TransmitType::Broadcast =&gt; <span class="self">self</span>.channel.broadcast_message(message, membership).<span class="kw">await</span>,
+            TransmitType::Broadcast =&gt; {
+                <span class="self">self</span>.channel
+                    .broadcast_message(message, membership.get_committee(view))
+                    .<span class="kw">await
+            </span>}
         };
 
         <span class="kw">match </span>transmit_result {

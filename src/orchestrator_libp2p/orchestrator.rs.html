@@ -30,9 +30,6 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! An orchestrator using libp2p
 
 /// types used for this example
@@ -45,7 +42,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::run_orchestrator;
 <span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, VIDNetwork, ViewSyncNetwork};
+<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork};
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
@@ -62,9 +59,6 @@
     setup_backtrace();
     <span class="kw">let </span>args = OrchestratorArgs::parse();
 
-    run_orchestrator::&lt;TestTypes, DANetwork, QuorumNetwork, ViewSyncNetwork, VIDNetwork, NodeImpl&gt;(
-        args,
-    )
-    .<span class="kw">await</span>;
+    run_orchestrator::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

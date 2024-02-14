@@ -108,14 +108,6 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -138,7 +130,7 @@
 <span class="kw">use crate</span>::{
     infra::run_orchestrator,
     infra::{ConfigArgs, OrchestratorArgs},
-    types::{DANetwork, NodeImpl, QuorumNetwork, VIDNetwork, ViewSyncNetwork},
+    types::{DANetwork, NodeImpl, QuorumNetwork},
 };
 
 <span class="doccomment">/// general infra used for this example
@@ -196,8 +188,6 @@
         TestTypes,
         DANetwork,
         QuorumNetwork,
-        ViewSyncNetwork,
-        VIDNetwork,
         NodeImpl,
     &gt;(OrchestratorArgs {
         url: orchestrator_url.clone(),
@@ -214,19 +204,13 @@
     <span class="kw">for _ in </span><span class="number">0</span>..config.config.total_nodes.into() {
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
-            infra::main_entry_point::&lt;
-                TestTypes,
-                DANetwork,
-                QuorumNetwork,
-                ViewSyncNetwork,
-                VIDNetwork,
-                NodeImpl,
-                ThisRun,
-            &gt;(ValidatorArgs {
-                url: orchestrator_url,
-                public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
-                network_config_file: <span class="prelude-val">None</span>,
-            })
+            infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(
+                ValidatorArgs {
+                    url: orchestrator_url,
+                    public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                    network_config_file: <span class="prelude-val">None</span>,
+                },
+            )
             .<span class="kw">await</span>;
         });
         nodes.push(node);

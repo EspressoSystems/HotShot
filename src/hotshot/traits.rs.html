@@ -23,6 +23,8 @@
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Sortition trait
 </span><span class="kw">pub mod </span>election;
 <span class="kw">mod </span>networking;
@@ -38,10 +40,12 @@
 </span><span class="kw">pub mod </span>implementations {
     <span class="kw">pub use super</span>::{
         networking::{
-            combined_network::{calculate_hash_of, Cache, CombinedCommChannel, CombinedNetworks},
-            libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
-            memory_network::{MasterMap, MemoryCommChannel, MemoryNetwork},
-            web_server_network::{WebCommChannel, WebServerNetwork},
+            combined_network::{
+                calculate_hash_of, Cache, CombinedNetworks, UnderlyingCombinedNetworks,
+            },
+            libp2p_network::{Libp2pNetwork, PeerInfoVec},
+            memory_network::{MasterMap, MemoryNetwork},
+            web_server_network::WebServerNetwork,
             NetworkingMetricsValue,
         },
         storage::memory_storage::MemoryStorage, <span class="comment">// atomic_storage::AtomicStorage,

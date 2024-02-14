@@ -405,6 +405,7 @@
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -427,9 +428,6 @@
 
 <span class="kw">use </span>hotshot_constants::EVENT_CHANNEL_SIZE;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TestTask};
-<span class="kw">use </span>hotshot_types::traits::{
-    network::CommunicationChannel, node_implementation::NodeImplementation,
-};
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::{
@@ -437,6 +435,10 @@
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
+};
+<span class="kw">use </span>hotshot_types::{
+    message::Message,
+    traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
 };
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -472,7 +474,7 @@
 </span><span class="kw">pub struct </span>TestRunner&lt;
     TYPES: NodeType,
     I: TestableNodeImplementation&lt;TYPES&gt;,
-    N: CommunicationChannel&lt;TYPES&gt;,
+    N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
 &gt; {
     <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
@@ -509,7 +511,7 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
-        N: CommunicationChannel&lt;TYPES&gt;,
+        N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     &gt; TestRunner&lt;TYPES, I, N&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,

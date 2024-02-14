@@ -361,6 +361,15 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 </span><span class="kw">use crate</span>::{types::SystemContextHandle, HotShotConsensusApi};
@@ -378,17 +387,20 @@
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>hotshot_types::{
     event::Event,
     message::Messages,
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
-        network::{CommunicationChannel, ConsensusIntentEvent, TransmitType},
+        network::{ConsensusIntentEvent, TransmitType},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
+};
+<span class="kw">use </span>hotshot_types::{
+    message::Message,
+    traits::{election::Membership, network::ConnectedNetwork},
 };
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -408,10 +420,13 @@
 }
 
 <span class="doccomment">/// Add the network task to handle messages and publish events.
-</span><span class="kw">pub async fn </span>add_network_message_task&lt;TYPES: NodeType, NET: CommunicationChannel&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub async fn </span>add_network_message_task&lt;
+    TYPES: NodeType,
+    NET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+&gt;(
     task_reg: Arc&lt;TaskRegistry&gt;,
     event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    channel: NET,
+    channel: Arc&lt;NET&gt;,
 ) {
     <span class="kw">let </span>net = channel.clone();
     <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
@@ -468,11 +483,14 @@
 }
 
 <span class="doccomment">/// Add the network task to handle events and send messages.
-</span><span class="kw">pub async fn </span>add_network_event_task&lt;TYPES: NodeType, NET: CommunicationChannel&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub async fn </span>add_network_event_task&lt;
+    TYPES: NodeType,
+    NET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+&gt;(
     task_reg: Arc&lt;TaskRegistry&gt;,
     tx: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    channel: NET,
+    channel: Arc&lt;NET&gt;,
     membership: TYPES::Membership,
     filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool,
 ) {
@@ -531,8 +549,8 @@
         id: handle.hotshot.inner.id,
         public_key: c_api.public_key().clone(),
         private_key: c_api.private_key().clone(),
-        quorum_network: c_api.inner.networks.quorum_network.clone().into(),
-        committee_network: c_api.inner.networks.da_network.clone().into(),
+        quorum_network: c_api.inner.networks.quorum_network.clone(),
+        committee_network: c_api.inner.networks.da_network.clone(),
         timeout_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         committee_membership: c_api.inner.memberships.da_membership.clone().into(),
@@ -596,7 +614,7 @@
         consensus: handle.hotshot.get_consensus(),
         cur_view: TYPES::Time::new(<span class="number">0</span>),
         vote_collector: <span class="prelude-val">None</span>,
-        network: c_api.inner.networks.quorum_network.clone().into(),
+        network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.vid_membership.clone().into(),
         public_key: c_api.public_key().clone(),
         private_key: c_api.private_key().clone(),
@@ -625,7 +643,7 @@
         api: c_api.clone(),
         cur_view: TYPES::Time::new(<span class="number">0</span>),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
-        quorum_network: c_api.inner.networks.quorum_network.clone().into(),
+        quorum_network: c_api.inner.networks.quorum_network.clone(),
         should_vote: |_upgrade_proposal| <span class="bool-val">false</span>,
         vote_collector: <span class="prelude-val">None</span>.into(),
         public_key: c_api.public_key().clone(),
@@ -651,7 +669,7 @@
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
         da_membership: c_api.inner.memberships.da_membership.clone().into(),
-        da_network: c_api.inner.networks.da_network.clone().into(),
+        da_network: c_api.inner.networks.da_network.clone(),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         cur_view: TYPES::Time::new(<span class="number">0</span>),
         vote_collector: <span class="prelude-val">None</span>.into(),
@@ -681,7 +699,7 @@
         transactions: Arc::default(),
         seen_transactions: HashSet::new(),
         cur_view: TYPES::Time::new(<span class="number">0</span>),
-        network: c_api.inner.networks.quorum_network.clone().into(),
+        network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.quorum_membership.clone().into(),
         public_key: c_api.public_key().clone(),
         private_key: c_api.private_key().clone(),
@@ -705,7 +723,7 @@
     </span><span class="kw">let </span>view_sync_state = ViewSyncTaskState {
         current_view: TYPES::Time::new(<span class="number">0</span>),
         next_view: TYPES::Time::new(<span class="number">0</span>),
-        network: api.inner.networks.quorum_network.clone().into(),
+        network: api.inner.networks.quorum_network.clone(),
         membership: api.inner.memberships.view_sync_membership.clone().into(),
         public_key: api.public_key().clone(),
         private_key: api.private_key().clone(),

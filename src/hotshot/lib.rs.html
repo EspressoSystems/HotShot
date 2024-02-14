@@ -652,6 +652,7 @@
 <a href="#651" id="651">651</a>
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -696,7 +697,8 @@
     simple_certificate::QuorumCertificate,
     traits::{
         consensus_api::ConsensusApi,
-        network::CommunicationChannel,
+        election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
@@ -732,10 +734,10 @@
 <span class="doccomment">/// Bundle of the networks used in consensus
 </span><span class="kw">pub struct </span>Networks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Newtork for reaching all nodes
-    </span><span class="kw">pub </span>quorum_network: I::QuorumNetwork,
+    </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for reaching the DA committee
-    </span><span class="kw">pub </span>da_network: I::CommitteeNetwork,
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
 
     <span class="doccomment">/// Phantom for TYPES and I
     </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, I)&gt;,
@@ -975,7 +977,7 @@
                             sender: api.inner.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership,
+                        da_membership.get_committee(TYPES::Time::new(<span class="number">0</span>)),
                     ),
                 api
                     .send_external_event(Event {
