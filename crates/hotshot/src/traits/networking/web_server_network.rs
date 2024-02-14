@@ -1303,14 +1303,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
             &reliability_config,
         );
         // Start each node's web server client
-        Box::new(move |id| {
-            (
-                quorum_gen(id)
-                .into(),
-                da_gen(id)
-                .into(),
-            )
-        })
+        Box::new(move |id| (quorum_gen(id).into(), da_gen(id).into()))
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {

@@ -18,7 +18,7 @@ async-trait = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
 custom_debug = { workspace = true }
-derive_builder = "0.13.0"
+derive_builder = "0.13.1"
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-constants = { path = "../constants" }
@@ -29,7 +29,7 @@ rand = { workspace = true }
 serde = { workspace = true }
 serde_json = "1.0.113"
 snafu = { workspace = true }
-unsigned-varint = "0.7"
+unsigned-varint = "0.8"
 tide = { version = "0.16", optional = true, default-features = false, features = [
     "h1-server",
 ] }
