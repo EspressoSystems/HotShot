@@ -181,13 +181,27 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             )
         );
         Box::new(move |node_id| {
-            let networks = UnderlyingCombinedNetworks(generators.0(node_id), generators.1(node_id));
-            let net = Self {
-                networks: Arc::new(networks),
+            let (quorum_web, da_web) = generators.0(node_id);
+            let (quorum_p2p, da_p2p) = generators.1(node_id);
+            let da_networks = UnderlyingCombinedNetworks(
+                Arc::into_inner(da_web).unwrap(),
+                Arc::into_inner(da_p2p).unwrap(),
+            );
+            let quorum_networks = UnderlyingCombinedNetworks(
+                Arc::into_inner(quorum_web).unwrap(),
+                Arc::into_inner(quorum_p2p).unwrap(),
+            );
+            let quorum_net = Self {
+                networks: Arc::new(quorum_networks),
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
             };
-            (net.clone().into(), net.into())
+            let da_net = Self {
+                networks: Arc::new(da_networks),
+                message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+                primary_down: Arc::new(AtomicU64::new(0)),
+            };
+            (quorum_net.into(), da_net.into())
         })
     }
 

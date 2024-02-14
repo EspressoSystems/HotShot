@@ -696,13 +696,16 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         };
         Ok(network_msg)
     }
+
+    /// Generates a single webserver network, for use in tests
+    #[cfg(feature = "hotshot-testing")]
     fn single_generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
         _network_id: usize,
         _da_committee_size: usize,
         is_da: bool,
-        _reliability_config: Option<Box<dyn NetworkReliability>>,
+        _reliability_config: &Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
@@ -1280,28 +1283,32 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         num_bootstrap: usize,
         network_id: usize,
         da_committee_size: usize,
-        is_da: bool,
+        _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
+        let da_gen = Self::single_generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+            true,
+            &reliability_config,
+        );
+        let quorum_gen = Self::single_generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+            da_committee_size,
+            false,
+            &reliability_config,
+        );
         // Start each node's web server client
         Box::new(move |id| {
             (
-                Self::single_generator(
-                    expected_node_count,
-                    num_bootstrap,
-                    network_id,
-                    da_committee_size,
-                    is_da,
-                    reliability_config,
-                ),
-                Self::single_generator(
-                    expected_node_count,
-                    num_bootstrap,
-                    network_id,
-                    da_committee_size,
-                    is_da,
-                    reliability_config,
-                ),
+                quorum_gen(id)
+                .into(),
+                da_gen(id)
+                .into(),
             )
         })
     }
