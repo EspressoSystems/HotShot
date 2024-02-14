@@ -21,9 +21,6 @@ use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemCont
 
 use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::traits::{
-    network::CommunicationChannel, node_implementation::NodeImplementation,
-};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::Leaf,
@@ -32,6 +29,10 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
+};
+use hotshot_types::{
+    message::Message,
+    traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -78,7 +79,7 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
 pub struct TestRunner<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES>,
-    N: CommunicationChannel<TYPES>,
+    N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
 > {
     /// test launcher, contains a bunch of useful metadata and closures
     pub(crate) launcher: TestLauncher<TYPES, I>,
@@ -115,7 +116,7 @@ impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 impl<
         TYPES: NodeType<InstanceState = TestInstanceState>,
         I: TestableNodeImplementation<TYPES>,
-        N: CommunicationChannel<TYPES>,
+        N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,

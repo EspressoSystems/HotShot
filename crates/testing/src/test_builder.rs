@@ -68,7 +68,7 @@ pub struct TestMetadata {
 impl Default for TimingData {
     fn default() -> Self {
         Self {
-            next_view_timeout: 2500,
+            next_view_timeout: 4000,
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,
@@ -287,7 +287,7 @@ impl TestMetadata {
 
         TestLauncher {
             resource_generator: ResourceGenerators {
-                channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_comm_channels(
+                channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
                     total_nodes,
                     num_bootstrap_nodes,
                     da_committee_size,
