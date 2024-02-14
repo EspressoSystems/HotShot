@@ -233,6 +233,7 @@ where
         // wait for networks to be ready
         for node in &nodes {
             node.networks.0.wait_for_ready().await;
+            node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
