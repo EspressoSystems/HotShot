@@ -253,7 +253,7 @@ where
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
-            tracing::error!("test tasks joined");
+            tracing::info!("test tasks joined");
             for result in results {
                 match result {
                     HotShotTaskCompleted::ShutDown => {
