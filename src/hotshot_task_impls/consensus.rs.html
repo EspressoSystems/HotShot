@@ -1385,6 +1385,10 @@
 <a href="#1384" id="1384">1384</a>
 <a href="#1385" id="1385">1385</a>
 <a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -2076,6 +2080,7 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>new_decide_reached = <span class="bool-val">false</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_decide_qc = <span class="prelude-val">None</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>leaf_views = Vec::new();
+                <span class="kw">let </span><span class="kw-2">mut </span>leafs_decided = Vec::new();
                 <span class="kw">let </span><span class="kw-2">mut </span>included_txns = HashSet::new();
                 <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
                 <span class="kw">let </span>parent_view = leaf.justify_qc.get_view_number();
@@ -2136,7 +2141,9 @@
                                     </span>.vid_shares
                                     .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                     .map(|vid_proposal| vid_proposal.data.clone());
+
                                 leaf_views.push((leaf.clone(), vid));
+                                leafs_decided.push(leaf.clone());
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
                                     <span class="kw">for </span>txn <span class="kw">in </span>payload
                                         .transaction_commitments(leaf.get_block_header().metadata())
@@ -2181,6 +2188,7 @@
                 }
                 <span class="attr">#[allow(clippy::cast_precision_loss)]
                 </span><span class="kw">if </span>new_decide_reached {
+                    broadcast_event(HotShotEvent::LeafDecided(leafs_decided), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                     <span class="kw">let </span>decide_sent = broadcast_event(
                         Event {
                             view_number: consensus.last_decided_view,
