@@ -452,7 +452,7 @@ pub trait RunDA<
                                 // send transactions
                                 for _ in 0..transactions_to_send_per_round {
                                     let tx = transactions.remove(0);
-
+                                    // sishan todo: mark here as the start of a tx?
                                     () = context.submit_transaction(tx).await.unwrap();
                                     total_transactions_sent += 1;
                                 }
