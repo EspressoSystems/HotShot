@@ -12,11 +12,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{
-    data::ViewNumber,
-    message::MessagePurpose,
-    BoxSyncFuture,
-};
+use crate::{data::ViewNumber, message::MessagePurpose, BoxSyncFuture};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use rand::{
@@ -294,8 +290,12 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<TYPES: NodeType> {
+pub trait TestableNetworkingImplementation<TYPES: NodeType>
+where
+    Self: Sized,
+{
     /// generates a network given an expected node count
+    #[allow(clippy::type_complexity)]
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -303,7 +303,7 @@ pub trait TestableNetworkingImplementation<TYPES: NodeType> {
         da_committee_size: usize,
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static>;
+    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static>;
 
     /// Get the number of messages in-flight.
     ///

@@ -696,6 +696,58 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         };
         Ok(network_msg)
     }
+    fn single_generator(
+        expected_node_count: usize,
+        _num_bootstrap: usize,
+        _network_id: usize,
+        _da_committee_size: usize,
+        is_da: bool,
+        _reliability_config: Option<Box<dyn NetworkReliability>>,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let (server_shutdown_sender, server_shutdown) = oneshot();
+        let sender = Arc::new(server_shutdown_sender);
+
+        // pick random, unused port
+        let port = portpicker::pick_unused_port().expect("Could not find an open port");
+
+        let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
+        info!("Launching web server on port {port}");
+        // Start web server
+        async_spawn(async {
+            match hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+                Some(server_shutdown),
+                url,
+            )
+            .await
+            {
+                Ok(()) => error!("Web server future finished unexpectedly"),
+                Err(e) => error!("Web server task failed: {e}"),
+            }
+        });
+
+        // We assign known_nodes' public key and stake value rather than read from config file since it's a test
+        let known_nodes = (0..expected_node_count as u64)
+            .map(|id| {
+                TYPES::SignatureKey::from_private(
+                    &TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], id).1,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // Start each node's web server client
+        Box::new(move |id| {
+            let sender = Arc::clone(&sender);
+            let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
+            let mut network = WebServerNetwork::create(
+                url,
+                Duration::from_millis(100),
+                known_nodes[usize::try_from(id).unwrap()].clone(),
+                is_da,
+            );
+            network.server_shutdown_signal = Some(sender);
+            network
+        })
+    }
 }
 
 #[async_trait]
@@ -1225,54 +1277,32 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwork<TYPES> {
     fn generator(
         expected_node_count: usize,
-        _num_bootstrap: usize,
-        _network_id: usize,
-        _da_committee_size: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+        da_committee_size: usize,
         is_da: bool,
-        _reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let (server_shutdown_sender, server_shutdown) = oneshot();
-        let sender = Arc::new(server_shutdown_sender);
-
-        // pick random, unused port
-        let port = portpicker::pick_unused_port().expect("Could not find an open port");
-
-        let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
-        info!("Launching web server on port {port}");
-        // Start web server
-        async_spawn(async {
-            match hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-                Some(server_shutdown),
-                url,
-            )
-            .await
-            {
-                Ok(()) => error!("Web server future finished unexpectedly"),
-                Err(e) => error!("Web server task failed: {e}"),
-            }
-        });
-
-        // We assign known_nodes' public key and stake value rather than read from config file since it's a test
-        let known_nodes = (0..expected_node_count as u64)
-            .map(|id| {
-                TYPES::SignatureKey::from_private(
-                    &TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], id).1,
-                )
-            })
-            .collect::<Vec<_>>();
-
+        reliability_config: Option<Box<dyn NetworkReliability>>,
+    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         // Start each node's web server client
         Box::new(move |id| {
-            let sender = Arc::clone(&sender);
-            let url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
-            let mut network = WebServerNetwork::create(
-                url,
-                Duration::from_millis(100),
-                known_nodes[usize::try_from(id).unwrap()].clone(),
-                is_da,
-            );
-            network.server_shutdown_signal = Some(sender);
-            network
+            (
+                Self::single_generator(
+                    expected_node_count,
+                    num_bootstrap,
+                    network_id,
+                    da_committee_size,
+                    is_da,
+                    reliability_config,
+                ),
+                Self::single_generator(
+                    expected_node_count,
+                    num_bootstrap,
+                    network_id,
+                    da_committee_size,
+                    is_da,
+                    reliability_config,
+                ),
+            )
         })
     }
 

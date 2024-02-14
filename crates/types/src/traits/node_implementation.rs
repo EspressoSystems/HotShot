@@ -156,29 +156,14 @@ where
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Arc<Self::QuorumNetwork>, Arc<Self::QuorumNetwork>)> {
-        let quorum_generator =
-            <I::QuorumNetwork as TestableNetworkingImplementation<TYPES>>::generator(
-                expected_node_count,
-                num_bootstrap,
-                0,
-                da_committee_size,
-                false,
-                reliability_config.clone(),
-            );
-        let da_generator = <I::QuorumNetwork as TestableNetworkingImplementation<TYPES>>::generator(
+        <I::QuorumNetwork as TestableNetworkingImplementation<TYPES>>::generator(
             expected_node_count,
             num_bootstrap,
-            1,
+            0,
             da_committee_size,
             false,
-            reliability_config,
-        );
-
-        Box::new(move |id| {
-            let quorum = Arc::new(quorum_generator(id));
-            let da = Arc::new(da_generator(id));
-            (quorum, da)
-        })
+            reliability_config.clone(),
+        )
     }
 }
 

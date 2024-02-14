@@ -247,18 +247,19 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         _da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let master: Arc<_> = MasterMap::new();
         // We assign known_nodes' public key and stake value rather than read from config file since it's a test
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryNetwork::new(
+            let net = MemoryNetwork::new(
                 pubkey,
                 NetworkingMetricsValue::default(),
                 master.clone(),
                 reliability_config.clone(),
-            )
+            );
+            (net.clone().into(), net.into())
         })
     }
 

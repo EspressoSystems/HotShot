@@ -159,7 +159,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         da_committee_size: usize,
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
             <WebServerNetwork<
                 TYPES,
@@ -182,11 +182,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         );
         Box::new(move |node_id| {
             let networks = UnderlyingCombinedNetworks(generators.0(node_id), generators.1(node_id));
-            Self {
+            let net = Self {
                 networks: Arc::new(networks),
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
-            }
+            };
+            (net.clone().into(), net.into())
         })
     }
 

@@ -164,7 +164,7 @@ where
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
             "DA committee size must be less than or equal to total # nodes"
@@ -250,7 +250,7 @@ where
                 let keys = all_keys.clone();
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
-                async_block_on(async move {
+                let net = Arc::new(async_block_on(async move {
                     match Libp2pNetwork::new(
                         NetworkingMetricsValue::default(),
                         config,
@@ -271,7 +271,8 @@ where
                             panic!("Failed to create libp2p network: {err:?}");
                         }
                     }
-                })
+                }));
+                (net.clone(), net)
             }
         })
     }
