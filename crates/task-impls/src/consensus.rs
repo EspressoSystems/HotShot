@@ -46,6 +46,7 @@ use std::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
+use chrono::Utc;
 
 /// Error returned by the consensus task
 #[derive(Snafu, Debug)]
@@ -806,6 +807,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                     self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
+                    consensus.metrics.last_decided_time.set(Utc::now().timestamp().try_into().unwrap());
                     consensus.metrics.invalid_qc.set(0);
                     consensus
                         .metrics
