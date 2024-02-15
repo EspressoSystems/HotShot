@@ -6,11 +6,14 @@ use either::{Left, Right};
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer};
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_task::task::{Task, TaskState, TestTaskState};
-use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{data::Leaf, ValidatorConfig};
 use hotshot_types::{
     event::Event,
-    traits::node_implementation::{NodeImplementation, NodeType},
+    message::Message,
+    traits::{
+        network::ConnectedNetwork,
+        node_implementation::{NodeImplementation, NodeType},
+    },
 };
 use snafu::Snafu;
 use std::collections::BTreeMap;
@@ -57,7 +60,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for Spinni
 impl<
         TYPES: NodeType<InstanceState = TestInstanceState>,
         I: TestableNodeImplementation<TYPES>,
-        N: CommunicationChannel<TYPES>,
+        N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestTaskState for SpinningTask<TYPES, I>
 where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
@@ -126,7 +129,7 @@ where
                                 let node = Node {
                                     node_id,
                                     networks: node.networks,
-                                    handle: node.context.run_tasks().await,
+                                    handle: context.run_tasks().await,
                                 };
                                 state.handles.push(node.clone());
 
