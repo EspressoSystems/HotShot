@@ -256,6 +256,7 @@ where
         // wait for networks to be ready
         for node in &nodes {
             node.networks.0.wait_for_ready().await;
+            node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
@@ -276,7 +277,7 @@ where
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
-            tracing::error!("test tasks joined");
+            tracing::info!("test tasks joined");
             for result in results {
                 match result {
                     HotShotTaskCompleted::ShutDown => {
