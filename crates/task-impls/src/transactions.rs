@@ -14,7 +14,6 @@ use commit::{Commitment, Committable};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
     event::{Event, EventType},
     traits::{
         block_contents::BlockHeader,

@@ -1,4 +1,4 @@
-use hotshot_example_types::node_types::{MemoryImpl, WebImpl, Libp2pImpl};
+use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, WebImpl};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_testing::completion_task::{
     CompletionTaskDescription, TimeBasedCompletionTaskDescription,
