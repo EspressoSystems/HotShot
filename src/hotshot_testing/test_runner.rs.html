@@ -406,6 +406,7 @@
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -641,6 +642,7 @@
         <span class="comment">// wait for networks to be ready
         </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>nodes {
             node.networks.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
+            node.networks.<span class="number">1</span>.wait_for_ready().<span class="kw">await</span>;
         }
 
         <span class="comment">// Start hotshot
@@ -661,7 +663,7 @@
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span>{
             <span class="kw">let </span>results = join_all(task_futs).<span class="kw">await</span>;
-            <span class="macro">tracing::error!</span>(<span class="string">"test tasks joined"</span>);
+            <span class="macro">tracing::info!</span>(<span class="string">"test tasks joined"</span>);
             <span class="kw">for </span>result <span class="kw">in </span>results {
                 <span class="kw">match </span>result {
                     HotShotTaskCompleted::ShutDown =&gt; {

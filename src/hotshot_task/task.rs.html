@@ -476,7 +476,7 @@
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
-<span class="kw">use </span>tracing::error;
+<span class="kw">use </span>tracing::{error, warn};
 
 <span class="kw">use crate</span>::{
     dependency::Dependency,
@@ -694,7 +694,7 @@
                         }
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">"Failed to get event from task. Error: {:?}"</span>, e);
+                        <span class="macro">warn!</span>(<span class="string">"Failed to get event from task. Error: {:?}"</span>, e);
                     }
                     <span class="prelude-val">Ok</span>((<span class="prelude-val">Err</span>(e), <span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
                         <span class="macro">error!</span>(<span class="string">"A task channel returned an Error: {:?}"</span>, e);

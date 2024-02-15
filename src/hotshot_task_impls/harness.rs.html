@@ -247,7 +247,7 @@
     }
 
     <span class="kw">if </span>state.expected_output.is_empty() {
-        <span class="macro">tracing::error!</span>(<span class="string">"test harness task completed"</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"test harness task completed"</span>);
         <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
     }
 
