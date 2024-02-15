@@ -159,8 +159,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 block_size: maybe_block_size,
             } => {
                 // Skip the genesis leaf.
-                if leaf_chain.last().unwrap().0.get_view_number() == TYPES::Time::genesis()
-                {
+                if leaf_chain.last().unwrap().0.get_view_number() == TYPES::Time::genesis() {
                     return None;
                 }
                 let paired_up = (leaf_chain.to_vec(), (*qc).clone());
@@ -222,7 +221,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 ViewStatus::Failed => {
                     task.state_mut().ctx.failed_views.insert(view_number);
                     if task.state_mut().ctx.failed_views.len() > num_failed_views {
-                        task.send_event(GlobalTestEvent::ShutDown).await;v
+                        task.send_event(GlobalTestEvent::ShutDown).await;
                         return Some(HotShotTaskCompleted::Error(Box::new(
                             OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                                 failed_views: task.state_mut().ctx.failed_views.clone(),
