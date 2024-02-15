@@ -1389,6 +1389,11 @@
 <a href="#1388" id="1388">1388</a>
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1429,6 +1434,7 @@
 <span class="kw">use </span>tracing::warn;
 
 <span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
+<span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet},
@@ -2206,6 +2212,10 @@
                         .<span class="kw">await</span>;
                     <span class="self">self</span>.vid_shares = <span class="self">self</span>.vid_shares.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
+                    consensus
+                        .metrics
+                        .last_decided_time
+                        .set(Utc::now().timestamp().try_into().unwrap());
                     consensus.metrics.invalid_qc.set(<span class="number">0</span>);
                     consensus
                         .metrics
