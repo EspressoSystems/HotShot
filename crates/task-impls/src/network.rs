@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use async_compatibility_layer::art::async_spawn;
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -370,23 +370,30 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             kind: message_kind,
         };
         let view = message.kind.get_view_number();
-        let transmit_result = match transmit_type {
-            TransmitType::Direct => {
-                self.channel
-                    .direct_message(message, recipient.unwrap())
-                    .await
+        let committee = membership.get_committee(view);
+        let net = self.channel.clone();
+        async_spawn(
+            async move {
+                let transmit_result = match transmit_type {
+                    TransmitType::Direct => {
+                        net
+                            .direct_message(message, recipient.unwrap())
+                            .await
+                    }
+                    TransmitType::Broadcast => {
+                        net
+                            .broadcast_message(message, committee)
+                            .await
+                    }
+                };
+        
+                match transmit_result {
+                    Ok(()) => {}
+                    Err(e) => error!("Failed to send message from network task: {:?}", e),
+                }
             }
-            TransmitType::Broadcast => {
-                self.channel
-                    .broadcast_message(message, membership.get_committee(view))
-                    .await
-            }
-        };
+        );
 
-        match transmit_result {
-            Ok(()) => {}
-            Err(e) => error!("Failed to send message from network task: {:?}", e),
-        }
 
         None
     }

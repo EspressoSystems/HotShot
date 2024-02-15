@@ -762,7 +762,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node::<K>(recipient.clone(), Duration::from_millis(500))
             .await
         {
             Ok(pid) => pid,
