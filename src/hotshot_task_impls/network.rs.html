@@ -388,19 +388,15 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
-
-<span class="kw">use crate</span>::{
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
 <span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_constants::VERSION_0_1;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
@@ -764,23 +760,19 @@
             kind: message_kind,
         };
         <span class="kw">let </span>view = message.kind.get_view_number();
-        <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {
-            TransmitType::Direct =&gt; {
-                <span class="self">self</span>.channel
-                    .direct_message(message, recipient.unwrap())
-                    .<span class="kw">await
-            </span>}
-            TransmitType::Broadcast =&gt; {
-                <span class="self">self</span>.channel
-                    .broadcast_message(message, membership.get_committee(view))
-                    .<span class="kw">await
-            </span>}
-        };
+        <span class="kw">let </span>committee = membership.get_committee(view);
+        <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
+        async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {
+                TransmitType::Direct =&gt; net.direct_message(message, recipient.unwrap()).<span class="kw">await</span>,
+                TransmitType::Broadcast =&gt; net.broadcast_message(message, committee).<span class="kw">await</span>,
+            };
 
-        <span class="kw">match </span>transmit_result {
-            <span class="prelude-val">Ok</span>(()) =&gt; {}
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
-        }
+            <span class="kw">match </span>transmit_result {
+                <span class="prelude-val">Ok</span>(()) =&gt; {}
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
+            }
+        });
 
         <span class="prelude-val">None
     </span>}

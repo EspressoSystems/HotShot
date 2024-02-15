@@ -535,7 +535,6 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
@@ -697,9 +696,7 @@
                 block_size: maybe_block_size,
             } =&gt; {
                 <span class="comment">// Skip the genesis leaf.
-                </span><span class="kw">if </span>leaf_chain.len() == <span class="number">1
-                    </span>&amp;&amp; leaf_chain[<span class="number">0</span>].<span class="number">0</span>.get_view_number() == TYPES::Time::genesis()
-                {
+                </span><span class="kw">if </span>leaf_chain.last().unwrap().<span class="number">0</span>.get_view_number() == TYPES::Time::genesis() {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
@@ -771,6 +768,7 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 ViewStatus::Err(e) =&gt; {
+                    task.send_event(GlobalTestEvent::ShutDown).<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(e)));
                 }
                 ViewStatus::InProgress =&gt; {
