@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use futures::StreamExt;
 use hotshot::traits::implementations::{CombinedCommChannel, CombinedNetworks};
+use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
         implementations::{
@@ -59,6 +60,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
 
+use chrono::Utc;
 use libp2p_identity::PeerId;
 use std::fmt::Debug;
 use std::{fs, time::Instant};
@@ -411,6 +413,10 @@ pub trait RunDA<
 
         let mut total_transactions_committed = 0;
         let mut total_transactions_sent = 0;
+        let mut minimum_latency = 1000;
+        let mut maximum_latency = 0;
+        let mut total_latency = 0;
+        let mut num_latency = 0;
 
         error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
@@ -440,9 +446,28 @@ pub trait RunDA<
                             qc: _,
                             block_size,
                         } => {
+                            let current_timestamp = Utc::now().timestamp();
                             // this might be a obob
                             if let Some((leaf, _)) = leaf_chain.first() {
                                 info!("Decide event for leaf: {}", *leaf.view_number);
+
+                                // iterate all the decided transactions to calculate latency
+                                if let Some(block_payload) = &leaf.block_payload {
+                                    for tx in block_payload.get_transactions() {
+                                        let restored_timestamp_vec =
+                                            tx.0[tx.0.len() - 8..].to_vec();
+                                        let restored_timestamp = i64::from_be_bytes(
+                                            restored_timestamp_vec.as_slice().try_into().unwrap(),
+                                        );
+                                        let cur_latency = current_timestamp - restored_timestamp;
+                                        total_latency += cur_latency;
+                                        num_latency += 1;
+                                        minimum_latency =
+                                            std::cmp::min(minimum_latency, cur_latency);
+                                        maximum_latency =
+                                            std::cmp::max(maximum_latency, cur_latency);
+                                    }
+                                }
 
                                 let new_anchor = leaf.view_number;
                                 if new_anchor >= anchor_view {
@@ -451,9 +476,16 @@ pub trait RunDA<
 
                                 // send transactions
                                 for _ in 0..transactions_to_send_per_round {
-                                    let tx = transactions.remove(0);
-                                    // sishan todo: mark here as the start of a tx?
-                                    () = context.submit_transaction(tx).await.unwrap();
+                                    // append current timestamp to the tx to calc latency
+                                    let timestamp = Utc::now().timestamp();
+                                    let mut tx = transactions.remove(0).0;
+                                    let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                                    tx.append(&mut timestamp_vec);
+
+                                    () = context
+                                        .submit_transaction(TestTransaction(tx))
+                                        .await
+                                        .unwrap();
                                     total_transactions_sent += 1;
                                 }
                             }
@@ -486,9 +518,13 @@ pub trait RunDA<
 
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
-        let throughput = total_transactions_committed * transaction_size_in_bytes / total_time_elapsed.as_secs();
-        error!("[{node_index}]: Throughput: {throughput} bytes/sec");
         error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        if total_transactions_committed != 0 {
+            // extra 8 bytes for timestamp
+            let throughput = total_transactions_committed * (transaction_size_in_bytes + 8)
+                / total_time_elapsed.as_secs();
+            error!("[{node_index}]: Avg latency: {:?} sec, Minimum latency: {minimum_latency} sec, Maximum latency: {maximum_latency} sec, Throughput: {throughput} bytes/sec", total_latency / num_latency);
+        }
     }
 
     /// Returns the da network for this run

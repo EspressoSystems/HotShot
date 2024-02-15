@@ -168,6 +168,10 @@ impl BlockPayload for TestBlockPayload {
         }
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
+
+    fn get_transactions(&self) -> &Vec<Self::Transaction> {
+        &self.transactions
+    }
 }
 
 /// Computes the (empty) genesis VID commitment

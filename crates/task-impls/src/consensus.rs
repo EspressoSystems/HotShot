@@ -749,7 +749,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     for txn in payload
                                         .transaction_commitments(leaf.get_block_header().metadata())
                                     {
-                                        // Sishan TODO: mark as the finalization of tx. calculate tx latency here.
                                         included_txns.insert(txn);
                                     }
                                 }
