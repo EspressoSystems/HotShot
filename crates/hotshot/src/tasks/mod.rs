@@ -273,7 +273,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     };
     let upgrade_state = UpgradeTaskState {
         api: c_api.clone(),
-        cur_view: TYPES::Time::new(0),
+        cur_view: handle.get_current_view().await,
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         quorum_network: c_api.inner.networks.quorum_network.clone(),
         should_vote: |_upgrade_proposal| false,
