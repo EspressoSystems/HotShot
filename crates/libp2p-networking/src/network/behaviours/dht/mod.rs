@@ -324,6 +324,15 @@ impl DHTBehaviour {
                     .into_iter()
                     .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
                 {
+                    let record = Record {
+                        key: key.into(),
+                        value: r.clone(),
+                        publisher: None,
+                        expires: None,
+                    };
+                    if self.kadem.store_mut().put(record).is_err() {
+                        error!("Error putting DHT Get result into Record Store");
+                    }
                     // return value
                     if notify.send(r).is_err() {
                         error!("Get DHT: channel closed before get record request result could be sent");
