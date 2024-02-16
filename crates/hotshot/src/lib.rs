@@ -25,7 +25,6 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
-use custom_debug::Debug;
 use futures::join;
 use hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 use hotshot_task_impls::events::HotShotEvent;
@@ -564,16 +563,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     }
 }
 
-/// A handle that exposes the interface that hotstuff needs to interact with a [`SystemContextInner`]
-#[derive(Clone, Debug)]
-pub struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Reference to the [`SystemContextInner`]
-    pub inner: Arc<SystemContextInner<TYPES, I>>,
-}
-
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
-    for HotShotConsensusApi<TYPES, I>
+    for SystemContext<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes

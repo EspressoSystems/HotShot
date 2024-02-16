@@ -1,6 +1,6 @@
 //! Provides a number of tasks that run continuously
 
-use crate::{types::SystemContextHandle, HotShotConsensusApi};
+use crate::{types::SystemContextHandle, SystemContext};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 
@@ -139,9 +139,9 @@ pub async fn add_network_event_task<
 pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     output_stream: Sender<Event<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
-) -> ConsensusTaskState<TYPES, I, HotShotConsensusApi<TYPES, I>> {
+) -> ConsensusTaskState<TYPES, I, SystemContext<TYPES, I>> {
     let consensus = handle.hotshot.get_consensus();
-    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+    let c_api: SystemContext<TYPES, I> = SystemContext{
         inner: handle.hotshot.inner.clone(),
     };
 
@@ -238,7 +238,7 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the vid task
-    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+    let c_api: SystemContext<TYPES, I> = SystemContext{
         inner: handle.hotshot.inner.clone(),
     };
     let vid_state = VIDTaskState {
@@ -268,7 +268,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     rx: Receiver<HotShotEvent<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+    let c_api: SystemContext<TYPES, I> = SystemContext{
         inner: handle.hotshot.inner.clone(),
     };
     let upgrade_state = UpgradeTaskState {
@@ -294,7 +294,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the da task
-    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+    let c_api: SystemContext<TYPES, I> = SystemContext{
         inner: handle.hotshot.inner.clone(),
     };
     let da_state = DATaskState {
@@ -322,7 +322,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the transactions task
-    let c_api: HotShotConsensusApi<TYPES, I> = HotShotConsensusApi {
+    let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let transactions_state = TransactionTaskState {
@@ -348,7 +348,7 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     rx: Receiver<HotShotEvent<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let api = HotShotConsensusApi {
+    let api = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     // build the view sync task

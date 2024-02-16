@@ -12,7 +12,7 @@ use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
+    HotShotInitializer, Memberships, Networks, SystemContext,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -212,7 +212,7 @@ async fn build_quorum_proposal_and_signature(
     let genesis_consensus = handle.get_consensus();
     let cur_consensus = genesis_consensus.upgradable_read().await;
     let mut consensus = RwLockUpgradableReadGuard::upgrade(cur_consensus).await;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext{
         inner: handle.hotshot.inner.clone(),
     };
     // parent_view_number should be equal to 0
