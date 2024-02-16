@@ -165,7 +165,6 @@
             cargo-expand
             cargo-workspaces
             cargo-audit
-            cargo-semver-checks
             nixpkgs-fmt
             git-chglog
             protobuf
@@ -200,6 +199,14 @@
             RUST_LIB_SRC = "${fenixNightly}/lib/rustlib/src/rust/library";
             buildInputs = [ careful pkgs.git fenixNightly pkgs.cargo-udeps ] ++ buildDeps;
 
+          };
+
+          semverShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            buildInputs = [
+              (pkgs.cargo-semver-checks.overrideAttrs (final: prev: {doCheck = false;}))
+              fenixStable
+            ] ++ buildDeps;
           };
 
           # usage: compile a statically linked musl binary
