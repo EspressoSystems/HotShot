@@ -86,7 +86,7 @@ impl NetworkDef {
     /// Publish a given gossip
     pub fn publish_gossip(&mut self, topic: IdentTopic, contents: Vec<u8>) {
         if let Err(e) = self.gossipsub.publish(topic, contents) {
-            error!("Failed to publish gossip message. Error: {:?}", e);
+            tracing::warn!("Failed to publish gossip message. Error: {:?}", e);
         }
     }
 
