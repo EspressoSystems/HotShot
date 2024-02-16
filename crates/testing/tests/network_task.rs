@@ -1,4 +1,4 @@
-use hotshot::{types::SignatureKey, HotShotConsensusApi};
+use hotshot::{types::SignatureKey, SystemContext};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::task_helpers::{build_quorum_proposal, vid_init};
@@ -26,7 +26,7 @@ async fn test_network_task() {
 
     // Build the API for node 2.
     let (handle, _tx, _rx) = build_system_handle(2).await;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let pub_key = *api.public_key();

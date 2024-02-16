@@ -1,4 +1,4 @@
-use hotshot::HotShotConsensusApi;
+use hotshot::SystemContext;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
@@ -23,7 +23,7 @@ async fn test_view_sync_task() {
 
     // Build the API for node 5.
     let handle = build_system_handle(5).await.0;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
 

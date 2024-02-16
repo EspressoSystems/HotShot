@@ -1,6 +1,6 @@
 #![allow(clippy::panic)]
 use commit::Committable;
-use hotshot::{types::SystemContextHandle, HotShotConsensusApi};
+use hotshot::{types::SystemContextHandle, SystemContext};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
@@ -24,7 +24,7 @@ async fn build_vote(
 ) -> GeneralConsensusMessage<TestTypes> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let membership = api.inner.memberships.quorum_membership.clone();
@@ -206,7 +206,7 @@ async fn test_consensus_with_vid() {
     let (private_key_view2, public_key_view2) = key_pair_for_id(2);
 
     // For the test of vote logic with vid
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let pub_key = *api.public_key();

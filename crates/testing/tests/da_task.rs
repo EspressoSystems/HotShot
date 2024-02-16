@@ -1,4 +1,4 @@
-use hotshot::{types::SignatureKey, HotShotConsensusApi};
+use hotshot::{types::SignatureKey, SystemContext};
 use hotshot_example_types::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
@@ -32,7 +32,7 @@ async fn test_da_task() {
 
     // Build the API for node 2.
     let handle = build_system_handle(2).await.0;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
+    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let pub_key = *api.public_key();
