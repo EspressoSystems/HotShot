@@ -757,18 +757,6 @@
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -777,13 +765,10 @@
 };
 
 <span class="doccomment">/// a local caching layer for the DHT key value pairs
-</span><span class="kw">mod </span>cache;
-
-<span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
-<span class="kw">use </span>futures::channel::oneshot::Sender;
+</span><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>lazy_static::lazy_static;
-<span class="kw">use </span>libp2p::kad::Behaviour <span class="kw">as </span>KademliaBehaviour;
 <span class="kw">use </span>libp2p::kad::Event <span class="kw">as </span>KademliaEvent;
+<span class="kw">use </span>libp2p::kad::{store::RecordStore, Behaviour <span class="kw">as </span>KademliaBehaviour};
 <span class="kw">use </span>libp2p::{
     kad::{
         <span class="comment">/* handler::KademliaHandlerIn, */ </span>store::MemoryStore, BootstrapError, BootstrapOk,
@@ -804,8 +789,6 @@
     <span class="doccomment">/// the maximum number of nodes to query in the DHT at any one time
     </span><span class="kw">static </span><span class="kw-2">ref </span>MAX_DHT_QUERY_SIZE: NonZeroUsize = NonZeroUsize::new(<span class="number">50</span>).unwrap();
 }
-
-<span class="kw">use </span><span class="self">self</span>::cache::Cache;
 
 <span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
 
@@ -842,8 +825,6 @@
     </span><span class="kw">pub </span>peer_id: PeerId,
     <span class="doccomment">/// replication factor
     </span><span class="kw">pub </span>replication_factor: NonZeroUsize,
-    <span class="doccomment">/// kademlia cache
-    </span>cache: Cache,
 }
 
 <span class="doccomment">/// State of bootstrapping
@@ -894,11 +875,11 @@
 
     <span class="doccomment">/// Create a new DHT behaviour
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub async fn </span>new(
+    </span><span class="kw">pub fn </span>new(
         <span class="kw-2">mut </span>kadem: KademliaBehaviour&lt;MemoryStore&gt;,
         pid: PeerId,
         replication_factor: NonZeroUsize,
-        cache_location: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// needed because otherwise we stay in client mode when testing locally
         // and don't publish keys stuff
@@ -927,13 +908,6 @@
             },
             in_progress_get_closest_peers: HashMap::default(),
             replication_factor,
-            cache: Cache::new(
-                cache::ConfigBuilder::default()
-                    .filename(cache_location)
-                    .build()
-                    .unwrap_or_default(),
-            )
-            .<span class="kw">await</span>,
         }
     }
 
@@ -1020,9 +994,9 @@
         }
 
         <span class="comment">// check cache before making the request
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = async_block_on(<span class="self">self</span>.cache.get(<span class="kw-2">&amp;</span>key)) {
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.kadem.store_mut().get(<span class="kw-2">&amp;</span>key.clone().into()) {
             <span class="comment">// exists in cache
-            </span><span class="kw">if </span>chan.send(entry.value().clone()).is_err() {
+            </span><span class="kw">if </span>chan.send(entry.value.clone()).is_err() {
                 <span class="macro">error!</span>(<span class="string">"Get DHT: channel closed before get record request result could be sent"</span>);
             }
         } <span class="kw">else </span>{
@@ -1109,13 +1083,15 @@
                     .into_iter()
                     .find(|(<span class="kw">_</span>, v)| <span class="kw-2">*</span>v &gt;= NUM_REPLICATED_TO_TRUST)
                 {
-                    <span class="comment">// insert into cache
-                    // TODO we should find a better place to set the cache
-                    // https://github.com/EspressoSystems/HotShot/issues/2554
-                    </span><span class="kw">let </span>cache = <span class="self">self</span>.cache.clone();
-                    <span class="kw">let </span>val = r.clone();
-                    async_spawn(<span class="kw">async move </span>{ cache.insert(key, val).<span class="kw">await </span>});
-
+                    <span class="kw">let </span>record = Record {
+                        key: key.into(),
+                        value: r.clone(),
+                        publisher: <span class="prelude-val">None</span>,
+                        expires: <span class="prelude-val">None</span>,
+                    };
+                    <span class="kw">if </span><span class="self">self</span>.kadem.store_mut().put(record).is_err() {
+                        <span class="macro">error!</span>(<span class="string">"Error putting DHT Get result into Record Store"</span>);
+                    }
                     <span class="comment">// return value
                     </span><span class="kw">if </span>notify.send(r).is_err() {
                         <span class="macro">error!</span>(<span class="string">"Get DHT: channel closed before get record request result could be sent"</span>);

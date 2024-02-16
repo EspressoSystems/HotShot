@@ -657,7 +657,6 @@
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -947,8 +946,7 @@
                         .replication_factor
                         .unwrap_or_else(|| NonZeroUsize::new(<span class="number">4</span>).unwrap()),
                     config.dht_cache_location.clone(),
-                )
-                .<span class="kw">await</span>,
+                ),
                 identify,
                 DMBehaviour::new(request_response),
             );

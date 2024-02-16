@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_Config"],"enum":["CacheError","ConfigBuilderError"],"struct":["Cache","Config","ConfigBuilder","DeserializationSnafu","DiskSnafu","GeneralCacheSnafu","SerializationSnafu"]};
