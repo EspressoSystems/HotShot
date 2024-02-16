@@ -425,7 +425,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
-        let metrics_connected_peers = self.inner.clone();
+        // let metrics_connected_peers = self.inner.clone();
         let is_da = self.inner.is_da;
         async_spawn({
             let is_ready = self.inner.is_ready.clone();
@@ -446,24 +446,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 };
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
-                // 10 minute timeout
-                let timeout_duration = Duration::from_secs(600);
-                // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
-                handle
-                    .wait_to_connect(4, id, timeout_duration)
-                    .await
-                    .unwrap();
-
-                let connected_num = handle.num_connected().await?;
-                metrics_connected_peers
-                    .metrics
-                    .connected_peers
-                    .set(connected_num);
+                handle.begin_bootstrap().await?;
 
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
                 }
+                handle.lookup_pid(PeerId::random()).await?;
+
 
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
@@ -471,7 +460,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if is_da {
                     handle.subscribe("DA".to_string()).await.unwrap();
                 }
-
                 // TODO figure out some way of passing in ALL keypairs. That way we can add the
                 // global topic to the topic map
                 // NOTE this wont' work without this change
@@ -487,7 +475,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-
                 info!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
@@ -531,7 +518,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         broadcast_send: &UnboundedSender<M>,
     ) -> Result<(), NetworkError> {
         match msg {
-            GossipMsg(msg, _topic) => {
+            GossipMsg(msg) => {
                 let result: Result<M, _> = bincode_opts().deserialize(&msg);
                 if let Ok(result) = result {
                     broadcast_send
@@ -592,7 +579,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, Ordering::Relaxed);
                     }
-                    GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
+                    GossipMsg(raw) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
                         let message_version = read_version(raw);
                         match message_version {
                             Some(VERSION_0_1) => {
