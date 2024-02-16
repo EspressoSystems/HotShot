@@ -205,6 +205,7 @@
             inherit CARGO_TARGET_DIR;
             buildInputs = [
               (pkgs.cargo-semver-checks.overrideAttrs (final: prev: {doCheck = false;}))
+              fenixStable
             ] ++ buildDeps;
           };
 
