@@ -406,7 +406,7 @@ impl DHTBehaviour {
                             warn!("DHT: finished query but client no longer interested");
                         };
                     };
-                    error!(
+                    info!(
                         "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
                         self.peer_id, key, peers
                     );
@@ -439,7 +439,7 @@ impl DHTBehaviour {
                 ..
             } => {
                 if num_remaining == 0 {
-                    error!("Finished bootstrap for peer {:?}", self.peer_id);
+                    info!("Finished bootstrap for peer {:?}", self.peer_id);
                     self.bootstrap_state.state = State::NotStarted;
                     self.event_queue.push(DHTEvent::IsBootstrapped);
                     // After initial bootstrap suceeds do it every 2 minutes to maintain routing.
@@ -570,7 +570,7 @@ impl NetworkBehaviour for DHTBehaviour {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     self.bootstrap_state.state = State::Started;
-                    error!("Starting bootstrap");
+                    info!("Starting bootstrap");
                 }
                 Err(e) => {
                     error!(

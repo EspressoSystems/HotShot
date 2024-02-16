@@ -453,7 +453,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 }
                 handle.lookup_pid(PeerId::random()).await?;
 
-
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
                 // only subscribe to DA events if we are DA
@@ -518,7 +517,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         broadcast_send: &UnboundedSender<M>,
     ) -> Result<(), NetworkError> {
         match msg {
-            GossipMsg(msg) => {
+            GossipMsg(msg, _) => {
                 let result: Result<M, _> = bincode_opts().deserialize(&msg);
                 if let Ok(result) = result {
                     broadcast_send
@@ -579,7 +578,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, Ordering::Relaxed);
                     }
-                    GossipMsg(raw) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
+                    GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
                         let message_version = read_version(raw);
                         match message_version {
                             Some(VERSION_0_1) => {
