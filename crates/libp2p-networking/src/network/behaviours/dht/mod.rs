@@ -65,8 +65,6 @@ pub struct DHTBehaviour {
     pub kadem: KademliaBehaviour<MemoryStore>,
     /// State of bootstrapping
     pub bootstrap_state: Bootstrap,
-    /// State of last random walk
-    pub random_walk: RandomWalk,
     /// the peer id (useful only for debugging right now)
     pub peer_id: PeerId,
     /// replication factor
@@ -84,14 +82,6 @@ pub struct Bootstrap {
     pub backoff: ExponentialBackoff,
 }
 
-/// State of the periodic random walk
-pub struct RandomWalk {
-    /// State of random walk
-    state: State,
-    /// Retry timeout
-    backoff: ExponentialBackoff,
-}
-
 /// State used for random walk and bootstrapping
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum State {
@@ -99,8 +89,6 @@ pub enum State {
     NotStarted,
     /// In progress
     Started,
-    /// Sucessfully completed
-    Finished,
 }
 
 /// DHT event enum
@@ -147,11 +135,6 @@ impl DHTBehaviour {
             kadem,
             bootstrap_state: Bootstrap {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
-            },
-            random_walk: RandomWalk {
-                state: State::NotStarted,
-                // TODO jr this may be way too frequent
                 backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
             },
             in_progress_get_closest_peers: HashMap::default(),
@@ -434,11 +417,8 @@ impl DHTBehaviour {
                         if chan.send(()).is_err() {
                             warn!("DHT: finished query but client no longer interested");
                         };
-                    } else {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(true);
-                    }
-                    info!(
+                    };
+                    error!(
                         "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
                         self.peer_id, key, peers
                     );
@@ -446,10 +426,7 @@ impl DHTBehaviour {
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         let _: Result<_, _> = chan.send(());
-                    } else {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(true);
-                    }
+                    };
                     warn!(
                         "peer {:?} failed to get closest peers with {:?} and stats {:?}",
                         self.peer_id, e, stats
@@ -474,11 +451,13 @@ impl DHTBehaviour {
                 ..
             } => {
                 if num_remaining == 0 {
-                    // if bootstrap is successful, restart.
-                    info!("Finished bootstrap for peer {:?}", self.peer_id);
-                    self.bootstrap_state.state = State::Finished;
+                    error!("Finished bootstrap for peer {:?}", self.peer_id);
+                    self.bootstrap_state.state = State::NotStarted;
                     self.event_queue.push(DHTEvent::IsBootstrapped);
-                    self.begin_bootstrap = false;
+                    // After initial bootstrap suceeds do it every 2 minutes to maintain routing.
+                    self.bootstrap_state.backoff =
+                        ExponentialBackoff::new(1, Duration::from_secs(120));
+                    self.bootstrap_state.backoff.start_next(true);
                 } else {
                     warn!(
                         "Bootstrap in progress: num remaining nodes to ping {:?}",
@@ -524,7 +503,12 @@ impl DHTBehaviour {
                 addresses: _,
                 bucket_range: _,
                 old_peer: _,
-            } => {}
+            } => {
+                // // Trigger a new bootstrap when our table changes, if it's not running
+                // if self.bootstrap_state.state == State::NotStarted {
+                //     self.bootstrap_state.backoff.expire();
+                // }
+            }
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
@@ -587,10 +571,6 @@ impl NetworkBehaviour for DHTBehaviour {
 
     type ToSwarm = DHTEvent;
 
-    // fn new_handler(&mut self) -> Self::ConnectionHandler {
-    //     self.kadem.new_handler()
-    // }
-
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -602,6 +582,7 @@ impl NetworkBehaviour for DHTBehaviour {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     self.bootstrap_state.state = State::Started;
+                    error!("Starting bootstrap");
                 }
                 Err(e) => {
                     error!(
@@ -615,14 +596,6 @@ impl NetworkBehaviour for DHTBehaviour {
                     }
                 }
             }
-        }
-
-        if matches!(self.random_walk.state, State::NotStarted)
-            && self.random_walk.backoff.is_expired()
-            && matches!(self.bootstrap_state.state, State::Finished)
-        {
-            self.kadem.get_closest_peers(PeerId::random());
-            self.random_walk.state = State::Started;
         }
 
         // retry put/gets if they are ready
