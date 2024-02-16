@@ -141,7 +141,7 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
     handle: &SystemContextHandle<TYPES, I>,
 ) -> ConsensusTaskState<TYPES, I, SystemContext<TYPES, I>> {
     let consensus = handle.hotshot.get_consensus();
-    let c_api: SystemContext<TYPES, I> = SystemContext{
+    let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
 
@@ -238,7 +238,7 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the vid task
-    let c_api: SystemContext<TYPES, I> = SystemContext{
+    let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let vid_state = VIDTaskState {
@@ -268,7 +268,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     rx: Receiver<HotShotEvent<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let c_api: SystemContext<TYPES, I> = SystemContext{
+    let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let upgrade_state = UpgradeTaskState {
@@ -294,7 +294,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the da task
-    let c_api: SystemContext<TYPES, I> = SystemContext{
+    let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
     };
     let da_state = DATaskState {
