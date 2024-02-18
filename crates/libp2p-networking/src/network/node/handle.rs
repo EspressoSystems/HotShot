@@ -215,6 +215,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     {
         let start = Instant::now();
         self.begin_bootstrap().await?;
+        self.lookup_pid(PeerId::random()).await?;
         let mut connected_ok = false;
         while !connected_ok {
             if start.elapsed() >= timeout {
