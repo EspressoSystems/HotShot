@@ -13,26 +13,22 @@
 
 import os
 import sys
-import re
 import subprocess
 import split_test_output
 
-test = ""
-if len(sys.argv) >= 2:
-    test = sys.argv[1]
-else:
-    test = input("Enter a test name: ")
 
+test = sys.argv[1] if len(sys.argv) >= 2 else input("Enter a test name: ")
 env = os.environ
 env["RUST_LOG_FMT"] = "compact"
 env["RUST_LOG"] = "debug"
 env["RUST_BACKTRACE"] = "1"
 result = subprocess.run(
-    "cargo test --features=full-ci --profile=release-lto -- " + test + " --test-threads=1 --nocapture",
+    "cargo test --features=full-ci --profile=release-lto -- " +
+    test +
+    " --test-threads=1 --nocapture",
     shell=True,
     executable='bash',
     stdout=subprocess.PIPE,
-    env=env
-)
+    env=env)
 
 split_test_output.split_input(result.stdout.decode("utf-8").split('\n'))

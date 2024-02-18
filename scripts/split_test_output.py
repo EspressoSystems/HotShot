@@ -8,8 +8,8 @@
 # Usage: `cat <file> | ./scripts/split_test_output.py`
 
 import sys
-import os
 import re
+
 
 id_regex = re.compile("id: (\d+)")
 ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
@@ -43,6 +43,7 @@ def split_input(input):
             block = ""
     if block:
         files[0].write(block)
+
 
 if __name__ == '__main__':
     split_input(sys.stdin)

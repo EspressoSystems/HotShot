@@ -23,5 +23,3 @@ for line in sys.stdin:
         [_, repo, start_commit, _] = name_commit_regex.split(prev)
         [_, _, end_commit, _] = name_commit_regex.split(line)
         print("- [ ] " + repo + ": [repo](https://github.com/" + repo + ") | [commits this PR](https://github.com/" + repo + "/compare/" + start_commit + ".." + end_commit + ")")
-
-
