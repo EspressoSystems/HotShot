@@ -160,7 +160,7 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
     let consensus_state = ConsensusTaskState {
         consensus,
         timeout: handle.hotshot.inner.config.next_view_timeout,
-        cur_view: handle.get_current_view().await,
+        cur_view: handle.get_start_view().await,
         payload_commitment_and_metadata: Some(CommitmentAndMetadata {
             commitment: payload_commitment,
             metadata,
@@ -244,7 +244,7 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let vid_state = VIDTaskState {
         api: c_api.clone(),
         consensus: handle.hotshot.get_consensus(),
-        cur_view: handle.get_current_view().await,
+        cur_view: handle.get_start_view().await,
         vote_collector: None,
         network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.vid_membership.clone().into(),
@@ -273,7 +273,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     };
     let upgrade_state = UpgradeTaskState {
         api: c_api.clone(),
-        cur_view: handle.get_current_view().await,
+        cur_view: handle.get_start_view().await,
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         quorum_network: c_api.inner.networks.quorum_network.clone(),
         should_vote: |_upgrade_proposal| false,
@@ -303,7 +303,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         da_membership: c_api.inner.memberships.da_membership.clone().into(),
         da_network: c_api.inner.networks.da_network.clone(),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
-        cur_view: handle.get_current_view().await,
+        cur_view: handle.get_start_view().await,
         vote_collector: None.into(),
         public_key: c_api.public_key().clone(),
         private_key: c_api.private_key().clone(),
@@ -330,7 +330,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
         consensus: handle.hotshot.get_consensus(),
         transactions: Arc::default(),
         seen_transactions: HashSet::new(),
-        cur_view: handle.get_current_view().await,
+        cur_view: handle.get_start_view().await,
         network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.quorum_membership.clone().into(),
         public_key: c_api.public_key().clone(),

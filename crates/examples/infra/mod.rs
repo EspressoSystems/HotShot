@@ -444,7 +444,7 @@ pub trait RunDA<
                                 for _ in 0..transactions_to_send_per_round {
                                     let tx = transactions.remove(0);
 
-                                    () = context.submit_transaction(tx).await.unwrap();
+                                    () = context.submit_initial_transaction(tx).await.unwrap();
                                     total_transactions_sent += 1;
                                 }
                             }

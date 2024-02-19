@@ -231,7 +231,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Consensus {
             instance_state,
             validated_state_map,
-            cur_view: start_view,
+            start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
@@ -292,22 +292,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         broadcast_event(event, &self.inner.output_event_stream.0).await;
     }
 
-    /// Publishes a transaction asynchronously to the network
+    /// Publishes an initial transaction asynchronously to the network.
+    ///
+    /// The transaction corresponds to either the genesis view or the view to restart on.
     ///
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
     #[instrument(skip(self), err)]
-    pub async fn publish_transaction_async(
+    pub async fn publish_initial_transaction_async(
         &self,
         transaction: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         trace!("Adding transaction to our own queue");
-        // Wrap up a message
-        // TODO place a view number here that makes sense
-        // we haven't worked out how this will work yet
-        let message = DataMessage::SubmitTransaction(transaction.clone(), TYPES::Time::new(0));
+
         let api = self.clone();
+        let view_number = api.inner.consensus.read().await.start_view;
+
+        // Wrap up a message
+        let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
         async_spawn(async move {
             let da_membership = &api.inner.memberships.da_membership.clone();
@@ -326,11 +329,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.inner.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(TYPES::Time::new(0)),
+                        da_membership.get_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
-                        view_number: api.inner.consensus.read().await.cur_view,
+                        view_number,
                         event: EventType::Transactions {
                             transactions: vec![transaction],
                         },

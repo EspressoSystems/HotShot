@@ -39,8 +39,8 @@ pub struct Consensus<TYPES: NodeType> {
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
-    /// cur_view from pseudocode
-    pub cur_view: TYPES::Time,
+    /// View number that the consensus will start on.
+    pub start_view: TYPES::Time,
 
     /// last view had a successful decide event
     pub last_decided_view: TYPES::Time,
@@ -235,13 +235,6 @@ impl Default for ConsensusMetricsValue {
 }
 
 impl<TYPES: NodeType> Consensus<TYPES> {
-    /// increment the current view
-    /// NOTE may need to do gc here
-    pub fn increment_view(&mut self) -> TYPES::Time {
-        self.cur_view += 1;
-        self.cur_view
-    }
-
     /// gather information from the parent chain of leafs
     /// # Errors
     /// If the leaf or its ancestors are not found in storage

@@ -49,11 +49,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
                         return HotShotTaskCompleted::StreamsDied;
                     }
                 }
-                self.submit_tx().await;
+                self.submit_initial_tx().await;
             }
         })
     }
-    async fn submit_tx(&mut self) {
+    async fn submit_initial_tx(&mut self) {
         if let Some(idx) = self.next_node_idx {
             // submit to idx handle
             // increment state
@@ -72,7 +72,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
                     let leaf = node.handle.get_decided_leaf().await;
                     let txn = I::leaf_create_random_transaction(&leaf, &mut thread_rng(), 0);
                     node.handle
-                        .submit_transaction(txn.clone())
+                        .submit_initial_transaction(txn.clone())
                         .await
                         .expect("Could not send transaction");
                 }
