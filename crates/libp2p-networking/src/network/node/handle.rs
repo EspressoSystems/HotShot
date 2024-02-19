@@ -3,7 +3,7 @@ use crate::network::{
     NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_timeout, future::to, stream},
+    art::{async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
         bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
@@ -25,7 +25,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tracing::{debug, info, instrument};
 
