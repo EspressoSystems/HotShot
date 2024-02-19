@@ -565,6 +565,57 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
+    for SystemContextHandle<TYPES, I>
+{
+    fn total_nodes(&self) -> NonZeroUsize {
+        self.hotshot.inner.config.total_nodes
+    }
+
+    fn propose_min_round_time(&self) -> Duration {
+        self.hotshot.inner.config.propose_min_round_time
+    }
+
+    fn propose_max_round_time(&self) -> Duration {
+        self.hotshot.inner.config.propose_max_round_time
+    }
+
+    fn max_transactions(&self) -> NonZeroUsize {
+        self.hotshot.inner.config.max_transactions
+    }
+
+    fn min_transactions(&self) -> usize {
+        self.hotshot.inner.config.min_transactions
+    }
+
+    async fn send_event(&self, event: Event<TYPES>) {
+        debug!(?event, "send_event");
+        broadcast_event(event, &self.hotshot.inner.output_event_stream.0).await;
+    }
+
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.hotshot.inner.public_key
+    }
+
+    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
+        &self.hotshot.inner.private_key
+    }
+
+    async fn store_leaf(
+        &self,
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf<TYPES>,
+    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
+        let view_to_insert = StoredView::from(leaf);
+        let storage = &self.hotshot.inner.storage;
+        storage.append_single_view(view_to_insert).await?;
+        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
+        storage.commit().await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for SystemContext<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {

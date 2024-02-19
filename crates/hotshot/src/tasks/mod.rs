@@ -179,8 +179,8 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
         vid_shares: BTreeMap::new(),
         current_proposal: None,
         id: handle.hotshot.inner.id,
-        public_key: c_api.public_key().clone(),
-        private_key: c_api.private_key().clone(),
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
         quorum_network: c_api.inner.networks.quorum_network.clone(),
         committee_network: c_api.inner.networks.da_network.clone(),
         timeout_membership: c_api.inner.memberships.quorum_membership.clone().into(),
@@ -248,8 +248,8 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         vote_collector: None,
         network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.vid_membership.clone().into(),
-        public_key: c_api.public_key().clone(),
-        private_key: c_api.private_key().clone(),
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
         id: handle.hotshot.inner.id,
     };
 
@@ -278,8 +278,8 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         quorum_network: c_api.inner.networks.quorum_network.clone(),
         should_vote: |_upgrade_proposal| false,
         vote_collector: None.into(),
-        public_key: c_api.public_key().clone(),
-        private_key: c_api.private_key().clone(),
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
         id: handle.hotshot.inner.id,
     };
     let task = Task::new(tx, rx, task_reg.clone(), upgrade_state);
@@ -305,8 +305,8 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         cur_view: TYPES::Time::new(0),
         vote_collector: None.into(),
-        public_key: c_api.public_key().clone(),
-        private_key: c_api.private_key().clone(),
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
         id: handle.hotshot.inner.id,
     };
 
@@ -333,8 +333,8 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
         cur_view: TYPES::Time::new(0),
         network: c_api.inner.networks.quorum_network.clone(),
         membership: c_api.inner.memberships.quorum_membership.clone().into(),
-        public_key: c_api.public_key().clone(),
-        private_key: c_api.private_key().clone(),
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
         id: handle.hotshot.inner.id,
     };
 
