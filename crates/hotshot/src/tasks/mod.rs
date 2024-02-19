@@ -139,7 +139,7 @@ pub async fn add_network_event_task<
 pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     output_stream: Sender<Event<TYPES>>,
     handle: &SystemContextHandle<TYPES, I>,
-) -> ConsensusTaskState<TYPES, I, SystemContext<TYPES, I>> {
+) -> ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
     let consensus = handle.hotshot.get_consensus();
     let c_api: SystemContext<TYPES, I> = SystemContext {
         inner: handle.hotshot.inner.clone(),
@@ -166,7 +166,7 @@ pub async fn create_consensus_state<TYPES: NodeType, I: NodeImplementation<TYPES
             metadata,
             is_genesis: true,
         }),
-        api: c_api.clone(),
+        api: handle.clone(),
         _pd: PhantomData,
         vote_collector: None.into(),
         timeout_vote_collector: None.into(),
@@ -242,7 +242,7 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         inner: handle.hotshot.inner.clone(),
     };
     let vid_state = VIDTaskState {
-        api: c_api.clone(),
+        api: handle.clone(),
         consensus: handle.hotshot.get_consensus(),
         cur_view: TYPES::Time::new(0),
         vote_collector: None,
@@ -272,7 +272,7 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         inner: handle.hotshot.inner.clone(),
     };
     let upgrade_state = UpgradeTaskState {
-        api: c_api.clone(),
+        api: handle.clone(),
         cur_view: TYPES::Time::new(0),
         quorum_membership: c_api.inner.memberships.quorum_membership.clone().into(),
         quorum_network: c_api.inner.networks.quorum_network.clone(),
@@ -298,7 +298,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         inner: handle.hotshot.inner.clone(),
     };
     let da_state = DATaskState {
-        api: c_api.clone(),
+        api: handle.clone(),
         consensus: handle.hotshot.get_consensus(),
         da_membership: c_api.inner.memberships.da_membership.clone().into(),
         da_network: c_api.inner.networks.da_network.clone(),
@@ -326,7 +326,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
         inner: handle.hotshot.inner.clone(),
     };
     let transactions_state = TransactionTaskState {
-        api: c_api.clone(),
+        api: handle.clone(),
         consensus: handle.hotshot.get_consensus(),
         transactions: Arc::default(),
         seen_transactions: HashSet::new(),
@@ -357,9 +357,9 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         next_view: TYPES::Time::new(0),
         network: api.inner.networks.quorum_network.clone(),
         membership: api.inner.memberships.view_sync_membership.clone().into(),
-        public_key: api.public_key().clone(),
-        private_key: api.private_key().clone(),
-        api,
+        public_key: handle.public_key().clone(),
+        private_key: handle.private_key().clone(),
+        api: handle.clone(),
         num_timeouts_tracked: 0,
         replica_task_map: HashMap::default().into(),
         pre_commit_relay_map: HashMap::default().into(),

@@ -212,9 +212,6 @@ async fn build_quorum_proposal_and_signature(
     let genesis_consensus = handle.get_consensus();
     let cur_consensus = genesis_consensus.upgradable_read().await;
     let mut consensus = RwLockUpgradableReadGuard::upgrade(cur_consensus).await;
-    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
-        inner: handle.hotshot.inner.clone(),
-    };
     // parent_view_number should be equal to 0
     let parent_view_number = &consensus.high_qc.get_view_number();
     assert_eq!(parent_view_number.get_u64(), 0);
@@ -257,7 +254,7 @@ async fn build_quorum_proposal_and_signature(
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: None,
-        proposer_id: *api.public_key(),
+        proposer_id: *handle.public_key(),
     };
 
     let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
