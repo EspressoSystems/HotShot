@@ -1,6 +1,6 @@
 use hotshot::{traits::NetworkReliability, types::SignatureKey};
 use hotshot_orchestrator::config::ValidatorConfigFile;
-use hotshot_types::traits::election::Membership;
+use hotshot_types::traits::{election::Membership, network::Topic};
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
@@ -261,6 +261,7 @@ impl TestMetadata {
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 total_nodes as u64,
+                Topic::Global,
             )),
         };
         let TimingData {

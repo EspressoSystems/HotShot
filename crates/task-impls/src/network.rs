@@ -15,7 +15,7 @@ use hotshot_types::{
     },
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, TransmitType, ViewMessage},
+        network::{ConnectedNetwork, TransmitType},
         node_implementation::NodeType,
     },
     vote::{HasViewNumber, Vote},
@@ -369,7 +369,6 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             sender,
             kind: message_kind,
         };
-        let view = message.kind.get_view_number();
         let transmit_result = match transmit_type {
             TransmitType::Direct => {
                 self.channel
@@ -378,7 +377,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             }
             TransmitType::Broadcast => {
                 self.channel
-                    .broadcast_message(message, membership.get_committee(view))
+                    .broadcast_message(message, membership.get_committee_topic())
                     .await
             }
         };

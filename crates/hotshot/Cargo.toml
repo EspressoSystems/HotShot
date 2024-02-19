@@ -50,13 +50,33 @@ derive_more = "0.99.17"
 portpicker = "0.1.1"
 lru = "0.12.2"
 hotshot-task = { path = "../task" }
-
+anyhow = "1.0.79"
 tracing = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
+client = { path = "../../../cdn/client" }
+broker = { path = "../../../cdn/broker"}
+marshal = { path = "../../../cdn/marshal"}
+
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
+client = { path = "../../../cdn/client", default-features = false, features = [
+    "local_discovery",
+    "insecure",
+    "runtime-async-std",
+] }
+broker = { path = "../../../cdn/broker", default-features = false, features = [
+    "local_discovery",
+    "insecure",
+    "runtime-async-std",
+] }
+marshal = { path = "../../../cdn/marshal", default-features = false, features = [
+    "local_discovery",
+    "insecure",
+    "runtime-async-std",
+] }
+
 
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }

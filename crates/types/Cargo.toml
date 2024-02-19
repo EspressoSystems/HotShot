@@ -51,9 +51,16 @@ serde_json = "1.0.113"
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
+client = { path = "../../../cdn/client", default-features = false, features = [
+    "local_discovery",
+    "insecure",
+    "runtime-async-std",
+] }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
+client = { path = "../../../cdn/client" }
+
 
 [lints]
 workspace = true

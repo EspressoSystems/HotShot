@@ -1,5 +1,4 @@
 #![allow(clippy::panic)]
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
@@ -17,8 +16,8 @@ use hotshot_example_types::{
 };
 use hotshot_types::message::Message;
 use hotshot_types::signature_key::BLSPubKey;
-use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::network::{ConnectedNetwork, TransmitType};
+use hotshot_types::traits::network::{TestableNetworkingImplementation, Topic};
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
     data::ViewNumber,
@@ -248,10 +247,7 @@ async fn memory_network_broadcast_queue() {
     // Send messages
     for sent_message in first_messages {
         network1
-            .broadcast_message(
-                sent_message.clone(),
-                vec![pub_key_2].into_iter().collect::<BTreeSet<_>>(),
-            )
+            .broadcast_message(sent_message.clone(), Topic::Global)
             .await
             .expect("Failed to message node");
         let mut recv_messages = network2
@@ -269,10 +265,7 @@ async fn memory_network_broadcast_queue() {
     // Send messages
     for sent_message in second_messages {
         network2
-            .broadcast_message(
-                sent_message.clone(),
-                vec![pub_key_1].into_iter().collect::<BTreeSet<_>>(),
-            )
+            .broadcast_message(sent_message.clone(), Topic::Global)
             .await
             .expect("Failed to message node");
         let mut recv_messages = network1
@@ -314,7 +307,6 @@ async fn memory_network_test_in_flight_message_count() {
 
     // Create some dummy messages
     let messages: Vec<Message<Test>> = gen_messages(5, 100, pub_key_1);
-    let broadcast_recipients = BTreeSet::from([pub_key_1, pub_key_2]);
 
     assert_eq!(network1.in_flight_message_count(), Some(0));
     assert_eq!(network2.in_flight_message_count(), Some(0));
@@ -328,7 +320,7 @@ async fn memory_network_test_in_flight_message_count() {
         assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
 
         network2
-            .broadcast_message(message.clone(), broadcast_recipients.clone())
+            .broadcast_message(message.clone(), Topic::Global)
             .await
             .unwrap();
         // network 1 has received `count` broadcast messages

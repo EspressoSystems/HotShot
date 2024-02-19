@@ -17,7 +17,9 @@ use hotshot_types::{
     boxed_sync,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation, TransmitType},
+        network::{
+            ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation, Topic, TransmitType,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -27,7 +29,6 @@ use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{
-    collections::BTreeSet,
     fmt::Debug,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -249,6 +250,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let master: Arc<_> = MasterMap::new();
+
         // We assign known_nodes' public key and stake value rather than read from config file since it's a test
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
@@ -301,11 +303,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_message")]
-    async fn broadcast_message(
-        &self,
-        message: M,
-        recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: M, _topic: Topic) -> Result<(), NetworkError> {
         trace!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()
@@ -315,9 +313,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         for node in &self.inner.master_map.map {
             // TODO delay/drop etc here
             let (key, node) = node.pair();
-            if !recipients.contains(key) {
-                continue;
-            }
+
             trace!(?key, "Sending message to node");
             if let Some(ref config) = &self.inner.reliability_config {
                 {
@@ -404,54 +400,44 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
-    fn recv_msgs<'a, 'b>(
-        &'a self,
-        transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            match transmit_type {
-                TransmitType::Direct => {
-                    let ret = self
-                        .inner
-                        .direct_output
-                        .lock()
-                        .await
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
-                    self.inner
-                        .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
-                    self.inner
-                        .metrics
-                        .incoming_direct_message_count
-                        .add(ret.len());
-                    Ok(ret)
-                }
-                TransmitType::Broadcast => {
-                    let ret = self
-                        .inner
-                        .broadcast_output
-                        .lock()
-                        .await
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
-                    self.inner
-                        .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
-                    self.inner
-                        .metrics
-                        .incoming_broadcast_message_count
-                        .add(ret.len());
-                    Ok(ret)
-                }
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let ret = self
+                    .inner
+                    .direct_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner
+                    .metrics
+                    .incoming_direct_message_count
+                    .add(ret.len());
+                Ok(ret)
             }
-        };
-        boxed_sync(closure)
+            TransmitType::Broadcast => {
+                let ret = self
+                    .inner
+                    .broadcast_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner
+                    .metrics
+                    .incoming_broadcast_message_count
+                    .add(ret.len());
+                Ok(ret)
+            }
+        }
     }
 }

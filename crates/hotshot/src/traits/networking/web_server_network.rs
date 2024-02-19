@@ -35,10 +35,10 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use surf_disco::Url;
 
-use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
+use hotshot_types::traits::network::{NetworkReliability, Topic, ViewMessage};
 use std::collections::BTreeMap;
 use std::{
-    collections::{btree_map::Entry, BTreeSet},
+    collections::btree_map::Entry,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -808,7 +808,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     async fn broadcast_message(
         &self,
         message: Message<TYPES>,
-        _recipients: BTreeSet<TYPES::SignatureKey>,
+        _topic: Topic,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -854,37 +854,30 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(
-        &'a self,
+    async fn recv_msgs(
+        &self,
         transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            match transmit_type {
-                TransmitType::Direct => {
-                    let mut queue = self.inner.direct_poll_queue_0_1.write().await;
-                    Ok(queue
-                        .drain(..)
-                        .collect::<Vec<_>>()
-                        .iter()
-                        .map(|x| x.get_message().unwrap())
-                        .collect())
-                }
-                TransmitType::Broadcast => {
-                    let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
-                    Ok(queue
-                        .drain(..)
-                        .collect::<Vec<_>>()
-                        .iter()
-                        .map(|x| x.get_message().unwrap())
-                        .collect())
-                }
+    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let mut queue = self.inner.direct_poll_queue_0_1.write().await;
+                Ok(queue
+                    .drain(..)
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .map(|x| x.get_message().unwrap())
+                    .collect())
             }
-        };
-        boxed_sync(closure)
+            TransmitType::Broadcast => {
+                let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
+                Ok(queue
+                    .drain(..)
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .map(|x| x.get_message().unwrap())
+                    .collect())
+            }
+        }
     }
 
     #[allow(clippy::too_many_lines)]

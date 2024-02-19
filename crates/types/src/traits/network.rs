@@ -15,13 +15,14 @@ use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{data::ViewNumber, message::MessagePurpose, BoxSyncFuture};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
+use client::reexports::{error::Error as PushCdnError, message::Topic as PushCdnTopic};
 use rand::{
     distributions::{Bernoulli, Uniform},
     prelude::Distribution,
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -39,6 +40,35 @@ impl From<NetworkNodeHandleError> for NetworkError {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash, Default)]
+/// A network topic pertaining to a particular committee.
+pub enum Topic {
+    /// The DA committee. If we are in this committee, subscribe to this topic.
+    DA,
+    /// The global committee. All consensus messages are sent here.
+    #[default]
+    Global,
+}
+
+/// We need this here because it won't allow us to implement it in the Push CDN crate.
+impl From<Topic> for PushCdnTopic {
+    fn from(value: Topic) -> Self {
+        match value {
+            Topic::DA => PushCdnTopic::DA,
+            Topic::Global => PushCdnTopic::Global,
+        }
+    }
+}
+
+/// This helps us convert the `Topic` to a string, which Libp2p needs.
+impl std::fmt::Display for Topic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Topic::DA => write!(f, "DA"),
+            Topic::Global => write!(f, "global"),
+        }
+    }
+}
 /// for any errors we decide to add to memory network
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -96,6 +126,12 @@ pub enum NetworkError {
     CentralizedServer {
         /// source of error
         source: CentralizedServerNetworkError,
+    },
+
+    /// Push-cdn specific errors
+    PushCdn {
+        /// The underlying error
+        source: PushCdnError,
     },
 
     /// Web server specific errors
@@ -252,11 +288,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
-        &self,
-        message: M,
-        recipients: BTreeSet<K>,
-    ) -> Result<(), NetworkError>;
+    async fn broadcast_message(&self, message: M, topic: Topic) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
@@ -266,13 +298,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(
-        &'a self,
-        transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
 
     /// queues lookup of a node
     async fn queue_node_lookup(

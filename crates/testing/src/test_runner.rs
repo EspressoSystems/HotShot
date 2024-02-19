@@ -24,6 +24,7 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::{
         election::Membership,
+        network::Topic,
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
@@ -363,7 +364,10 @@ where
         let private_key = validator_config.private_key.clone();
         let public_key = validator_config.public_key.clone();
         let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.total_nodes.get() as u64)
+            TYPES::Membership::default_election_config(
+                config.total_nodes.get() as u64,
+                Topic::Global,
+            )
         });
         let committee_election_config = I::committee_election_config_generator();
         let network_bundle = hotshot::Networks {
@@ -379,7 +383,7 @@ where
             ),
             da_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),
-                committee_election_config(config.da_committee_size as u64),
+                committee_election_config(config.da_committee_size as u64, Topic::DA),
             ),
             vid_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),

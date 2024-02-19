@@ -8,7 +8,8 @@ use crate::{
 use hotshot::traits::{
     election::static_committee::{StaticCommittee, StaticElectionConfig},
     implementations::{
-        CombinedNetworks, Libp2pNetwork, MemoryNetwork, MemoryStorage, WebServerNetwork,
+        CombinedNetworks, Libp2pNetwork, MemoryNetwork, MemoryStorage, PushCdnNetwork,
+        WebServerNetwork,
     },
     NodeImplementation,
 };
@@ -62,6 +63,10 @@ pub struct WebImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct CombinedImpl;
 
+/// The push CDN implementation
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub struct PushCdnImpl;
+
 /// static committee type alias
 pub type StaticMembership = StaticCommittee<TestTypes>;
 
@@ -92,6 +97,10 @@ type StaticWebQuorumComm = WebServerNetwork<TestTypes>;
 /// combined network (libp2p + web server)
 type StaticCombinedQuorumComm = CombinedNetworks<TestTypes>;
 
+// Push CDN Comm channel
+type StaticPushCdnQuorumComm = PushCdnNetwork<TestTypes>;
+type StaticPushCdnDAComm = PushCdnNetwork<TestTypes>;
+
 impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticLibp2pQuorumComm;
@@ -114,4 +123,10 @@ impl NodeImplementation<TestTypes> for CombinedImpl {
     type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticCombinedQuorumComm;
     type CommitteeNetwork = StaticCombinedDAComm;
+}
+
+impl NodeImplementation<TestTypes> for PushCdnImpl {
+    type Storage = MemoryStorage<TestTypes>;
+    type QuorumNetwork = StaticPushCdnQuorumComm;
+    type CommitteeNetwork = StaticPushCdnDAComm;
 }

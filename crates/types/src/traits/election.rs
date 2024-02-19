@@ -3,7 +3,7 @@
 // Needed to avoid the non-binding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
 
-use super::node_implementation::NodeType;
+use super::{network::Topic, node_implementation::NodeType};
 
 use crate::traits::signature_key::SignatureKey;
 
@@ -37,8 +37,8 @@ pub trait ElectionConfig:
 pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + 'static
 {
-    /// generate a default election configuration
-    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
+    /// Generate a default election configuration
+    fn default_election_config(num_nodes: u64, topic: Topic) -> TYPES::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
@@ -57,6 +57,9 @@ pub trait Membership<TYPES: NodeType>:
 
     /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+
+    /// Get the networking "topic" pertaining to the committee.
+    fn get_committee_topic(&self) -> Topic;
 
     /// Check if a key has stake
     fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool;

@@ -8,7 +8,7 @@ use hotshot_constants::{
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::HashSet,
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -26,7 +26,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, TransmitType},
+        network::{ConnectedNetwork, ConsensusIntentEvent, Topic, TransmitType},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -252,7 +252,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     async fn broadcast_message(
         &self,
         message: Message<TYPES>,
-        recipients: BTreeSet<TYPES::SignatureKey>,
+        topic: Topic,
     ) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -262,7 +262,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             // broadcast on the primary network as it is not down, or we are checking if it is back up
             match self
                 .primary()
-                .broadcast_message(message.clone(), recipients.clone())
+                .broadcast_message(message.clone(), topic.clone())
                 .await
             {
                 Ok(()) => {
@@ -275,9 +275,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             };
         }
 
-        self.secondary()
-            .broadcast_message(message, recipients)
-            .await
+        self.secondary().broadcast_message(message, topic).await
     }
 
     async fn direct_message(
@@ -309,43 +307,36 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.secondary().direct_message(message, recipient).await
     }
 
-    fn recv_msgs<'a, 'b>(
-        &'a self,
+    async fn recv_msgs(
+        &self,
         transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
+    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        let closure = async move {
-            let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
-            let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
 
-            primary_msgs.append(secondary_msgs.as_mut());
+        let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
+        let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
 
-            let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
-            for msg in primary_msgs {
-                // see if we've already seen this message
-                if !self
-                    .message_cache
-                    .read()
+        primary_msgs.append(secondary_msgs.as_mut());
+
+        let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
+        for msg in primary_msgs {
+            // see if we've already seen this message
+            if !self
+                .message_cache
+                .read()
+                .await
+                .contains(calculate_hash_of(&msg))
+            {
+                filtered_msgs.push(msg.clone());
+                self.message_cache
+                    .write()
                     .await
-                    .contains(calculate_hash_of(&msg))
-                {
-                    filtered_msgs.push(msg.clone());
-                    self.message_cache
-                        .write()
-                        .await
-                        .insert(calculate_hash_of(&msg));
-                }
+                    .insert(calculate_hash_of(&msg));
             }
+        }
 
-            Ok(filtered_msgs)
-        };
-
-        boxed_sync(closure)
+        Ok(filtered_msgs)
     }
 
     async fn queue_node_lookup(

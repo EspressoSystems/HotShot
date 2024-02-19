@@ -322,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.inner.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(TYPES::Time::new(0)),
+                        da_membership.get_committee_topic(),
                     ),
                 api
                     .send_external_event(Event {
