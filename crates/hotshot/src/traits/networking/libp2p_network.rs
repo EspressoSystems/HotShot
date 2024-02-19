@@ -451,7 +451,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                handle.lookup_pid(PeerId::random()).await?;
 
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
@@ -483,7 +482,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-
+                // 10 minute timeout
+                let timeout_duration = Duration::from_secs(600);
+                // perform connection
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
+                handle
+                    .wait_to_connect(4, id, timeout_duration)
+                    .await
+                    .unwrap();
                 info!(
                     "node {:?} is barring bootstrap, type: {:?}",
                     handle.peer_id(),

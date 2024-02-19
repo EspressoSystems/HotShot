@@ -3,7 +3,7 @@ use crate::network::{
     NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use async_compatibility_layer::{
-    art::{async_spawn, async_timeout, future::to, stream},
+    art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
         bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
@@ -25,7 +25,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tracing::{debug, info, instrument};
 
@@ -246,7 +246,37 @@ impl<S> NetworkNodeHandle<S> {
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
-
+    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
+    ///
+    /// # Errors
+    ///
+    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
+    pub async fn wait_to_connect(
+        &self,
+        num_peers: usize,
+        node_id: usize,
+        timeout: Duration,
+    ) -> Result<(), NetworkNodeHandleError>
+    where
+        S: Default + Debug,
+    {
+        let start = Instant::now();
+        self.begin_bootstrap().await?;
+        let mut connected_ok = false;
+        while !connected_ok {
+            if start.elapsed() >= timeout {
+                return Err(NetworkNodeHandleError::ConnectTimeout);
+            }
+            async_sleep(Duration::from_secs(1)).await;
+            let num_connected = self.num_connected().await?;
+            info!(
+                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
+                num_connected, num_peers, node_id
+            );
+            connected_ok = num_connected >= num_peers;
+        }
+        Ok(())
+    }
     /// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors
