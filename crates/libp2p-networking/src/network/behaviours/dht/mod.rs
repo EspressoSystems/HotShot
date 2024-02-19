@@ -493,6 +493,9 @@ impl DHTBehaviour {
                 old_peer: _,
             } => {
                 // Trigger a new bootstrap when our table changes, if it's not running
+                // We do this to refresh our peers when we know routing has changed
+                // For more info see: https://github.com/libp2p/rust-libp2p/pull/4838
+                // TODO: Remove once that pr is in a libp2p release
                 if self.bootstrap_state.state == State::NotStarted {
                     self.bootstrap_state.backoff.expire();
                 }
