@@ -425,7 +425,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
-        // let metrics_connected_peers = self.inner.clone();
+        let metrics_connected_peers = self.inner.clone();
         let is_da = self.inner.is_da;
         async_spawn({
             let is_ready = self.inner.is_ready.clone();
@@ -489,6 +489,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     handle.peer_id(),
                     node_type
                 );
+
+                let connected_num = handle.num_connected().await?;
+                metrics_connected_peers
+                    .metrics
+                    .connected_peers
+                    .set(connected_num);
 
                 is_ready.store(true, Ordering::Relaxed);
                 info!("STARTING CONSENSUS ON {:?}", handle.peer_id());

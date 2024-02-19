@@ -492,10 +492,10 @@ impl DHTBehaviour {
                 bucket_range: _,
                 old_peer: _,
             } => {
-                // // Trigger a new bootstrap when our table changes, if it's not running
-                // if self.bootstrap_state.state == State::NotStarted {
-                //     self.bootstrap_state.backoff.expire();
-                // }
+                // Trigger a new bootstrap when our table changes, if it's not running
+                if self.bootstrap_state.state == State::NotStarted {
+                    self.bootstrap_state.backoff.expire();
+                }
             }
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
                 info!("Not handling dht event {:?}", e);
