@@ -1,8 +1,5 @@
-use hotshot::{types::SignatureKey, SystemContext};
-use hotshot_example_types::{
-    block_types::TestTransaction,
-    node_types::{MemoryImpl, TestTypes},
-};
+use hotshot::types::SignatureKey;
+use hotshot_example_types::{block_types::TestTransaction, node_types::TestTypes};
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::task_helpers::{build_system_handle, vid_init};
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
@@ -27,10 +24,7 @@ async fn test_vid_task() {
 
     // Build the API for node 2.
     let handle = build_system_handle(2).await.0;
-    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
-        inner: handle.hotshot.inner.clone(),
-    };
-    let pub_key = *api.public_key();
+    let pub_key = *handle.public_key();
 
     // quorum membership for VID share distribution
     let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
@@ -41,9 +35,11 @@ async fn test_vid_task() {
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
-    let signature =
-        <TestTypes as NodeType>::SignatureKey::sign(api.private_key(), payload_commitment.as_ref())
-            .expect("Failed to sign block payload!");
+    let signature = <TestTypes as NodeType>::SignatureKey::sign(
+        handle.private_key(),
+        payload_commitment.as_ref(),
+    )
+    .expect("Failed to sign block payload!");
     let proposal: DAProposal<TestTypes> = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: (),
@@ -101,14 +97,20 @@ async fn test_vid_task() {
     );
 
     let vid_state = VIDTaskState {
-        api: api.clone(),
+        api: handle.clone(),
         consensus: handle.hotshot.get_consensus(),
         cur_view: ViewNumber::new(0),
         vote_collector: None,
-        network: api.inner.networks.quorum_network.clone(),
-        membership: api.inner.memberships.vid_membership.clone().into(),
-        public_key: *api.public_key(),
-        private_key: api.private_key().clone(),
+        network: handle.hotshot.inner.networks.quorum_network.clone(),
+        membership: handle
+            .hotshot
+            .inner
+            .memberships
+            .vid_membership
+            .clone()
+            .into(),
+        public_key: *handle.public_key(),
+        private_key: handle.private_key().clone(),
         id: handle.hotshot.inner.id,
     };
     run_harness(input, output, vid_state, false).await;
