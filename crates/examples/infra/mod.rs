@@ -4,8 +4,11 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
+use client::reexports::crypto::signature::KeyPair;
 use futures::StreamExt;
-use hotshot::traits::implementations::{CombinedNetworks, UnderlyingCombinedNetworks};
+use hotshot::traits::implementations::{
+    CombinedNetworks, PushCdnNetwork, UnderlyingCombinedNetworks, WrappedSignatureKey,
+};
 use hotshot::{
     traits::{
         implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
@@ -126,8 +129,8 @@ pub fn load_config_from_file<TYPES: NodeType>(
 /// Runs the orchestrator
 pub async fn run_orchestrator<
     TYPES: NodeType,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
 >(
     OrchestratorArgs { url, config_file }: OrchestratorArgs,
@@ -295,8 +298,8 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
 #[async_trait]
 pub trait RunDA<
     TYPES: NodeType<InstanceState = TestInstanceState>,
-    DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMNET,
@@ -564,6 +567,89 @@ where
     }
 }
 
+// Push CDN
+
+/// Represents a Push CDN-based run
+pub struct PushCdnDaRun<TYPES: NodeType> {
+    /// The underlying configuration
+    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// The quorum channel
+    quorum_channel: PushCdnNetwork<TYPES>,
+    /// The DA channel
+    da_channel: PushCdnNetwork<TYPES>,
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType<
+            Transaction = TestTransaction,
+            BlockPayload = TestBlockPayload,
+            BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
+        >,
+        NODE: NodeImplementation<
+            TYPES,
+            QuorumNetwork = PushCdnNetwork<TYPES>,
+            CommitteeNetwork = PushCdnNetwork<TYPES>,
+            Storage = MemoryStorage<TYPES>,
+        >,
+    > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+where
+    <TYPES as NodeType>::ValidatedState: TestableState,
+    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    Leaf<TYPES>: TestableLeaf,
+    Self: Sync,
+{
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> PushCdnDaRun<TYPES> {
+        // Get our own key
+        let key = config.config.my_own_validator_config.clone();
+
+        // Convert to the Push-CDN-compatible type
+        let keypair = KeyPair {
+            public_key: WrappedSignatureKey(key.public_key),
+            private_key: key.private_key,
+        };
+
+        // See if we should be DA
+        let mut topics = vec![Topic::Global];
+        if config.node_index < config.config.da_committee_size as u64 {
+            topics.push(Topic::DA);
+        }
+
+        // Create the network and await the initial connection
+        let network = PushCdnNetwork::new(
+            config
+                .push_cdn_marshal_address
+                .clone()
+                .expect("`push_cdn_marshal_address` needs to be supplied for a push CDN run"),
+            topics,
+            keypair,
+        )
+        .await
+        .expect("failed to perform initial connection");
+
+        PushCdnDaRun {
+            config,
+            quorum_channel: network.clone(),
+            da_channel: network,
+        }
+    }
+
+    fn get_da_channel(&self) -> PushCdnNetwork<TYPES> {
+        self.da_channel.clone()
+    }
+
+    fn get_quorum_channel(&self) -> PushCdnNetwork<TYPES> {
+        self.quorum_channel.clone()
+    }
+
+    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        self.config.clone()
+    }
+}
+
 // Libp2p
 
 /// Represents a libp2p-based run
@@ -738,8 +824,8 @@ pub async fn main_entry_point<
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,

@@ -38,7 +38,7 @@ use std::{sync::Arc, time::Duration};
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
 #[derive(Clone, Eq, PartialEq)]
-pub struct WrappedSignatureKey<T: SignatureKey + 'static>(T);
+pub struct WrappedSignatureKey<T: SignatureKey + 'static>(pub T);
 impl<T: SignatureKey> SignatureScheme for WrappedSignatureKey<T> {
     type PrivateKey = T::PrivateKey;
     type PublicKey = Self;

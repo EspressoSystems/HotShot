@@ -39,7 +39,7 @@ use std::{
 /// store or keep a reference to any value implementing this trait.
 
 pub trait NodeImplementation<TYPES: NodeType>:
-    Send + Sync + Debug + Clone + Eq + Hash + 'static + Serialize + for<'de> Deserialize<'de>
+    Send + Sync + Clone + Eq + Hash + 'static + Serialize + for<'de> Deserialize<'de>
 {
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES> + Clone;

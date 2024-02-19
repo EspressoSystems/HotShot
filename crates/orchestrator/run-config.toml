@@ -37,6 +37,7 @@ seed = [
     0,
 ]
 start_delay_seconds = 0
+push_cdn_marshal_address = "127.0.0.1:9000"
 
 [config]
 total_nodes = 10
@@ -44,10 +45,7 @@ committee_nodes = 5
 max_transactions = 100
 min_transactions = 0
 next_view_timeout = 30000
-timeout_ratio = [
-    11,
-    10,
-]
+timeout_ratio = [11, 10]
 round_start_delay = 1
 start_delay = 1
 num_bootstrap = 5

@@ -153,6 +153,8 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
     pub da_web_server_config: Option<WebServerConfig>,
+    /// The address for the Push CDN's "marshal", A.K.A. load balancer
+    pub push_cdn_marshal_address: Option<String>,
 }
 
 /// the source of the network config
@@ -341,6 +343,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             num_bootrap: 5,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
+            push_cdn_marshal_address: None,
         }
     }
 }
@@ -380,6 +383,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// the data availability web server config
     #[serde(default)]
     pub da_web_server_config: Option<WebServerConfig>,
+    #[serde(default)]
+    /// The address of the Push CDN's "marshal", A.K.A. load balancer
+    pub push_cdn_marshal_address: Option<String>,
 }
 
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
@@ -421,6 +427,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
+            push_cdn_marshal_address: val.push_cdn_marshal_address,
         }
     }
 }
