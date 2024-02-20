@@ -24,12 +24,13 @@ use crate::network::behaviours::{
     exponential_backoff::ExponentialBackoff,
 };
 use async_compatibility_layer::{
+    art::async_sleep,
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use futures::{select, FutureExt, StreamExt};
 use hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::{core::transport::ListenerId, StreamProtocol};
+use libp2p::{core::transport::ListenerId, gossipsub::PublishError, StreamProtocol};
 use libp2p::{
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
@@ -81,6 +82,8 @@ pub struct NetworkNode {
     config: NetworkNodeConfig,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
+    /// Sender channel for retries
+    retry_sender: Option<UnboundedSender<ClientRequest>>,
 }
 
 impl NetworkNode {
@@ -318,6 +321,7 @@ impl NetworkNode {
             swarm,
             config,
             listener_id: None,
+            retry_sender: None,
         })
     }
 
@@ -393,7 +397,28 @@ impl NetworkNode {
                         return Ok(true);
                     }
                     ClientRequest::GossipMsg(topic, contents) => {
-                        behaviour.publish_gossip(Topic::new(topic), contents);
+                        if let Err(e) =
+                            behaviour.publish_gossip(Topic::new(topic.clone()), contents.clone())
+                        {
+                            if matches!(e, PublishError::InsufficientPeers) {
+                                tracing::warn!("retrying failed gossip");
+                                if let Some(tx) = &self.retry_sender {
+                                    let sender = tx.clone();
+                                    async_spawn({
+                                        async move {
+                                            async_sleep(Duration::from_secs(2)).await;
+                                            if sender
+                                                .send(ClientRequest::GossipMsg(topic, contents))
+                                                .await
+                                                .is_err()
+                                            {
+                                                error!("Gossip retrying failed because the request channel closed");
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
                     }
                     ClientRequest::Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
@@ -633,6 +658,8 @@ impl NetworkNode {
     > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
+
+        self.retry_sender = Some(s_input.clone());
 
         async_spawn(
             async move {
