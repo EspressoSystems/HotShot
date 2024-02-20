@@ -37,7 +37,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) registry: Arc<TaskRegistry>,
 
     /// Internal reference to the underlying [`SystemContext`]
-    pub hotshot: SystemContext<TYPES, I>,
+    pub hotshot: Arc<SystemContext<TYPES, I>>,
 
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
@@ -133,7 +133,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Block the underlying quorum (and committee) networking interfaces until node is
     /// successfully initialized into the networks.
     pub async fn wait_for_networks_ready(&self) {
-        self.hotshot.inner.networks.wait_for_networks_ready().await;
+        self.hotshot.networks.wait_for_networks_ready().await;
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
@@ -145,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         Self: 'b,
     {
         boxed_sync(async move {
-            self.hotshot.inner.networks.shut_down_networks().await;
+            self.hotshot.networks.shut_down_networks().await;
             self.registry.shutdown().await;
         })
     }
@@ -162,7 +162,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.hotshot
-            .inner
             .memberships
             .quorum_membership
             .get_leader(view_number)
@@ -171,11 +170,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Wrapper to get this node's public key
     #[cfg(feature = "hotshot-testing")]
     pub fn get_public_key(&self) -> TYPES::SignatureKey {
-        self.hotshot.inner.public_key.clone()
+        self.hotshot.public_key.clone()
     }
 
     /// Wrapper to get the view number this node will start on.
     pub async fn get_start_view(&self) -> TYPES::Time {
-        self.hotshot.inner.consensus.read().await.start_view
+        self.hotshot.consensus.read().await.start_view
     }
 }
