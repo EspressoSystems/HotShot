@@ -5,7 +5,7 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
-/// Contains traits consumed by [`SystemContext`]
+/// Contains traits consumed by [`SystemContextInner`]
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
@@ -114,6 +114,7 @@ pub struct Memberships<TYPES: NodeType> {
 }
 
 /// Holds the state needed to participate in `HotShot` consensus
+#[derive(Clone)]
 pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
@@ -153,16 +154,8 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
 }
 
-/// Thread safe, shared view of a `HotShot`
-// TODO Perhaps we can delete SystemContext since we only consume it in run_tasks()
-#[derive(Clone)]
-pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Handle to internal hotshot implementation
-    pub inner: Arc<SystemContextInner<TYPES, I>>,
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Creates a new [`SystemContext`] with the given configuration options and sets it up with the given
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I> {
+    /// Creates a new [`Arc<SystemContextInner>`] with the given configuration options and sets it up with the given
     /// genesis block
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
@@ -179,7 +172,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
-    ) -> Result<Self, HotShotError<TYPES>> {
+    ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
@@ -260,7 +253,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             output_event_stream: (external_tx, external_rx.deactivate()),
         });
 
-        Ok(Self { inner })
+        Ok(inner)
     }
 
     /// "Starts" consensus by sending a `QCFormed` event
@@ -269,8 +262,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
         debug!("Starting Consensus");
-        self.inner
-            .internal_event_stream
+        self.internal_event_stream
             .0
             .broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
@@ -284,7 +276,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        broadcast_event(event, &self.inner.output_event_stream.0).await;
+        broadcast_event(event, &self.output_event_stream.0).await;
     }
 
     /// Publishes a transaction asynchronously to the network
@@ -305,27 +297,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let api = self.clone();
 
         async_spawn(async move {
-            let da_membership = &api.inner.memberships.da_membership.clone();
+            let da_membership = &api.memberships.da_membership.clone();
             join! {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
                 //
                 api
-                    .inner
                     .networks
                     .da_network
                     .broadcast_message(
                         Message {
                             version: VERSION_0_1,
-                            sender: api.inner.public_key.clone(),
+                            sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_committee(TYPES::Time::new(0)),
                     ),
                 api
                     .send_external_event(Event {
-                        view_number: api.inner.consensus.read().await.cur_view,
+                        view_number: api.consensus.read().await.cur_view,
                         event: EventType::Transactions {
                             transactions: vec![transaction],
                         },
@@ -338,14 +329,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        self.inner.consensus.clone()
+        self.consensus.clone()
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
     pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
-        self.inner.consensus.read().await.get_decided_leaf()
+        self.consensus.read().await.get_decided_leaf()
     }
 
     /// [Non-blocking] instantly returns a copy of the last decided leaf if
@@ -355,8 +346,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if internal state for consensus is inconsistent
     #[must_use]
     pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
-        self.inner
-            .consensus
+        self.consensus
             .try_read()
             .map(|guard| guard.get_decided_leaf())
     }
@@ -366,26 +356,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
-        self.inner
-            .consensus
-            .read()
-            .await
-            .get_decided_state()
-            .clone()
+        self.consensus.read().await.get_decided_state().clone()
     }
 
     /// Get the validated state from a given `view`.
     ///
-    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
+    /// Returns the requested state, if the [`SystemContextInner`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
     /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
     /// view to ever be decided.
     pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
-        self.inner.consensus.read().await.get_state(view).cloned()
+        self.consensus.read().await.get_state(view).cloned()
     }
 
-    /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
+    /// Initializes a new [`SystemContextInner`] and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
@@ -394,7 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
     /// the `HotShot` instance will log the error and shut down.
     ///
-    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
+    /// To construct a [`SystemContextInner`] without setting up tasks, use `fn new` instead.
     ///
     /// # Errors
     ///
@@ -432,41 +417,41 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
-        let (tx, rx) = hotshot.inner.internal_event_stream.clone();
+        let (tx, rx) = hotshot.internal_event_stream.clone();
 
         Ok((handle, tx, rx.activate()))
     }
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
-        self.inner.config.next_view_timeout
+        self.config.next_view_timeout
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I> {
     /// Get access to [`Consensus`]
     #[must_use]
     pub fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES>>> {
-        &self.inner.consensus
+        &self.consensus
     }
 
     /// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
-    pub async fn run_tasks(self) -> SystemContextHandle<TYPES, I> {
+    pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let registry = Arc::new(TaskRegistry::default());
 
-        let output_event_stream = self.inner.output_event_stream.clone();
-        let internal_event_stream = self.inner.internal_event_stream.clone();
+        let output_event_stream = self.output_event_stream.clone();
+        let internal_event_stream = self.internal_event_stream.clone();
 
-        let quorum_network = self.inner.networks.quorum_network.clone();
-        let da_network = self.inner.networks.da_network.clone();
-        let quorum_membership = self.inner.memberships.quorum_membership.clone();
-        let da_membership = self.inner.memberships.da_membership.clone();
-        let vid_membership = self.inner.memberships.vid_membership.clone();
-        let view_sync_membership = self.inner.memberships.view_sync_membership.clone();
+        let quorum_network = self.networks.quorum_network.clone();
+        let da_network = self.networks.da_network.clone();
+        let quorum_membership = self.memberships.quorum_membership.clone();
+        let da_membership = self.memberships.da_membership.clone();
+        let vid_membership = self.memberships.vid_membership.clone();
+        let view_sync_membership = self.memberships.view_sync_membership.clone();
 
         let (event_tx, event_rx) = internal_event_stream.clone();
 
@@ -474,8 +459,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             registry: registry.clone(),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
-            hotshot: self.clone(),
-            storage: self.inner.storage.clone(),
+            hotshot: self.clone().into(),
+            storage: self.storage.clone(),
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;
@@ -568,36 +553,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for SystemContextHandle<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
-        self.hotshot.inner.config.total_nodes
+        self.hotshot.config.total_nodes
     }
 
     fn propose_min_round_time(&self) -> Duration {
-        self.hotshot.inner.config.propose_min_round_time
+        self.hotshot.config.propose_min_round_time
     }
 
     fn propose_max_round_time(&self) -> Duration {
-        self.hotshot.inner.config.propose_max_round_time
+        self.hotshot.config.propose_max_round_time
     }
 
     fn max_transactions(&self) -> NonZeroUsize {
-        self.hotshot.inner.config.max_transactions
+        self.hotshot.config.max_transactions
     }
 
     fn min_transactions(&self) -> usize {
-        self.hotshot.inner.config.min_transactions
+        self.hotshot.config.min_transactions
     }
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        broadcast_event(event, &self.hotshot.inner.output_event_stream.0).await;
+        broadcast_event(event, &self.hotshot.output_event_stream.0).await;
     }
 
     fn public_key(&self) -> &TYPES::SignatureKey {
-        &self.hotshot.inner.public_key
+        &self.hotshot.public_key
     }
 
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        &self.hotshot.inner.private_key
+        &self.hotshot.private_key
     }
 
     async fn store_leaf(
@@ -606,7 +591,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
         leaf: Leaf<TYPES>,
     ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
         let view_to_insert = StoredView::from(leaf);
-        let storage = &self.hotshot.inner.storage;
+        let storage = &self.hotshot.storage;
         storage.append_single_view(view_to_insert).await?;
         storage.cleanup_storage_up_to_view(old_anchor_view).await?;
         storage.commit().await?;

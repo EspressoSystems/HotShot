@@ -16,7 +16,7 @@ use futures::future::join_all;
 use hotshot::{types::SystemContextHandle, Memberships};
 use hotshot_example_types::state_types::TestInstanceState;
 
-use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
+use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContextInner};
 
 use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
@@ -58,7 +58,7 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
     /// The context to which we will use to launch HotShot when it's time
-    pub context: SystemContext<TYPES, I>,
+    pub context: Arc<SystemContextInner<TYPES, I>>,
 }
 
 /// The runner of a test network
@@ -347,7 +347,7 @@ where
 
     /// add a specific node with a config
     /// # Panics
-    /// if unable to initialize the node's `SystemContext` based on the config
+    /// if unable to initialize the node's `SystemContextInner` based on the config
     pub async fn add_node_with_config(
         &mut self,
         networks: Networks<TYPES, I>,
@@ -355,7 +355,7 @@ where
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
-    ) -> SystemContext<TYPES, I> {
+    ) -> Arc<SystemContextInner<TYPES, I>> {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
@@ -391,7 +391,7 @@ where
             ),
         };
 
-        SystemContext::new(
+        SystemContextInner::new(
             public_key,
             private_key,
             node_id,

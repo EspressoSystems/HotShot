@@ -29,7 +29,7 @@ async fn test_network_task() {
     let pub_key = *handle.public_key();
     let priv_key = handle.private_key();
     // quorum membership for VID share distribution
-    let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let encoded_transactions = Vec::new();
     let encoded_transactions_hash = Sha256::digest(&encoded_transactions);

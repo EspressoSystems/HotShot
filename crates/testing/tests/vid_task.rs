@@ -27,7 +27,7 @@ async fn test_vid_task() {
     let pub_key = *handle.public_key();
 
     // quorum membership for VID share distribution
-    let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction(vec![0])];
@@ -101,17 +101,11 @@ async fn test_vid_task() {
         consensus: handle.hotshot.get_consensus(),
         cur_view: ViewNumber::new(0),
         vote_collector: None,
-        network: handle.hotshot.inner.networks.quorum_network.clone(),
-        membership: handle
-            .hotshot
-            .inner
-            .memberships
-            .vid_membership
-            .clone()
-            .into(),
+        network: handle.hotshot.networks.quorum_network.clone(),
+        membership: handle.hotshot.memberships.vid_membership.clone().into(),
         public_key: *handle.public_key(),
         private_key: handle.private_key().clone(),
-        id: handle.hotshot.inner.id,
+        id: handle.hotshot.id,
     };
     run_harness(input, output, vid_state, false).await;
 }

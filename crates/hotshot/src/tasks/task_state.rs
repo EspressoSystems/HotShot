@@ -42,19 +42,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         UpgradeTaskState {
             api: handle.clone(),
             cur_view: TYPES::Time::new(0),
-            quorum_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .clone()
-                .into(),
-            quorum_network: handle.hotshot.inner.networks.quorum_network.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_network: handle.hotshot.networks.quorum_network.clone(),
             should_vote: |_upgrade_proposal| false,
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
         }
     }
 }
@@ -70,17 +64,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: handle.hotshot.get_consensus(),
             cur_view: TYPES::Time::new(0),
             vote_collector: None,
-            network: handle.hotshot.inner.networks.quorum_network.clone(),
-            membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .vid_membership
-                .clone()
-                .into(),
+            network: handle.hotshot.networks.quorum_network.clone(),
+            membership: handle.hotshot.memberships.vid_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
         }
     }
 }
@@ -94,26 +82,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         DATaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
-            da_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .da_membership
-                .clone()
-                .into(),
-            da_network: handle.hotshot.inner.networks.da_network.clone(),
-            quorum_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .clone()
-                .into(),
+            da_membership: handle.hotshot.memberships.da_membership.clone().into(),
+            da_network: handle.hotshot.networks.da_network.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: TYPES::Time::new(0),
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
         }
     }
 }
@@ -127,10 +103,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         ViewSyncTaskState {
             current_view: TYPES::Time::new(0),
             next_view: TYPES::Time::new(0),
-            network: handle.hotshot.inner.networks.quorum_network.clone(),
+            network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle
                 .hotshot
-                .inner
                 .memberships
                 .view_sync_membership
                 .clone()
@@ -144,7 +119,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             commit_relay_map: HashMap::default().into(),
             finalize_relay_map: HashMap::default().into(),
             view_sync_timeout: Duration::new(10, 0),
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
             last_garbage_collected_view: TYPES::Time::new(0),
         }
     }
@@ -162,17 +137,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             transactions: Arc::default(),
             seen_transactions: HashSet::new(),
             cur_view: TYPES::Time::new(0),
-            network: handle.hotshot.inner.networks.quorum_network.clone(),
-            membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .clone()
-                .into(),
+            network: handle.hotshot.networks.quorum_network.clone(),
+            membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
         }
     }
 }
@@ -189,16 +158,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         // Impossible for `unwrap` to fail on the genesis payload.
         let payload_commitment = vid_commitment(
             &payload.encode().unwrap().collect(),
-            handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .total_nodes(),
+            handle.hotshot.memberships.quorum_membership.total_nodes(),
         );
         ConsensusTaskState {
             consensus,
-            timeout: handle.hotshot.inner.config.next_view_timeout,
+            timeout: handle.hotshot.config.next_view_timeout,
             cur_view: TYPES::Time::new(0),
             payload_commitment_and_metadata: Some(CommitmentAndMetadata {
                 commitment: payload_commitment,
@@ -214,35 +178,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             upgrade_cert: None,
             decided_upgrade_cert: None,
             current_network_version: VERSION_0_1,
-            output_event_stream: handle.hotshot.inner.output_event_stream.0.clone(),
+            output_event_stream: handle.hotshot.output_event_stream.0.clone(),
             vid_shares: BTreeMap::new(),
             current_proposal: None,
-            id: handle.hotshot.inner.id,
+            id: handle.hotshot.id,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            quorum_network: handle.hotshot.inner.networks.quorum_network.clone(),
-            committee_network: handle.hotshot.inner.networks.da_network.clone(),
-            timeout_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .clone()
-                .into(),
-            quorum_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .quorum_membership
-                .clone()
-                .into(),
-            committee_membership: handle
-                .hotshot
-                .inner
-                .memberships
-                .da_membership
-                .clone()
-                .into(),
+            quorum_network: handle.hotshot.networks.quorum_network.clone(),
+            committee_network: handle.hotshot.networks.da_network.clone(),
+            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
         }
     }
 }

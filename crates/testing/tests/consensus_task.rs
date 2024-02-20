@@ -1,6 +1,6 @@
 #![allow(clippy::panic)]
 use commit::Committable;
-use hotshot::{types::SystemContextHandle, SystemContext};
+use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
@@ -24,10 +24,7 @@ async fn build_vote(
 ) -> GeneralConsensusMessage<TestTypes> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let api: SystemContext<TestTypes, MemoryImpl> = SystemContext {
-        inner: handle.hotshot.inner.clone(),
-    };
-    let membership = api.inner.memberships.quorum_membership.clone();
+    let membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let justify_qc = proposal.justify_qc.clone();
     let view = ViewNumber::new(*proposal.view_number);
@@ -218,7 +215,7 @@ async fn test_consensus_with_vid() {
 
     // For the test of vote logic with vid
     let pub_key = *handle.public_key();
-    let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();

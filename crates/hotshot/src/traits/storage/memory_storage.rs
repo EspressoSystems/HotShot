@@ -22,7 +22,7 @@ struct MemoryStorageInternal<TYPES: NodeType> {
     failed: BTreeSet<TYPES::Time>,
 }
 
-/// In memory, ephemeral, storage for a [`SystemContext`](crate::SystemContext) instance
+/// In memory, ephemeral, storage for a [`SystemContextInner`](crate::SystemContextInner) instance
 #[derive(Clone)]
 pub struct MemoryStorage<TYPES: NodeType> {
     /// The inner state of this [`MemoryStorage`]

@@ -12,7 +12,7 @@ use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotInitializer, Memberships, Networks, SystemContext,
+    HotShotInitializer, Memberships, Networks, SystemContextInner,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -106,7 +106,7 @@ pub async fn build_system_handle(
         ),
     };
 
-    SystemContext::init(
+    SystemContextInner::init(
         public_key,
         private_key,
         node_id,
@@ -230,12 +230,7 @@ async fn build_quorum_proposal_and_signature(
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
-        handle
-            .hotshot
-            .inner
-            .memberships
-            .quorum_membership
-            .total_nodes(),
+        handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     let mut parent_state = Arc::new(<TestValidatedState as ValidatedState>::from_header(
         &parent_leaf.block_header,
@@ -288,7 +283,7 @@ async fn build_quorum_proposal_and_signature(
         );
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         // create a qc by aggregate signatures on the previous view (the data signed is last leaf commitment)
-        let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+        let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
         let quorum_data = QuorumData {
             leaf_commit: leaf.commit(),
         };

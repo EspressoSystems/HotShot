@@ -37,12 +37,7 @@ async fn test_da_task() {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let payload_commitment = vid_commitment(
         &encoded_transactions,
-        handle
-            .hotshot
-            .inner
-            .memberships
-            .quorum_membership
-            .total_nodes(),
+        handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
 
