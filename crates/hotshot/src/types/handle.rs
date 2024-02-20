@@ -1,6 +1,6 @@
-//! Provides an event-streaming handle for a [`SystemContextInner`] running in the background
+//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
-use crate::{traits::NodeImplementation, types::Event, SystemContextInner};
+use crate::{traits::NodeImplementation, types::Event, SystemContext};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 
 use async_lock::RwLock;
@@ -17,9 +17,9 @@ use hotshot_types::{
 };
 use std::sync::Arc;
 
-/// Event streaming handle for a [`SystemContextInner`] instance running in the background
+/// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
-/// This type provides the means to message and interact with a background [`SystemContextInner`] instance,
+/// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
 #[derive(Clone)]
@@ -36,8 +36,8 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// registry for controlling tasks
     pub(crate) registry: Arc<TaskRegistry>,
 
-    /// Internal reference to the underlying [`SystemContextInner`]
-    pub hotshot: Arc<SystemContextInner<TYPES, I>>,
+    /// Internal reference to the underlying [`SystemContext`]
+    pub hotshot: Arc<SystemContext<TYPES, I>>,
 
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
@@ -66,7 +66,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.internal_event_stream.1.activate_cloned()
     }
 
-    /// Get the last decided validated state of the [`SystemContextInner`] instance.
+    /// Get the last decided validated state of the [`SystemContext`] instance.
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
@@ -76,7 +76,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Get the validated state from a given `view`.
     ///
-    /// Returns the requested state, if the [`SystemContextInner`] is tracking this view. Consensus
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
     /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
@@ -85,7 +85,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.get_state(view).await
     }
 
-    /// Get the last decided leaf of the [`SystemContextInner`] instance.
+    /// Get the last decided leaf of the [`SystemContext`] instance.
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
@@ -102,14 +102,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.try_get_decided_leaf()
     }
 
-    /// Submits a transaction to the backing [`SystemContextInner`] instance.
+    /// Submits a transaction to the backing [`SystemContext`] instance.
     ///
     /// The current node broadcasts the transaction to all nodes on the network.
     ///
     /// # Errors
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
-    /// [`SystemContextInner`] instance.
+    /// [`SystemContext`] instance.
     pub async fn submit_transaction(
         &self,
         tx: TYPES::Transaction,
@@ -117,13 +117,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.publish_transaction_async(tx).await
     }
 
-    /// Provides a reference to the underlying storage for this [`SystemContextInner`], allowing access to
+    /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
     }
 
-    /// Get the underlying consensus state for this [`SystemContextInner`]
+    /// Get the underlying consensus state for this [`SystemContext`]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
         self.hotshot.get_consensus()
     }
@@ -148,7 +148,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         })
     }
 
-    /// return the timeout for a view of the underlying `SystemContextInner`
+    /// return the timeout for a view of the underlying `SystemContext`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.hotshot.get_next_view_timeout()
     }

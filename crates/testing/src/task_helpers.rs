@@ -12,7 +12,7 @@ use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotInitializer, Memberships, Networks, SystemContextInner,
+    HotShotInitializer, Memberships, Networks, SystemContext,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -106,7 +106,7 @@ pub async fn build_system_handle(
         ),
     };
 
-    SystemContextInner::init(
+    SystemContext::init(
         public_key,
         private_key,
         node_id,

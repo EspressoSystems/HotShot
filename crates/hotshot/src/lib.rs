@@ -5,7 +5,7 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
-/// Contains traits consumed by [`SystemContextInner`]
+/// Contains traits consumed by [`SystemContext`]
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
@@ -115,7 +115,7 @@ pub struct Memberships<TYPES: NodeType> {
 
 /// Holds the state needed to participate in `HotShot` consensus
 #[derive(Clone)]
-pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -154,8 +154,8 @@ pub struct SystemContextInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I> {
-    /// Creates a new [`Arc<SystemContextInner>`] with the given configuration options and sets it up with the given
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
+    /// Creates a new [`Arc<SystemContext>`] with the given configuration options and sets it up with the given
     /// genesis block
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
@@ -239,7 +239,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I>
         // Our own copy of the receiver is inactive so it doesn't count.
         external_tx.set_await_active(false);
 
-        let inner: Arc<SystemContextInner<TYPES, I>> = Arc::new(SystemContextInner {
+        let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
             consensus,
             public_key,
@@ -361,7 +361,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I>
 
     /// Get the validated state from a given `view`.
     ///
-    /// Returns the requested state, if the [`SystemContextInner`] is tracking this view. Consensus
+    /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
     /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
@@ -370,7 +370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I>
         self.consensus.read().await.get_state(view).cloned()
     }
 
-    /// Initializes a new [`SystemContextInner`] and does the work of setting up all the background tasks
+    /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
@@ -379,7 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I>
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
     /// the `HotShot` instance will log the error and shut down.
     ///
-    /// To construct a [`SystemContextInner`] without setting up tasks, use `fn new` instead.
+    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
     ///
     /// # Errors
     ///
@@ -428,7 +428,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I>
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContextInner<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Get access to [`Consensus`]
     #[must_use]
     pub fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES>>> {
