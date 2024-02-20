@@ -156,12 +156,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-<<<<<<< HEAD
-    /// Creates a new [`SystemContext`] with the given configuration options.
-=======
-    /// Creates a new [`Arc<SystemContext>`] with the given configuration options and sets it up with the given
-    /// genesis block
->>>>>>> main
+    /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
@@ -303,7 +298,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.inner.consensus.read().await.start_view;
+        let view_number = api.consensus.read().await.start_view;
 
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
@@ -328,11 +323,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     ),
                 api
                     .send_external_event(Event {
-<<<<<<< HEAD
                         view_number,
-=======
-                        view_number: api.consensus.read().await.cur_view,
->>>>>>> main
                         event: EventType::Transactions {
                             transactions: vec![transaction],
                         },

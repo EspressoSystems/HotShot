@@ -1,5 +1,6 @@
 use crate::types::SystemContextHandle;
 
+use async_trait::async_trait;
 use hotshot_constants::VERSION_0_1;
 use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
@@ -24,19 +25,21 @@ use std::{
 };
 
 /// Trait for creating task states.
+#[async_trait]
 pub trait CreateTaskState<TYPES, I>
 where
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 {
     /// Function to create the task state from a given `SystemContextHandle`.
-    fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Self;
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Self;
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for UpgradeTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> UpgradeTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         UpgradeTaskState {
@@ -53,10 +56,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for VIDTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> VIDTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         VIDTaskState {
@@ -73,10 +77,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for DATaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> DATaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         DATaskState {
@@ -94,14 +99,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for ViewSyncTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> ViewSyncTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         ViewSyncTaskState {
-            cur_view: handle.get_start_view().await,
+            current_view: handle.get_start_view().await,
             next_view: TYPES::Time::new(0),
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle
@@ -125,10 +131,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         TransactionTaskState {
@@ -146,10 +153,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
-    fn create_from(
+    async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         let consensus = handle.hotshot.get_consensus();

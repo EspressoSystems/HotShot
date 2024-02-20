@@ -425,10 +425,7 @@ where
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
-    ) -> SystemContext<TYPES, I> {
-        let node_id = self.next_node_id;
-        self.next_node_id += 1;
-        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+    ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
         let public_key = validator_config.public_key.clone();
