@@ -102,9 +102,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.try_get_decided_leaf()
     }
 
-    /// Submits an initial transaction to the backing [`SystemContext`] instance.
-    ///
-    /// The transaction corresponds to either the genesis view or the view to restart on.
+    /// Submits a transaction to the backing [`SystemContext`] instance.
     ///
     /// The current node broadcasts the transaction to all nodes on the network.
     ///
@@ -112,11 +110,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     ///
     /// Will return a [`HotShotError`] if some error occurs in the underlying
     /// [`SystemContext`] instance.
-    pub async fn submit_initial_transaction(
+    pub async fn submit_transaction(
         &self,
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
-        self.hotshot.publish_initial_transaction_async(tx).await
+        self.hotshot.publish_transaction_async(tx).await
     }
 
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
@@ -173,8 +171,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.public_key.clone()
     }
 
-    /// Wrapper to get the view number this node will start on.
-    pub async fn get_start_view(&self) -> TYPES::Time {
-        self.hotshot.consensus.read().await.start_view
+    /// Wrapper to get the view number this node is on.
+    pub async fn get_cur_view(&self) -> TYPES::Time {
+        self.hotshot.consensus.read().await.cur_view
     }
 }

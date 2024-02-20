@@ -55,7 +55,7 @@ async fn test_catchup() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test(false)
+        .run_test()
         .await;
 }
 
@@ -111,7 +111,7 @@ async fn test_catchup_web() {
     metadata
         .gen_launcher::<TestTypes, WebImpl>(0)
         .launch()
-        .run_test(false)
+        .run_test()
         .await;
 }
 
@@ -169,7 +169,7 @@ async fn test_catchup_one_node() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test(false)
+        .run_test()
         .await;
 }
 
@@ -233,7 +233,7 @@ async fn test_catchup_in_view_sync() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test(false)
+        .run_test()
         .await;
 }
 
@@ -270,6 +270,7 @@ async fn test_catchup_reload() {
 
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
+    metadata.skip_late = true;
     metadata.total_nodes = 20;
 
     metadata.view_sync_properties =
@@ -289,7 +290,6 @@ async fn test_catchup_reload() {
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         // Make sure we keep commiting rounds after the catchup, but not the full 50.
         num_successful_views: 22,
-        num_failed_views: 5,
         check_leaf: true,
         ..Default::default()
     };
@@ -297,6 +297,6 @@ async fn test_catchup_reload() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test(true)
+        .run_test()
         .await;
 }

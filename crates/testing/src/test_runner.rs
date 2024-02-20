@@ -124,14 +124,10 @@ where
 {
     /// excecute test
     ///
-    /// # Arguments
-    /// *  `skip_late` - Whether to skip initializing nodes that will start late, which will catch
-    /// up later with `HotShotInitializer::from_reload` in the spinning task.
-    ///
     /// # Panics
     /// if the test fails
     #[allow(clippy::too_many_lines)]
-    pub async fn run_test(mut self, skip_late: bool) {
+    pub async fn run_test(mut self) {
         let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
@@ -149,12 +145,8 @@ where
             }
         }
 
-        self.add_nodes(
-            self.launcher.metadata.total_nodes,
-            &late_start_nodes,
-            skip_late,
-        )
-        .await;
+        self.add_nodes(self.launcher.metadata.total_nodes, &late_start_nodes)
+            .await;
         let mut event_rxs = vec![];
         let mut internal_event_rxs = vec![];
 
@@ -324,18 +316,9 @@ where
 
     /// Add nodes.
     ///
-    /// # Arguments
-    /// *  `skip_late` - Whether to skip initializing nodes that will start late, which will catch
-    /// up later with `HotShotInitializer::from_reload`.
-    ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes(
-        &mut self,
-        total: usize,
-        late_start: &HashSet<u64>,
-        skip_late: bool,
-    ) -> Vec<u64> {
+    pub async fn add_nodes(&mut self, total: usize, late_start: &HashSet<u64>) -> Vec<u64> {
         let mut results = vec![];
         for i in 0..total {
             let node_id = self.next_node_id;
@@ -368,7 +351,7 @@ where
             };
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
 
-            if skip_late && late_start.contains(&node_id) {
+            if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
                 self.late_start.insert(
                     node_id,
                     LateStartNode {
@@ -378,7 +361,7 @@ where
                 );
             } else {
                 let initializer =
-                    HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
+                    HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {}).unwrap();
                 // We assign node's public key and stake value rather than read from config file since it's a test
                 let validator_config =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);

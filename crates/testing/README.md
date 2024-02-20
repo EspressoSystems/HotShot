@@ -64,7 +64,7 @@ async {
         }));
 
     /// add the hook, launch the test, then run it.
-    test_launcher.push_hook(hook).launch().run_test(false).await.unwrap();
+    test_launcher.push_hook(hook).launch().run_test().await.unwrap();
 
 };
 ```

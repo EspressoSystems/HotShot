@@ -223,7 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Consensus {
             instance_state,
             validated_state_map,
-            start_view,
+            cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
@@ -283,22 +283,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         broadcast_event(event, &self.output_event_stream.0).await;
     }
 
-    /// Publishes an initial transaction asynchronously to the network.
-    ///
-    /// The transaction corresponds to either the genesis view or the view to restart on.
+    /// Publishes a transaction asynchronously to the network.
     ///
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
     #[instrument(skip(self), err)]
-    pub async fn publish_initial_transaction_async(
+    pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.consensus.read().await.start_view;
+        let view_number = api.consensus.read().await.cur_view;
 
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
@@ -622,12 +620,10 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(
-        instance_state: &TYPES::InstanceState,
-    ) -> Result<Self, HotShotError<TYPES>> {
+    pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
         Ok(Self {
-            inner: Leaf::genesis(instance_state),
-            instance_state: instance_state.clone(),
+            inner: Leaf::genesis(&instance_state),
+            instance_state,
             start_view: TYPES::Time::new(0),
         })
     }

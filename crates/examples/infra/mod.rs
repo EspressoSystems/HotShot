@@ -324,7 +324,7 @@ pub trait RunDA<
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
-        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {})
+        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
         let config = self.get_config();
@@ -444,7 +444,7 @@ pub trait RunDA<
                                 for _ in 0..transactions_to_send_per_round {
                                     let tx = transactions.remove(0);
 
-                                    () = context.submit_initial_transaction(tx).await.unwrap();
+                                    () = context.submit_transaction(tx).await.unwrap();
                                     total_transactions_sent += 1;
                                 }
                             }

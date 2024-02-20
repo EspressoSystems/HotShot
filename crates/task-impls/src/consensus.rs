@@ -400,7 +400,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
                 }
             }));
-            let consensus = self.consensus.read().await;
+            let consensus = self.consensus.upgradable_read().await;
             consensus
                 .metrics
                 .current_view
@@ -415,6 +415,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
                 );
             }
+            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+            consensus.increment_view();
+            drop(consensus);
 
             return true;
         }

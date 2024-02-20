@@ -43,6 +43,9 @@ pub struct TestMetadata {
     pub total_nodes: usize,
     /// nodes available at start
     pub start_nodes: usize,
+    /// Whether to skip initializing nodes that will start late, which will catch up later with
+    /// `HotShotInitializer::from_reload` in the spinning task.
+    pub skip_late: bool,
     /// number of bootstrap nodes (libp2p usage only)
     pub num_bootstrap_nodes: usize,
     /// Size of the DA committee for the test
@@ -177,6 +180,7 @@ impl Default for TestMetadata {
             min_transactions: 0,
             total_nodes: num_nodes,
             start_nodes: num_nodes,
+            skip_late: false,
             num_bootstrap_nodes: num_nodes,
             da_committee_size: num_nodes,
             spinning_properties: SpinningTaskDescription {
