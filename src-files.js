@@ -3,7 +3,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["all_libp2p",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["all_webserver",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["counter",["",[],["counter.rs"]]],\
-["hotshot",["",[["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","web_server_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
+["hotshot",["",[["tasks",[],["mod.rs","task_state.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","web_server_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
 ["hotshot_constants",["",[],["lib.rs"]]],\
 ["hotshot_example_types",["",[],["block_types.rs","lib.rs","node_types.rs","state_types.rs"]]],\
 ["hotshot_orchestrator",["",[],["client.rs","config.rs","lib.rs"]]],\

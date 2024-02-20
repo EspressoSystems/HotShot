@@ -630,29 +630,6 @@
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
 <a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -680,7 +657,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Committable;
-<span class="kw">use </span>custom_debug::Debug;
 <span class="kw">use </span>futures::join;
 <span class="kw">use </span>hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
@@ -770,7 +746,8 @@
 }
 
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus
-</span><span class="kw">pub struct </span>SystemContextInner&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>SystemContext&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The public key of this node
     </span>public_key: TYPES::SignatureKey,
 
@@ -809,16 +786,8 @@
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="doccomment">/// Thread safe, shared view of a `HotShot`
-</span><span class="comment">// TODO Perhaps we can delete SystemContext since we only consume it in run_tasks()
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>SystemContext&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Handle to internal hotshot implementation
-    </span><span class="kw">pub </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt;,
-}
-
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Creates a new [`SystemContext`] with the given configuration options and sets it up with the given
+    <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options and sets it up with the given
     /// genesis block
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
@@ -835,7 +804,7 @@
         networks: Networks&lt;TYPES, I&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;<span class="self">Self</span>&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">debug!</span>(<span class="string">"Creating a new hotshot"</span>);
 
         <span class="kw">let </span>consensus_metrics = Arc::new(metrics);
@@ -902,7 +871,7 @@
         // Our own copy of the receiver is inactive so it doesn't count.
         </span>external_tx.set_await_active(<span class="bool-val">false</span>);
 
-        <span class="kw">let </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt; = Arc::new(SystemContextInner {
+        <span class="kw">let </span>inner: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; = Arc::new(SystemContext {
             id: nonce,
             consensus,
             public_key,
@@ -916,7 +885,7 @@
             output_event_stream: (external_tx, external_rx.deactivate()),
         });
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ inner })
+        <span class="prelude-val">Ok</span>(inner)
     }
 
     <span class="doccomment">/// "Starts" consensus by sending a `QCFormed` event
@@ -925,8 +894,7 @@
     /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
-        <span class="self">self</span>.inner
-            .internal_event_stream
+        <span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
@@ -940,7 +908,7 @@
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_external_event"</span>);
-        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Publishes a transaction asynchronously to the network
@@ -961,27 +929,26 @@
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
 
         async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.inner.memberships.da_membership.clone();
+            <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.memberships.da_membership.clone();
             <span class="macro">join! </span>{
                 <span class="comment">// TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
                 //
                 </span>api
-                    .inner
                     .networks
                     .da_network
                     .broadcast_message(
                         Message {
                             version: VERSION_0_1,
-                            sender: api.inner.public_key.clone(),
+                            sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_committee(TYPES::Time::new(<span class="number">0</span>)),
                     ),
                 api
                     .send_external_event(Event {
-                        view_number: api.inner.consensus.read().<span class="kw">await</span>.cur_view,
+                        view_number: api.consensus.read().<span class="kw">await</span>.cur_view,
                         event: EventType::Transactions {
                             transactions: <span class="macro">vec!</span>[transaction],
                         },
@@ -994,14 +961,14 @@
     <span class="doccomment">/// Returns a copy of the consensus struct
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        <span class="self">self</span>.inner.consensus.clone()
+        <span class="self">self</span>.consensus.clone()
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
-        <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_decided_leaf()
+        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_leaf()
     }
 
     <span class="doccomment">/// [Non-blocking] instantly returns a copy of the last decided leaf if
@@ -1011,8 +978,7 @@
     /// Panics if internal state for consensus is inconsistent
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.inner
-            .consensus
+        <span class="self">self</span>.consensus
             .try_read()
             .map(|guard| guard.get_decided_leaf())
     }
@@ -1022,12 +988,7 @@
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
-        <span class="self">self</span>.inner
-            .consensus
-            .read()
-            .<span class="kw">await
-            </span>.get_decided_state()
-            .clone()
+        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_state().clone()
     }
 
     <span class="doccomment">/// Get the validated state from a given `view`.
@@ -1038,7 +999,7 @@
     /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
     /// view to ever be decided.
     </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
-        <span class="self">self</span>.inner.consensus.read().<span class="kw">await</span>.get_state(view).cloned()
+        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_state(view).cloned()
     }
 
     <span class="doccomment">/// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
@@ -1088,14 +1049,14 @@
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>handle = hotshot.clone().run_tasks().<span class="kw">await</span>;
-        <span class="kw">let </span>(tx, rx) = hotshot.inner.internal_event_stream.clone();
+        <span class="kw">let </span>(tx, rx) = hotshot.internal_event_stream.clone();
 
         <span class="prelude-val">Ok</span>((handle, tx, rx.activate()))
     }
     <span class="doccomment">/// return the timeout for a view for `self`
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.inner.config.next_view_timeout
+        <span class="self">self</span>.config.next_view_timeout
     }
 }
 
@@ -1103,26 +1064,26 @@
     <span class="doccomment">/// Get access to [`Consensus`]
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.consensus
+        <span class="kw-2">&amp;</span><span class="self">self</span>.consensus
     }
 
     <span class="doccomment">/// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     </span><span class="attr">#[allow(clippy::too_many_lines)]
-    </span><span class="kw">pub async fn </span>run_tasks(<span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
+    </span><span class="kw">pub async fn </span>run_tasks(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="comment">// ED Need to set first first number to 1, or properly trigger the change upon start
         </span><span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
 
-        <span class="kw">let </span>output_event_stream = <span class="self">self</span>.inner.output_event_stream.clone();
-        <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.inner.internal_event_stream.clone();
+        <span class="kw">let </span>output_event_stream = <span class="self">self</span>.output_event_stream.clone();
+        <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.internal_event_stream.clone();
 
-        <span class="kw">let </span>quorum_network = <span class="self">self</span>.inner.networks.quorum_network.clone();
-        <span class="kw">let </span>da_network = <span class="self">self</span>.inner.networks.da_network.clone();
-        <span class="kw">let </span>quorum_membership = <span class="self">self</span>.inner.memberships.quorum_membership.clone();
-        <span class="kw">let </span>da_membership = <span class="self">self</span>.inner.memberships.da_membership.clone();
-        <span class="kw">let </span>vid_membership = <span class="self">self</span>.inner.memberships.vid_membership.clone();
-        <span class="kw">let </span>view_sync_membership = <span class="self">self</span>.inner.memberships.view_sync_membership.clone();
+        <span class="kw">let </span>quorum_network = <span class="self">self</span>.networks.quorum_network.clone();
+        <span class="kw">let </span>da_network = <span class="self">self</span>.networks.da_network.clone();
+        <span class="kw">let </span>quorum_membership = <span class="self">self</span>.memberships.quorum_membership.clone();
+        <span class="kw">let </span>da_membership = <span class="self">self</span>.memberships.da_membership.clone();
+        <span class="kw">let </span>vid_membership = <span class="self">self</span>.memberships.vid_membership.clone();
+        <span class="kw">let </span>view_sync_membership = <span class="self">self</span>.memberships.view_sync_membership.clone();
 
         <span class="kw">let </span>(event_tx, event_rx) = internal_event_stream.clone();
 
@@ -1130,8 +1091,8 @@
             registry: registry.clone(),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
-            hotshot: <span class="self">self</span>.clone(),
-            storage: <span class="self">self</span>.inner.storage.clone(),
+            hotshot: <span class="self">self</span>.clone().into(),
+            storage: <span class="self">self</span>.storage.clone(),
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).<span class="kw">await</span>;
@@ -1219,48 +1180,41 @@
     }
 }
 
-<span class="doccomment">/// A handle that exposes the interface that hotstuff needs to interact with a [`SystemContextInner`]
-</span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>HotShotConsensusApi&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Reference to the [`SystemContextInner`]
-    </span><span class="kw">pub </span>inner: Arc&lt;SystemContextInner&lt;TYPES, I&gt;&gt;,
-}
-
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ConsensusApi&lt;TYPES, I&gt;
-    <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
+    <span class="kw">for </span>SystemContextHandle&lt;TYPES, I&gt;
 {
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
-        <span class="self">self</span>.inner.config.total_nodes
+        <span class="self">self</span>.hotshot.config.total_nodes
     }
 
     <span class="kw">fn </span>propose_min_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
-        <span class="self">self</span>.inner.config.propose_min_round_time
+        <span class="self">self</span>.hotshot.config.propose_min_round_time
     }
 
     <span class="kw">fn </span>propose_max_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
-        <span class="self">self</span>.inner.config.propose_max_round_time
+        <span class="self">self</span>.hotshot.config.propose_max_round_time
     }
 
     <span class="kw">fn </span>max_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
-        <span class="self">self</span>.inner.config.max_transactions
+        <span class="self">self</span>.hotshot.config.max_transactions
     }
 
     <span class="kw">fn </span>min_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.inner.config.min_transactions
+        <span class="self">self</span>.hotshot.config.min_transactions
     }
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_event"</span>);
-        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.public_key
+        <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.public_key
     }
 
     <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key
+        <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.private_key
     }
 
     <span class="kw">async fn </span>store_leaf(
@@ -1269,7 +1223,7 @@
         leaf: Leaf&lt;TYPES&gt;,
     ) -&gt; std::result::Result&lt;(), hotshot_types::traits::storage::StorageError&gt; {
         <span class="kw">let </span>view_to_insert = StoredView::from(leaf);
-        <span class="kw">let </span>storage = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.storage;
+        <span class="kw">let </span>storage = <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.storage;
         storage.append_single_view(view_to_insert).<span class="kw">await</span><span class="question-mark">?</span>;
         storage.cleanup_storage_up_to_view(old_anchor_view).<span class="kw">await</span><span class="question-mark">?</span>;
         storage.commit().<span class="kw">await</span><span class="question-mark">?</span>;

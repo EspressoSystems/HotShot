@@ -467,7 +467,7 @@
     <span class="doccomment">/// The underlying networks belonging to the node
     </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
     <span class="doccomment">/// The context to which we will use to launch HotShot when it's time
-    </span><span class="kw">pub </span>context: SystemContext&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>context: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
@@ -764,7 +764,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
-    ) -&gt; SystemContext&lt;TYPES, I&gt; {
+    ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
         <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
         <span class="self">self</span>.next_node_id += <span class="number">1</span>;
         <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();

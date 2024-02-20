@@ -178,7 +178,6 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -218,7 +217,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: Arc&lt;TaskRegistry&gt;,
 
     <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
-    </span><span class="kw">pub </span>hotshot: SystemContext&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>hotshot: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
@@ -312,7 +311,7 @@
     <span class="doccomment">/// Block the underlying quorum (and committee) networking interfaces until node is
     /// successfully initialized into the networks.
     </span><span class="kw">pub async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.hotshot.inner.networks.wait_for_networks_ready().<span class="kw">await</span>;
+        <span class="self">self</span>.hotshot.networks.wait_for_networks_ready().<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
@@ -324,7 +323,7 @@
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         boxed_sync(<span class="kw">async move </span>{
-            <span class="self">self</span>.hotshot.inner.networks.shut_down_networks().<span class="kw">await</span>;
+            <span class="self">self</span>.hotshot.networks.shut_down_networks().<span class="kw">await</span>;
             <span class="self">self</span>.registry.shutdown().<span class="kw">await</span>;
         })
     }
@@ -341,7 +340,6 @@
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot
-            .inner
             .memberships
             .quorum_membership
             .get_leader(view_number)
@@ -350,13 +348,13 @@
     <span class="doccomment">/// Wrapper to get this node's public key
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
-        <span class="self">self</span>.hotshot.inner.public_key.clone()
+        <span class="self">self</span>.hotshot.public_key.clone()
     }
 
     <span class="doccomment">/// Wrapper to get this node's current view
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="kw">pub async fn </span>get_current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="self">self</span>.hotshot.inner.consensus.read().<span class="kw">await</span>.cur_view
+        <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view
     }
 }
 </code></pre></div></section></main></body></html>

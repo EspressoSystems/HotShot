@@ -375,14 +375,6 @@
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -397,7 +389,7 @@
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
+    HotShotInitializer, Memberships, Networks, SystemContext,
 };
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
@@ -597,9 +589,6 @@
     </span><span class="kw">let </span>genesis_consensus = handle.get_consensus();
     <span class="kw">let </span>cur_consensus = genesis_consensus.upgradable_read().<span class="kw">await</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(cur_consensus).<span class="kw">await</span>;
-    <span class="kw">let </span>api: HotShotConsensusApi&lt;TestTypes, MemoryImpl&gt; = HotShotConsensusApi {
-        inner: handle.hotshot.inner.clone(),
-    };
     <span class="comment">// parent_view_number should be equal to 0
     </span><span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.get_view_number();
     <span class="macro">assert_eq!</span>(parent_view_number.get_u64(), <span class="number">0</span>);
@@ -618,12 +607,7 @@
     </span><span class="kw">let </span>block = &lt;TestBlockPayload <span class="kw">as </span>TestableBlock&gt;::genesis();
     <span class="kw">let </span>payload_commitment = vid_commitment(
         <span class="kw-2">&amp;</span>block.encode().unwrap().collect(),
-        handle
-            .hotshot
-            .inner
-            .memberships
-            .quorum_membership
-            .total_nodes(),
+        handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     <span class="kw">let </span><span class="kw-2">mut </span>parent_state = Arc::new(&lt;TestValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(
         <span class="kw-2">&amp;</span>parent_leaf.block_header,
@@ -642,7 +626,7 @@
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: <span class="prelude-val">None</span>,
-        proposer_id: <span class="kw-2">*</span>api.public_key(),
+        proposer_id: <span class="kw-2">*</span>handle.public_key(),
     };
 
     <span class="kw">let </span><span class="kw-2">mut </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref())
@@ -676,7 +660,7 @@
         );
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         <span class="comment">// create a qc by aggregate signatures on the previous view (the data signed is last leaf commitment)
-        </span><span class="kw">let </span>quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+        </span><span class="kw">let </span>quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
         <span class="kw">let </span>quorum_data = QuorumData {
             leaf_commit: leaf.commit(),
         };
