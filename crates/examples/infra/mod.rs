@@ -12,7 +12,7 @@ use hotshot::{
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
-    Memberships, Networks, SystemContext,
+    Memberships, Networks, SystemContextInner,
 };
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
@@ -370,7 +370,7 @@ pub trait RunDA<
             ),
         };
 
-        SystemContext::init(
+        SystemContextInner::init(
             pk,
             sk,
             config.node_index,
