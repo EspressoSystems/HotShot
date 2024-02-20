@@ -257,7 +257,6 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p's behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
@@ -501,7 +500,6 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
     <span class="macro">info!</span>(<span class="string">"known_nodes{:?}"</span>, known_nodes);
     handle.add_known_peers(known_nodes).<span class="kw">await</span><span class="question-mark">?</span>;
-    handle.wait_to_connect(<span class="number">4</span>, idx, timeout_len).<span class="kw">await</span><span class="question-mark">?</span>;
     handle.subscribe(<span class="string">"global"</span>.to_string()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
