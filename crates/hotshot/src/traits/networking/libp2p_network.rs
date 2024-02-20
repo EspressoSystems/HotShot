@@ -740,6 +740,18 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
+    #[instrument(name = "Libp2pNetwork::da_broadcast_message", skip_all)]
+    async fn da_broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        for key in recipients {
+            self.direct_message(message.clone(), key).await?
+        }
+        Ok(())
+    }
+
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
@@ -853,6 +865,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                             .incoming_direct_message_count
                             .add(result.len());
                         Ok(result)
+                    }
+                    TransmitType::DACommitteeBroadcast => {
+                        Err(NetworkError::Libp2p {
+                            source: NetworkNodeHandleError::Killed
+                        })
                     }
                 }
             }

@@ -76,6 +76,8 @@ pub enum TransmitType {
     Direct,
     /// broadcast the message to all
     Broadcast,
+    /// broadcast to DA committee
+    DACommitteeBroadcast,
 }
 
 /// Error type for networking
@@ -253,6 +255,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// broadcast message to some subset of nodes
     /// blocking
     async fn broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError>;
+
+    /// broadcast a message only to a DA committee
+    /// blocking
+    async fn da_broadcast_message(
         &self,
         message: M,
         recipients: BTreeSet<K>,

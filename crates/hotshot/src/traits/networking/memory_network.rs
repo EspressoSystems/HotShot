@@ -352,6 +352,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         Ok(())
     }
 
+    #[instrument(name = "MemoryNetwork::da_broadcast_message")]
+    async fn da_broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>
+    ) -> Result<(), NetworkError> {
+        self.broadcast_message(message, recipients).await
+    }
+
     #[instrument(name = "MemoryNetwork::direct_message")]
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         // debug!(?message, ?recipient, "Sending direct message");
@@ -433,6 +442,24 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                     Ok(ret)
                 }
                 TransmitType::Broadcast => {
+                    let ret = self
+                        .inner
+                        .broadcast_output
+                        .lock()
+                        .await
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner
+                        .in_flight_message_count
+                        .fetch_sub(ret.len(), Ordering::Relaxed);
+                    self.inner
+                        .metrics
+                        .incoming_broadcast_message_count
+                        .add(ret.len());
+                    Ok(ret)
+                }
+                TransmitType::DACommitteeBroadcast => {
                     let ret = self
                         .inner
                         .broadcast_output
