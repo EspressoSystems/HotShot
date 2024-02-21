@@ -416,7 +416,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 );
             }
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            consensus.increment_view();
+            consensus.update_view(new_view);
             drop(consensus);
 
             return true;

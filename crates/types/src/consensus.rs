@@ -235,9 +235,9 @@ impl Default for ConsensusMetricsValue {
 }
 
 impl<TYPES: NodeType> Consensus<TYPES> {
-    /// increment the current view
-    pub fn increment_view(&mut self) {
-        self.cur_view += 1;
+    /// Update the current view.
+    pub fn update_view(&mut self, view_number: TYPES::Time) {
+        self.cur_view = view_number;
     }
 
     /// gather information from the parent chain of leafs
