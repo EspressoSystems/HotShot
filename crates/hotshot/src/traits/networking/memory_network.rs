@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
+use hotshot_types::traits::network::MemoryNetworkError;
 use hotshot_types::{
     boxed_sync,
     message::Message,
@@ -356,7 +357,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     async fn da_broadcast_message(
         &self,
         message: M,
-        recipients: BTreeSet<K>
+        recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, recipients).await
     }
@@ -460,22 +461,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                     Ok(ret)
                 }
                 TransmitType::DACommitteeBroadcast => {
-                    let ret = self
-                        .inner
-                        .broadcast_output
-                        .lock()
-                        .await
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
-                    self.inner
-                        .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
-                    self.inner
-                        .metrics
-                        .incoming_broadcast_message_count
-                        .add(ret.len());
-                    Ok(ret)
+                    error!("Received DACommitteeBroadcast, it should have not happened.");
+                    Err(NetworkError::MemoryNetwork {
+                        source: MemoryNetworkError::Stub,
+                    })
                 }
             }
         };

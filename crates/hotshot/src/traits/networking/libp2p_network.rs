@@ -47,6 +47,7 @@ use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
+use futures::future::join_all;
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -746,10 +747,24 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        for key in recipients {
-            self.direct_message(message.clone(), key).await?
+        let future_results = recipients
+            .iter()
+            .map(|r| self.direct_message(message.clone(), r.clone()));
+        let results = join_all(future_results).await;
+
+        let errors: Vec<_> = results
+            .into_iter()
+            .filter_map(|r| match r {
+                Err(NetworkError::Libp2p { source }) => Some(source),
+                _ => None,
+            })
+            .collect();
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(NetworkError::Libp2pMulti { sources: errors })
         }
-        Ok(())
     }
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
@@ -867,8 +882,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         Ok(result)
                     }
                     TransmitType::DACommitteeBroadcast => {
+                        error!("Received DACommitteeBroadcast, it should have not happened.");
                         Err(NetworkError::Libp2p {
-                            source: NetworkNodeHandleError::Killed
+                            source: NetworkNodeHandleError::Killed,
                         })
                     }
                 }

@@ -830,7 +830,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     async fn da_broadcast_message(
         &self,
         message: Message<TYPES>,
-        recipients: BTreeSet<TYPES::SignatureKey>
+        recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, recipients).await
     }
@@ -893,13 +893,10 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                         .collect())
                 }
                 TransmitType::DACommitteeBroadcast => {
-                    let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
-                    Ok(queue
-                        .drain(..)
-                        .collect::<Vec<_>>()
-                        .iter()
-                        .map(|x| x.get_message().unwrap())
-                        .collect())
+                    error!("Received DACommitteeBroadcast, it should have not happened.");
+                    Err(NetworkError::WebServer {
+                        source: WebServerNetworkError::ClientDisconnected,
+                    })
                 }
             }
         };

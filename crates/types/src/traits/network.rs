@@ -89,6 +89,11 @@ pub enum NetworkError {
         /// source of error
         source: NetworkNodeHandleError,
     },
+    /// collection of libp2p secific errors
+    Libp2pMulti {
+        /// sources of errors
+        sources: Vec<NetworkNodeHandleError>,
+    },
     /// memory network specific errors
     MemoryNetwork {
         /// source of error
