@@ -106,9 +106,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> ViewSyncTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
+        let cur_view = handle.get_cur_view().await;
         ViewSyncTaskState {
-            current_view: handle.get_cur_view().await,
-            next_view: TYPES::Time::new(0),
+            current_view: cur_view,
+            next_view: cur_view,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle
                 .hotshot
