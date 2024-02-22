@@ -748,8 +748,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         let future_results = recipients
-            .iter()
-            .map(|r| self.direct_message(message.clone(), r.clone()));
+            .into_iter()
+            .map(|r| self.direct_message(message.clone(), r));
         let results = join_all(future_results).await;
 
         let errors: Vec<_> = results
