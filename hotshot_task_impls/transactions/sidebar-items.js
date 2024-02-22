@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","TransactionTaskState"],"type":["CommitmentMap"]};
+window.SIDEBAR_ITEMS = {"struct":["TransactionTaskState"],"type":["CommitmentMap"]};

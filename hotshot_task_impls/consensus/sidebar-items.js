@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CommitmentAndMetadata","ConsensusTaskError","ConsensusTaskSnafu","ConsensusTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};

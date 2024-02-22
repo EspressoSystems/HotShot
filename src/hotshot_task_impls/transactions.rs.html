@@ -326,11 +326,6 @@
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -358,7 +353,6 @@
     },
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -368,10 +362,6 @@
 
 <span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
 </span><span class="kw">type </span>CommitmentMap&lt;T&gt; = HashMap&lt;Commitment&lt;T&gt;, T&gt;;
-
-<span class="attr">#[derive(Snafu, Debug)]
-</span><span class="doccomment">/// Error type for consensus tasks
-</span><span class="kw">pub struct </span>ConsensusTaskError {}
 
 <span class="doccomment">/// Tracks state of a Transaction task
 </span><span class="kw">pub struct </span>TransactionTaskState&lt;

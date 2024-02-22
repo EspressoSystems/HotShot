@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ViewSyncPhase"],"struct":["ViewSyncReplicaTaskState","ViewSyncTaskError","ViewSyncTaskSnafu","ViewSyncTaskState"],"type":["RelayMap"]};
+window.SIDEBAR_ITEMS = {"enum":["ViewSyncPhase"],"struct":["ViewSyncReplicaTaskState","ViewSyncTaskState"],"type":["RelayMap"]};

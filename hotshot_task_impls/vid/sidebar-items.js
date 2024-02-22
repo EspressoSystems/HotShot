@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskError","ConsensusTaskSnafu","VIDTaskState"]};
+window.SIDEBAR_ITEMS = {"struct":["VIDTaskState"]};

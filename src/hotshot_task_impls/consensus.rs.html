@@ -1389,11 +1389,6 @@
 <a href="#1388" id="1388">1388</a>
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
-<a href="#1391" id="1391">1391</a>
-<a href="#1392" id="1392">1392</a>
-<a href="#1393" id="1393">1393</a>
-<a href="#1394" id="1394">1394</a>
-<a href="#1395" id="1395">1395</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1435,7 +1430,6 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet},
     marker::PhantomData,
@@ -1444,10 +1438,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument};
-
-<span class="doccomment">/// Error returned by the consensus task
-</span><span class="attr">#[derive(Snafu, Debug)]
-</span><span class="kw">pub struct </span>ConsensusTaskError {}
 
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
 </span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {
