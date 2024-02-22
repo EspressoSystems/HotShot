@@ -1310,6 +1310,22 @@
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
 <a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -2137,6 +2153,16 @@
         }
     }
 
+    <span class="doccomment">/// broadcast a message only to a DA committee
+    /// blocking
+    </span><span class="kw">async fn </span>da_broadcast_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: Message&lt;TYPES&gt;,
+        recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.broadcast_message(message, recipients).<span class="kw">await
+    </span>}
+
     <span class="doccomment">/// Sends a direct message to a specific node
     /// blocking
     </span><span class="kw">async fn </span>direct_message(
@@ -2193,6 +2219,12 @@
                         .iter()
                         .map(|x| x.get_message().unwrap())
                         .collect())
+                }
+                TransmitType::DACommitteeBroadcast =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Received DACommitteeBroadcast, it should have not happened."</span>);
+                    <span class="prelude-val">Err</span>(NetworkError::WebServer {
+                        source: WebServerNetworkError::ClientDisconnected,
+                    })
                 }
             }
         };

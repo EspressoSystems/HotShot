@@ -590,6 +590,21 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -668,6 +683,8 @@
     </span>Direct,
     <span class="doccomment">/// broadcast the message to all
     </span>Broadcast,
+    <span class="doccomment">/// broadcast to DA committee
+    </span>DACommitteeBroadcast,
 }
 
 <span class="doccomment">/// Error type for networking
@@ -678,6 +695,11 @@
     </span>Libp2p {
         <span class="doccomment">/// source of error
         </span>source: NetworkNodeHandleError,
+    },
+    <span class="doccomment">/// collection of libp2p secific errors
+    </span>Libp2pMulti {
+        <span class="doccomment">/// sources of errors
+        </span>sources: Vec&lt;NetworkNodeHandleError&gt;,
     },
     <span class="doccomment">/// memory network specific errors
     </span>MemoryNetwork {
@@ -845,6 +867,14 @@
     <span class="doccomment">/// broadcast message to some subset of nodes
     /// blocking
     </span><span class="kw">async fn </span>broadcast_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: M,
+        recipients: BTreeSet&lt;K&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
+
+    <span class="doccomment">/// broadcast a message only to a DA committee
+    /// blocking
+    </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: M,
         recipients: BTreeSet&lt;K&gt;,

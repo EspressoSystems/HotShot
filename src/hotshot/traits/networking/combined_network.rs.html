@@ -399,6 +399,14 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -679,6 +687,14 @@
         <span class="self">self</span>.secondary()
             .broadcast_message(message, recipients)
             .<span class="kw">await
+    </span>}
+
+    <span class="kw">async fn </span>da_broadcast_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: Message&lt;TYPES&gt;,
+        recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.broadcast_message(message, recipients).<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>direct_message(
