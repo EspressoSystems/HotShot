@@ -47,6 +47,7 @@ use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
+use futures::future::join_all;
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -434,20 +435,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 };
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
-                // 10 minute timeout
-                let timeout_duration = Duration::from_secs(600);
-                // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
-                handle
-                    .wait_to_connect(4, id, timeout_duration)
-                    .await
-                    .unwrap();
-
-                let connected_num = handle.num_connected().await?;
-                metrics_connected_peers
-                    .metrics
-                    .connected_peers
-                    .set(connected_num);
+                handle.begin_bootstrap().await?;
 
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
@@ -464,7 +452,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     handle.subscribe("DA".to_string()).await.unwrap();
                     subscribed_topics.write().await.insert(Topic::DA);
                 }
-
                 // TODO figure out some way of passing in ALL keypairs. That way we can add the
                 // global topic to the topic map
                 // NOTE this wont' work without this change
@@ -480,7 +467,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-
                 info!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
@@ -490,12 +476,25 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-
+                // 10 minute timeout
+                let timeout_duration = Duration::from_secs(600);
+                // perform connection
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
+                handle
+                    .wait_to_connect(4, id, timeout_duration)
+                    .await
+                    .unwrap();
                 info!(
                     "node {:?} is barring bootstrap, type: {:?}",
                     handle.peer_id(),
                     node_type
                 );
+
+                let connected_num = handle.num_connected().await?;
+                metrics_connected_peers
+                    .metrics
+                    .connected_peers
+                    .set(connected_num);
 
                 is_ready.store(true, Ordering::Relaxed);
                 info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
@@ -524,7 +523,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         broadcast_send: &UnboundedSender<M>,
     ) -> Result<(), NetworkError> {
         match msg {
-            GossipMsg(msg, _topic) => {
+            GossipMsg(msg, _) => {
                 let result: Result<M, _> = bincode_opts().deserialize(&msg);
                 if let Ok(result) = result {
                     broadcast_send
@@ -720,6 +719,32 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
+    #[instrument(name = "Libp2pNetwork::da_broadcast_message", skip_all)]
+    async fn da_broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        let future_results = recipients
+            .into_iter()
+            .map(|r| self.direct_message(message.clone(), r));
+        let results = join_all(future_results).await;
+
+        let errors: Vec<_> = results
+            .into_iter()
+            .filter_map(|r| match r {
+                Err(NetworkError::Libp2p { source }) => Some(source),
+                _ => None,
+            })
+            .collect();
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(NetworkError::Libp2pMulti { sources: errors })
+        }
+    }
+
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
@@ -825,6 +850,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         .incoming_direct_message_count
                         .add(result.len());
                     Ok(result)
+                }
+                TransmitType::DACommitteeBroadcast => {
+                    error!("Received DACommitteeBroadcast, it should have not happened.");
+                    Err(NetworkError::Libp2p {
+                        source: NetworkNodeHandleError::Killed,
+                    })
                 }
             }
         }
