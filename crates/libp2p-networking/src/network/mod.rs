@@ -34,8 +34,8 @@ use libp2p::{
 use libp2p_identity::PeerId;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
-use tracing::{info, instrument};
+use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc};
+use tracing::instrument;
 
 #[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::async_std::Transport as DnsTransport;
