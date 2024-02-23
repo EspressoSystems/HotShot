@@ -1,5 +1,6 @@
 //! web server example
 use hotshot_example_types::state_types::TestTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
 use surf_disco::Url;
 
@@ -26,6 +27,8 @@ async fn main() {
     let _sender = Arc::new(server_shutdown_sender);
     let _result = hotshot_web_server::run_web_server::<
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+        { TestTypes::MAJOR_V_OLD },
+        { TestTypes::MINOR_V_OLD },
     >(Some(server_shutdown), args.url)
     .await;
 }

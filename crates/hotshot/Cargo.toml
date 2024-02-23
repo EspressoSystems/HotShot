@@ -50,6 +50,7 @@ derive_more = "0.99.17"
 portpicker = "0.1.1"
 lru = "0.12.2"
 hotshot-task = { path = "../task" }
+versioned-binary-serialization = { workspace = true }
 
 tracing = { workspace = true }
 

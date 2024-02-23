@@ -73,13 +73,15 @@ rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "adding_vbs_support" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
-tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", branch = "adding_vbs_support" }
 time = "0.3.34"
 toml = "0.8.10"
 tracing = "0.1.40"
 typenum = "1.17.0"
+versioned-binary-serialization = { git = "https://github.com/EspressoSystems/versioned-binary-serialization.git", branch = "main" }
+
 libp2p = { package = "libp2p", version = "0.53.2", features = [
         "macros",
         "autonat",

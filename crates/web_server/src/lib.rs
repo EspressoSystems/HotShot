@@ -749,22 +749,27 @@ pub struct Options {
 }
 
 /// Sets up all API routes
+/// This web server incorporates the protocol version within each message.
+/// Transport versioning (generic params here) only changes when the web-CDN itself changes.
+/// When transport versioning changes, the application itself must update its version.
 #[allow(clippy::too_many_lines)]
-fn define_api<State, KEY>(options: &Options) -> Result<Api<State, Error>, ApiError>
+fn define_api<State, KEY, const MAJOR: u16, const MINOR: u16>(
+    options: &Options,
+) -> Result<Api<State, Error, MAJOR, MINOR>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + WebServerDataSource<KEY>,
     KEY: SignatureKey,
 {
     let mut api = match &options.api_path {
-        Some(path) => Api::<State, Error>::from_file(path)?,
+        Some(path) => Api::<State, Error, MAJOR, MINOR>::from_file(path)?,
         None => {
             let toml: toml::Value = toml::from_str(include_str!("../api.toml")).map_err(|err| {
                 ApiError::CannotReadToml {
                     reason: err.to_string(),
                 }
             })?;
-            Api::<State, Error>::new(toml)?
+            Api::<State, Error, MAJOR, MINOR>::new(toml)?
         }
     };
     api.get("getproposal", |req, state| {
@@ -940,7 +945,7 @@ where
 /// this looks like it will panic not error
 /// # Panics
 /// on errors creating or registering the tide disco api
-pub async fn run_web_server<KEY: SignatureKey + 'static>(
+pub async fn run_web_server<KEY: SignatureKey + 'static, const MAJOR: u16, const MINOR: u16>(
     shutdown_listener: Option<OneShotReceiver<()>>,
     url: Url,
 ) -> io::Result<()> {
@@ -948,7 +953,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 
     let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State<KEY>, Error>::with_state(state);
+    let mut app = App::<State<KEY>, Error, MAJOR, MINOR>::with_state(state);
 
     app.register_module("api", web_api).unwrap();
 

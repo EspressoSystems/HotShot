@@ -24,6 +24,7 @@ sha2 = { workspace = true }
 hotshot-task = { path = "../task" }
 async-broadcast = { workspace = true }
 chrono = "0.4"
+versioned-binary-serialization = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

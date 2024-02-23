@@ -30,6 +30,13 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
+
+/// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
+/// Orchestrator Version (major)
+pub const ORCHESTRATOR_MAJOR: u16 = 0;
+/// Orchestrator Version (minor)
+pub const ORCHESTRATOR_MINOR: u16 = 1;
+
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed
@@ -261,8 +268,13 @@ where
 }
 
 /// Sets up all API routes
-fn define_api<KEY: SignatureKey, ELECTION: ElectionConfig, State>(
-) -> Result<Api<State, ServerError>, ApiError>
+fn define_api<
+    KEY: SignatureKey,
+    ELECTION: ElectionConfig,
+    State,
+    const MAJOR: u16,
+    const MINOR: u16,
+>() -> Result<Api<State, ServerError, MAJOR, MINOR>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ELECTION>,
@@ -274,7 +286,7 @@ where
         "/api.toml"
     )))
     .expect("API file is not valid toml");
-    let mut api = Api::<State, ServerError>::new(api_toml)?;
+    let mut api = Api::<State, ServerError, MAJOR, MINOR>::new(api_toml)?;
     api.post("postidentity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();
@@ -341,7 +353,12 @@ where
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 
-    let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
+    let mut app = App::<
+        RwLock<OrchestratorState<KEY, ELECTION>>,
+        ServerError,
+        { crate::ORCHESTRATOR_MAJOR },
+        { crate::ORCHESTRATOR_MINOR },
+    >::with_state(state);
     app.register_module("api", web_api.unwrap())
         .expect("Error registering api");
     tracing::error!("listening on {:?}", url);

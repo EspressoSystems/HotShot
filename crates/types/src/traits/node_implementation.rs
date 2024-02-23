@@ -246,4 +246,13 @@ pub trait NodeType:
 
     /// Membership used for this implementation
     type Membership: Membership<Self>;
+
+    /// Initial Supported Major Version of Protocol
+    const MAJOR_V_OLD: u16;
+    /// Initial Supported Minor Version of Protocol
+    const MINOR_V_OLD: u16;
+    /// Available Upgrade Major Version of Protocol (same as initial if no upgrade available)
+    const MAJOR_V_NEW: u16;
+    /// Available Upgrade Minor Version of Protocol (same as initial if no upgrade available)
+    const MINOR_V_NEW: u16;
 }

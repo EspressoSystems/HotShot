@@ -44,6 +44,10 @@ impl NodeType for TestTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
+    const MAJOR_V_OLD: u16 = 0;
+    const MINOR_V_OLD: u16 = 0;
+    const MAJOR_V_NEW: u16 = 0;
+    const MINOR_V_NEW: u16 = 0;
 }
 
 /// Memory network implementation
@@ -73,10 +77,10 @@ pub type StaticMemoryDAComm =
 type StaticLibp2pDAComm = Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server network communication channel
-type StaticWebDAComm = WebServerNetwork<TestTypes>;
+type StaticWebDAComm = WebServerNetwork<TestTypes, 0, 1>;
 
 /// combined network
-type StaticCombinedDAComm = CombinedNetworks<TestTypes>;
+type StaticCombinedDAComm = CombinedNetworks<TestTypes, 0, 1>;
 
 /// memory comm channel
 pub type StaticMemoryQuorumComm =
@@ -87,10 +91,10 @@ type StaticLibp2pQuorumComm =
     Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server comm channel
-type StaticWebQuorumComm = WebServerNetwork<TestTypes>;
+type StaticWebQuorumComm = WebServerNetwork<TestTypes, 0, 1>;
 
 /// combined network (libp2p + web server)
-type StaticCombinedQuorumComm = CombinedNetworks<TestTypes>;
+type StaticCombinedQuorumComm = CombinedNetworks<TestTypes, 0, 1>;
 
 impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;

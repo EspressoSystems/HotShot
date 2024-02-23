@@ -25,10 +25,10 @@ use crate::{
 
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
-use hotshot_constants::Version;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
+use versioned_binary_serialization::version::Version;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]

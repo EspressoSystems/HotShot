@@ -55,6 +55,10 @@ impl NodeType for Test {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<Test, Self::SignatureKey>;
+    const MAJOR_V_OLD: u16 = 0;
+    const MINOR_V_OLD: u16 = 1;
+    const MAJOR_V_NEW: u16 = 0;
+    const MINOR_V_NEW: u16 = 1;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]

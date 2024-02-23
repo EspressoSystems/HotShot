@@ -15,7 +15,11 @@ use tide_disco::Url;
 /// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     /// the client
-    client: surf_disco::Client<ClientError>,
+    client: surf_disco::Client<
+        ClientError,
+        { crate::ORCHESTRATOR_MAJOR },
+        { crate::ORCHESTRATOR_MINOR },
+    >,
     /// the identity
     pub identity: String,
 }
@@ -96,7 +100,11 @@ impl OrchestratorClient {
     /// Creates the client that will connect to the orchestrator
     #[must_use]
     pub fn new(args: ValidatorArgs, identity: String) -> Self {
-        let client = surf_disco::Client::<ClientError>::new(args.url);
+        let client = surf_disco::Client::<
+            ClientError,
+            { crate::ORCHESTRATOR_MAJOR },
+            { crate::ORCHESTRATOR_MINOR },
+        >::new(args.url);
         // TODO ED: Add healthcheck wait here
         OrchestratorClient { client, identity }
     }
@@ -114,7 +122,11 @@ impl OrchestratorClient {
     ) -> NetworkConfig<K, E> {
         // get the node index
         let identity = identity.as_str();
-        let identity = |client: Client<ClientError>| {
+        let identity = |client: Client<
+            ClientError,
+            { crate::ORCHESTRATOR_MAJOR },
+            { crate::ORCHESTRATOR_MINOR },
+        >| {
             async move {
                 let node_index: Result<u16, ClientError> = client
                     .post(&format!("api/identity/{identity}"))
@@ -127,7 +139,11 @@ impl OrchestratorClient {
         let node_index = self.wait_for_fn_from_orchestrator(identity).await;
 
         // get the corresponding config
-        let f = |client: Client<ClientError>| {
+        let f = |client: Client<
+            ClientError,
+            { crate::ORCHESTRATOR_MAJOR },
+            { crate::ORCHESTRATOR_MINOR },
+        >| {
             async move {
                 let config: Result<NetworkConfig<K, E>, ClientError> = client
                     .post(&format!("api/config/{node_index}"))
@@ -167,9 +183,12 @@ impl OrchestratorClient {
             .await;
 
         // wait for all nodes' public keys
-        let wait_for_all_nodes_pub_key = |client: Client<ClientError>| {
-            async move { client.get("api/peer_pub_ready").send().await }.boxed()
-        };
+        let wait_for_all_nodes_pub_key =
+            |client: Client<
+                ClientError,
+                { crate::ORCHESTRATOR_MAJOR },
+                { crate::ORCHESTRATOR_MINOR },
+            >| { async move { client.get("api/peer_pub_ready").send().await }.boxed() };
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
 
@@ -186,7 +205,11 @@ impl OrchestratorClient {
     /// # Panics
     /// Panics if unable to post.
     pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
-        let send_ready_f = |client: Client<ClientError>| {
+        let send_ready_f = |client: Client<
+            ClientError,
+            { crate::ORCHESTRATOR_MAJOR },
+            { crate::ORCHESTRATOR_MINOR },
+        >| {
             async move {
                 let result: Result<_, ClientError> = client
                     .post("api/ready")
@@ -201,9 +224,12 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator::<_, _, ()>(send_ready_f)
             .await;
 
-        let wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
-            async move { client.get("api/start").send().await }.boxed()
-        };
+        let wait_for_all_nodes_ready_f =
+            |client: Client<
+                ClientError,
+                { crate::ORCHESTRATOR_MAJOR },
+                { crate::ORCHESTRATOR_MINOR },
+            >| { async move { client.get("api/start").send().await }.boxed() };
         self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
             .await
     }
@@ -212,7 +238,9 @@ impl OrchestratorClient {
     /// Returns whatever type the given function returns
     async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
-        F: Fn(Client<ClientError>) -> Fut,
+        F: Fn(
+            Client<ClientError, { crate::ORCHESTRATOR_MAJOR }, { crate::ORCHESTRATOR_MINOR }>,
+        ) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
     {
         loop {

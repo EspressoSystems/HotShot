@@ -51,6 +51,8 @@ async fn main() {
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            { TestTypes::MAJOR_V_OLD },
+            { TestTypes::MINOR_V_OLD },
         >(
             Some(server_shutdown_cdn),
             Url::parse("http://localhost:9000").unwrap(),
@@ -63,6 +65,8 @@ async fn main() {
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+            { TestTypes::MAJOR_V_OLD },
+            { TestTypes::MINOR_V_OLD },
         >(
             Some(server_shutdown_da),
             Url::parse("http://localhost:9001").unwrap(),

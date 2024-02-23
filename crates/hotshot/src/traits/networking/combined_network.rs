@@ -106,9 +106,9 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
-pub struct CombinedNetworks<TYPES: NodeType> {
+pub struct CombinedNetworks<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
     /// The two networks we'll use for send/recv
-    networks: Arc<UnderlyingCombinedNetworks<TYPES>>,
+    networks: Arc<UnderlyingCombinedNetworks<TYPES, MAJOR, MINOR>>,
 
     /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<Cache>>,
@@ -117,10 +117,10 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     primary_down: Arc<AtomicU64>,
 }
 
-impl<TYPES: NodeType> CombinedNetworks<TYPES> {
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> CombinedNetworks<TYPES, MAJOR, MINOR> {
     /// Constructor
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>) -> Self {
+    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES, MAJOR, MINOR>>) -> Self {
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
@@ -130,7 +130,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn primary(&self) -> &WebServerNetwork<TYPES> {
+    pub fn primary(&self) -> &WebServerNetwork<TYPES, MAJOR, MINOR> {
         &self.networks.0
     }
 
@@ -145,13 +145,15 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 #[derive(Debug, Clone)]
-pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
-    pub WebServerNetwork<TYPES>,
+pub struct UnderlyingCombinedNetworks<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>(
+    pub WebServerNetwork<TYPES, MAJOR, MINOR>,
     pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 );
 
 #[cfg(feature = "hotshot-testing")]
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES> {
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImplementation<TYPES>
+    for CombinedNetworks<TYPES, MAJOR, MINOR>
+{
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -161,9 +163,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
-            <WebServerNetwork<
-                TYPES,
-            > as TestableNetworkingImplementation<_>>::generator(
+            <WebServerNetwork<TYPES, MAJOR, MINOR> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -184,11 +184,11 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             let (quorum_web, da_web) = generators.0(node_id);
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES>>::into_inner(da_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, MAJOR, MINOR>>::into_inner(da_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES>>::into_inner(quorum_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, MAJOR, MINOR>>::into_inner(quorum_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
                     quorum_p2p,
                 ),
@@ -216,8 +216,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 }
 
 #[async_trait]
-impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for CombinedNetworks<TYPES>
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
+    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for CombinedNetworks<TYPES, MAJOR, MINOR>
 {
     fn pause(&self) {
         self.networks.0.pause();
@@ -360,8 +361,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
-            inject_consensus_info(self.primary(), event.clone()).await;
+        <WebServerNetwork<_, MAJOR, MINOR> as ConnectedNetwork<
+            Message<TYPES>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(self.primary(), event.clone())
+        .await;
 
         <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.secondary(), event).await;

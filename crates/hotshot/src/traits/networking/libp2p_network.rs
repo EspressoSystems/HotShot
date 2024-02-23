@@ -57,6 +57,7 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
+use versioned_binary_serialization::version::Version;
 
 /// convienence alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -591,24 +592,23 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         is_bootstrapped.store(true, Ordering::Relaxed);
                     }
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
-                        let message_version = read_version(raw);
-                        match message_version {
-                            Some(VERSION_0_1) => {
+                        match Version::deserialize(&raw) {
+                            Ok((VERSION_0_1, _rest)) => {
                                 let _ = handle
                                     .handle_recvd_events_0_1(message, &direct_send, &broadcast_send)
                                     .await;
                             }
-                            Some(version) => {
+                            Ok((version, _)) => {
                                 warn!(
-                            "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                            version, message
-                        );
+                                        "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                        version, message
+                                    );
                             }
-                            _ => {
+                            Err(e) => {
                                 warn!(
-                            "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
-                            message
-                        );
+                                    "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
+                                    e, message
+                                );
                             }
                         }
                     }

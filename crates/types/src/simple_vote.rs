@@ -6,7 +6,7 @@ use commit::{Commitment, Committable};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use hotshot_constants::Version;
+use versioned_binary_serialization::version::Version;
 
 use crate::{
     data::{Leaf, VidCommitment},

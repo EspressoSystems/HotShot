@@ -62,19 +62,21 @@ fn hash<T: Hash>(t: &T) -> u64 {
 
 /// The web server network state
 #[derive(Clone, Debug)]
-pub struct WebServerNetwork<TYPES: NodeType> {
+pub struct WebServerNetwork<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<TYPES>>,
+    inner: Arc<Inner<TYPES, MAJOR, MINOR>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeType> WebServerNetwork<TYPES> {
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> WebServerNetwork<TYPES, MAJOR, MINOR> {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(
         &self,
         message: SendMsg<Message<TYPES>>,
     ) -> Result<(), NetworkError> {
+        // Note: it should be possible to get the version of Message and choose client_initial or (if available)
+        // client_new_ver based on Message. But we do always know
         let result: Result<(), ClientError> = self
             .inner
             .client
@@ -166,7 +168,7 @@ impl<K: SignatureKey> TaskMap<K> {
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<TYPES: NodeType> {
+struct Inner<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for broadcasted messages
@@ -177,8 +179,8 @@ struct Inner<TYPES: NodeType> {
     running: AtomicBool,
     /// The web server connection is ready
     connected: AtomicBool,
-    /// The connectioni to the web server
-    client: surf_disco::Client<ClientError>,
+    /// The connection to the web server
+    client: surf_disco::Client<ClientError, MAJOR, MINOR>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
@@ -207,7 +209,7 @@ struct Inner<TYPES: NodeType> {
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
-impl<TYPES: NodeType> Inner<TYPES> {
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MINOR> {
     #![allow(clippy::too_many_lines)]
 
     /// Handle version 0.1 transactions
@@ -356,7 +358,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
         false
     }
 
-    /// Pull a web server.
+    /// Poll a web server.
     async fn poll_web_server(
         &self,
         receiver: UnboundedReceiver<ConsensusIntentEvent<TYPES::SignatureKey>>,
@@ -398,6 +400,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             };
 
             if let MessagePurpose::Data = message_purpose {
+                // Note: this should also be polling on client_
                 let possible_message: TxnResult = self.client.get(&endpoint).send().await;
                 // Deserialize and process transactions from the server.
                 // If something goes wrong at any point, we sleep for wait_between_polls
@@ -455,6 +458,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             } else {
                 let possible_message: Result<Option<Vec<Vec<u8>>>, ClientError> =
                     self.client.get(&endpoint).send().await;
+
                 if let Ok(Some(messages)) = possible_message {
                     for message_raw in messages {
                         // This is very hacky.
@@ -620,7 +624,9 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
 impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
-impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
+impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
+    WebServerNetwork<TYPES, MAJOR, MINOR>
+{
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
@@ -633,7 +639,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
         // TODO ED Wait for healthcheck
-        let client = surf_disco::Client::<ClientError>::new(url);
+        let initial_url = url.clone();
+        let client = surf_disco::Client::<ClientError, MAJOR, MINOR>::new(initial_url);
 
         let inner = Arc::new(Inner {
             broadcast_poll_queue_0_1: Arc::default(),
@@ -716,7 +723,7 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         info!("Launching web server on port {port}");
         // Start web server
         async_spawn(async {
-            match hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+            match hotshot_web_server::run_web_server::<TYPES::SignatureKey, MAJOR, MINOR>(
                 Some(server_shutdown),
                 url,
             )
@@ -753,8 +760,9 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for WebServerNetwork<TYPES>
+impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
+    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for WebServerNetwork<TYPES, MAJOR, MINOR>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -1276,7 +1284,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     }
 }
 
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwork<TYPES> {
+impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImplementation<TYPES>
+    for WebServerNetwork<TYPES, MAJOR, MINOR>
+{
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,

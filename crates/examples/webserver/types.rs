@@ -10,13 +10,13 @@ use std::fmt::Debug;
 pub struct NodeImpl {}
 
 /// convenience type alias
-pub type DANetwork = WebServerNetwork<TestTypes>;
+pub type DANetwork = WebServerNetwork<TestTypes, 0, 1>;
 /// convenience type alias
-pub type VIDNetwork = WebServerNetwork<TestTypes>;
+pub type VIDNetwork = WebServerNetwork<TestTypes, 0, 1>;
 /// convenience type alias
-pub type QuorumNetwork = WebServerNetwork<TestTypes>;
+pub type QuorumNetwork = WebServerNetwork<TestTypes, 0, 1>;
 /// convenience type alias
-pub type ViewSyncNetwork = WebServerNetwork<TestTypes>;
+pub type ViewSyncNetwork = WebServerNetwork<TestTypes, 0, 1>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
     type Storage = MemoryStorage<TestTypes>;
@@ -24,4 +24,4 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
 }
 /// convenience type alias
-pub type ThisRun = WebServerDARun<TestTypes>;
+pub type ThisRun = WebServerDARun<TestTypes, 0, 1>;
