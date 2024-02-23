@@ -49,7 +49,7 @@ use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
-use futures::{channel::mpsc, future::join_all, SinkExt};
+use futures::{future::join_all, SinkExt};
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -326,7 +326,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
-        let (tx, mut rx, pid) = Box::pin(spawn_network_node(config.clone())).await.unwrap();
+        let (tx, mut rx, _pid) = Box::pin(spawn_network_node(config.clone())).await.unwrap();
         let network_handle = Arc::new(
             Box::pin(NetworkNodeHandle::<()>::new(config, id, tx))
                 .await

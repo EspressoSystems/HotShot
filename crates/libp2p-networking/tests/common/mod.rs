@@ -3,7 +3,7 @@ use async_compatibility_layer::{
     channel::{bounded, RecvError},
     logging::{setup_backtrace, setup_logging},
 };
-use futures::{channel::mpsc, future::join_all, Future, FutureExt, SinkExt};
+use futures::{future::join_all, Future, FutureExt, SinkExt};
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{
@@ -67,7 +67,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     run_test(handles.clone(), timeout).await;
 
     // cleanup
-    for mut switch in kill_switches {
+    for switch in kill_switches {
         switch.send(()).await.unwrap();
     }
 
@@ -141,7 +141,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (tx, rx, pid) = spawn_network_node(config.clone()).await.unwrap();
+        let (tx, rx, _pid) = spawn_network_node(config.clone()).await.unwrap();
         let node = Box::pin(NetworkNodeHandle::new(config, i, tx))
             .await
             .context(HandleSnafu)?;
@@ -175,7 +175,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (tx, rx, pid) = spawn_network_node(regular_node_config.clone())
+        let (tx, rx, _pid) = spawn_network_node(regular_node_config.clone())
             .await
             .unwrap();
 

@@ -6,13 +6,13 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
-        bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
+        bounded, Receiver, SendError, Sender,
         UnboundedReceiver, UnboundedRecvError, UnboundedSender,
     },
 };
 use async_lock::Mutex;
 use bincode::Options;
-use futures::{channel::mpsc, stream::FuturesOrdered, Future, FutureExt, StreamExt};
+use futures::{stream::FuturesOrdered, Future, FutureExt, StreamExt};
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -22,7 +22,6 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::{Duration, Instant},
