@@ -254,8 +254,8 @@
 
     <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
     </span><span class="kw">let </span>srs = test_srs(num_storage_nodes);
-
-    <span class="kw">let </span>vid = VidScheme::new(num_chunks, num_storage_nodes, srs).unwrap();
+    <span class="kw">let </span>multiplicity = <span class="number">1</span>;
+    <span class="kw">let </span>vid = VidScheme::new(num_chunks, num_storage_nodes, multiplicity, srs).unwrap();
     vid.commit_only(encoded_transactions).unwrap()
 }
 

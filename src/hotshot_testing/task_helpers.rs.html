@@ -748,7 +748,7 @@
 
     <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
     </span><span class="kw">let </span>srs = hotshot_types::data::test_srs(num_committee);
-
-    VidScheme::new(chunk_size, num_committee, srs).unwrap()
+    <span class="kw">let </span>multiplicity = <span class="number">1</span>;
+    VidScheme::new(chunk_size, num_committee, multiplicity, srs).unwrap()
 }
 </code></pre></div></section></main></body></html>
