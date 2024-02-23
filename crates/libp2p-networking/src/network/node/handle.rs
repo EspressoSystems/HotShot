@@ -6,13 +6,13 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
-        bounded, Receiver, SendError, Sender,
-        UnboundedReceiver, UnboundedRecvError, UnboundedSender,
+        bounded, Receiver, SendError, Sender, UnboundedReceiver, UnboundedRecvError,
+        UnboundedSender,
     },
 };
 use async_lock::Mutex;
 use bincode::Options;
-use futures::{stream::FuturesOrdered, Future, FutureExt, StreamExt};
+use futures::{stream::FuturesOrdered, Future, FutureExt};
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -21,12 +21,10 @@ use snafu::{ResultExt, Snafu};
 use std::{
     collections::HashSet,
     fmt::Debug,
-    sync::{
-        Arc,
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
-use tracing::{debug, info, instrument};
+use tracing::{debug, info};
 
 /// A handle containing:
 /// - A reference to the state
@@ -67,6 +65,8 @@ pub struct NetworkNodeReceiver {
 
 impl NetworkNodeReceiver {
     /// recv a network event
+    /// # Errors
+    /// Errors if the receiver channel is closed
     pub async fn recv(&self) -> Result<NetworkEvent, NetworkNodeHandleError> {
         self.receiver.recv().await.context(ReceiverEndedSnafu)
     }
@@ -74,13 +74,21 @@ impl NetworkNodeReceiver {
     pub fn set_kill_switch(&mut self, kill_switch: Receiver<()>) {
         self.recv_kill = Some(kill_switch);
     }
+
+    /// Take the kill switch to allow killing the receiver task
+    pub fn take_kill_switch(&mut self) -> Option<Receiver<()>> {
+        self.recv_kill.take()
+    }
 }
 
-pub async fn spawn_network_node(
+/// Spawn a network node task task and return the handle and the receiver for it
+/// # Errors
+/// Errors if spawning the task fails
+pub async fn spawn_network_node<S: Default + Debug>(
     config: NetworkNodeConfig,
-) -> Result<(UnboundedSender<ClientRequest>, NetworkNodeReceiver, PeerId), NetworkError> {
+    id: usize,
+) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<S>), NetworkError> {
     let network = NetworkNode::new(config.clone()).await?;
-    let pid = network.peer_id();
     // pin here to force the future onto the heap since it can be large
     // in the case of flume
     let (send_chan, recv_chan) = Box::pin(network.spawn_listeners()).await?;
@@ -88,44 +96,30 @@ pub async fn spawn_network_node(
         receiver: recv_chan,
         recv_kill: None,
     };
-    Ok((send_chan, receiver, pid))
+    // randomly assigned port
+    let listen_addr = config
+        .bound_addr
+        .clone()
+        .unwrap_or_else(|| gen_multiaddr(0));
+    let mut network = NetworkNode::new(config.clone()).await?;
+
+    let peer_id = network.peer_id();
+    let listen_addr = network.start_listen(listen_addr).await?;
+    info!("LISTEN ADDRESS IS {:?}", listen_addr);
+
+    let handle = NetworkNodeHandle {
+        network_config: config,
+        state: std::sync::Arc::default(),
+        send_network: send_chan,
+        listen_addr,
+        peer_id,
+        id,
+        webui_listeners: Arc::default(),
+    };
+    Ok((receiver, handle))
 }
 
 impl<S: Default + Debug> NetworkNodeHandle<S> {
-    /// constructs a new node listening on `known_addr`
-    #[instrument]
-    pub async fn new(
-        config: NetworkNodeConfig,
-        id: usize,
-        send_chan: UnboundedSender<ClientRequest>,
-    ) -> Result<Self, NetworkNodeHandleError> {
-        // randomly assigned port
-        let listen_addr = config
-            .bound_addr
-            .clone()
-            .unwrap_or_else(|| gen_multiaddr(0));
-        let mut network = NetworkNode::new(config.clone())
-            .await
-            .context(NetworkSnafu)?;
-
-        let peer_id = network.peer_id();
-        let listen_addr = network
-            .start_listen(listen_addr)
-            .await
-            .context(NetworkSnafu)?;
-        info!("LISTEN ADDRESS IS {:?}", listen_addr);
-
-        Ok(NetworkNodeHandle {
-            network_config: config,
-            state: std::sync::Arc::default(),
-            send_network: send_chan,
-            listen_addr,
-            peer_id,
-            id,
-            webui_listeners: Arc::default(),
-        })
-    }
-
     /// Spawn a handler `F` that will be notified every time a new [`NetworkEvent`] arrives.
     ///
     /// # Panics
@@ -196,6 +190,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     }
 
     /// Get a reference to the network node handle's listen addr.
+    #[must_use]
     pub fn listen_addr(&self) -> Multiaddr {
         self.listen_addr.clone()
     }
@@ -547,16 +542,19 @@ impl<S> NetworkNodeHandle<S> {
     }
 
     /// Get a reference to the network node handle's id.
+    #[must_use]
     pub fn id(&self) -> usize {
         self.id
     }
 
     /// Get a reference to the network node handle's peer id.
+    #[must_use]
     pub fn peer_id(&self) -> PeerId {
         self.peer_id
     }
 
     /// Return a reference to the network config
+    #[must_use]
     pub fn config(&self) -> &NetworkNodeConfig {
         &self.network_config
     }

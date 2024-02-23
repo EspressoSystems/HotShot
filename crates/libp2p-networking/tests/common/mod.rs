@@ -3,7 +3,7 @@ use async_compatibility_layer::{
     channel::{bounded, RecvError},
     logging::{setup_backtrace, setup_logging},
 };
-use futures::{future::join_all, Future, FutureExt, SinkExt};
+use futures::{future::join_all, Future, FutureExt};
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{
@@ -106,6 +106,7 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
 
 /// Spins up `num_of_nodes` nodes, connects them to each other
 /// and waits for connections to propagate to all nodes.
+#[allow(clippy::type_complexity)]
 #[instrument]
 pub async fn spin_up_swarms<S: Debug + Default>(
     num_of_nodes: usize,
@@ -141,10 +142,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (tx, rx, _pid) = spawn_network_node(config.clone()).await.unwrap();
-        let node = Box::pin(NetworkNodeHandle::new(config, i, tx))
-            .await
-            .context(HandleSnafu)?;
+        let (rx, node) = spawn_network_node(config.clone(), i).await.unwrap();
         let node = Arc::new(node);
         let addr = node.listen_addr();
         info!("listen addr for {} is {:?}", i, addr);
@@ -175,17 +173,10 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (tx, rx, _pid) = spawn_network_node(regular_node_config.clone())
+        let (rx, node) = spawn_network_node(regular_node_config.clone(), j + num_bootstrap)
             .await
             .unwrap();
 
-        let node = Box::pin(NetworkNodeHandle::new(
-            regular_node_config.clone(),
-            j + num_bootstrap,
-            tx,
-        ))
-        .await
-        .context(HandleSnafu)?;
         let node = Arc::new(node);
         connecting_futs.push({
             let node = node.clone();
