@@ -418,7 +418,7 @@
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>consensus_state = ConsensusTaskState::create_from(handle);
+    <span class="kw">let </span>consensus_state = ConsensusTaskState::create_from(handle).<span class="kw">await</span>;
 
     inject_consensus_polls(<span class="kw-2">&amp;</span>consensus_state).<span class="kw">await</span>;
 
@@ -433,7 +433,7 @@
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>vid_state = VIDTaskState::create_from(handle);
+    <span class="kw">let </span>vid_state = VIDTaskState::create_from(handle).<span class="kw">await</span>;
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), vid_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
@@ -445,7 +445,7 @@
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>upgrade_state = UpgradeTaskState::create_from(handle);
+    <span class="kw">let </span>upgrade_state = UpgradeTaskState::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), upgrade_state);
     task_reg.run_task(task).<span class="kw">await</span>;
@@ -458,7 +458,7 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     <span class="comment">// build the da task
-    </span><span class="kw">let </span>da_state = DATaskState::create_from(handle);
+    </span><span class="kw">let </span>da_state = DATaskState::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), da_state);
     task_reg.run_task(task).<span class="kw">await</span>;
@@ -471,7 +471,7 @@
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>transactions_state = TransactionTaskState::create_from(handle);
+    <span class="kw">let </span>transactions_state = TransactionTaskState::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), transactions_state);
     task_reg.run_task(task).<span class="kw">await</span>;
@@ -484,7 +484,7 @@
     rx: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>view_sync_state = ViewSyncTaskState::create_from(handle);
+    <span class="kw">let </span>view_sync_state = ViewSyncTaskState::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), view_sync_state);
     task_reg.run_task(task).<span class="kw">await</span>;

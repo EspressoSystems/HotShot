@@ -1179,7 +1179,7 @@
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE&gt; {
-        <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {})
+        <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
             .expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.get_config();

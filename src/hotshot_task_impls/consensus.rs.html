@@ -1389,6 +1389,15 @@
 <a href="#1388" id="1388">1388</a>
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1786,15 +1795,24 @@
                     .<span class="kw">await</span>;
                 }
             }));
-            <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+            <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
             consensus
                 .metrics
                 .current_view
                 .set(usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap());
-            consensus.metrics.number_of_views_since_last_decide.set(
-                usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap()
-                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
-            );
+            <span class="comment">// Do the comparison before the substraction to avoid potential overflow, since
+            // `last_decided_view` may be greater than `cur_view` if the node is catching up.
+            </span><span class="kw">if </span>usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap()
+                &gt; usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
+            {
+                consensus.metrics.number_of_views_since_last_decide.set(
+                    usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap()
+                        - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                );
+            }
+            <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+            consensus.update_view(new_view);
+            drop(consensus);
 
             <span class="kw">return </span><span class="bool-val">true</span>;
         }

@@ -407,6 +407,34 @@
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -421,6 +449,7 @@
     view_sync_task::ViewSyncTask,
 };
 <span class="kw">use </span>async_broadcast::broadcast;
+<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
 <span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
@@ -431,6 +460,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TestTask};
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
+    data::Leaf,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -461,13 +491,24 @@
     </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
 }
 
+<span class="doccomment">/// Either the node context or the parameters to construct the context for nodes that start late.
+</span><span class="kw">pub type </span>LateNodeContext&lt;TYPES, I&gt; = Either&lt;
+    Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
+    (
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
+        Memberships&lt;TYPES&gt;,
+        HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, &lt;TYPES <span class="kw">as </span>NodeType&gt;::ElectionConfigType&gt;,
+    ),
+&gt;;
+
 <span class="doccomment">/// A yet-to-be-started node that participates in tests
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The underlying networks belonging to the node
     </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
-    <span class="doccomment">/// The context to which we will use to launch HotShot when it's time
-    </span><span class="kw">pub </span>context: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
+    /// time, or the parameters that will be used to initialize the node and launch HotShot.
+    </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
@@ -519,6 +560,7 @@
     I: NodeImplementation&lt;TYPES, QuorumNetwork = N, CommitteeNetwork = N&gt;,
 {
     <span class="doccomment">/// excecute test
+    ///
     /// # Panics
     /// if the test fails
     </span><span class="attr">#[allow(clippy::too_many_lines)]
@@ -605,6 +647,7 @@
             late_start,
             latest_view: <span class="prelude-val">None</span>,
             changes,
+            last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;, SpinningTask&lt;TYPES, I&gt;&gt;::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
@@ -708,45 +751,82 @@
         </span>);
     }
 
-    <span class="doccomment">/// add nodes
+    <span class="doccomment">/// Add nodes.
+    ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
     </span><span class="kw">pub async fn </span>add_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, total: usize, late_start: <span class="kw-2">&amp;</span>HashSet&lt;u64&gt;) -&gt; Vec&lt;u64&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
-            <span class="macro">tracing::debug!</span>(<span class="string">"launch node {}"</span>, i);
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
+            <span class="self">self</span>.next_node_id += <span class="number">1</span>;
+            <span class="macro">tracing::debug!</span>(<span class="string">"launch node {}"</span>, i);
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
-            <span class="kw">let </span>initializer =
-                HotShotInitializer::&lt;TYPES&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {}).unwrap();
+            <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
+            <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+                TYPES::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
+            });
+            <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
+            <span class="kw">let </span>memberships = Memberships {
+                quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    committee_election_config(config.da_committee_size <span class="kw">as </span>u64),
+                ),
+                vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config,
+                ),
+            };
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id);
-            <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
-            </span><span class="kw">let </span>validator_config =
-                ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>);
-            <span class="kw">let </span>hotshot = <span class="self">self
-                </span>.add_node_with_config(
+
+            <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {
+                <span class="self">self</span>.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: Right((storage, memberships, config)),
+                    },
+                );
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>initializer =
+                    HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {}).unwrap();
+                <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
+                </span><span class="kw">let </span>validator_config =
+                    ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>);
+                <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
+                    node_id,
                     networks.clone(),
                     storage,
+                    memberships,
                     initializer,
                     config,
                     validator_config,
                 )
                 .<span class="kw">await</span>;
-            <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
-                <span class="self">self</span>.late_start.insert(
-                    node_id,
-                    LateStartNode {
+                <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
+                    <span class="self">self</span>.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            networks,
+                            context: Left(hotshot),
+                        },
+                    );
+                } <span class="kw">else </span>{
+                    <span class="self">self</span>.nodes.push(Node {
+                        node_id,
                         networks,
-                        context: hotshot,
-                    },
-                );
-            } <span class="kw">else </span>{
-                <span class="self">self</span>.nodes.push(Node {
-                    node_id,
-                    networks,
-                    handle: hotshot.run_tasks().<span class="kw">await</span>,
-                });
+                        handle: hotshot.run_tasks().<span class="kw">await</span>,
+                    });
+                }
             }
             results.push(node_id);
         }
@@ -758,46 +838,22 @@
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
     </span><span class="kw">pub async fn </span>add_node_with_config(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        node_id: u64,
         networks: Networks&lt;TYPES, I&gt;,
         storage: I::Storage,
+        memberships: Memberships&lt;TYPES&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
     ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
-        <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
-        <span class="self">self</span>.next_node_id += <span class="number">1</span>;
-        <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
         <span class="comment">// Get key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
         <span class="kw">let </span>public_key = validator_config.public_key.clone();
-        <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
-        });
-        <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
+
         <span class="kw">let </span>network_bundle = hotshot::Networks {
             quorum_network: networks.<span class="number">0</span>.clone(),
             da_network: networks.<span class="number">1</span>.clone(),
             _pd: PhantomData,
-        };
-
-        <span class="kw">let </span>memberships = Memberships {
-            quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                committee_election_config(config.da_committee_size <span class="kw">as </span>u64),
-            ),
-            vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config,
-            ),
         };
 
         SystemContext::new(

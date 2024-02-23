@@ -193,8 +193,18 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
@@ -219,24 +229,26 @@
 };
 
 <span class="doccomment">/// Trait for creating task states.
+</span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>CreateTaskState&lt;TYPES, I&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
 {
     <span class="doccomment">/// Function to create the task state from a given `SystemContextHandle`.
-    </span><span class="kw">fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; UpgradeTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         UpgradeTaskState {
             api: handle.clone(),
-            cur_view: TYPES::Time::new(<span class="number">0</span>),
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
             should_vote: |_upgrade_proposal| <span class="bool-val">false</span>,
@@ -248,16 +260,17 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>VIDTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; VIDTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         VIDTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
-            cur_view: TYPES::Time::new(<span class="number">0</span>),
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle.hotshot.memberships.vid_membership.clone().into(),
@@ -268,10 +281,11 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>DATaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; DATaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         DATaskState {
@@ -280,7 +294,7 @@
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             da_network: handle.hotshot.networks.da_network.clone(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            cur_view: TYPES::Time::new(<span class="number">0</span>),
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -289,15 +303,17 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; ViewSyncTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+        <span class="kw">let </span>cur_view = handle.get_cur_view().<span class="kw">await</span>;
         ViewSyncTaskState {
-            current_view: TYPES::Time::new(<span class="number">0</span>),
-            next_view: TYPES::Time::new(<span class="number">0</span>),
+            current_view: cur_view,
+            next_view: cur_view,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle
                 .hotshot
@@ -320,10 +336,11 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; TransactionTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         TransactionTaskState {
@@ -331,7 +348,7 @@
             consensus: handle.hotshot.get_consensus(),
             transactions: Arc::default(),
             seen_transactions: HashSet::new(),
-            cur_view: TYPES::Time::new(<span class="number">0</span>),
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
@@ -341,10 +358,11 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
-    <span class="kw">fn </span>create_from(
+    <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; ConsensusTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
@@ -358,7 +376,7 @@
         ConsensusTaskState {
             consensus,
             timeout: handle.hotshot.config.next_view_timeout,
-            cur_view: TYPES::Time::new(<span class="number">0</span>),
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             payload_commitment_and_metadata: <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                 commitment: payload_commitment,
                 metadata,

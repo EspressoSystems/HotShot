@@ -326,6 +326,7 @@
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -512,6 +513,7 @@
                     make_block = <span class="self">self</span>.membership.get_leader(view) == <span class="self">self</span>.public_key;
                 }
                 <span class="self">self</span>.cur_view = view;
+                <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_view(view);
 
                 <span class="comment">// return if we aren't the next leader or we skipped last view and aren't the current leader.
                 </span><span class="kw">if </span>!make_block &amp;&amp; <span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {

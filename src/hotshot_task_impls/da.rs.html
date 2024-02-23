@@ -354,6 +354,7 @@
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -584,6 +585,7 @@
                     <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
+                <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_view(view);
 
                 <span class="comment">// Inject view info into network
                 </span><span class="kw">let </span>is_da = <span class="self">self

@@ -177,7 +177,6 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -351,9 +350,8 @@
         <span class="self">self</span>.hotshot.public_key.clone()
     }
 
-    <span class="doccomment">/// Wrapper to get this node's current view
-    </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-    </span><span class="kw">pub async fn </span>get_current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="doccomment">/// Wrapper to get the view number this node is on.
+    </span><span class="kw">pub async fn </span>get_cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view
     }
 }

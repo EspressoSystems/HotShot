@@ -440,7 +440,7 @@
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(<span class="kw-2">&amp;</span>TestInstanceState {}).unwrap();
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {}).unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();

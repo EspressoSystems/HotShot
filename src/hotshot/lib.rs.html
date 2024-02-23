@@ -630,6 +630,22 @@
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
 <a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -734,6 +750,7 @@
 }
 
 <span class="doccomment">/// Bundle of all the memberships a consensus instance uses
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Memberships&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Quorum Membership
     </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
@@ -787,8 +804,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options and sets it up with the given
-    /// genesis block
+    <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
@@ -819,7 +835,9 @@
 
         <span class="comment">// insert genesis (or latest block) to state map
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
-        <span class="kw">let </span>validated_state = Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state));
+        <span class="kw">let </span>validated_state = Arc::new(TYPES::ValidatedState::from_header(
+            <span class="kw-2">&amp;</span>anchored_leaf.block_header,
+        ));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -843,10 +861,12 @@
                 }
             };
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
-            saved_payloads.insert(TYPES::Time::new(<span class="number">1</span>), encoded_txns);
+            <span class="comment">// View 1 doesn't have DA which is responsible for saving the payloads, so we store the
+            // payload for view 1 manually during the intialization.
+            </span>saved_payloads.insert(TYPES::Time::new(<span class="number">1</span>), encoded_txns);
         }
 
-        <span class="kw">let </span>start_view = anchored_leaf.get_view_number();
+        <span class="kw">let </span>start_view = initializer.start_view;
 
         <span class="kw">let </span>consensus = Consensus {
             instance_state,
@@ -911,7 +931,7 @@
         broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// Publishes a transaction asynchronously to the network
+    <span class="doccomment">/// Publishes a transaction asynchronously to the network.
     ///
     /// # Errors
     ///
@@ -922,11 +942,12 @@
         transaction: TYPES::Transaction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">trace!</span>(<span class="string">"Adding transaction to our own queue"</span>);
-        <span class="comment">// Wrap up a message
-        // TODO place a view number here that makes sense
-        // we haven't worked out how this will work yet
-        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), TYPES::Time::new(<span class="number">0</span>));
+
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
+        <span class="kw">let </span>view_number = api.consensus.read().<span class="kw">await</span>.cur_view;
+
+        <span class="comment">// Wrap up a message
+        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.memberships.da_membership.clone();
@@ -944,11 +965,11 @@
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(TYPES::Time::new(<span class="number">0</span>)),
+                        da_membership.get_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
-                        view_number: api.consensus.read().<span class="kw">await</span>.cur_view,
+                        view_number,
                         event: EventType::Transactions {
                             transactions: <span class="macro">vec!</span>[transaction],
                         },
@@ -1238,26 +1259,37 @@
 
     <span class="doccomment">/// Instance-level state.
     </span>instance_state: TYPES::InstanceState,
+
+    <span class="doccomment">/// Starting view number that we are confident won't lead to a double vote after restart.
+    </span>start_view: TYPES::Time,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
     <span class="doccomment">/// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    </span><span class="kw">pub fn </span>from_genesis(
-        instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>from_genesis(instance_state: TYPES::InstanceState) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf::genesis(instance_state),
-            instance_state: instance_state.clone(),
+            inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
+            instance_state,
+            start_view: TYPES::Time::new(<span class="number">0</span>),
         })
     }
 
-    <span class="doccomment">/// reload previous state based on most recent leaf and the instance-level state.
-    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;TYPES&gt;, instance_state: TYPES::InstanceState) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Reload previous state based on most recent leaf and the instance-level state.
+    ///
+    /// # Arguments
+    /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
+    /// after restart.
+    </span><span class="kw">pub fn </span>from_reload(
+        anchor_leaf: Leaf&lt;TYPES&gt;,
+        instance_state: TYPES::InstanceState,
+        start_view: TYPES::Time,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner: anchor_leaf,
             instance_state,
+            start_view,
         }
     }
 }

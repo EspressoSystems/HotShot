@@ -299,6 +299,13 @@
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::NetworkReliability, types::SignatureKey};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -311,15 +318,15 @@
 };
 
 <span class="kw">use </span><span class="kw">super</span>::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
+<span class="kw">use super</span>::{
+    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
+};
 <span class="kw">use crate</span>::{
     spinning_task::SpinningTaskDescription,
     test_launcher::{ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
-
-<span class="kw">use super</span>::{
-    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
-};
+<span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
 <span class="doccomment">/// data describing how a round should be timed.
 </span><span class="attr">#[derive(Clone, Debug, Copy)]
 </span><span class="kw">pub struct </span>TimingData {
@@ -344,6 +351,9 @@
     </span><span class="kw">pub </span>total_nodes: usize,
     <span class="doccomment">/// nodes available at start
     </span><span class="kw">pub </span>start_nodes: usize,
+    <span class="doccomment">/// Whether to skip initializing nodes that will start late, which will catch up later with
+    /// `HotShotInitializer::from_reload` in the spinning task.
+    </span><span class="kw">pub </span>skip_late: bool,
     <span class="doccomment">/// number of bootstrap nodes (libp2p usage only)
     </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
     <span class="doccomment">/// Size of the DA committee for the test
@@ -478,6 +488,7 @@
             min_transactions: <span class="number">0</span>,
             total_nodes: num_nodes,
             start_nodes: num_nodes,
+            skip_late: <span class="bool-val">false</span>,
             num_bootstrap_nodes: num_nodes,
             da_committee_size: num_nodes,
             spinning_properties: SpinningTaskDescription {
@@ -504,7 +515,10 @@
     /// # Panics
     /// if some of the the configuration values are zero
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>gen_launcher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt;(
+    </span><span class="kw">pub fn </span>gen_launcher&lt;
+        TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+        I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
+    &gt;(
         <span class="self">self</span>,
         node_id: u64,
     ) -&gt; TestLauncher&lt;TYPES, I&gt;
