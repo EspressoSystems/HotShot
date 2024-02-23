@@ -11,9 +11,9 @@ pub use self::{
     def::NetworkDef,
     error::NetworkError,
     node::{
-        network_node_handle_error, MeshParams, NetworkNode, NetworkNodeConfig,
+        network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
         NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
-        NetworkNodeHandleError,
+        NetworkNodeHandleError, NetworkNodeReceiver,
     },
 };
 

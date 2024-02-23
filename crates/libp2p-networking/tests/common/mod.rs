@@ -1,14 +1,15 @@
 use async_compatibility_layer::{
     art::async_sleep,
-    channel::RecvError,
+    channel::{bounded, RecvError},
     logging::{setup_backtrace, setup_logging},
 };
-use futures::{future::join_all, Future, FutureExt};
+use futures::{channel::mpsc, future::join_all, Future, FutureExt, SinkExt};
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{
-    network_node_handle_error::NodeConfigSnafu, NetworkEvent, NetworkNodeConfigBuilder,
-    NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
+    network_node_handle_error::NodeConfigSnafu, spawn_network_node, NetworkEvent,
+    NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+    NetworkNodeType,
 };
 use snafu::{ResultExt, Snafu};
 use std::{
@@ -45,23 +46,29 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     setup_logging();
     setup_backtrace();
 
+    let mut kill_switches = Vec::new();
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
-    let handles = spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
+    let handles_and_receivers = spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
         .await
         .unwrap();
 
+    let (handles, receivers): (Vec<_>, Vec<_>) = handles_and_receivers.into_iter().unzip();
     let mut handler_futures = Vec::new();
-    for handle in &handles {
-        let handler_fut = handle.spawn_handler(client_handler.clone()).await;
+    for (i, mut rx) in receivers.into_iter().enumerate() {
+        let (kill_tx, kill_rx) = bounded(1);
+        let handle = &handles[i];
+        kill_switches.push(kill_tx);
+        rx.set_kill_switch(kill_rx);
+        let handler_fut = handle.spawn_handler(rx, client_handler.clone()).await;
         handler_futures.push(handler_fut);
     }
 
     run_test(handles.clone(), timeout).await;
 
     // cleanup
-    for handle in handles {
-        handle.shutdown().await.unwrap();
+    for mut switch in kill_switches {
+        switch.send(()).await.unwrap();
     }
 
     for fut in handler_futures {
@@ -104,7 +111,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
     num_of_nodes: usize,
     timeout_len: Duration,
     num_bootstrap: usize,
-) -> Result<Vec<Arc<NetworkNodeHandle<S>>>, TestError<S>> {
+) -> Result<Vec<(Arc<NetworkNodeHandle<S>>, NetworkNodeReceiver)>, TestError<S>> {
     let mut handles = Vec::new();
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
@@ -130,15 +137,14 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .bound_addr(Some(addr))
             .ttl(None)
             .republication_interval(None);
-        let node = Box::pin(NetworkNodeHandle::new(
-            config
-                .build()
-                .context(NodeConfigSnafu)
-                .context(HandleSnafu)?,
-            i,
-        ))
-        .await
-        .context(HandleSnafu)?;
+        let config = config
+            .build()
+            .context(NodeConfigSnafu)
+            .context(HandleSnafu)?;
+        let (tx, rx, pid) = spawn_network_node(config.clone()).await.unwrap();
+        let node = Box::pin(NetworkNodeHandle::new(config, i, tx))
+            .await
+            .context(HandleSnafu)?;
         let node = Arc::new(node);
         let addr = node.listen_addr();
         info!("listen addr for {} is {:?}", i, addr);
@@ -151,7 +157,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             }
             .boxed_local()
         });
-        handles.push(node);
+        handles.push((node, rx));
     }
 
     for j in 0..(num_of_nodes - num_bootstrap) {
@@ -169,9 +175,14 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
+        let (tx, rx, pid) = spawn_network_node(regular_node_config.clone())
+            .await
+            .unwrap();
+
         let node = Box::pin(NetworkNodeHandle::new(
             regular_node_config.clone(),
             j + num_bootstrap,
+            tx,
         ))
         .await
         .context(HandleSnafu)?;
@@ -185,7 +196,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .boxed_local()
         });
 
-        handles.push(node);
+        handles.push((node, rx));
     }
     info!("BSADDRS ARE: {:?}", bootstrap_addrs);
 
@@ -197,7 +208,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
             .collect::<Vec<_>>()
     );
 
-    for handle in &handles[0..num_of_nodes] {
+    for (handle, _) in &handles[0..num_of_nodes] {
         let to_share = bootstrap_addrs.clone();
         handle
             .add_known_peers(
@@ -221,7 +232,7 @@ pub async fn spin_up_swarms<S: Debug + Default>(
         return Err(TestError::SpinupTimeout { failing_nodes });
     }
 
-    for handle in &handles {
+    for (handle, _) in &handles {
         handle
             .subscribe("global".to_string())
             .await

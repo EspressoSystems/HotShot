@@ -6,7 +6,7 @@ use super::NetworkingMetricsValue;
 use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{bounded, unbounded, Sender, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -36,8 +36,10 @@ use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 use libp2p_networking::{
     network::{
+        spawn_network_node,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+        NetworkNodeType,
     },
     reexport::Multiaddr,
 };
@@ -47,7 +49,7 @@ use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
-use futures::future::join_all;
+use futures::{channel::mpsc, future::join_all, SinkExt};
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -132,6 +134,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     reliability_config: Option<Box<dyn NetworkReliability>>,
     /// if we're a member of the DA committee or not
     is_da: bool,
+    /// Killswitch sender
+    kill_switch: Sender<()>,
 }
 
 /// Networking implementation that uses libp2p
@@ -322,8 +326,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
+        let (tx, mut rx, pid) = Box::pin(spawn_network_node(config.clone())).await.unwrap();
         let network_handle = Arc::new(
-            Box::pin(NetworkNodeHandle::<()>::new(config, id))
+            Box::pin(NetworkNodeHandle::<()>::new(config, id, tx))
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
@@ -354,6 +359,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let (direct_send, direct_recv) = unbounded();
         let (broadcast_send, broadcast_recv) = unbounded();
         let (node_lookup_send, node_lookup_recv) = unbounded();
+        let (kill_tx, kill_rx) = bounded(1);
+        rx.set_kill_switch(kill_rx);
 
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
@@ -380,10 +387,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 #[cfg(feature = "hotshot-testing")]
                 reliability_config,
                 is_da,
+                kill_switch: kill_tx,
             }),
         };
 
-        result.handle_event_generator(direct_send, broadcast_send);
+        result.handle_event_generator(direct_send, broadcast_send, rx);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -582,11 +590,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         &self,
         direct_send: UnboundedSender<M>,
         broadcast_send: UnboundedSender<M>,
+        network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
-            while let Ok(message) = handle.inner.handle.receiver().recv().await {
+            while let Ok(message) = network_rx.recv().await {
                 match &message {
                     NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, Ordering::Relaxed);
@@ -647,12 +656,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
-            if self.inner.handle.is_killed() {
-                error!("Called shut down when already shut down! Noop.");
-            } else {
-                let _ = self.inner.node_lookup_send.send(None).await;
-                let _ = self.inner.handle.shutdown().await;
-            }
+            let _ = self.inner.node_lookup_send.send(None).await;
+            let _ = self.inner.kill_switch.send(());
         };
         boxed_sync(closure)
     }
@@ -663,10 +668,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed() {
-            return Err(NetworkError::ShutDown);
-        }
-
         self.wait_for_ready().await;
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
@@ -767,10 +768,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed() {
-            return Err(NetworkError::ShutDown);
-        }
-
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
@@ -849,42 +846,38 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
-            if self.inner.handle.is_killed() {
-                Err(NetworkError::ShutDown)
-            } else {
-                match transmit_type {
-                    TransmitType::Direct => {
-                        let result = self
-                            .inner
-                            .direct_recv
-                            .drain_at_least_one()
-                            .await
-                            .map_err(|_x| NetworkError::ShutDown)?;
-                        self.inner
-                            .metrics
-                            .incoming_direct_message_count
-                            .add(result.len());
-                        Ok(result)
-                    }
-                    TransmitType::Broadcast => {
-                        let result = self
-                            .inner
-                            .broadcast_recv
-                            .drain_at_least_one()
-                            .await
-                            .map_err(|_x| NetworkError::ShutDown)?;
-                        self.inner
-                            .metrics
-                            .incoming_direct_message_count
-                            .add(result.len());
-                        Ok(result)
-                    }
-                    TransmitType::DACommitteeBroadcast => {
-                        error!("Received DACommitteeBroadcast, it should have not happened.");
-                        Err(NetworkError::Libp2p {
-                            source: NetworkNodeHandleError::Killed,
-                        })
-                    }
+            match transmit_type {
+                TransmitType::Direct => {
+                    let result = self
+                        .inner
+                        .direct_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner
+                        .metrics
+                        .incoming_direct_message_count
+                        .add(result.len());
+                    Ok(result)
+                }
+                TransmitType::Broadcast => {
+                    let result = self
+                        .inner
+                        .broadcast_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner
+                        .metrics
+                        .incoming_direct_message_count
+                        .add(result.len());
+                    Ok(result)
+                }
+                TransmitType::DACommitteeBroadcast => {
+                    error!("Received DACommitteeBroadcast, it should have not happened.");
+                    Err(NetworkError::Libp2p {
+                        source: NetworkNodeHandleError::Killed,
+                    })
                 }
             }
         };
