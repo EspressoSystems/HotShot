@@ -19,7 +19,7 @@ use hotshot_types::{
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, TransmitType, WebServerNetworkError,
+            TestableNetworkingImplementation, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -45,6 +45,7 @@ use std::{
     },
     time::Duration,
 };
+use futures::{select, FutureExt};
 use surf_disco::error::ClientError;
 use tracing::{debug, error, info, warn};
 
@@ -866,37 +867,28 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     /// blocking
     fn recv_msgs<'a, 'b>(
         &'a self,
-        transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
     where
         'a: 'b,
         Self: 'b,
     {
         let closure = async move {
-            match transmit_type {
-                TransmitType::Direct => {
-                    let mut queue = self.inner.direct_poll_queue_0_1.write().await;
-                    Ok(queue
+            select! {
+                mut direct_queue = self.inner.direct_poll_queue_0_1.write().fuse() => {
+                    Ok(direct_queue
                         .drain(..)
                         .collect::<Vec<_>>()
                         .iter()
                         .map(|x| x.get_message().unwrap())
                         .collect())
-                }
-                TransmitType::Broadcast => {
-                    let mut queue = self.inner.broadcast_poll_queue_0_1.write().await;
-                    Ok(queue
+                },
+                mut broadcast_queue = self.inner.broadcast_poll_queue_0_1.write().fuse() => {
+                    Ok(broadcast_queue
                         .drain(..)
                         .collect::<Vec<_>>()
                         .iter()
                         .map(|x| x.get_message().unwrap())
                         .collect())
-                }
-                TransmitType::DACommitteeBroadcast => {
-                    error!("Received DACommitteeBroadcast, it should have not happened.");
-                    Err(NetworkError::WebServer {
-                        source: WebServerNetworkError::ClientDisconnected,
-                    })
                 }
             }
         };

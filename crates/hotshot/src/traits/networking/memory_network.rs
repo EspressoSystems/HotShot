@@ -12,19 +12,19 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
-use futures::StreamExt;
-use hotshot_types::traits::network::MemoryNetworkError;
+use futures::{select, StreamExt, FutureExt};
 use hotshot_types::{
     boxed_sync,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation, TransmitType},
+        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
 };
 use hotshot_utils::bincode::bincode_opts;
+use futures::join;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{
@@ -416,55 +416,36 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
     fn recv_msgs<'a, 'b>(
         &'a self,
-        transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
     where
         'a: 'b,
         Self: 'b,
     {
         let closure = async move {
-            match transmit_type {
-                TransmitType::Direct => {
-                    let ret = self
-                        .inner
-                        .direct_output
-                        .lock()
-                        .await
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
+            let (mut direct_lock, mut broadcast_lock) =
+                join!(self.inner.direct_output.lock(), self.inner.broadcast_output.lock());
+            select! {
+                direct_result = direct_lock.drain_at_least_one().fuse() => {
+                    let direct_messages = direct_result.map_err(|_x| NetworkError::ShutDown)?;
                     self.inner
                         .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
+                        .fetch_sub(direct_messages.len(), Ordering::Relaxed);
                     self.inner
                         .metrics
                         .incoming_direct_message_count
-                        .add(ret.len());
-                    Ok(ret)
-                }
-                TransmitType::Broadcast => {
-                    let ret = self
-                        .inner
-                        .broadcast_output
-                        .lock()
-                        .await
-                        .drain_at_least_one()
-                        .await
-                        .map_err(|_x| NetworkError::ShutDown)?;
+                        .add(direct_messages.len());
+                    Ok(direct_messages)
+                },
+                broadcast_result = broadcast_lock.drain_at_least_one().fuse() => {
+                    let broadcast_messages = broadcast_result.map_err(|_x| NetworkError::ShutDown)?;
                     self.inner
                         .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
+                        .fetch_sub(broadcast_messages.len(), Ordering::Relaxed);
                     self.inner
                         .metrics
                         .incoming_broadcast_message_count
-                        .add(ret.len());
-                    Ok(ret)
-                }
-                TransmitType::DACommitteeBroadcast => {
-                    error!("Received DACommitteeBroadcast, it should have not happened.");
-                    Err(NetworkError::MemoryNetwork {
-                        source: MemoryNetworkError::Stub,
-                    })
+                        .add(broadcast_messages.len());
+                    Ok(broadcast_messages)
                 }
             }
         };

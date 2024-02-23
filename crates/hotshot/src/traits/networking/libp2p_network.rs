@@ -12,6 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
+use futures::{select, FutureExt};
 use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
@@ -22,7 +23,7 @@ use hotshot_types::{
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, TransmitType, ViewMessage,
+            NetworkMsg, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -842,7 +843,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
     fn recv_msgs<'a, 'b>(
         &'a self,
-        transmit_type: TransmitType,
     ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
     where
         'a: 'b,
@@ -852,38 +852,22 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             if self.inner.handle.is_killed() {
                 Err(NetworkError::ShutDown)
             } else {
-                match transmit_type {
-                    TransmitType::Direct => {
-                        let result = self
-                            .inner
-                            .direct_recv
-                            .drain_at_least_one()
-                            .await
-                            .map_err(|_x| NetworkError::ShutDown)?;
+                select! {
+                    direct_result = self.inner.direct_recv.drain_at_least_one().fuse() => {
+                        let direct_messages = direct_result.map_err(|_x| NetworkError::ShutDown)?;
                         self.inner
                             .metrics
                             .incoming_direct_message_count
-                            .add(result.len());
-                        Ok(result)
-                    }
-                    TransmitType::Broadcast => {
-                        let result = self
-                            .inner
-                            .broadcast_recv
-                            .drain_at_least_one()
-                            .await
-                            .map_err(|_x| NetworkError::ShutDown)?;
+                            .add(direct_messages.len());
+                        Ok(direct_messages)
+                    },
+                    broadcast_result = self.inner.broadcast_recv.drain_at_least_one().fuse() => {
+                        let broadcast_messages = broadcast_result.map_err(|_x| NetworkError::ShutDown)?;
                         self.inner
                             .metrics
-                            .incoming_direct_message_count
-                            .add(result.len());
-                        Ok(result)
-                    }
-                    TransmitType::DACommitteeBroadcast => {
-                        error!("Received DACommitteeBroadcast, it should have not happened.");
-                        Err(NetworkError::Libp2p {
-                            source: NetworkNodeHandleError::Killed,
-                        })
+                            .incoming_broadcast_message_count
+                            .add(broadcast_messages.len());
+                        Ok(broadcast_messages)
                     }
                 }
             }
