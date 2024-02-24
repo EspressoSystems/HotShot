@@ -686,6 +686,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
+            let _ = self.inner.handle.shutdown().await;
             let _ = self.inner.node_lookup_send.send(None).await;
             let _ = self.inner.kill_switch.send(()).await;
         };

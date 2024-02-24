@@ -24,7 +24,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tracing::{debug, info};
+use tracing::{debug, info, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -88,7 +88,14 @@ pub async fn spawn_network_node<S: Default + Debug>(
     config: NetworkNodeConfig,
     id: usize,
 ) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<S>), NetworkError> {
-    let network = NetworkNode::new(config.clone()).await?;
+    let mut network = NetworkNode::new(config.clone()).await?;
+    // randomly assigned port
+    let listen_addr = config
+        .bound_addr
+        .clone()
+        .unwrap_or_else(|| gen_multiaddr(0));
+    let peer_id = network.peer_id();
+    let listen_addr = network.start_listen(listen_addr).await?;
     // pin here to force the future onto the heap since it can be large
     // in the case of flume
     let (send_chan, recv_chan) = Box::pin(network.spawn_listeners()).await?;
@@ -96,15 +103,7 @@ pub async fn spawn_network_node<S: Default + Debug>(
         receiver: recv_chan,
         recv_kill: None,
     };
-    // randomly assigned port
-    let listen_addr = config
-        .bound_addr
-        .clone()
-        .unwrap_or_else(|| gen_multiaddr(0));
-    let mut network = NetworkNode::new(config.clone()).await?;
 
-    let peer_id = network.peer_id();
-    let listen_addr = network.start_listen(listen_addr).await?;
     info!("LISTEN ADDRESS IS {:?}", listen_addr);
 
     let handle = NetworkNodeHandle {
@@ -180,6 +179,14 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         })
     }
 
+    /// Cleanly shuts down a swarm node
+    /// This is done by sending a message to
+    /// the swarm itself to spin down
+    #[instrument]
+    pub async fn shutdown(&self) -> Result<(), NetworkNodeHandleError> {
+        self.send_request(ClientRequest::Shutdown).await?;
+        Ok(())
+    }
     /// Notify the network to begin the bootstrap process
     /// # Errors
     /// If unable to send via `send_network`. This should only happen

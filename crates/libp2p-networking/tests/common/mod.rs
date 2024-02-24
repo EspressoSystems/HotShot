@@ -67,9 +67,13 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     run_test(handles.clone(), timeout).await;
 
     // cleanup
+    for handle in handles {
+        handle.shutdown().await.unwrap();
+    }
     for switch in kill_switches {
         switch.send(()).await.unwrap();
     }
+
 
     for fut in handler_futures {
         fut.await;
