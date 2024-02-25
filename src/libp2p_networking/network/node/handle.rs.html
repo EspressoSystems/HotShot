@@ -692,41 +692,6 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     error::DHTError, gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode,
     NetworkNodeConfig, NetworkNodeConfigBuilderError,
@@ -735,8 +700,8 @@
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
-        bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
-        UnboundedReceiver, UnboundedRecvError, UnboundedSender,
+        oneshot, OneShotReceiver, OneShotSender, SendError, UnboundedReceiver, UnboundedRecvError,
+        UnboundedSender,
     },
 };
 <span class="kw">use </span>async_lock::Mutex;
@@ -780,9 +745,6 @@
 
     <span class="doccomment">/// human readable id
     </span>id: usize,
-
-    <span class="doccomment">/// A list of webui listeners that are listening for changes on this node
-    </span>webui_listeners: Arc&lt;Mutex&lt;Vec&lt;Sender&lt;()&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// network node receiver
     </span>receiver: NetworkNodeReceiver,
@@ -853,7 +815,6 @@
             listen_addr,
             peer_id,
             id,
-            webui_listeners: Arc::default(),
             receiver: NetworkNodeReceiver {
                 kill_switch,
                 killed: AtomicBool::new(<span class="bool-val">false</span>),
@@ -870,9 +831,6 @@
     ///
     /// Will panic if a handler is already spawned
     </span><span class="attr">#[allow(clippy::unused_async)]
-    </span><span class="comment">// // Tokio and async_std disagree how this function should be linted
-    // #[allow(clippy::ignored_unit_patterns)]
-
     </span><span class="kw">pub async fn </span>spawn_handler&lt;F, RET&gt;(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, cb: F) -&gt; <span class="kw">impl </span>Future
     <span class="kw">where
         </span>F: Fn(NetworkEvent, Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;) -&gt; RET + Sync + Send + <span class="lifetime">'static</span>,
@@ -1125,26 +1083,6 @@
         }
     }
 
-    <span class="doccomment">/// Notify the webui that either the `state` or `connection_state` has changed.
-    ///
-    /// If the webui is not started, this will do nothing.
-    /// # Errors
-    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    </span><span class="kw">pub async fn </span>notify_webui(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let </span><span class="kw-2">mut </span>lock = <span class="self">self</span>.webui_listeners.lock().<span class="kw">await</span>;
-        <span class="comment">// Keep a list of indexes that are unable to send the update
-        </span><span class="kw">let </span><span class="kw-2">mut </span>indexes_to_remove = Vec::new();
-        <span class="kw">for </span>(idx, sender) <span class="kw">in </span>lock.iter().enumerate() {
-            <span class="kw">if </span>sender.send(()).<span class="kw">await</span>.is_err() {
-                indexes_to_remove.push(idx);
-            }
-        }
-        <span class="comment">// Make sure to remove the indexes in reverse other, else removing an index will invalidate the following indexes.
-        </span><span class="kw">for </span>idx <span class="kw">in </span>indexes_to_remove.into_iter().rev() {
-            lock.remove(idx);
-        }
-    }
-
     <span class="doccomment">/// Subscribe to a topic
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
@@ -1335,14 +1273,6 @@
     <span class="doccomment">/// Returns `true` if the network state is killed
     </span><span class="kw">pub fn </span>is_killed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.receiver.killed.load(Ordering::Relaxed)
-    }
-
-    <span class="doccomment">/// Register a webui listener
-    </span><span class="kw">pub async fn </span>register_webui_listener(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;()&gt; {
-        <span class="kw">let </span>(sender, receiver) = bounded(<span class="number">100</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>lock = <span class="self">self</span>.webui_listeners.lock().<span class="kw">await</span>;
-        lock.push(sender);
-        receiver
     }
 
     <span class="doccomment">/// Call `wait_timeout_until` on the state's [`SubscribableMutex`]

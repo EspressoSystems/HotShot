@@ -296,8 +296,6 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -371,9 +369,7 @@
                     <span class="string">"outbound failure to send message to {:?} with error {:?}"</span>,
                     peer, error
                 );
-                <span class="comment">// RM TODO: make direct messages have n (and not infinite) retries
-                // issue: https://github.com/EspressoSystems/HotShot/issues/2003
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
                     req.backoff.start_next(<span class="bool-val">false</span>);
                     <span class="self">self</span>.failed_rr.push_back(req);
                 }

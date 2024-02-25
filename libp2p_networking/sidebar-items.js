@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["message","network","reexport"]};
+window.SIDEBAR_ITEMS = {"mod":["network","reexport"]};

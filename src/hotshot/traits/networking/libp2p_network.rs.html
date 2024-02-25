@@ -913,18 +913,6 @@
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
 <a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1435,18 +1423,6 @@
                 <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
         });
-    }
-
-    <span class="doccomment">/// make network aware of known peers
-    </span><span class="kw">async fn </span>_add_known_peers(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        known_peers: Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.inner
-            .handle
-            .add_known_peers(known_peers)
-            .<span class="kw">await
-            </span>.map_err(Into::&lt;NetworkError&gt;::into)
     }
 
     <span class="doccomment">/// Handle events for Version 0.1 of the protocol.
