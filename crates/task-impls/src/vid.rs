@@ -82,7 +82,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
-                    let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
+                    let multiplicity = 1;
+                    let vid = VidScheme::new(chunk_size, num_quorum_committee, multiplicity, &srs)
+                        .unwrap();
                     vid.disperse(encoded_transactions.clone()).unwrap()
                 })
                 .await;
@@ -144,6 +146,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.consensus.write().await.update_view(view);
 
                 // Start polling for VID disperse for the new view
                 self.network

@@ -5,12 +5,8 @@ use crate::network::{
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
-    channel::{
-        bounded, Receiver, SendError, Sender, UnboundedReceiver, UnboundedRecvError,
-        UnboundedSender,
-    },
+    channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use async_lock::Mutex;
 use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use hotshot_utils::bincode::bincode_opts;
@@ -48,9 +44,6 @@ pub struct NetworkNodeHandle<S> {
 
     /// human readable id
     id: usize,
-
-    /// A list of webui listeners that are listening for changes on this node
-    webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
 }
 
 /// internal network node receiver
@@ -113,7 +106,6 @@ pub async fn spawn_network_node<S: Default + Debug>(
         listen_addr,
         peer_id,
         id,
-        webui_listeners: Arc::default(),
     };
     Ok((receiver, handle))
 }
@@ -364,26 +356,6 @@ impl<S> NetworkNodeHandle<S> {
         }
     }
 
-    /// Notify the webui that either the `state` or `connection_state` has changed.
-    ///
-    /// If the webui is not started, this will do nothing.
-    /// # Errors
-    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    pub async fn notify_webui(&self) {
-        let mut lock = self.webui_listeners.lock().await;
-        // Keep a list of indexes that are unable to send the update
-        let mut indexes_to_remove = Vec::new();
-        for (idx, sender) in lock.iter().enumerate() {
-            if sender.send(()).await.is_err() {
-                indexes_to_remove.push(idx);
-            }
-        }
-        // Make sure to remove the indexes in reverse other, else removing an index will invalidate the following indexes.
-        for idx in indexes_to_remove.into_iter().rev() {
-            lock.remove(idx);
-        }
-    }
-
     /// Subscribe to a topic
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
@@ -572,14 +544,6 @@ impl<S> NetworkNodeHandle<S> {
         F: FnMut(&mut S),
     {
         self.state.modify(cb).await;
-    }
-
-    /// Register a webui listener
-    pub async fn register_webui_listener(&self) -> Receiver<()> {
-        let (sender, receiver) = bounded(100);
-        let mut lock = self.webui_listeners.lock().await;
-        lock.push(sender);
-        receiver
     }
 
     /// Call `wait_timeout_until` on the state's [`SubscribableMutex`]
