@@ -19,7 +19,11 @@ use sha2::Sha256;
 use std::fmt::Debug;
 
 /// VID scheme constructor.
-// pub fn vid_scheme(num_storage_nodes: usize) -> impl PayloadProver<impl Clone> {
+///
+/// We prefer a return type of the form `impl VidScheme`.
+/// But it's currently impossible to name an impl Trait return type:
+/// [Naming impl trait in return types - Impl trait initiative](https://rust-lang.github.io/impl-trait-initiative/explainer/rpit_names.html)
+/// So instead we return a newtype that impls `VidScheme` via delegation.
 pub fn vid_scheme(num_storage_nodes: usize) -> impl VidSchemeTrait {
     // TODO use a proper SRS
     // https://github.com/EspressoSystems/HotShot/issues/1686
@@ -36,6 +40,10 @@ pub fn vid_scheme(num_storage_nodes: usize) -> impl VidSchemeTrait {
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     AdvzVidScheme::new(chunk_size, num_storage_nodes, multiplicity, srs).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}"))
 }
+
+// TODO can't name the return type of `vid_scheme`:
+// https://rust-lang.github.io/impl-trait-initiative/explainer/rpit_names.html
+// pub type VidCommitment = <<vid_scheme as FnOnce(usize)>::Output as VidScheme>::Commit;
 
 // Private type alias for `Advz`.
 // Set curve/pairing and hash function here.
