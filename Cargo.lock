@@ -3013,6 +3013,7 @@ name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
  "ark-bls12-381",
+ "ark-ec",
  "ark-ed-on-bn254",
  "ark-ff",
  "ark-serialize",
