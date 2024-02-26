@@ -74,18 +74,25 @@ impl NetworkNodeReceiver {
 pub async fn spawn_network_node(
     config: NetworkNodeConfig,
     id: usize,
-) -> Result<(NetworkNodeReceiver, NetworkNodeHandle), NetworkError> {
-    let mut network = NetworkNode::new(config.clone()).await?;
+) -> Result<(NetworkNodeReceiver, NetworkNodeHandle), NetworkNodeHandleError> {
+    let mut network = NetworkNode::new(config.clone())
+        .await
+        .context(NetworkSnafu)?;
     // randomly assigned port
     let listen_addr = config
         .bound_addr
         .clone()
         .unwrap_or_else(|| gen_multiaddr(0));
     let peer_id = network.peer_id();
-    let listen_addr = network.start_listen(listen_addr).await?;
+    let listen_addr = network
+        .start_listen(listen_addr)
+        .await
+        .context(NetworkSnafu)?;
     // pin here to force the future onto the heap since it can be large
     // in the case of flume
-    let (send_chan, recv_chan) = Box::pin(network.spawn_listeners()).await?;
+    let (send_chan, recv_chan) = Box::pin(network.spawn_listeners())
+        .await
+        .context(NetworkSnafu)?;
     let receiver = NetworkNodeReceiver {
         receiver: recv_chan,
         recv_kill: None,

@@ -329,9 +329,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
-        let (mut rx, network_handle) = Box::pin(spawn_network_node(config.clone(), id))
+        let (mut rx, network_handle) = spawn_network_node(config.clone(), id)
             .await
-            .unwrap();
+            .map_err(Into::<NetworkError>::into)?;
         // Make bootstrap mappings known
         if matches!(
             network_handle.config().node_type,
