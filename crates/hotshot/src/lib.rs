@@ -621,7 +621,7 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// Optional validated state.
     ///
     /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
-    /// the state from the blocj=k header,
+    /// the state from the block header.
     validated_state: Option<Arc<TYPES::ValidatedState>>,
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
