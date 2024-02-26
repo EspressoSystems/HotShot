@@ -6,7 +6,8 @@ use clap::Parser;
 use futures::{Future, FutureExt};
 
 use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey}, PeerConfig, ValidatorConfig
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
+    PeerConfig, ValidatorConfig,
 };
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;

@@ -1,5 +1,6 @@
 use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey}, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
+    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use serde_inline_default::serde_inline_default;
 use std::{

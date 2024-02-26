@@ -26,8 +26,8 @@ use hotshot_orchestrator::{
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
+use hotshot_types::PeerConfig;
 use hotshot_types::ValidatorConfig;
-use hotshot_types:: PeerConfig;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
@@ -780,7 +780,10 @@ pub async fn main_entry_point<
         orchestrator_client
             .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(
                 run_config.node_index,
-                run_config.config.my_own_validator_config.get_public_config(),
+                run_config
+                    .config
+                    .my_own_validator_config
+                    .get_public_config(),
             )
             .await;
     run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;

@@ -1,12 +1,12 @@
 //! Types and Traits for the `HotShot` consensus module
+use bincode::Options;
 use displaydoc::Display;
 use hotshot_utils::bincode::bincode_opts;
 use light_client::StateVerKey;
-use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
-use traits::{election::ElectionConfig, signature_key::SignatureKey};
 use std::fmt::Debug;
-use bincode::Options;
+use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 use tracing::error;
+use traits::{election::ElectionConfig, signature_key::SignatureKey};
 pub mod consensus;
 pub mod data;
 pub mod error;
@@ -106,18 +106,23 @@ pub struct PeerConfig<KEY: SignatureKey> {
 }
 
 impl<KEY: SignatureKey> PeerConfig<KEY> {
-     /// Serialize a peer's config to bytes
-     pub fn to_bytes(config: &Self) -> Vec<u8> {
-        bincode_opts()
-            .serialize(config)
-            .expect("This serialization shouldn't be able to fail")
+    /// Serialize a peer's config to bytes
+    pub fn to_bytes(config: &Self) -> Vec<u8> {
+        let x = bincode_opts().serialize(config);
+        match x {
+            Ok(x) => x,
+            Err(e) => {
+                error!(?e, "Failed to serialize public key");
+                vec![]
+            }
+        }
     }
 
     /// Deserialize a peer's config from bytes
     /// # Errors
     /// Will return `None` if deserialization fails
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let x: Result<PeerConfig<KEY>, _> = bincode_opts().deserialize(&bytes);
+        let x: Result<PeerConfig<KEY>, _> = bincode_opts().deserialize(bytes);
         match x {
             Ok(pub_key) => Some(pub_key),
             Err(e) => {
@@ -126,7 +131,6 @@ impl<KEY: SignatureKey> PeerConfig<KEY> {
             }
         }
     }
-
 }
 
 impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
