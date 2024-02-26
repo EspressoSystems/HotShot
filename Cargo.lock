@@ -4412,9 +4412,9 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 
 [[package]]
 name = "local-ip-address"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f63e1499d2495be571af92e9ca9dca4e7bf26c47b87cb8d0c6100825e521dd6b"
+checksum = "136ef34e18462b17bf39a7826f8f3bbc223341f8e83822beb8b77db9a3d49696"
 dependencies = [
  "libc",
  "neli",
@@ -4443,9 +4443,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db2c024b41519440580066ba82aab04092b333e09066a5eb86c7c4890df31f22"
+checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
 dependencies = [
  "hashbrown 0.14.3",
 ]
