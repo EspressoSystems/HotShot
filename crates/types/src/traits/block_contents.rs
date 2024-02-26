@@ -4,8 +4,8 @@
 //! describe the behaviors that a block is expected to have.
 
 use crate::{
-    data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
-    traits::ValidatedState,
+    data::{test_srs, Leaf, VidCommitment, VidScheme, VidSchemeTrait},
+    traits::{node_implementation::NodeType, ValidatedState},
     utils::BuilderCommitment,
 };
 use commit::{Commitment, Committable};
@@ -110,28 +110,28 @@ pub fn vid_commitment(
 }
 
 /// Header of a block, which commits to a [`BlockPayload`].
-pub trait BlockHeader:
+pub trait BlockHeader<TYPES: NodeType>:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
     /// Block payload associated with the commitment.
     type Payload: BlockPayload;
 
     /// Validated state.
-    type State: ValidatedState<BlockHeader = Self>;
+    type State: ValidatedState<TYPES>;
 
-    /// Build a header with the payload commitment, metadata, instance-level state, parent header,
-    /// and parent state.
+    /// Build a header with the parent validate state, instance-level state, parent leaf, payload
+    /// commitment, and metadata.
     fn new(
         parent_state: &Self::State,
-        instance_state: &<Self::State as ValidatedState>::Instance,
-        parent_header: &Self,
+        instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         metadata: <Self::Payload as BlockPayload>::Metadata,
     ) -> Self;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(
-        instance_state: &<Self::State as ValidatedState>::Instance,
+        instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
     ) -> (
         Self,
         Self::Payload,

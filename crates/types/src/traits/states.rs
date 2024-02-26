@@ -5,7 +5,13 @@
 //! within blocks.
 
 use super::block_contents::{BlockHeader, TestableBlock};
-use crate::traits::{node_implementation::ConsensusTime, BlockPayload};
+use crate::{
+    data::Leaf,
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        BlockPayload,
+    },
+};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
@@ -21,7 +27,7 @@ pub trait InstanceState: Clone + Debug + Send + Sync {}
 ///   * The ability to validate that a block header is actually a valid extension of this state and
 /// produce a new state, with the modifications from the block applied
 /// ([`validate_and_apply_header`](`ValidatedState::validate_and_apply_header))
-pub trait ValidatedState:
+pub trait ValidatedState<TYPES: NodeType>:
     Serialize + DeserializeOwned + Debug + Default + Hash + PartialEq + Eq + Send + Sync
 {
     /// The error type for this particular type of ledger state
@@ -29,7 +35,7 @@ pub trait ValidatedState:
     /// The type of the instance-level state this state is assocaited with
     type Instance: InstanceState;
     /// The type of block header this state is associated with
-    type BlockHeader: BlockHeader<State = Self>;
+    type BlockHeader: BlockHeader<TYPES, State = Self>;
     /// The type of block payload this state is associated with
     type BlockPayload: BlockPayload;
     /// Time compatibility needed for reward collection
@@ -48,7 +54,7 @@ pub trait ValidatedState:
     fn validate_and_apply_header(
         &self,
         instance: &Self::Instance,
-        parent_header: &Self::BlockHeader,
+        parent_leaf: &Leaf<TYPES>,
         proposed_header: &Self::BlockHeader,
     ) -> Result<Self, Self::Error>;
 
@@ -68,9 +74,10 @@ pub trait ValidatedState:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: ValidatedState
+pub trait TestableState<TYPES>: ValidatedState<TYPES>
 where
-    <Self as ValidatedState>::BlockPayload: TestableBlock,
+    TYPES: NodeType,
+    <Self as ValidatedState<TYPES>>::BlockPayload: TestableBlock,
 {
     /// Creates random transaction if possible
     /// otherwise panics

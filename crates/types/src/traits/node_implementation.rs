@@ -106,7 +106,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES> for I
 where
-    TYPES::ValidatedState: TestableState,
+    TYPES::ValidatedState: TestableState<TYPES>,
     TYPES::BlockPayload: TestableBlock,
     I::Storage: TestableStorage<TYPES>,
     I::QuorumNetwork: TestableNetworkingImplementation<TYPES>,
@@ -124,7 +124,9 @@ where
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
-        <TYPES::ValidatedState as TestableState>::create_random_transaction(state, rng, padding)
+        <TYPES::ValidatedState as TestableState<TYPES>>::create_random_transaction(
+            state, rng, padding,
+        )
     }
 
     fn leaf_create_random_transaction(
@@ -219,7 +221,7 @@ pub trait NodeType:
     /// This should be the same `Time` that `ValidatedState::Time` is using.
     type Time: ConsensusTime;
     /// The block header type that this hotshot setup is using.
-    type BlockHeader: BlockHeader<Payload = Self::BlockPayload, State = Self::ValidatedState>;
+    type BlockHeader: BlockHeader<Self, Payload = Self::BlockPayload, State = Self::ValidatedState>;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
@@ -238,6 +240,7 @@ pub trait NodeType:
 
     /// The validated state type that this hotshot setup is using.
     type ValidatedState: ValidatedState<
+        Self,
         Instance = Self::InstanceState,
         BlockHeader = Self::BlockHeader,
         BlockPayload = Self::BlockPayload,

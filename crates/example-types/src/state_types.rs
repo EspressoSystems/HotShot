@@ -2,8 +2,9 @@
 use commit::{Commitment, Committable};
 
 use hotshot_types::{
-    data::{fake_commitment, BlockError, ViewNumber},
+    data::{fake_commitment, BlockError, Leaf, ViewNumber},
     traits::{
+        node_implementation::NodeType,
         states::{InstanceState, TestableState, ValidatedState},
         BlockPayload,
     },
@@ -53,7 +54,7 @@ impl Default for TestValidatedState {
     }
 }
 
-impl ValidatedState for TestValidatedState {
+impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
     type Error = BlockError;
 
     type Instance = TestInstanceState;
@@ -67,7 +68,7 @@ impl ValidatedState for TestValidatedState {
     fn validate_and_apply_header(
         &self,
         _instance: &Self::Instance,
-        _parent_header: &Self::BlockHeader,
+        _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &Self::BlockHeader,
     ) -> Result<Self, Self::Error> {
         Ok(TestValidatedState {
@@ -86,7 +87,7 @@ impl ValidatedState for TestValidatedState {
     fn on_commit(&self) {}
 }
 
-impl TestableState for TestValidatedState {
+impl<TYPES: NodeType> TestableState<TYPES> for TestValidatedState {
     fn create_random_transaction(
         _state: Option<&Self>,
         _rng: &mut dyn rand::RngCore,

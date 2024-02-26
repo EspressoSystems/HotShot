@@ -11,7 +11,7 @@ use crate::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-        states::{TestableState, ValidatedState},
+        states::TestableState,
         storage::StoredView,
         BlockPayload,
     },
@@ -104,12 +104,6 @@ impl std::ops::Sub<u64> for ViewNumber {
         Self(self.0 - rhs)
     }
 }
-
-/// The `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
-pub type Transaction<STATE> =
-    <<STATE as ValidatedState>::BlockPayload as BlockPayload>::Transaction;
-/// `Commitment` to the `Transaction` type associated with a `ValidatedState`, as a syntactic shortcut
-pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -426,7 +420,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
-    TYPES::ValidatedState: TestableState,
+    TYPES::ValidatedState: TestableState<TYPES>,
     TYPES::BlockPayload: TestableBlock,
 {
     type NodeType = TYPES;

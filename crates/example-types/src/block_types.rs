@@ -3,19 +3,19 @@ use std::{
     mem::size_of,
 };
 
+use crate::{node_types::TestTypes, state_types::TestValidatedState};
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, Leaf, VidCommitment, VidScheme, VidSchemeTrait},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
-
-use crate::state_types::TestValidatedState;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -189,25 +189,25 @@ pub struct TestBlockHeader {
     pub payload_commitment: VidCommitment,
 }
 
-impl BlockHeader for TestBlockHeader {
+impl<TYPES: NodeType> BlockHeader<TYPES> for TestBlockHeader {
     type Payload = TestBlockPayload;
     type State = TestValidatedState;
 
     fn new(
         _parent_state: &Self::State,
-        _instance_state: &<Self::State as ValidatedState>::Instance,
-        parent_header: &Self,
+        _instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         _metadata: <Self::Payload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
-            block_number: parent_header.block_number + 1,
+            block_number: parent_leaf.block_header.block_number() + 1,
             payload_commitment,
         }
     }
 
     fn genesis(
-        _instance_state: &<Self::State as ValidatedState>::Instance,
+        _instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
     ) -> (
         Self,
         Self::Payload,
@@ -240,9 +240,16 @@ impl BlockHeader for TestBlockHeader {
 impl Committable for TestBlockHeader {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("Header Comm")
-            .u64_field("block number", self.block_number())
+            .u64_field(
+                "block number",
+                <TestBlockHeader as BlockHeader<TestTypes>>::block_number(self),
+            )
             .constant_str("payload commitment")
-            .fixed_size_bytes(self.payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(
+                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self)
+                    .as_ref()
+                    .as_ref(),
+            )
             .finalize()
     }
 
