@@ -2,7 +2,7 @@ use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::IdentTopic as Topic,
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
-    request_response::ResponseChannel,
+    request_response::{cbor, ResponseChannel},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -15,6 +15,7 @@ use super::{
         direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
         gossip::{GossipBehaviour, GossipEvent},
+        request_response::{VidReqeust, VidResponse},
     },
     NetworkEventInternal,
 };
@@ -47,7 +48,11 @@ pub struct NetworkDef {
 
     /// purpose: directly messaging peer
     #[debug(skip)]
-    pub request_response: DMBehaviour,
+    pub direct_message: DMBehaviour,
+
+    /// Behaviour for requesting and receiving data
+    #[debug(skip)]
+    pub request_response: libp2p::request_response::cbor::Behaviour<VidReqeust, VidResponse>,
 }
 
 impl NetworkDef {
@@ -57,12 +62,14 @@ impl NetworkDef {
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,
         identify: IdentifyBehaviour,
-        request_response: DMBehaviour,
+        direct_message: DMBehaviour,
+        request_response: cbor::Behaviour<VidReqeust, VidResponse>,
     ) -> NetworkDef {
         Self {
             gossipsub,
             dht,
             identify,
+            direct_message,
             request_response,
         }
     }
@@ -140,12 +147,12 @@ impl NetworkDef {
             backoff: ExponentialBackoff::default(),
             retry_count,
         };
-        self.request_response.add_direct_request(request);
+        self.direct_message.add_direct_request(request);
     }
 
     /// Add a direct response for a channel
     pub fn add_direct_response(&mut self, chan: ResponseChannel<Vec<u8>>, msg: Vec<u8>) {
-        self.request_response.add_direct_response(chan, msg);
+        self.direct_message.add_direct_response(chan, msg);
     }
 }
 
@@ -170,5 +177,11 @@ impl From<DHTEvent> for NetworkEventInternal {
 impl From<IdentifyEvent> for NetworkEventInternal {
     fn from(event: IdentifyEvent) -> Self {
         Self::IdentifyEvent(Box::new(event))
+    }
+}
+
+impl From<libp2p::request_response::Event<VidReqeust, VidResponse>> for NetworkEventInternal {
+    fn from(event: libp2p::request_response::Event<VidReqeust, VidResponse>) -> Self {
+        Self::RequestResponseEvent(event)
     }
 }

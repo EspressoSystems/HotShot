@@ -27,6 +27,7 @@ use crate::network::behaviours::{
     direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
+    request_response::{handle_vid, VidReqeust, VidResponse},
 };
 use async_compatibility_layer::{
     art::async_spawn,
@@ -271,15 +272,26 @@ impl NetworkNode {
 
             let rrconfig = RequestResponseConfig::default();
 
-            let request_response: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
+            let direct_message: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
                 RequestResponse::new(
                     [(
-                        StreamProtocol::new("/HotShot/request_response/1.0"),
+                        StreamProtocol::new("/HotShot/direct_message/1.0"),
                         ProtocolSupport::Full,
                     )]
                     .into_iter(),
-                    rrconfig,
+                    rrconfig.clone(),
                 );
+            let request_response: libp2p::request_response::cbor::Behaviour<
+                VidReqeust,
+                VidResponse,
+            > = RequestResponse::new(
+                [(
+                    StreamProtocol::new("/HotShot/request_response/1.0"),
+                    ProtocolSupport::Full,
+                )]
+                .into_iter(),
+                rrconfig.clone(),
+            );
 
             let network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
@@ -291,7 +303,8 @@ impl NetworkNode {
                         .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
                 ),
                 identify,
-                DMBehaviour::new(request_response),
+                DMBehaviour::new(direct_message),
+                request_response,
             );
 
             // build swarm
@@ -568,6 +581,10 @@ impl NetworkNode {
                             NetworkEvent::DirectResponse(data, pid)
                         }
                     }),
+                    NetworkEventInternal::RequestResponseEvent(e) => {
+                        handle_vid(e, send_to_client.clone()).await;
+                        None
+                    }
                 };
 
                 if let Some(event) = maybe_event {

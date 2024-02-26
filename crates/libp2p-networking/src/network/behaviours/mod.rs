@@ -9,3 +9,6 @@ pub mod exponential_backoff;
 
 /// Wrapper around Kademlia
 pub mod dht;
+
+/// Request Response Handling for data requests
+pub mod request_response;

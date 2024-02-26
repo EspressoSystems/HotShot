@@ -136,6 +136,7 @@ pub async fn counter_handle_network_event(
                 }
             }
         }
+        _ => {}
     };
     Ok(())
 }
