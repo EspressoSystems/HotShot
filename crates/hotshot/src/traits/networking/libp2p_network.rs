@@ -100,7 +100,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// this node's public key
     pk: K,
     /// handle to control the network
-    handle: Arc<NetworkNodeHandle<()>>,
+    handle: Arc<NetworkNodeHandle>,
     /// map of known replica peer ids to public keys
     broadcast_recv: UnboundedReceiver<M>,
     /// Sender for broadcast messages
