@@ -35,11 +35,7 @@ pub(crate) struct HandleWithState<S: Debug + Default + Send> {
 /// # Panics
 ///
 /// Will panic if a handler is already spawned
-#[allow(clippy::unused_async)]
-// // Tokio and async_std disagree how this function should be linted
-// #[allow(clippy::ignored_unit_patterns)]
-
-pub async fn spawn_handler<F, RET, S>(
+pub fn spawn_handler<F, RET, S>(
     handle_and_state: HandleWithState<S>,
     mut receiver: NetworkNodeReceiver,
     cb: F,
@@ -124,7 +120,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G: C
         let handle = &handles[i];
         kill_switches.push(kill_tx);
         rx.set_kill_switch(kill_rx);
-        let handler_fut = spawn_handler(handle.clone(), rx, client_handler.clone()).await;
+        let handler_fut = spawn_handler(handle.clone(), rx, client_handler.clone());
         handler_futures.push(handler_fut);
     }
 
