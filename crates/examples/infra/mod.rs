@@ -27,6 +27,7 @@ use hotshot_orchestrator::{
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::ValidatorConfig;
+use hotshot_types:: PeerConfig;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
@@ -111,14 +112,9 @@ pub fn load_config_from_file<TYPES: NodeType>(
     // but its type is too complex to load so we'll generate it from seed now
     config.config.my_own_validator_config =
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, 1);
-    let my_own_validator_config_with_stake = config
-        .config
-        .my_own_validator_config
-        .public_key
-        .get_stake_table_entry(1u64);
-    // initialize it with size for better assignment of other peers' config
+    // initialize it with size for better assignment of peers' config
     config.config.known_nodes_with_stake =
-        vec![my_own_validator_config_with_stake; config.config.total_nodes.get() as usize];
+        vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
 
     config
 }
@@ -784,7 +780,7 @@ pub async fn main_entry_point<
         orchestrator_client
             .post_and_wait_all_public_keys::<TYPES::SignatureKey, TYPES::ElectionConfigType>(
                 run_config.node_index,
-                run_config.config.my_own_validator_config.public_key.clone(),
+                run_config.config.my_own_validator_config.get_public_config(),
             )
             .await;
     run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;

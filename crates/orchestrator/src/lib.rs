@@ -6,7 +6,7 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
-use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
+use hotshot_types::{traits::{election::ElectionConfig, signature_key::SignatureKey}, PeerConfig};
 use std::{
     collections::HashSet,
     io,
@@ -195,11 +195,9 @@ where
         }
         self.pub_posted.insert(node_index);
 
-        // Sishan NOTE: let me know if there's a better way to remove the first extra 8 bytes
-        // The guess is extra bytes are from orchestrator serialization
+        // The guess is extra 8 starting bytes are from orchestrator serialization
         pubkey.drain(..8);
-        let register_pub_key = <KEY as SignatureKey>::from_bytes(pubkey).unwrap();
-        let register_pub_key_with_stake = register_pub_key.get_stake_table_entry(1u64);
+        let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
         self.config.config.known_nodes_with_stake[node_index as usize] =
             register_pub_key_with_stake;
         self.nodes_with_pubkey += 1;

@@ -1,6 +1,5 @@
 use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ExecutionType, HotShotConfig, ValidatorConfig,
+    traits::{election::ElectionConfig, signature_key::SignatureKey}, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig
 };
 use serde_inline_default::serde_inline_default;
 use std::{
@@ -436,7 +435,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub my_own_validator_config: ValidatorConfig<KEY>,
     #[serde(skip)]
     /// The known nodes' public key and stake value
-    pub known_nodes_with_stake: Vec<KEY::StakeTableEntry>,
+    pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
     /// Number of committee nodes
     pub committee_nodes: usize,
     /// Maximum transactions per block
@@ -561,10 +560,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             .map(|node_id| {
                 let cur_validator_config: ValidatorConfig<KEY> =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
-
-                cur_validator_config
-                    .public_key
-                    .get_stake_table_entry(cur_validator_config.stake_value)
+                cur_validator_config.get_public_config()
             })
             .collect();
         Self {

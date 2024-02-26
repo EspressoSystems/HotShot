@@ -6,12 +6,10 @@ use clap::Parser;
 use futures::{Future, FutureExt};
 
 use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ValidatorConfig,
+    traits::{election::ElectionConfig, signature_key::SignatureKey}, PeerConfig, ValidatorConfig
 };
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
-
 /// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     /// the client
@@ -155,13 +153,13 @@ impl OrchestratorClient {
     pub async fn post_and_wait_all_public_keys<K: SignatureKey, E: ElectionConfig>(
         &self,
         node_index: u64,
-        my_pub_key: K,
+        my_pub_key: PeerConfig<K>,
     ) -> NetworkConfig<K, E> {
         // send my public key
         let _send_pubkey_ready_f: Result<(), ClientError> = self
             .client
             .post(&format!("api/pubkey/{node_index}"))
-            .body_binary(&my_pub_key.to_bytes())
+            .body_binary(&PeerConfig::<K>::to_bytes(&my_pub_key)) //&my_pub_key.stake_table_entry.get_public_key().to_bytes()
             .unwrap()
             .send()
             .await;
