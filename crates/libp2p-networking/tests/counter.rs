@@ -155,8 +155,7 @@ async fn run_request_response_increment<'a>(
 
         // set up state change listener
         #[cfg(async_executor_impl = "async-std")]
-        let mut stream = requester_handle
-            .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
+        let mut stream = requester_handle.state.wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
         #[cfg(async_executor_impl = "tokio")]
         let mut stream = Box::pin(
             requester_handle.state.wait_timeout_until_with_trigger(timeout, move |state| *state == new_state),
