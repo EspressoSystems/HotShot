@@ -51,6 +51,8 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
+    /// Tracks the latest temporary index we have generated for init validator's key pair
+    tmp_latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY, ELECTION>,
     /// The total nodes that have posted their public keys
@@ -73,6 +75,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         OrchestratorState {
             latest_index: 0,
+            tmp_latest_index: 0,
             config: network_config,
             nodes_with_pubkey: 0,
             peer_pub_ready: false,
@@ -96,6 +99,10 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
         &mut self,
         _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    /// get endpoint for the next available temporary node index
+    /// # Errors
+    /// if unable to serve
+    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError>;
     /// post endpoint for each node's public key
     /// # Errors
     /// if unable to serve
@@ -182,6 +189,21 @@ where
             }
         }
         Ok(self.config.clone())
+    }
+
+    // Assumes one node do not get twice
+    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
+        let tmp_node_index = self.tmp_latest_index;
+        self.tmp_latest_index += 1;
+
+        if usize::from(tmp_node_index) >= self.config.config.total_nodes.get() {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Node index getter for key pair generation has reached capacity"
+                    .to_string(),
+            });
+        }
+        Ok(tmp_node_index)
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -295,6 +317,9 @@ where
             state.post_getconfig(node_index)
         }
         .boxed()
+    })?
+    .post("tmp_node_index", |_req, state| {
+        async move { state.get_tmp_node_index() }.boxed()
     })?
     .post("postpubkey", |req, state| {
         async move {
