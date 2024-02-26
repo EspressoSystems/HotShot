@@ -361,7 +361,7 @@ where
                 );
             } else {
                 let initializer =
-                    HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
+                    HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {}).unwrap();
                 // We assign node's public key and stake value rather than read from config file since it's a test
                 let validator_config =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
