@@ -1,8 +1,6 @@
 use futures::channel::oneshot::Sender;
 use libp2p::{
-    gossipsub::{
-        Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic, MessageId, PublishError,
-    },
+    gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
     request_response::ResponseChannel,
     Multiaddr,
@@ -86,16 +84,11 @@ impl NetworkDef {
 /// Gossip functions
 impl NetworkDef {
     /// Publish a given gossip
-    /// # Errors
-    /// Returns an error if we couldn't send the gossip
-    pub fn publish_gossip(
-        &mut self,
-        topic: IdentTopic,
-        contents: Vec<u8>,
-    ) -> Result<MessageId, PublishError> {
-        self.gossipsub.publish(topic, contents)
+    pub fn publish_gossip(&mut self, topic: IdentTopic, contents: Vec<u8>) {
+        if let Err(e) = self.gossipsub.publish(topic, contents) {
+            tracing::warn!("Failed to publish gossip message. Error: {:?}", e);
+        }
     }
-
     /// Subscribe to a given topic
     pub fn subscribe_gossip(&mut self, t: &str) {
         if let Err(e) = self.gossipsub.subscribe(&IdentTopic::new(t)) {
