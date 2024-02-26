@@ -303,10 +303,7 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::NetworkReliability, types::SignatureKey};
+</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -541,10 +538,7 @@
             .map(|node_id_| {
                 <span class="kw">let </span>cur_validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
                     ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id_ <span class="kw">as </span>u64, <span class="number">1</span>);
-
-                cur_validator_config
-                    .public_key
-                    .get_stake_table_entry(cur_validator_config.stake_value)
+                cur_validator_config.get_public_config()
             })
             .collect();
         <span class="comment">// But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.

@@ -118,9 +118,72 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
-</span><span class="kw">use </span>displaydoc::Display;
+</span><span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>displaydoc::Display;
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>light_client::StateVerKey;
+<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
+<span class="kw">use </span>tracing::error;
 <span class="kw">use </span>traits::{election::ElectionConfig, signature_key::SignatureKey};
 <span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>data;
@@ -194,11 +257,64 @@
             state_key_pair: state_key_pairs,
         }
     }
+
+    <span class="doccomment">/// get the public config of the validator
+    </span><span class="kw">pub fn </span>get_public_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerConfig&lt;KEY&gt; {
+        PeerConfig {
+            stake_table_entry: <span class="self">self</span>.public_key.get_stake_table_entry(<span class="self">self</span>.stake_value),
+            state_ver_key: <span class="self">self</span>.state_key_pair.<span class="number">0</span>.ver_key(),
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>ValidatorConfig&lt;KEY&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">0</span>, <span class="number">1</span>)
+    }
+}
+
+<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
+#[serde(bound(deserialize = <span class="string">""</span>))]
+</span><span class="doccomment">/// structure of peers' config, including public key, stake value, and state key.
+</span><span class="kw">pub struct </span>PeerConfig&lt;KEY: SignatureKey&gt; {
+    <span class="doccomment">/// The peer's public key and stake value
+    </span><span class="kw">pub </span>stake_table_entry: KEY::StakeTableEntry,
+    <span class="doccomment">/// the peer's state public key
+    </span><span class="kw">pub </span>state_ver_key: StateVerKey,
+}
+
+<span class="kw">impl</span>&lt;KEY: SignatureKey&gt; PeerConfig&lt;KEY&gt; {
+    <span class="doccomment">/// Serialize a peer's config to bytes
+    </span><span class="kw">pub fn </span>to_bytes(config: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Vec&lt;u8&gt; {
+        <span class="kw">let </span>x = bincode_opts().serialize(config);
+        <span class="kw">match </span>x {
+            <span class="prelude-val">Ok</span>(x) =&gt; x,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to serialize public key"</span>);
+                <span class="macro">vec!</span>[]
+            }
+        }
+    }
+
+    <span class="doccomment">/// Deserialize a peer's config from bytes
+    /// # Errors
+    /// Will return `None` if deserialization fails
+    </span><span class="kw">pub fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;PeerConfig&lt;KEY&gt;, <span class="kw">_</span>&gt; = bincode_opts().deserialize(bytes);
+        <span class="kw">match </span>x {
+            <span class="prelude-val">Ok</span>(pub_key) =&gt; <span class="prelude-val">Some</span>(pub_key),
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to deserialize public key"</span>);
+                <span class="prelude-val">None
+            </span>}
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>PeerConfig&lt;KEY&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>default_validator_config = ValidatorConfig::&lt;KEY&gt;::default();
+        default_validator_config.get_public_config()
     }
 }
 
@@ -215,7 +331,7 @@
     <span class="doccomment">/// Maximum transactions per block
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
     <span class="doccomment">/// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
-    </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;KEY::StakeTableEntry&gt;,
+    </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// My own validator config, including my public key, private key, stake value, serving as private parameter
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="doccomment">/// List of DA committee nodes for static DA committe

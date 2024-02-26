@@ -585,9 +585,54 @@
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ExecutionType, HotShotConfig, ValidatorConfig,
+    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>serde_inline_default::serde_inline_default;
 <span class="kw">use </span>std::{
@@ -795,14 +840,16 @@
                     <span class="comment">// fallback to orchestrator
                     </span><span class="macro">error!</span>(<span class="string">"{e}, falling back to orchestrator"</span>);
 
-                    <span class="kw">let </span>config = client.get_config(client.identity.clone()).<span class="kw">await</span>;
+                    <span class="kw">let </span>config = client
+                        .get_config_without_peer(client.identity.clone())
+                        .<span class="kw">await</span>;
 
                     <span class="comment">// save to file if we fell back
                     </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = config.to_file(file) {
                         <span class="macro">error!</span>(<span class="string">"{e}"</span>);
                     };
 
-                    (config, NetworkConfigSource::Orchestrator)
+                    (config, NetworkConfigSource::File)
                 }
             }
         } <span class="kw">else </span>{
@@ -810,10 +857,56 @@
 
             <span class="comment">// otherwise just get from orchestrator
             </span>(
-                client.get_config(client.identity.clone()).<span class="kw">await</span>,
+                client
+                    .get_config_without_peer(client.identity.clone())
+                    .<span class="kw">await</span>,
                 NetworkConfigSource::Orchestrator,
             )
         }
+    }
+
+    <span class="doccomment">/// Get a temporary node index for generating a validator config
+    </span><span class="kw">pub async fn </span>generate_init_validator_config(client: <span class="kw-2">&amp;</span>OrchestratorClient) -&gt; ValidatorConfig&lt;K&gt; {
+        <span class="comment">// This cur_node_index is only used for key pair generation, it's not bound with the node,
+        // lather the node with the generated key pair will get a new node_index from orchestrator.
+        </span><span class="kw">let </span>cur_node_index = client.get_node_index_for_init_validator_config().<span class="kw">await</span>;
+        ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], cur_node_index.into(), <span class="number">1</span>)
+    }
+
+    <span class="doccomment">/// Asynchronously retrieves a `NetworkConfig` from an orchestrator.
+    /// The retrieved one includes correct `node_index` and peer's public config.
+    </span><span class="kw">pub async fn </span>get_complete_config(
+        client: <span class="kw-2">&amp;</span>OrchestratorClient,
+        my_own_validator_config: ValidatorConfig&lt;K&gt;,
+        file: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    ) -&gt; (NetworkConfig&lt;K, E&gt;, NetworkConfigSource) {
+        <span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) = <span class="self">Self</span>::from_file_or_orchestrator(client, file).<span class="kw">await</span>;
+        <span class="kw">let </span>node_index = run_config.node_index;
+
+        <span class="comment">// Assign my_own_validator_config to the run_config if not loading from file
+        </span><span class="kw">match </span>source {
+            NetworkConfigSource::Orchestrator =&gt; {
+                run_config.config.my_own_validator_config = my_own_validator_config;
+            }
+            NetworkConfigSource::File =&gt; {
+                <span class="comment">// do nothing, my_own_validator_config has already been loaded from file
+            </span>}
+        }
+
+        <span class="comment">// one more round of orchestrator here to get peer's public key/config
+        </span><span class="kw">let </span>updated_config: NetworkConfig&lt;K, E&gt; = client
+            .post_and_wait_all_public_keys::&lt;K, E&gt;(
+                run_config.node_index,
+                run_config
+                    .config
+                    .my_own_validator_config
+                    .get_public_config(),
+            )
+            .<span class="kw">await</span>;
+        run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
+
+        <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}"</span>);
+        (run_config, source)
     }
 
     <span class="doccomment">/// Loads a `NetworkConfig` from a file.
@@ -1023,7 +1116,7 @@
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known nodes' public key and stake value
-    </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;KEY::StakeTableEntry&gt;,
+    </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// Number of committee nodes
     </span><span class="kw">pub </span>committee_nodes: usize,
     <span class="doccomment">/// Maximum transactions per block
@@ -1148,10 +1241,7 @@
             .map(|node_id| {
                 <span class="kw">let </span>cur_validator_config: ValidatorConfig&lt;KEY&gt; =
                     ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>);
-
-                cur_validator_config
-                    .public_key
-                    .get_stake_table_entry(cur_validator_config.stake_value)
+                cur_validator_config.get_public_config()
             })
             .collect();
         <span class="self">Self </span>{

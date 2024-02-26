@@ -246,7 +246,7 @@
 </span><span class="kw">pub type </span>PublicInput = GenericPublicInput&lt;CircuitField&gt;;
 <span class="doccomment">/// Key pairs for signing/verifying a light client state
 </span><span class="attr">#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
-</span><span class="kw">pub struct </span>StateKeyPair(schnorr::KeyPair&lt;Config&gt;);
+</span><span class="kw">pub struct </span>StateKeyPair(<span class="kw">pub </span>schnorr::KeyPair&lt;Config&gt;);
 
 <span class="doccomment">/// Request body to send to the state relay server
 </span><span class="attr">#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]

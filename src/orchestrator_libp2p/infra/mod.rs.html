@@ -847,12 +847,6 @@
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -881,6 +875,7 @@
 };
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::traits::network::ConnectedNetwork;
+<span class="kw">use </span>hotshot_types::PeerConfig;
 <span class="kw">use </span>hotshot_types::ValidatorConfig;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -966,14 +961,9 @@
     // but its type is too complex to load so we'll generate it from seed now
     </span>config.config.my_own_validator_config =
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>);
-    <span class="kw">let </span>my_own_validator_config_with_stake = config
-        .config
-        .my_own_validator_config
-        .public_key
-        .get_stake_table_entry(<span class="number">1u64</span>);
-    <span class="comment">// initialize it with size for better assignment of other peers' config
+    <span class="comment">// initialize it with size for better assignment of peers' config
     </span>config.config.known_nodes_with_stake =
-        <span class="macro">vec!</span>[my_own_validator_config_with_stake; config.config.total_nodes.get() <span class="kw">as </span>usize];
+        <span class="macro">vec!</span>[PeerConfig::default(); config.config.total_nodes.get() <span class="kw">as </span>usize];
 
     config
 }
@@ -1623,26 +1613,24 @@
     <span class="kw">let </span>orchestrator_client: OrchestratorClient =
         OrchestratorClient::new(args.clone(), public_ip.to_string());
 
+    <span class="comment">// We assume one node will not call this twice to generate two validator_config-s with same identity.
+    </span><span class="kw">let </span>my_own_validator_config = NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::generate_init_validator_config(
+        <span class="kw-2">&amp;</span>orchestrator_client,
+    ).<span class="kw">await</span>;
+
     <span class="comment">// conditionally save/load config from file or orchestrator
-    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
-        NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::from_file_or_orchestrator(
+    // This is a function that will return correct complete config from orchestrator.
+    // It takes in a valid args.network_config_file when loading from file, or valid validator_config when loading from orchestrator, the invalid one will be ignored.
+    // It returns the complete config which also includes peer's public key and public config.
+    // This function will be taken solely by sequencer right after OrchestratorClient::new,
+    // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
+    </span><span class="kw">let </span>(run_config, source) =
+        NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::get_complete_config(
             <span class="kw-2">&amp;</span>orchestrator_client,
+            my_own_validator_config,
             args.clone().network_config_file,
         )
         .<span class="kw">await</span>;
-
-    <span class="kw">let </span>node_index = run_config.node_index;
-    <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}"</span>);
-
-    <span class="comment">// one more round of orchestrator here to get peer's public key/config
-    </span><span class="kw">let </span>updated_config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
-        orchestrator_client
-            .post_and_wait_all_public_keys::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;(
-                run_config.node_index,
-                run_config.config.my_own_validator_config.public_key.clone(),
-            )
-            .<span class="kw">await</span>;
-    run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
     <span class="macro">error!</span>(<span class="string">"Initializing networking"</span>);
     <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone()).<span class="kw">await</span>;

@@ -228,6 +228,18 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
@@ -237,11 +249,10 @@
 
 <span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ValidatorConfig,
+    PeerConfig,
 };
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
-
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     <span class="doccomment">/// the client
@@ -332,13 +343,13 @@
     }
 
     <span class="doccomment">/// Sends an identify message to the orchestrator and attempts to get its config
-    /// Returns both the `node_index` and the run configuration from the orchestrator
+    /// Returns both the `node_index` and the run configuration without peer's public config from the orchestrator
     /// Will block until both are returned
     /// # Panics
     /// if unable to convert the node index from usize into u64
     /// (only applicable on 32 bit systems)
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub async fn </span>get_config&lt;K: SignatureKey, E: ElectionConfig&gt;(
+    </span><span class="kw">pub async fn </span>get_config_without_peer&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         identity: String,
     ) -&gt; NetworkConfig&lt;K, E&gt; {
@@ -370,12 +381,25 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await</span>;
         config.node_index = From::&lt;u16&gt;::from(node_index);
-        <span class="comment">// The orchestrator will generate keys for validator if it doesn't load keys from file
-        </span>config.config.my_own_validator_config =
-            ValidatorConfig::&lt;K&gt;::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>);
 
         config
     }
+
+    <span class="doccomment">/// Post to the orchestrator and get the latest `node_index`
+    /// Then return it for the init validator config
+    /// # Panics
+    /// if unable to post
+    </span><span class="kw">pub async fn </span>get_node_index_for_init_validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u16 {
+        <span class="kw">let </span>cur_node_index = |client: Client&lt;ClientError&gt;| {
+            <span class="kw">async move </span>{
+                <span class="kw">let </span>cur_node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; =
+                    client.post(<span class="string">"api/tmp_node_index"</span>).send().<span class="kw">await</span>;
+                cur_node_index
+            }
+            .boxed()
+        };
+        <span class="self">self</span>.wait_for_fn_from_orchestrator(cur_node_index).<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Sends my public key to the orchestrator so that it can collect all public keys
     /// And get the updated config
@@ -385,14 +409,14 @@
     </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         node_index: u64,
-        my_pub_key: K,
+        my_pub_key: PeerConfig&lt;K&gt;,
     ) -&gt; NetworkConfig&lt;K, E&gt; {
         <span class="comment">// send my public key
         </span><span class="kw">let </span>_send_pubkey_ready_f: <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; = <span class="self">self
             </span>.client
             .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/pubkey/{node_index}"</span>))
-            .body_binary(<span class="kw-2">&amp;</span>my_pub_key.to_bytes())
-            .unwrap()
+            .body_binary(<span class="kw-2">&amp;</span>PeerConfig::&lt;K&gt;::to_bytes(<span class="kw-2">&amp;</span>my_pub_key)) <span class="comment">//&amp;my_pub_key.stake_table_entry.get_public_key().to_bytes()
+            </span>.unwrap()
             .send()
             .<span class="kw">await</span>;
 

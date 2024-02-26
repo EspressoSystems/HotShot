@@ -88,7 +88,7 @@
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
+<span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
 
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
@@ -126,7 +126,7 @@
     <span class="doccomment">/// create an election
     /// TODO may want to move this to a testableelection trait
     </span><span class="kw">fn </span>create_election(
-        entries: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
+        entries: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
         config: TYPES::ElectionConfigType,
     ) -&gt; <span class="self">Self</span>;
 
