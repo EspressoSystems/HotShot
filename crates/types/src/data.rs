@@ -15,7 +15,7 @@ use crate::{
         storage::StoredView,
         BlockPayload,
     },
-    vid::{VidCommitment, VidSchemeType, VidCommon, VidShare},
+    vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 use ark_bls12_381::Bls12_381;
@@ -26,7 +26,7 @@ use derivative::Derivative;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
-    vid::{VidDisperse as JfVidDisperse},
+    vid::VidDisperse as JfVidDisperse,
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
