@@ -24,6 +24,7 @@ hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
 hotshot-orchestrator = { version = "0.1.1", path = "../orchestrator", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
+jf-primitives = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
@@ -38,4 +39,3 @@ hotshot-task = { path = "../task" }
 tokio = { workspace = true }
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
-

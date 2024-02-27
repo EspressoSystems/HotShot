@@ -5,13 +5,15 @@ use std::{
 
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, VidCommitment},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
+    vid::VidSchemeType,
 };
+use jf_primitives::vid::VidScheme;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 
@@ -175,8 +177,9 @@ impl BlockPayload for TestBlockPayload {
 /// to the genesis payload.
 ///
 /// In that case, the payloads may mismatch and cause problems.
+/// TODO shall we gate this function with #[cfg(test)]? Or maybe the entire example-types crate?
 #[must_use]
-pub fn genesis_vid_commitment() -> <VidScheme as VidSchemeTrait>::Commit {
+pub fn genesis_vid_commitment() -> <VidSchemeType as VidScheme>::Commit {
     vid_commitment(&vec![], 8)
 }
 

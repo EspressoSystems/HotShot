@@ -15,6 +15,7 @@ use crate::{
         storage::StoredView,
         BlockPayload,
     },
+    vid::VidSchemeType,
     vote::{Certificate, HasViewNumber},
 };
 use ark_bls12_381::Bls12_381;
@@ -25,7 +26,7 @@ use derivative::Derivative;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
-    vid::VidDisperse as JfVidDisperse,
+    vid::{VidDisperse as JfVidDisperse, VidScheme},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -135,15 +136,15 @@ where
     pub view_number: TYPES::Time,
 }
 
-/// The VID scheme type used in `HotShot`.
-pub type VidScheme = jf_primitives::vid::advz::Advz<ark_bls12_381::Bls12_381, sha2::Sha256>;
-pub use jf_primitives::vid::VidScheme as VidSchemeTrait;
-/// VID commitment.
-pub type VidCommitment = <VidScheme as VidSchemeTrait>::Commit;
+/// VID commitment type
+/// TODO move to vid.rs?
+pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
 
 /// VID dispersal data
 ///
 /// Like [`DAProposal`].
+///
+/// TODO move to vid.rs?
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
@@ -151,9 +152,9 @@ pub struct VidDisperse<TYPES: NodeType> {
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
-    pub shares: BTreeMap<TYPES::SignatureKey, <VidScheme as VidSchemeTrait>::Share>,
+    pub shares: BTreeMap<TYPES::SignatureKey, <VidSchemeType as VidScheme>::Share>,
     /// VID common data sent to all storage nodes
-    pub common: <VidScheme as VidSchemeTrait>::Common,
+    pub common: <VidSchemeType as VidScheme>::Common,
 }
 
 impl<TYPES: NodeType> VidDisperse<TYPES> {
@@ -162,7 +163,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// Allows for more complex stake table functionality
     pub fn from_membership(
         view_number: TYPES::Time,
-        mut vid_disperse: JfVidDisperse<VidScheme>,
+        mut vid_disperse: JfVidDisperse<VidSchemeType>,
         membership: &Arc<TYPES::Membership>,
     ) -> Self {
         let shares = membership
