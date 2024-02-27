@@ -1135,9 +1135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 broadcast_event(
                     Event {
                         view_number: view,
-                        event: EventType::ViewTimeout {
-                            view_number: view,
-                        },
+                        event: EventType::ViewTimeout { view_number: view },
                     },
                     &self.output_event_stream,
                 )

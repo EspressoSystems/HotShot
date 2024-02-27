@@ -397,6 +397,8 @@ pub trait RunDA<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
+    // Sishan TODO: remove this clippy after posting stats to orchestrator
+    #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE>,
@@ -524,7 +526,7 @@ pub trait RunDA<
         }
         let consensus_lock = context.hotshot.get_consensus();
         let consensus = consensus_lock.read().await;
-        let total_num_views = consensus.locked_view.get_u64() as usize;
+        let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
         error!("Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
         assert_eq!(total_num_views, failed_num_views + num_successful_commits);
@@ -941,7 +943,10 @@ pub async fn main_entry_point<
         .await;
 
     let node_index = run_config.node_index;
-    error!("Retrieved config; our node index is {node_index}. Leader election is {:?}", std::any::type_name::<TYPES::ElectionConfigType>());
+    error!(
+        "Retrieved config; our node index is {node_index}. Leader election is {:?}",
+        std::any::type_name::<TYPES::ElectionConfigType>()
+    );
 
     // one more round of orchestrator here to get peer's public key/config
     let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
