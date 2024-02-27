@@ -17,7 +17,7 @@ use async_broadcast::Sender;
 
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
+    data::{Leaf, QuorumProposal, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
@@ -32,7 +32,7 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
-    utils::{Terminator, ViewInner},
+    utils::{BuilderCommitment, Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
@@ -51,7 +51,7 @@ use tracing::{debug, error, info, instrument};
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     /// Vid Commitment
-    pub commitment: VidCommitment,
+    pub commitment: BuilderCommitment,
     /// Metadata for the block payload
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
     /// Flag for if this data represents the genesis block
@@ -227,14 +227,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = self.vid_shares.get(&proposal.view_number) {
-            } else {
-                debug!(
-                    "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-                    proposal.view_number
-                );
-                return false;
-            }
+            // if let Some(_vid_share) = self.vid_shares.get(&proposal.view_number) {
+            // } else {
+            //     debug!(
+            //         "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
+            //         proposal.view_number
+            //     );
+            //     return false;
+            // }
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
@@ -1213,6 +1213,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            HotShotEvent::TransactionsSequenced(encoded, metadata, view_number) => {
+                let payload_commitment = BuilderCommitment::from_bytes(&encoded);
+                debug!("got commit and meta {:?}", payload_commitment);
+                self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
+                    commitment: payload_commitment,
+                    metadata,
+                    is_genesis: false,
+                });
+                if self.quorum_membership.get_leader(view_number) == self.public_key
+                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view_number
+                {
+                    self.publish_proposal_if_able(view_number, None, &event_stream)
+                        .await;
+                }
+                if let Some(tc) = &self.timeout_cert {
+                    if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                        == self.public_key
+                    {
+                        self.publish_proposal_if_able(
+                            view_number,
+                            self.timeout_cert.clone(),
+                            &event_stream,
+                        )
+                        .await;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1295,7 +1322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 state,
                 &consensus.instance_state,
                 &parent_header,
-                commit_and_metadata.commitment,
+                commit_and_metadata.commitment.clone(),
                 commit_and_metadata.metadata.clone(),
             );
             let leaf = Leaf {
@@ -1381,6 +1408,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
                 | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::TransactionsSequenced( .. )
                 | HotShotEvent::Shutdown,
         )
     }

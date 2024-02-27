@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use hotshot_constants::Version;
 
+use crate::utils::BuilderCommitment;
 use crate::{
     data::{Leaf, VidCommitment},
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
@@ -25,7 +26,7 @@ pub struct QuorumData<TYPES: NodeType> {
 /// Data used for a DA vote.
 pub struct DAData {
     /// Commitment to a block payload
-    pub payload_commit: VidCommitment,
+    pub payload_commit: BuilderCommitment,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
@@ -37,7 +38,7 @@ pub struct TimeoutData<TYPES: NodeType> {
 /// Data used for a VID vote.
 pub struct VIDData {
     /// Commitment to the block payload the VID vote is on.
-    pub payload_commit: VidCommitment,
+    pub payload_commit: BuilderCommitment,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.

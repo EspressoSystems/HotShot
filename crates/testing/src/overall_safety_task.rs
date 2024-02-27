@@ -6,7 +6,7 @@ use hotshot_types::{
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
-    traits::node_implementation::{ConsensusTime, NodeType},
+    traits::node_implementation::{ConsensusTime, NodeType}, utils::BuilderCommitment,
 };
 use snafu::Snafu;
 use std::{
@@ -277,7 +277,7 @@ pub struct RoundResult<TYPES: NodeType> {
     pub leaf_map: HashMap<Leaf<TYPES>, usize>,
 
     /// block -> # entries decided on that block
-    pub block_map: HashMap<VidCommitment, usize>,
+    pub block_map: HashMap<BuilderCommitment, usize>,
 
     /// node idx -> number transactions
     pub num_txns_map: HashMap<u64, usize>,

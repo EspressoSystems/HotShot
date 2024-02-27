@@ -68,51 +68,51 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<HotShotEvent<TYPES>>,
     ) -> Option<HotShotTaskCompleted> {
         match event {
-            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
-                // get the number of quorum committee members to be used for VID calculation
-                let num_quorum_committee = self.membership.total_nodes();
+            // HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
+            //     // get the number of quorum committee members to be used for VID calculation
+            //     let num_quorum_committee = self.membership.total_nodes();
 
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-                let srs = test_srs(num_quorum_committee);
+            //     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
+            //     let srs = test_srs(num_quorum_committee);
 
-                // calculate the last power of two
-                // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
-                // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-                let chunk_size = 1 << num_quorum_committee.ilog2();
+            //     // calculate the last power of two
+            //     // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
+            //     // issue: https://github.com/EspressoSystems/HotShot/issues/2152
+            //     let chunk_size = 1 << num_quorum_committee.ilog2();
 
-                // calculate vid shares
-                let vid_disperse = spawn_blocking(move || {
-                    let multiplicity = 1;
-                    let vid = VidScheme::new(chunk_size, num_quorum_committee, multiplicity, &srs)
-                        .unwrap();
-                    vid.disperse(encoded_transactions.clone()).unwrap()
-                })
-                .await;
+            //     // calculate vid shares
+            //     let vid_disperse = spawn_blocking(move || {
+            //         let multiplicity = 1;
+            //         let vid = VidScheme::new(chunk_size, num_quorum_committee, multiplicity, &srs)
+            //             .unwrap();
+            //         vid.disperse(encoded_transactions.clone()).unwrap()
+            //     })
+            //     .await;
 
-                #[cfg(async_executor_impl = "tokio")]
-                // Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
-                let vid_disperse = vid_disperse.unwrap();
-                // send the commitment and metadata to consensus for block building
-                broadcast_event(
-                    HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        vid_disperse.commit,
-                        metadata,
-                        view_number,
-                    ),
-                    &event_stream,
-                )
-                .await;
+            //     #[cfg(async_executor_impl = "tokio")]
+            //     // Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
+            //     let vid_disperse = vid_disperse.unwrap();
+            //     // send the commitment and metadata to consensus for block building
+            //     broadcast_event(
+            //         HotShotEvent::SendPayloadCommitmentAndMetadata(
+            //             vid_disperse.commit,
+            //             metadata,
+            //             view_number,
+            //         ),
+            //         &event_stream,
+            //     )
+            //     .await;
 
-                // send the block to the VID dispersal function
-                broadcast_event(
-                    HotShotEvent::BlockReady(
-                        VidDisperse::from_membership(view_number, vid_disperse, &self.membership),
-                        view_number,
-                    ),
-                    &event_stream,
-                )
-                .await;
-            }
+            //     // send the block to the VID dispersal function
+            //     broadcast_event(
+            //         HotShotEvent::BlockReady(
+            //             VidDisperse::from_membership(view_number, vid_disperse, &self.membership),
+            //             view_number,
+            //         ),
+            //         &event_stream,
+            //     )
+            //     .await;
+            // }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
                 let Ok(signature) = TYPES::SignatureKey::sign(

@@ -12,7 +12,7 @@ use hotshot_types::{
         DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{node_implementation::NodeType, BlockPayload},
+    traits::{node_implementation::NodeType, BlockPayload}, utils::BuilderCommitment,
 };
 
 /// Marker that the task completed
@@ -93,7 +93,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
-        VidCommitment,
+        BuilderCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),

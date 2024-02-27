@@ -176,8 +176,8 @@ impl BlockPayload for TestBlockPayload {
 ///
 /// In that case, the payloads may mismatch and cause problems.
 #[must_use]
-pub fn genesis_vid_commitment() -> <VidScheme as VidSchemeTrait>::Commit {
-    vid_commitment(&vec![], 8)
+pub fn genesis_vid_commitment() -> BuilderCommitment{
+    BuilderCommitment::from_bytes(&vec![])
 }
 
 /// A [`BlockHeader`] that commits to [`TestBlockPayload`].
@@ -186,7 +186,7 @@ pub struct TestBlockHeader {
     /// Block number.
     pub block_number: u64,
     /// VID commitment to the payload.
-    pub payload_commitment: VidCommitment,
+    pub payload_commitment: BuilderCommitment,
 }
 
 impl BlockHeader for TestBlockHeader {
@@ -197,7 +197,7 @@ impl BlockHeader for TestBlockHeader {
         _parent_state: &Self::State,
         _instance_state: &<Self::State as ValidatedState>::Instance,
         parent_header: &Self,
-        payload_commitment: VidCommitment,
+        payload_commitment: BuilderCommitment,
         _metadata: <Self::Payload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
@@ -228,8 +228,8 @@ impl BlockHeader for TestBlockHeader {
         self.block_number
     }
 
-    fn payload_commitment(&self) -> VidCommitment {
-        self.payload_commitment
+    fn payload_commitment(&self) -> BuilderCommitment {
+        self.payload_commitment.clone()
     }
 
     fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata {
@@ -242,7 +242,7 @@ impl Committable for TestBlockHeader {
         RawCommitmentBuilder::new("Header Comm")
             .u64_field("block number", self.block_number())
             .constant_str("payload commitment")
-            .fixed_size_bytes(self.payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(self.payload_commitment().as_ref())
             .finalize()
     }
 

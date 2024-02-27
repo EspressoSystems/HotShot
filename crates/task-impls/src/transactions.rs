@@ -202,8 +202,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             return None;
                         }
                     };
-
-                // encode the transactions
+                    
                 let encoded_transactions = match payload.encode() {
                     Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
                     Err(e) => {
@@ -211,7 +210,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         return None;
                     }
                 };
-
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
                 broadcast_event(

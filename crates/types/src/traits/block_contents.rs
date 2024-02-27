@@ -125,7 +125,7 @@ pub trait BlockHeader:
         parent_state: &Self::State,
         instance_state: &<Self::State as ValidatedState>::Instance,
         parent_header: &Self,
-        payload_commitment: VidCommitment,
+        payload_commitment: BuilderCommitment,
         metadata: <Self::Payload as BlockPayload>::Metadata,
     ) -> Self;
 
@@ -142,7 +142,7 @@ pub trait BlockHeader:
     fn block_number(&self) -> u64;
 
     /// Get the payload commitment.
-    fn payload_commitment(&self) -> VidCommitment;
+    fn payload_commitment(&self) -> BuilderCommitment;
 
     /// Get the metadata.
     fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata;

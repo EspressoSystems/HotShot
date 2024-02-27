@@ -20,9 +20,9 @@ use hotshot_types::{
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        signature_key::SignatureKey, BlockPayload,
     },
-    utils::ViewInner,
+    utils::{ViewInner, BuilderCommitment},
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
@@ -111,10 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let payload_commitment = vid_commitment(
-                    &proposal.data.encoded_transactions,
-                    self.quorum_membership.total_nodes(),
-                );
+                let payload_commitment = BuilderCommitment::from_bytes(&proposal.data.encoded_transactions);
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
@@ -150,7 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Generate and send vote
                 let Ok(vote) = DAVote::create_signed_vote(
                     DAData {
-                        payload_commit: payload_commitment,
+                        payload_commit: payload_commitment.clone(),
                     },
                     view,
                     &self.public_key,
@@ -267,7 +264,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view) => {
+            HotShotEvent::TransactionsSequenced(encoded_transactions, meta, view) => {
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
                     .await;
@@ -285,7 +282,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let data: DAProposal<TYPES> = DAProposal {
                     encoded_transactions,
-                    metadata: metadata.clone(),
+                    metadata: meta.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: view,
                 };

@@ -4,9 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::UpgradeProposalData,
-    traits::{
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate}, simple_vote::UpgradeProposalData, traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -14,8 +12,7 @@ use crate::{
         states::{TestableState, ValidatedState},
         storage::StoredView,
         BlockPayload,
-    },
-    vote::{Certificate, HasViewNumber},
+    }, utils::BuilderCommitment, vote::{Certificate, HasViewNumber}
 };
 use ark_bls12_381::Bls12_381;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -29,6 +26,7 @@ use jf_primitives::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use snafu::Snafu;
 use std::{
     collections::BTreeMap,
@@ -376,13 +374,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
-        let encoded_txns = match block_payload.encode() {
+        let encoded_txns: Vec<u8> = match block_payload.encode() {
             // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
             // <https://github.com/EspressoSystems/HotShot/issues/2115>
             Ok(encoded) => encoded.into_iter().collect(),
             Err(_) => return Err(BlockError::InvalidTransactionLength),
         };
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = BuilderCommitment::from_bytes(encoded_txns);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
@@ -402,7 +400,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 
     /// A commitment to the block payload contained in this leaf.
-    pub fn get_payload_commitment(&self) -> VidCommitment {
+    pub fn get_payload_commitment(&self) -> BuilderCommitment {
         self.get_block_header().payload_commitment()
     }
 
@@ -494,7 +492,7 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
             .u64_field("block number", self.get_height())
             .field("parent Leaf commitment", self.parent_commitment)
             .constant_str("block payload commitment")
-            .fixed_size_bytes(self.get_payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(self.get_payload_commitment().as_ref())
             .constant_str("justify_qc view number")
             .u64(*self.justify_qc.view_number)
             .field(

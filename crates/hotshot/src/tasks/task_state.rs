@@ -10,7 +10,7 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::traits::election::Membership;
+use hotshot_types::{traits::election::Membership, utils::BuilderCommitment};
 use hotshot_types::traits::{
     block_contents::vid_commitment,
     consensus_api::ConsensusApi,
@@ -164,11 +164,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         let consensus = handle.hotshot.get_consensus();
 
         let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
-        // Impossible for `unwrap` to fail on the genesis payload.
-        let payload_commitment = vid_commitment(
-            &payload.encode().unwrap().collect(),
-            handle.hotshot.memberships.quorum_membership.total_nodes(),
-        );
+        let payload_commitment = BuilderCommitment::from_bytes(&payload.encode().unwrap().collect::<Vec<_>>());
         ConsensusTaskState {
             consensus,
             timeout: handle.hotshot.config.next_view_timeout,
