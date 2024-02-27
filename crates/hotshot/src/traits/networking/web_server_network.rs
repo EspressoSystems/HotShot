@@ -231,7 +231,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
         *tx_index += 1;
 
         if let Ok(deserialized_message_inner) =
-            Serializer::<MAJOR, MINOR>::deserialize::<Message<TYPES>>(&tx)
+            Serializer::<0, 1>::deserialize::<Message<TYPES>>(&tx)
         {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),

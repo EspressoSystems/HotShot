@@ -11,9 +11,7 @@ use async_compatibility_layer::{
     },
 };
 use async_lock::Mutex;
-use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
-use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
@@ -28,6 +26,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, info, instrument};
+use versioned_binary_serialization::{version::StaticVersion, BinarySerializer, Serializer};
 
 /// A handle containing:
 /// - A reference to the state
@@ -291,13 +290,20 @@ impl<S> NetworkNodeHandle<S> {
     /// Looks up a node's `PeerId` and attempts to validate routing
     /// # Errors
     /// if the peer was unable to be looked up (did not provide a response, DNE)
-    pub async fn lookup_node<V: for<'a> Deserialize<'a> + Serialize>(
+    pub async fn lookup_node<
+        V: for<'a> Deserialize<'a> + Serialize,
+        const MAJOR: u16,
+        const MINOR: u16,
+    >(
         &self,
         key: V,
         dht_timeout: Duration,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<PeerId, NetworkNodeHandleError> {
         // get record (from DHT)
-        let pid = self.get_record_timeout::<PeerId>(&key, dht_timeout).await?;
+        let pid = self
+            .get_record_timeout::<PeerId, MAJOR, MINOR>(&key, dht_timeout, bind_version)
+            .await?;
 
         // pid lookup for routing
         // self.lookup_pid(pid).await?;
@@ -309,19 +315,18 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
-    pub async fn put_record(
+    pub async fn put_record<const MAJOR: u16, const MINOR: u16>(
         &self,
         key: &impl Serialize,
         value: &impl Serialize,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
-            key: bincode_opts().serialize(key).context(SerializationSnafu)?,
-            value: bincode_opts()
-                .serialize(value)
-                .context(SerializationSnafu)?,
+            key: Serializer::<MAJOR, MINOR>::serialize(key).context(SerializationSnafu)?,
+            value: Serializer::<MAJOR, MINOR>::serialize(value).context(SerializationSnafu)?,
             notify: s,
         };
 
@@ -336,25 +341,26 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    pub async fn get_record<V: for<'a> Deserialize<'a>>(
+    pub async fn get_record<V: for<'a> Deserialize<'a>, const MAJOR: u16, const MINOR: u16>(
         &self,
         key: &impl Serialize,
         retry_count: u8,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
-            key: bincode_opts().serialize(key).context(SerializationSnafu)?,
+            key: Serializer::<MAJOR, MINOR>::serialize(key).context(SerializationSnafu)?,
             notify: s,
             retry_count,
         };
         self.send_request(req).await?;
 
         match r.await.context(CancelledRequestSnafu) {
-            Ok(result) => bincode_opts()
-                .deserialize(&result)
-                .context(DeserializationSnafu),
+            Ok(result) => {
+                Serializer::<MAJOR, MINOR>::deserialize(&result).context(DeserializationSnafu)
+            }
             Err(e) => Err(e).context(DHTSnafu),
         }
     }
@@ -365,12 +371,17 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    pub async fn get_record_timeout<V: for<'a> Deserialize<'a>>(
+    pub async fn get_record_timeout<
+        V: for<'a> Deserialize<'a>,
+        const MAJOR: u16,
+        const MINOR: u16,
+    >(
         &self,
         key: &impl Serialize,
         timeout: Duration,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = async_timeout(timeout, self.get_record(key, 3)).await;
+        let result = async_timeout(timeout, self.get_record(key, 3, bind_version)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -383,13 +394,14 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    pub async fn put_record_timeout(
+    pub async fn put_record_timeout<const MAJOR: u16, const MINOR: u16>(
         &self,
         key: &impl Serialize,
         value: &impl Serialize,
         timeout: Duration,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
-        let result = async_timeout(timeout, self.put_record(key, value)).await;
+        let result = async_timeout(timeout, self.put_record(key, value, bind_version)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -449,12 +461,14 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    pub async fn direct_request(
+    pub async fn direct_request<const MAJOR: u16, const MINOR: u16>(
         &self,
         pid: PeerId,
         msg: &impl Serialize,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
-        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg =
+            Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
         self.direct_request_no_serialize(pid, serialized_msg).await
     }
 
@@ -479,12 +493,14 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    pub async fn direct_response(
+    pub async fn direct_response<const MAJOR: u16, const MINOR: u16>(
         &self,
         chan: ResponseChannel<Vec<u8>>,
         msg: &impl Serialize,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
-        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg =
+            Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
         self.send_request(req).await
     }
@@ -505,12 +521,14 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    pub async fn gossip(
+    pub async fn gossip<const MAJOR: u16, const MINOR: u16>(
         &self,
         topic: String,
         msg: &impl Serialize,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
-        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg =
+            Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
         self.gossip_no_serialize(topic, serialized_msg).await
     }
 
@@ -676,12 +694,12 @@ pub enum NetworkNodeHandleError {
     /// Failure to serialize a message
     SerializationError {
         /// source of error
-        source: Box<bincode::ErrorKind>,
+        source: anyhow::Error,
     },
     /// Failure to deserialize a message
     DeserializationError {
         /// source of error
-        source: Box<bincode::ErrorKind>,
+        source: anyhow::Error,
     },
     /// Error sending request to network
     SendError,

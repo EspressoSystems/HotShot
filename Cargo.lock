@@ -3979,6 +3979,7 @@ dependencies = [
 name = "libp2p-networking"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
@@ -4004,6 +4005,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "versioned-binary-serialization",
  "void",
 ]
 

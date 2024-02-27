@@ -11,7 +11,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use hotshot_constants::{LOOK_AHEAD, VERSION_0_1};
+use hotshot_constants::{LOOK_AHEAD, STATIC_V_0_1, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -77,8 +77,7 @@ pub const QC_TOPIC: &str = "global";
 ///   * we must have an explicit version field.
 #[derive(Serialize)]
 pub struct Empty {
-    /// network protocol version number in use
-    version: Version,
+    byte: u8,
 }
 
 impl<M: NetworkMsg, K: SignatureKey + 'static> Debug for Libp2pNetwork<M, K> {
@@ -385,15 +384,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         };
 
         result.handle_event_generator(direct_send, broadcast_send);
-        result.spawn_node_lookup(node_lookup_recv);
-        result.spawn_connect(id);
+        result.spawn_node_lookup(node_lookup_recv, STATIC_V_0_1);
+        result.spawn_connect(id, STATIC_V_0_1);
 
         Ok(result)
     }
 
     /// Spawns task for looking up nodes pre-emptively
     #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>) {
+    fn spawn_node_lookup<const MAJOR: u16, const MINOR: u16>(
+        &self,
+        node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
+    ) {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
         let latest_seen_view = self.inner.latest_seen_view.clone();
@@ -411,7 +414,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
-                    if let Err(err) = handle.lookup_node::<K>(pk.clone(), dht_timeout).await {
+                    if let Err(err) = handle
+                        .lookup_node::<K, MAJOR, MINOR>(pk.clone(), dht_timeout, bind_version)
+                        .await
+                    {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -420,7 +426,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&mut self, id: usize) {
+    fn spawn_connect<const MAJOR: u16, const MINOR: u16>(
+        &mut self,
+        id: usize,
+        bind_version: StaticVersion<MAJOR, MINOR>,
+    ) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = self.inner.bootstrap_addrs.clone();
         let num_bootstrap = self.inner.bootstrap_addrs_len;
@@ -472,7 +482,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
                 // we want our records published before
                 // we begin participating in consensus
-                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+                while handle
+                    .put_record(&pk, &handle.peer_id(), bind_version)
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 info!(
@@ -481,7 +495,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     node_type
                 );
 
-                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+                while handle
+                    .put_record(&handle.peer_id(), &pk, bind_version)
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 // 10 minute timeout
@@ -552,12 +570,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(
-                        chan,
-                        &Empty {
-                            version: VERSION_0_1,
-                        },
-                    )
+                    .direct_response(chan, &Empty { byte: 0u8 }, STATIC_V_0_1)
                     .await
                     .is_err()
                 {
@@ -660,7 +673,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         &self,
         message: M,
         recipients: BTreeSet<K>,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
@@ -725,7 +738,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         }
 
-        match self.inner.handle.gossip(topic, &message).await {
+        match self
+            .inner
+            .handle
+            .gossip(topic, &message, bind_version)
+            .await
+        {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
                 Ok(())
@@ -742,7 +760,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         &self,
         message: M,
         recipient: K,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
@@ -764,7 +782,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node::<K, MAJOR, MINOR>(recipient.clone(), self.inner.dht_timeout, bind_version)
             .await
         {
             Ok(pid) => pid,
@@ -809,7 +827,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         }
 
-        match self.inner.handle.direct_request(pid, &message).await {
+        match self
+            .inner
+            .handle
+            .direct_request(pid, &message, bind_version)
+            .await
+        {
             Ok(()) => Ok(()),
             Err(e) => Err(e.into()),
         }
