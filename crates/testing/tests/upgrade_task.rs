@@ -92,6 +92,7 @@ async fn test_upgrade_task() {
         proposals[2].clone(),
         public_key,
     ));
+    input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::QuorumProposalRecv(
         proposals[3].clone(),
         public_key,
@@ -113,5 +114,5 @@ async fn test_upgrade_task() {
 
     inject_consensus_polls(&consensus_state).await;
 
-    run_harness(input, output, consensus_state, true).await;
+    run_harness(input, output, consensus_state, false).await;
 }
