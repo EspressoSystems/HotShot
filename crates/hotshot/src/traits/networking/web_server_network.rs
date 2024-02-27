@@ -264,8 +264,8 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
-        if let Ok(deserialized_message_inner) =
-            Serializer::<0, 1>::deserialize::<Message<TYPES>>(&message)
+        if let Ok(Some(deserialized_message_inner)) =
+            Serializer::<0, 1>::deserialize::<Option<Message<TYPES>>>(&message)
         {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
@@ -465,58 +465,34 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
                     self.client.get(&endpoint).send().await;
 
                 if let Ok(Some(messages)) = possible_message {
-                    for message_raw in messages {
-                        // This is very hacky.
-                        //
-                        // Fundamentally, message_raw is a serialized Option(Message<TYPES>).
-                        // The problem is, we want to extract the serialized Message<TYPES>
-                        // *without* deserializing the entire message_raw
-                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
-                        // which we have not yet read at this point).
-                        //
-                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
-                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
-                        //
-                        // It would be nice to do this with serde primitives, but I'm not sure how.
+                    for message in messages {
+                        let message_version = Version::deserialize(&message);
 
-                        match message_raw.first() {
-                            Some(0) => {
-                                continue;
-                            }
-                            Some(1) => {
-                                let message = message_raw[1..].to_vec();
-                                let message_version = Version::deserialize(&message);
+                        let should_return;
 
-                                let should_return;
+                        match message_version {
+                            Ok((VERSION_0_1, _)) => {
+                                should_return = self
+                                    .handle_message_0_1(
+                                        message,
+                                        view_number,
+                                        message_purpose,
+                                        &mut vote_index,
+                                        &mut seen_proposals,
+                                        &mut seen_view_sync_certificates,
+                                    )
+                                    .await;
 
-                                match message_version {
-                                    Ok((VERSION_0_1, _)) => {
-                                        should_return = self
-                                            .handle_message_0_1(
-                                                message,
-                                                view_number,
-                                                message_purpose,
-                                                &mut vote_index,
-                                                &mut seen_proposals,
-                                                &mut seen_view_sync_certificates,
-                                            )
-                                            .await;
-
-                                        if should_return {
-                                            return Ok(());
-                                        }
-                                    }
-                                    Ok((version, _)) => {
-                                        warn!(
-                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}", version, message);
-                                    }
-                                    Err(e) => {
-                                        warn!("Error {:?}, could not read version number.\n\nPayload:\n\n{:?}", e, message);
-                                    }
+                                if should_return {
+                                    return Ok(());
                                 }
                             }
-                            _ => {
-                                warn!("Could not deserialize message: {:?}", message_raw);
+                            Ok((version, _)) => {
+                                warn!(
+                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}", version, message);
+                            }
+                            Err(e) => {
+                                warn!("Error {:?}, could not read version number.\n\nPayload:\n\n{:?}", e, message);
                             }
                         }
                     }
