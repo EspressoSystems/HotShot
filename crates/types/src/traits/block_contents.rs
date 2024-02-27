@@ -103,6 +103,7 @@ pub fn vid_commitment(
     encoded_transactions: &Vec<u8>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
+    #[allow(clippy::panic)]
     vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
 

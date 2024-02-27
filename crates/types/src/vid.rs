@@ -24,6 +24,9 @@ use std::{fmt::Debug, ops::Range};
 /// [Naming impl trait in return types - Impl trait initiative](https://rust-lang.github.io/impl-trait-initiative/explainer/rpit_names.html)
 /// For example: we cannot name any assoc types for `VidScheme` such as `Commit`, etc.
 /// So instead we return a newtype that impls `VidScheme` via delegation.
+/// # Panics
+/// When the construction fails for the underlying VID scheme.
+#[must_use]
 pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // TODO use a proper SRS
     // https://github.com/EspressoSystems/HotShot/issues/1686
@@ -38,6 +41,7 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     let multiplicity = 1;
 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
+    #[allow(clippy::panic)]
     VidSchemeType(Advz::new(chunk_size, num_storage_nodes, multiplicity, srs).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}")))
 }
 
@@ -45,7 +49,9 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 // https://rust-lang.github.io/impl-trait-initiative/explainer/rpit_names.html
 // pub type VidCommitment = <<vid_scheme as FnOnce(usize)>::Output as VidScheme>::Commit;
 
+/// Pairing type
 type E = Bls12_381;
+/// Hash type
 type H = Sha256;
 
 /// TODO doc
@@ -60,7 +66,7 @@ pub struct VidSchemeType(Advz<E, H>);
 /// Jellyfish needs a more ergonomic way for downstream users to refer to this type.
 ///
 /// There is a `KzgEval` type alias in jellyfish that helps a little, but it's currently private:
-/// https://github.com/EspressoSystems/jellyfish/issues/423
+/// <https://github.com/EspressoSystems/jellyfish/issues/423>
 /// If it were public then we could instead use
 /// `LargeRangeProof<KzgEval<E>>`
 /// but that's still pretty crufty.
@@ -136,9 +142,7 @@ impl PayloadProver<NamespaceProofType> for VidSchemeType {
     where
         B: AsRef<[u8]>,
     {
-        self.0
-            .payload_proof(payload, range)
-            .map(|res| NamespaceProofType(res))
+        self.0.payload_proof(payload, range).map(NamespaceProofType)
     }
 
     fn payload_verify(
@@ -165,7 +169,7 @@ impl PayloadProver<TransactionProofType> for VidSchemeType {
     {
         self.0
             .payload_proof(payload, range)
-            .map(|res| TransactionProofType(res))
+            .map(TransactionProofType)
     }
 
     fn payload_verify(

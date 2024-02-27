@@ -72,6 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
+                    #[allow(clippy::panic)]
                     vid_scheme(num_storage_nodes).disperse(&encoded_transactions).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_storage_nodes},{})\n\terror: : {err}", encoded_transactions.len()))
                 })
                 .await;
