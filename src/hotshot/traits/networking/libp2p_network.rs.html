@@ -880,39 +880,6 @@
 <a href="#879" id="879">879</a>
 <a href="#880" id="880">880</a>
 <a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -937,7 +904,7 @@
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, TransmitType, ViewMessage,
+            NetworkMsg, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -1012,13 +979,9 @@
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
     <span class="doccomment">/// map of known replica peer ids to public keys
-    </span>broadcast_recv: UnboundedReceiver&lt;M&gt;,
+    </span>receiver: UnboundedReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for broadcast messages
-    </span>broadcast_send: UnboundedSender&lt;M&gt;,
-    <span class="doccomment">/// Sender for direct messages (only used for sending messages back to oneself)
-    </span>direct_send: UnboundedSender&lt;M&gt;,
-    <span class="doccomment">/// Receiver for direct messages
-    </span>direct_recv: UnboundedReceiver&lt;M&gt;,
+    </span>sender: UnboundedSender&lt;M&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
     </span>node_lookup_send: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
@@ -1266,18 +1229,15 @@
 
         <span class="comment">// unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        </span><span class="kw">let </span>(direct_send, direct_recv) = unbounded();
-        <span class="kw">let </span>(broadcast_send, broadcast_recv) = unbounded();
+        </span><span class="kw">let </span>(sender, receiver) = unbounded();
         <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
 
         <span class="kw">let </span><span class="kw-2">mut </span>result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: network_handle,
-                broadcast_recv,
-                direct_send: direct_send.clone(),
-                direct_recv,
+                receiver,
+                sender: sender.clone(),
                 pk,
-                broadcast_send: broadcast_send.clone(),
                 bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
@@ -1298,7 +1258,7 @@
             }),
         };
 
-        result.handle_event_generator(direct_send, broadcast_send);
+        result.handle_event_generator(sender);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -1429,14 +1389,13 @@
     </span><span class="kw">async fn </span>handle_recvd_events_0_1(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         msg: NetworkEvent,
-        direct_send: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
-        broadcast_send: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
+        sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
             GossipMsg(msg, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = bincode_opts().deserialize(<span class="kw-2">&amp;</span>msg);
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
-                    broadcast_send
+                    sender
                         .send(result)
                         .<span class="kw">await
                         </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
@@ -1447,7 +1406,7 @@
                     .deserialize(<span class="kw-2">&amp;</span>msg)
                     .context(FailedToSerializeSnafu);
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
-                    direct_send
+                    sender
                         .send(result)
                         .<span class="kw">await
                         </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
@@ -1483,8 +1442,7 @@
     /// terminates on shut down of network
     </span><span class="kw">fn </span>handle_event_generator(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        direct_send: UnboundedSender&lt;M&gt;,
-        broadcast_send: UnboundedSender&lt;M&gt;,
+        sender: UnboundedSender&lt;M&gt;,
     ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
         <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
@@ -1499,7 +1457,7 @@
                         <span class="kw">match </span>message_version {
                             <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {
                                 <span class="kw">let _ </span>= handle
-                                    .handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>direct_send, <span class="kw-2">&amp;</span>broadcast_send)
+                                    .handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender)
                                     .<span class="kw">await</span>;
                             }
                             <span class="prelude-val">Some</span>(version) =&gt; {
@@ -1590,7 +1548,7 @@
         </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {
             <span class="comment">// send to self
             </span><span class="self">self</span>.inner
-                .broadcast_send
+                .sender
                 .send(message.clone())
                 .<span class="kw">await
                 </span>.map_err(|<span class="kw">_</span>| NetworkError::ShutDown)<span class="question-mark">?</span>;
@@ -1678,7 +1636,7 @@
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.inner.pk {
             <span class="comment">// panic if we already shut down?
             </span><span class="self">self</span>.inner
-                .direct_send
+                .sender
                 .send(message)
                 .<span class="kw">await
                 </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
@@ -1745,7 +1703,6 @@
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
     </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        transmit_type: TransmitType,
     ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
@@ -1755,40 +1712,17 @@
             <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
                 <span class="prelude-val">Err</span>(NetworkError::ShutDown)
             } <span class="kw">else </span>{
-                <span class="kw">match </span>transmit_type {
-                    TransmitType::Direct =&gt; {
-                        <span class="kw">let </span>result = <span class="self">self
-                            </span>.inner
-                            .direct_recv
-                            .drain_at_least_one()
-                            .<span class="kw">await
-                            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                        <span class="self">self</span>.inner
-                            .metrics
-                            .incoming_direct_message_count
-                            .add(result.len());
-                        <span class="prelude-val">Ok</span>(result)
-                    }
-                    TransmitType::Broadcast =&gt; {
-                        <span class="kw">let </span>result = <span class="self">self
-                            </span>.inner
-                            .broadcast_recv
-                            .drain_at_least_one()
-                            .<span class="kw">await
-                            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                        <span class="self">self</span>.inner
-                            .metrics
-                            .incoming_direct_message_count
-                            .add(result.len());
-                        <span class="prelude-val">Ok</span>(result)
-                    }
-                    TransmitType::DACommitteeBroadcast =&gt; {
-                        <span class="macro">error!</span>(<span class="string">"Received DACommitteeBroadcast, it should have not happened."</span>);
-                        <span class="prelude-val">Err</span>(NetworkError::Libp2p {
-                            source: NetworkNodeHandleError::Killed,
-                        })
-                    }
-                }
+                <span class="kw">let </span>result = <span class="self">self
+                    </span>.inner
+                    .receiver
+                    .drain_at_least_one()
+                    .<span class="kw">await
+                    </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+                <span class="self">self</span>.inner
+                    .metrics
+                    .incoming_message_count
+                    .add(result.len());
+                <span class="prelude-val">Ok</span>(result)
             }
         };
         boxed_sync(closure)

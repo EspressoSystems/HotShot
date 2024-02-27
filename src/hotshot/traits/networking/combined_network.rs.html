@@ -406,7 +406,6 @@
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -435,7 +434,7 @@
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, TransmitType},
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -728,7 +727,6 @@
 
     <span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        transmit_type: TransmitType,
     ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
@@ -737,8 +735,8 @@
         <span class="comment">// recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
         </span><span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>primary_msgs = <span class="self">self</span>.primary().recv_msgs(transmit_type).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>secondary_msgs = <span class="self">self</span>.secondary().recv_msgs(transmit_type).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>primary_msgs = <span class="self">self</span>.primary().recv_msgs().<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>secondary_msgs = <span class="self">self</span>.secondary().recv_msgs().<span class="kw">await</span><span class="question-mark">?</span>;
 
             primary_msgs.append(secondary_msgs.as_mut());
 

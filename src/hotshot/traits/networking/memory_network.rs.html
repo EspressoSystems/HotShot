@@ -381,97 +381,6 @@
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -480,19 +389,18 @@
 </span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
-    channel::{bounded, Receiver, SendError, Sender},
+    channel::{bounded, Receiver, SendError, Sender, BoundedStream},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>dashmap::DashMap;
-<span class="kw">use </span>futures::StreamExt;
-<span class="kw">use </span>hotshot_types::traits::network::MemoryNetworkError;
+<span class="kw">use </span>futures::{StreamExt};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation, TransmitType},
+        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -535,25 +443,13 @@
     }
 }
 
-<span class="doccomment">/// Internal enum for combining streams
-</span><span class="kw">enum </span>Combo&lt;T&gt; {
-    <span class="doccomment">/// Direct message
-    </span>Direct(T),
-    <span class="doccomment">/// Broadcast message
-    </span>Broadcast(T),
-}
-
 <span class="doccomment">/// Internal state for a `MemoryNetwork` instance
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>MemoryNetworkInner&lt;M: NetworkMsg, K: SignatureKey&gt; {
-    <span class="doccomment">/// Input for broadcast messages
-    </span>broadcast_input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
-    <span class="doccomment">/// Input for direct messages
-    </span>direct_input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
-    <span class="doccomment">/// Output for broadcast messages
-    </span>broadcast_output: Mutex&lt;Receiver&lt;M&gt;&gt;,
-    <span class="doccomment">/// Output for direct messages
-    </span>direct_output: Mutex&lt;Receiver&lt;M&gt;&gt;,
+    <span class="doccomment">/// Input for messages
+    </span>input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Output for messages
+    </span>output: Mutex&lt;Receiver&lt;M&gt;&gt;,
     <span class="doccomment">/// The master map
     </span>master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
 
@@ -598,68 +494,36 @@
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;M, K&gt; {
         <span class="macro">info!</span>(<span class="string">"Attaching new MemoryNetwork"</span>);
-        <span class="kw">let </span>(broadcast_input, broadcast_task_recv) = bounded(<span class="number">128</span>);
-        <span class="kw">let </span>(direct_input, direct_task_recv) = bounded(<span class="number">128</span>);
-        <span class="kw">let </span>(broadcast_task_send, broadcast_output) = bounded(<span class="number">128</span>);
-        <span class="kw">let </span>(direct_task_send, direct_output) = bounded(<span class="number">128</span>);
+        <span class="kw">let </span>(input, task_recv) = bounded(<span class="number">128</span>);
+        <span class="kw">let </span>(task_send, output) = bounded(<span class="number">128</span>);
         <span class="kw">let </span>in_flight_message_count = AtomicUsize::new(<span class="number">0</span>);
         <span class="macro">trace!</span>(<span class="string">"Channels open, spawning background task"</span>);
 
         async_spawn(
             <span class="kw">async move </span>{
                 <span class="macro">debug!</span>(<span class="string">"Starting background task"</span>);
-                <span class="comment">// direct input is right stream
-                </span><span class="kw">let </span>direct = direct_task_recv.into_stream().map(Combo::&lt;Vec&lt;u8&gt;&gt;::Direct);
-                <span class="comment">// broadcast input is left stream
-                </span><span class="kw">let </span>broadcast = broadcast_task_recv
-                    .into_stream()
-                    .map(Combo::&lt;Vec&lt;u8&gt;&gt;::Broadcast);
-                <span class="comment">// Combine the streams
-                </span><span class="kw">let </span><span class="kw-2">mut </span>combined = futures::stream::select(direct, broadcast);
+                <span class="kw">let </span><span class="kw-2">mut </span>task_stream: BoundedStream&lt;Vec&lt;u8&gt;&gt; = task_recv.into_stream();
                 <span class="macro">trace!</span>(<span class="string">"Entering processing loop"</span>);
-                <span class="kw">while let </span><span class="prelude-val">Some</span>(message) = combined.next().<span class="kw">await </span>{
-                    <span class="kw">match </span>message {
-                        Combo::Direct(vec) =&gt; {
-                            <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming direct message"</span>);
-                            <span class="comment">// Attempt to decode message
-                            </span><span class="kw">let </span>x = bincode_opts().deserialize(<span class="kw-2">&amp;</span>vec);
-                            <span class="kw">match </span>x {
-                                <span class="prelude-val">Ok</span>(x) =&gt; {
-                                    <span class="kw">let </span>dts = direct_task_send.clone();
-                                    <span class="kw">let </span>res = dts.send(x).<span class="kw">await</span>;
-                                    <span class="kw">if </span>res.is_ok() {
-                                        <span class="macro">trace!</span>(<span class="string">"Passed message to output queue"</span>);
-                                    } <span class="kw">else </span>{
-                                        <span class="macro">error!</span>(<span class="string">"Output queue receivers are shutdown"</span>);
-                                    }
-                                }
-                                <span class="prelude-val">Err</span>(e) =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to decode incoming message, skipping"</span>);
-                                }
+                <span class="kw">while let </span><span class="prelude-val">Some</span>(vec) = task_stream.next().<span class="kw">await </span>{
+                    <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming message"</span>);
+                    <span class="comment">// Attempt to decode message
+                    </span><span class="kw">let </span>x = bincode_opts().deserialize(<span class="kw-2">&amp;</span>vec);
+                    <span class="kw">match </span>x {
+                        <span class="prelude-val">Ok</span>(x) =&gt; {
+                            <span class="kw">let </span>ts = task_send.clone();
+                            <span class="kw">let </span>res = ts.send(x).<span class="kw">await</span>;
+                            <span class="kw">if </span>res.is_ok() {
+                                <span class="macro">trace!</span>(<span class="string">"Passed message to output queue"</span>);
+                            } <span class="kw">else </span>{
+                                <span class="macro">error!</span>(<span class="string">"Output queue receivers are shutdown"</span>);
                             }
                         }
-                        Combo::Broadcast(vec) =&gt; {
-                            <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming broadcast message"</span>);
-                            <span class="comment">// Attempt to decode message
-                            </span><span class="kw">let </span>x = bincode_opts().deserialize(<span class="kw-2">&amp;</span>vec);
-                            <span class="kw">match </span>x {
-                                <span class="prelude-val">Ok</span>(x) =&gt; {
-                                    <span class="kw">let </span>bts = broadcast_task_send.clone();
-                                    <span class="kw">let </span>res = bts.send(x).<span class="kw">await</span>;
-                                    <span class="kw">if </span>res.is_ok() {
-                                        <span class="macro">trace!</span>(<span class="string">"Passed message to output queue"</span>);
-                                    } <span class="kw">else </span>{
-                                        <span class="macro">warn!</span>(<span class="string">"dropping packet!"</span>);
-                                    }
-                                }
-                                <span class="prelude-val">Err</span>(e) =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to decode incoming message, skipping"</span>);
-                                }
-                            }
+                        <span class="prelude-val">Err</span>(e) =&gt; {
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to decode incoming message, skipping"</span>);
                         }
                     }
+                    <span class="macro">warn!</span>(<span class="string">"Stream shutdown"</span>);
                 }
-                <span class="macro">warn!</span>(<span class="string">"Stream shutdown"</span>);
             }
             .instrument(<span class="macro">info_span!</span>(<span class="string">"MemoryNetwork Background task"</span>, map = <span class="question-mark">?</span>master_map)),
         );
@@ -667,10 +531,8 @@
         <span class="macro">trace!</span>(<span class="string">"Task spawned, creating MemoryNetwork"</span>);
         <span class="kw">let </span>mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
-                broadcast_input: RwLock::new(<span class="prelude-val">Some</span>(broadcast_input)),
-                direct_input: RwLock::new(<span class="prelude-val">Some</span>(direct_input)),
-                broadcast_output: Mutex::new(broadcast_output),
-                direct_output: Mutex::new(direct_output),
+                input: RwLock::new(<span class="prelude-val">Some</span>(input)),
+                output: Mutex::new(output),
                 master_map: master_map.clone(),
                 in_flight_message_count,
                 metrics,
@@ -683,26 +545,12 @@
         mn
     }
 
-    <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `broadcast_input`
-    </span><span class="kw">async fn </span>broadcast_input(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SendError&lt;Vec&lt;u8&gt;&gt;&gt; {
+    <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `input`
+    </span><span class="kw">async fn </span>input(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SendError&lt;Vec&lt;u8&gt;&gt;&gt; {
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-        <span class="kw">let </span>input = <span class="self">self</span>.inner.broadcast_input.read().<span class="kw">await</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
-            <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
-            input.send(message).<span class="kw">await
-        </span>} <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(SendError(message))
-        }
-    }
-
-    <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `direct_input`
-    </span><span class="kw">async fn </span>direct_input(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SendError&lt;Vec&lt;u8&gt;&gt;&gt; {
-        <span class="self">self</span>.inner
-            .in_flight_message_count
-            .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-        <span class="kw">let </span>input = <span class="self">self</span>.inner.direct_input.read().<span class="kw">await</span>;
+        <span class="kw">let </span>input = <span class="self">self</span>.inner.input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
             <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
@@ -769,8 +617,7 @@
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw-2">*</span><span class="self">self</span>.inner.broadcast_input.write().<span class="kw">await </span>= <span class="prelude-val">None</span>;
-            <span class="kw-2">*</span><span class="self">self</span>.inner.direct_input.write().<span class="kw">await </span>= <span class="prelude-val">None</span>;
+            <span class="kw-2">*</span><span class="self">self</span>.inner.input.write().<span class="kw">await </span>= <span class="prelude-val">None</span>;
         };
         boxed_sync(closure)
     }
@@ -802,7 +649,7 @@
                         Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                             <span class="kw">let </span>node3 = (node2).clone();
                             boxed_sync(<span class="kw">async move </span>{
-                                <span class="kw">let </span>_res = node3.broadcast_input(msg).<span class="kw">await</span>;
+                                <span class="kw">let </span>_res = node3.input(msg).<span class="kw">await</span>;
                                 <span class="comment">// NOTE we're dropping metrics here but this is only for testing
                                 // purposes. I think that should be okay
                             </span>})
@@ -811,7 +658,7 @@
                     async_spawn(fut);
                 }
             } <span class="kw">else </span>{
-                <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
+                <span class="kw">let </span>res = node.input(vec.clone()).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
                         <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
@@ -853,7 +700,7 @@
                         Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                             <span class="kw">let </span>node2 = node.clone();
                             boxed_sync(<span class="kw">async move </span>{
-                                <span class="kw">let </span>_res = node2.direct_input(msg).<span class="kw">await</span>;
+                                <span class="kw">let </span>_res = node2.input(msg).<span class="kw">await</span>;
                                 <span class="comment">// NOTE we're dropping metrics here but this is only for testing
                                 // purposes. I think that should be okay
                             </span>})
@@ -863,7 +710,7 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             } <span class="kw">else </span>{
-                <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
+                <span class="kw">let </span>res = node.input(vec).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
                         <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
@@ -890,57 +737,28 @@
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::recv_msgs"</span>, skip_all)]
     </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        transmit_type: TransmitType,
     ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">match </span>transmit_type {
-                TransmitType::Direct =&gt; {
-                    <span class="kw">let </span>ret = <span class="self">self
-                        </span>.inner
-                        .direct_output
-                        .lock()
-                        .<span class="kw">await
-                        </span>.drain_at_least_one()
-                        .<span class="kw">await
-                        </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                    <span class="self">self</span>.inner
-                        .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
-                    <span class="self">self</span>.inner
-                        .metrics
-                        .incoming_direct_message_count
-                        .add(ret.len());
-                    <span class="prelude-val">Ok</span>(ret)
-                }
-                TransmitType::Broadcast =&gt; {
-                    <span class="kw">let </span>ret = <span class="self">self
-                        </span>.inner
-                        .broadcast_output
-                        .lock()
-                        .<span class="kw">await
-                        </span>.drain_at_least_one()
-                        .<span class="kw">await
-                        </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                    <span class="self">self</span>.inner
-                        .in_flight_message_count
-                        .fetch_sub(ret.len(), Ordering::Relaxed);
-                    <span class="self">self</span>.inner
-                        .metrics
-                        .incoming_broadcast_message_count
-                        .add(ret.len());
-                    <span class="prelude-val">Ok</span>(ret)
-                }
-                TransmitType::DACommitteeBroadcast =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Received DACommitteeBroadcast, it should have not happened."</span>);
-                    <span class="prelude-val">Err</span>(NetworkError::MemoryNetwork {
-                        source: MemoryNetworkError::Stub,
-                    })
-                }
-            }
+            <span class="kw">let </span>ret = <span class="self">self
+                </span>.inner
+                .output
+                .lock()
+                .<span class="kw">await
+                </span>.drain_at_least_one()
+                .<span class="kw">await
+                </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+            <span class="self">self</span>.inner
+                .in_flight_message_count
+                .fetch_sub(ret.len(), Ordering::Relaxed);
+            <span class="self">self</span>.inner
+                .metrics
+                .incoming_message_count
+                .add(ret.len());
+            <span class="prelude-val">Ok</span>(ret)
         };
         boxed_sync(closure)
     }

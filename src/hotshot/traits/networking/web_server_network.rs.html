@@ -1293,39 +1293,6 @@
 <a href="#1292" id="1292">1292</a>
 <a href="#1293" id="1293">1293</a>
 <a href="#1294" id="1294">1294</a>
-<a href="#1295" id="1295">1295</a>
-<a href="#1296" id="1296">1296</a>
-<a href="#1297" id="1297">1297</a>
-<a href="#1298" id="1298">1298</a>
-<a href="#1299" id="1299">1299</a>
-<a href="#1300" id="1300">1300</a>
-<a href="#1301" id="1301">1301</a>
-<a href="#1302" id="1302">1302</a>
-<a href="#1303" id="1303">1303</a>
-<a href="#1304" id="1304">1304</a>
-<a href="#1305" id="1305">1305</a>
-<a href="#1306" id="1306">1306</a>
-<a href="#1307" id="1307">1307</a>
-<a href="#1308" id="1308">1308</a>
-<a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
-<a href="#1311" id="1311">1311</a>
-<a href="#1312" id="1312">1312</a>
-<a href="#1313" id="1313">1313</a>
-<a href="#1314" id="1314">1314</a>
-<a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
-<a href="#1320" id="1320">1320</a>
-<a href="#1321" id="1321">1321</a>
-<a href="#1322" id="1322">1322</a>
-<a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1347,7 +1314,7 @@
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, TransmitType, WebServerNetworkError,
+            TestableNetworkingImplementation, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -1497,10 +1464,8 @@
 </span><span class="kw">struct </span>Inner&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Our own key
     </span>_own_key: TYPES::SignatureKey,
-    <span class="doccomment">/// Queue for broadcasted messages
-    </span>broadcast_poll_queue_0_1: Arc&lt;RwLock&lt;Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
-    <span class="doccomment">/// Queue for direct messages
-    </span>direct_poll_queue_0_1: Arc&lt;RwLock&lt;Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Queue for messages
+    </span>poll_queue_0_1: Arc&lt;RwLock&lt;Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Client is running
     </span>running: AtomicBool,
     <span class="doccomment">/// The web server connection is ready
@@ -1543,7 +1508,7 @@
     /// * `first_tx_index` - the index of the first transaction received from the server in the latest batch.
     /// * `tx_index` - the last transaction index we saw from the web server.
     </span><span class="kw">async fn </span>handle_tx_0_1(<span class="kw-2">&amp;</span><span class="self">self</span>, tx: Vec&lt;u8&gt;, first_tx_index: u64, tx_index: <span class="kw-2">&amp;mut </span>u64) {
-        <span class="kw">let </span>broadcast_poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.broadcast_poll_queue_0_1;
+        <span class="kw">let </span>poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.poll_queue_0_1;
         <span class="kw">if </span>first_tx_index &gt; <span class="kw-2">*</span>tx_index + <span class="number">1 </span>{
             <span class="macro">debug!</span>(
                 <span class="string">"missed txns from {} to {}"</span>,
@@ -1559,7 +1524,7 @@
             <span class="kw">let </span>deserialized_message = RecvMsg {
                 message: <span class="prelude-val">Some</span>(deserialized_message_inner),
             };
-            broadcast_poll_queue
+            poll_queue
                 .write()
                 .<span class="kw">await
                 </span>.push(deserialized_message.clone());
@@ -1585,8 +1550,7 @@
         seen_proposals: <span class="kw-2">&amp;mut </span>LruCache&lt;u64, ()&gt;,
         seen_view_sync_certificates: <span class="kw-2">&amp;mut </span>LruCache&lt;u64, ()&gt;,
     ) -&gt; bool {
-        <span class="kw">let </span>broadcast_poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.broadcast_poll_queue_0_1;
-        <span class="kw">let </span>direct_poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.direct_poll_queue_0_1;
+        <span class="kw">let </span>poll_queue = <span class="kw-2">&amp;</span><span class="self">self</span>.poll_queue_0_1;
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(deserialized_message_inner) = bincode::deserialize::&lt;Message&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span>message) {
             <span class="kw">let </span>deserialized_message = RecvMsg {
                 message: <span class="prelude-val">Some</span>(deserialized_message_inner),
@@ -1597,7 +1561,7 @@
                 }
                 MessagePurpose::Proposal =&gt; {
                     <span class="kw">let </span>proposal = deserialized_message.clone();
-                    broadcast_poll_queue.write().<span class="kw">await</span>.push(proposal);
+                    poll_queue.write().<span class="kw">await</span>.push(proposal);
 
                     <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     </span><span class="kw">return </span><span class="bool-val">true</span>;
@@ -1607,7 +1571,7 @@
                     <span class="kw">let </span>hash = hash(<span class="kw-2">&amp;</span>proposal);
                     <span class="comment">// Only allow unseen proposals to be pushed to the queue
                     </span><span class="kw">if </span>seen_proposals.put(hash, ()).is_none() {
-                        broadcast_poll_queue.write().<span class="kw">await</span>.push(proposal);
+                        poll_queue.write().<span class="kw">await</span>.push(proposal);
                     }
 
                     <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
@@ -1617,14 +1581,14 @@
                     <span class="kw">let </span>cert = deserialized_message.clone();
                     <span class="kw">let </span>hash = hash(<span class="kw-2">&amp;</span>cert);
                     <span class="kw">if </span>seen_view_sync_certificates.put(hash, ()).is_none() {
-                        broadcast_poll_queue.write().<span class="kw">await</span>.push(cert);
+                        poll_queue.write().<span class="kw">await</span>.push(cert);
                     }
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
-                MessagePurpose::Vote | MessagePurpose::ViewSyncVote =&gt; {
+                MessagePurpose::Vote | MessagePurpose::ViewSyncVote | MessagePurpose::ViewSyncCertificate =&gt; {
                     <span class="kw">let </span>vote = deserialized_message.clone();
                     <span class="kw-2">*</span>vote_index += <span class="number">1</span>;
-                    direct_poll_queue.write().<span class="kw">await</span>.push(vote);
+                    poll_queue.write().<span class="kw">await</span>.push(vote);
 
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
@@ -1633,7 +1597,7 @@
                         <span class="string">"Received DAC from web server for view {} {}"</span>,
                         view_number, <span class="self">self</span>.is_da
                     );
-                    broadcast_poll_queue
+                    poll_queue
                         .write()
                         .<span class="kw">await
                         </span>.push(deserialized_message.clone());
@@ -1646,22 +1610,13 @@
                 MessagePurpose::VidDisperse =&gt; {
                     <span class="comment">// TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
 
-                    </span><span class="self">self</span>.broadcast_poll_queue_0_1
+                    </span><span class="self">self</span>.poll_queue_0_1
                         .write()
                         .<span class="kw">await
                         </span>.push(deserialized_message.clone());
 
                     <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     </span><span class="kw">return </span><span class="bool-val">true</span>;
-                }
-                MessagePurpose::ViewSyncCertificate =&gt; {
-                    <span class="comment">// TODO ED Special case this for view sync
-                    // TODO ED Need to add vote indexing to web server for view sync certs
-                    </span><span class="kw">let </span>cert = deserialized_message.clone();
-                    <span class="kw-2">*</span>vote_index += <span class="number">1</span>;
-                    broadcast_poll_queue.write().<span class="kw">await</span>.push(cert);
-
-                    <span class="kw">return </span><span class="bool-val">false</span>;
                 }
 
                 MessagePurpose::Internal =&gt; {
@@ -1671,7 +1626,7 @@
                 }
 
                 MessagePurpose::Upgrade =&gt; {
-                    broadcast_poll_queue
+                    poll_queue
                         .write()
                         .<span class="kw">await
                         </span>.push(deserialized_message.clone());
@@ -1964,8 +1919,7 @@
         </span><span class="kw">let </span>client = surf_disco::Client::&lt;ClientError&gt;::new(url);
 
         <span class="kw">let </span>inner = Arc::new(Inner {
-            broadcast_poll_queue_0_1: Arc::default(),
-            direct_poll_queue_0_1: Arc::default(),
+            poll_queue_0_1: Arc::default(),
             running: AtomicBool::new(<span class="bool-val">true</span>),
             connected: AtomicBool::new(<span class="bool-val">false</span>),
             client,
@@ -2188,45 +2142,25 @@
         }
     }
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
+    <span class="doccomment">/// Moves out the entire queue of received messages
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
     </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        transmit_type: TransmitType,
     ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">match </span>transmit_type {
-                TransmitType::Direct =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="self">self</span>.inner.direct_poll_queue_0_1.write().<span class="kw">await</span>;
-                    <span class="prelude-val">Ok</span>(queue
-                        .drain(..)
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                        .iter()
-                        .map(|x| x.get_message().unwrap())
-                        .collect())
-                }
-                TransmitType::Broadcast =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="self">self</span>.inner.broadcast_poll_queue_0_1.write().<span class="kw">await</span>;
-                    <span class="prelude-val">Ok</span>(queue
-                        .drain(..)
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                        .iter()
-                        .map(|x| x.get_message().unwrap())
-                        .collect())
-                }
-                TransmitType::DACommitteeBroadcast =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Received DACommitteeBroadcast, it should have not happened."</span>);
-                    <span class="prelude-val">Err</span>(NetworkError::WebServer {
-                        source: WebServerNetworkError::ClientDisconnected,
-                    })
-                }
-            }
+            <span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="self">self</span>.inner.poll_queue_0_1.write().<span class="kw">await</span>;
+            <span class="prelude-val">Ok</span>(queue
+                .drain(..)
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                .iter()
+                .map(|x| x.get_message().unwrap())
+                .collect())
         };
         boxed_sync(closure)
     }
