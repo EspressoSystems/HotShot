@@ -646,6 +646,24 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -833,11 +851,17 @@
             .<span class="kw">await
             </span>.context(StorageSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// insert genesis (or latest block) to state map
+        <span class="comment">// Get the validated state from the initializer or construct an incomplete one from the
+        // block header.
+        </span><span class="kw">let </span>validated_state = <span class="kw">match </span>initializer.validated_state {
+            <span class="prelude-val">Some</span>(state) =&gt; state,
+            <span class="prelude-val">None </span>=&gt; Arc::new(TYPES::ValidatedState::from_header(
+                <span class="kw-2">&amp;</span>anchored_leaf.block_header,
+            )),
+        };
+
+        <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
-        <span class="kw">let </span>validated_state = Arc::new(TYPES::ValidatedState::from_header(
-            <span class="kw-2">&amp;</span>anchored_leaf.block_header,
-        ));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -1260,6 +1284,12 @@
     <span class="doccomment">/// Instance-level state.
     </span>instance_state: TYPES::InstanceState,
 
+    <span class="doccomment">/// Optional validated state.
+    ///
+    /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
+    /// the state from the block header.
+    </span>validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
+
     <span class="doccomment">/// Starting view number that we are confident won't lead to a double vote after restart.
     </span>start_view: TYPES::Time,
 }
@@ -1269,9 +1299,11 @@
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     </span><span class="kw">pub fn </span>from_genesis(instance_state: TYPES::InstanceState) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span>validated_state = <span class="prelude-val">Some</span>(Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state)));
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
             instance_state,
+            validated_state,
             start_view: TYPES::Time::new(<span class="number">0</span>),
         })
     }
@@ -1281,14 +1313,18 @@
     /// # Arguments
     /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
     /// after restart.
+    /// * `validated_state` - Optional validated state that if given, will be used to constrcut the
+    /// `SystemContext`.
     </span><span class="kw">pub fn </span>from_reload(
         anchor_leaf: Leaf&lt;TYPES&gt;,
         instance_state: TYPES::InstanceState,
+        validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
         start_view: TYPES::Time,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner: anchor_leaf,
             instance_state,
+            validated_state,
             start_view,
         }
     }
