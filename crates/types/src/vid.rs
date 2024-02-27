@@ -20,6 +20,12 @@ use std::{fmt::Debug, ops::Range};
 /// VID commitment type
 pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
 
+/// VID common type
+pub type VidCommon = <VidSchemeType as VidScheme>::Common;
+
+/// VID share type
+pub type VidShare = <VidSchemeType as VidScheme>::Share;
+
 /// VID scheme constructor.
 ///
 /// We prefer a return type of the form `impl VidScheme`.
