@@ -39,7 +39,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
-    /// cur_view from pseudocode
+    /// View number that is currently on.
     pub cur_view: TYPES::Time,
 
     /// last view had a successful decide event
@@ -72,6 +72,8 @@ pub struct ConsensusMetricsValue {
     pub last_synced_block_height: Box<dyn Gauge>,
     /// The number of last decided view
     pub last_decided_view: Box<dyn Gauge>,
+    /// Number of timestamp for the last decided time
+    pub last_decided_time: Box<dyn Gauge>,
     /// The current view
     pub current_view: Box<dyn Gauge>,
     /// Number of views that are in-flight since the last decided view
@@ -210,6 +212,7 @@ impl ConsensusMetricsValue {
             last_synced_block_height: metrics
                 .create_gauge(String::from("last_synced_block_height"), None),
             last_decided_view: metrics.create_gauge(String::from("last_decided_view"), None),
+            last_decided_time: metrics.create_gauge(String::from("last_decided_time"), None),
             current_view: metrics.create_gauge(String::from("current_view"), None),
             number_of_views_since_last_decide: metrics
                 .create_gauge(String::from("number_of_views_since_last_decide"), None),
@@ -232,11 +235,9 @@ impl Default for ConsensusMetricsValue {
 }
 
 impl<TYPES: NodeType> Consensus<TYPES> {
-    /// increment the current view
-    /// NOTE may need to do gc here
-    pub fn increment_view(&mut self) -> TYPES::Time {
-        self.cur_view += 1;
-        self.cur_view
+    /// Update the current view.
+    pub fn update_view(&mut self, view_number: TYPES::Time) {
+        self.cur_view = view_number;
     }
 
     /// gather information from the parent chain of leafs

@@ -17,10 +17,7 @@ pub use self::{
     },
 };
 
-use self::behaviours::{
-    dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
-    gossip::GossipEvent,
-};
+use self::behaviours::{dht::DHTEvent, direct_message::DMEvent, gossip::GossipEvent};
 use bincode::Options;
 use futures::channel::oneshot::Sender;
 use hotshot_utils::bincode::bincode_opts;
@@ -37,8 +34,8 @@ use libp2p::{
 use libp2p_identity::PeerId;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
-use tracing::{info, instrument};
+use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc};
+use tracing::instrument;
 
 #[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::async_std::Transport as DnsTransport;
@@ -125,7 +122,7 @@ pub enum ClientRequest {
         retry_count: u8,
     },
     /// client request to send a direct reply to a message
-    DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
+    DirectResponse(ResponseChannel<Vec<u8>>, Vec<u8>),
     /// prune a peer
     Prune(PeerId),
     /// add vec of known peers or addresses
@@ -169,7 +166,7 @@ pub enum NetworkEvent {
     /// Recv-ed a broadcast
     GossipMsg(Vec<u8>, TopicHash),
     /// Recv-ed a direct message from a node
-    DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
+    DirectRequest(Vec<u8>, PeerId, ResponseChannel<Vec<u8>>),
     /// Recv-ed a direct response from a node (that hopefully was initiated by this node)
     DirectResponse(Vec<u8>, PeerId),
     /// Report that kademlia has successfully bootstrapped into the network
@@ -230,24 +227,6 @@ pub async fn gen_transport(identity: Keypair) -> Result<BoxedTransport, NetworkE
     Ok(dns_quic
         .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))
         .boxed())
-}
-
-/// a single node, connects them to each other
-/// and waits for connections to propagate to all nodes.
-#[instrument]
-pub async fn spin_up_swarm<S: Debug + Default>(
-    timeout_len: Duration,
-    known_nodes: Vec<(Option<PeerId>, Multiaddr)>,
-    config: NetworkNodeConfig,
-    idx: usize,
-    handle: &Arc<NetworkNodeHandle<S>>,
-) -> Result<(), NetworkNodeHandleError> {
-    info!("known_nodes{:?}", known_nodes);
-    handle.add_known_peers(known_nodes).await?;
-    handle.wait_to_connect(4, idx, timeout_len).await?;
-    handle.subscribe("global".to_string()).await?;
-
-    Ok(())
 }
 
 /// Given a slice of handles assumed to be larger than 0,

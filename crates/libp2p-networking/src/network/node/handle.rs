@@ -1,14 +1,13 @@
 use crate::network::{
-    behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
-    ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
-    NetworkNodeConfigBuilderError,
+    error::DHTError, gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode,
+    NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
-        bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
-        UnboundedReceiver, UnboundedRecvError, UnboundedSender,
+        oneshot, OneShotReceiver, OneShotSender, SendError, UnboundedReceiver, UnboundedRecvError,
+        UnboundedSender,
     },
 };
 use async_lock::Mutex;
@@ -52,9 +51,6 @@ pub struct NetworkNodeHandle<S> {
 
     /// human readable id
     id: usize,
-
-    /// A list of webui listeners that are listening for changes on this node
-    webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
 
     /// network node receiver
     receiver: NetworkNodeReceiver,
@@ -125,7 +121,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             listen_addr,
             peer_id,
             id,
-            webui_listeners: Arc::default(),
             receiver: NetworkNodeReceiver {
                 kill_switch,
                 killed: AtomicBool::new(false),
@@ -142,9 +137,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     ///
     /// Will panic if a handler is already spawned
     #[allow(clippy::unused_async)]
-    // // Tokio and async_std disagree how this function should be linted
-    // #[allow(clippy::ignored_unit_patterns)]
-
     pub async fn spawn_handler<F, RET>(self: &Arc<Self>, cb: F) -> impl Future
     where
         F: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> RET + Sync + Send + 'static,
@@ -200,38 +192,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         })
     }
 
-    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
-    ///
-    /// # Errors
-    ///
-    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
-    pub async fn wait_to_connect(
-        &self,
-        num_peers: usize,
-        node_id: usize,
-        timeout: Duration,
-    ) -> Result<(), NetworkNodeHandleError>
-    where
-        S: Default + Debug,
-    {
-        let start = Instant::now();
-        self.begin_bootstrap().await?;
-        let mut connected_ok = false;
-        while !connected_ok {
-            if start.elapsed() >= timeout {
-                return Err(NetworkNodeHandleError::ConnectTimeout);
-            }
-            async_sleep(Duration::from_secs(1)).await;
-            let num_connected = self.num_connected().await?;
-            info!(
-                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
-                num_connected, num_peers, node_id
-            );
-            connected_ok = num_connected >= num_peers;
-        }
-        Ok(())
-    }
-
     /// Receives a reference of the internal `NetworkNodeReceiver`, which can be used to query for incoming messages.
     pub fn receiver(&self) -> &NetworkNodeReceiver {
         &self.receiver
@@ -279,7 +239,37 @@ impl<S> NetworkNodeHandle<S> {
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
-
+    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
+    ///
+    /// # Errors
+    ///
+    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
+    pub async fn wait_to_connect(
+        &self,
+        num_peers: usize,
+        node_id: usize,
+        timeout: Duration,
+    ) -> Result<(), NetworkNodeHandleError>
+    where
+        S: Default + Debug,
+    {
+        let start = Instant::now();
+        self.begin_bootstrap().await?;
+        let mut connected_ok = false;
+        while !connected_ok {
+            if start.elapsed() >= timeout {
+                return Err(NetworkNodeHandleError::ConnectTimeout);
+            }
+            async_sleep(Duration::from_secs(1)).await;
+            let num_connected = self.num_connected().await?;
+            info!(
+                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
+                num_connected, num_peers, node_id
+            );
+            connected_ok = num_connected >= num_peers;
+        }
+        Ok(())
+    }
     /// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors
@@ -399,26 +389,6 @@ impl<S> NetworkNodeHandle<S> {
         }
     }
 
-    /// Notify the webui that either the `state` or `connection_state` has changed.
-    ///
-    /// If the webui is not started, this will do nothing.
-    /// # Errors
-    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    pub async fn notify_webui(&self) {
-        let mut lock = self.webui_listeners.lock().await;
-        // Keep a list of indexes that are unable to send the update
-        let mut indexes_to_remove = Vec::new();
-        for (idx, sender) in lock.iter().enumerate() {
-            if sender.send(()).await.is_err() {
-                indexes_to_remove.push(idx);
-            }
-        }
-        // Make sure to remove the indexes in reverse other, else removing an index will invalidate the following indexes.
-        for idx in indexes_to_remove.into_iter().rev() {
-            lock.remove(idx);
-        }
-    }
-
     /// Subscribe to a topic
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
@@ -484,7 +454,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
     pub async fn direct_response(
         &self,
-        chan: ResponseChannel<DirectMessageResponse>,
+        chan: ResponseChannel<Vec<u8>>,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
@@ -609,14 +579,6 @@ impl<S> NetworkNodeHandle<S> {
     /// Returns `true` if the network state is killed
     pub fn is_killed(&self) -> bool {
         self.receiver.killed.load(Ordering::Relaxed)
-    }
-
-    /// Register a webui listener
-    pub async fn register_webui_listener(&self) -> Receiver<()> {
-        let (sender, receiver) = bounded(100);
-        let mut lock = self.webui_listeners.lock().await;
-        lock.push(sender);
-        receiver
     }
 
     /// Call `wait_timeout_until` on the state's [`SubscribableMutex`]

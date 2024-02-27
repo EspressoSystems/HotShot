@@ -35,7 +35,7 @@ ark-ed-on-bn254 = "0.4"
 ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
-async-broadcast = "0.6.0"
+async-broadcast = "0.7.0"
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.1", default-features = false, features = [
         "logging-utils",
 ] }
@@ -52,7 +52,7 @@ blake3 = "1.5"
 commit = { git = "https://github.com/EspressoSystems/commit" }
 custom_debug = "0.5"
 digest = "0.10"
-either = { version = "1.8" }
+either = { version = "1.10" }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14.1", features = ["impl-serde"] }
 futures = "0.3.30"
@@ -61,16 +61,16 @@ futures = "0.3.30"
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
 
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish" }
-jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish" }
-jf-relation = { git = "https://github.com/EspressoSystems/jellyfish" }
-jf-utils = { git = "https://github.com/espressosystems/jellyfish" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.0" }
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-swarm-derive = { version = "0.34.1" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
-serde = { version = "1.0.196", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
 sha2 = "0.10"
 snafu = "0.7.5"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
@@ -83,6 +83,7 @@ typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.53.2", features = [
         "macros",
         "autonat",
+        "cbor",
         "dns",
         "floodsub",
         "gossipsub",

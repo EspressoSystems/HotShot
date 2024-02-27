@@ -11,7 +11,7 @@ use hotshot_types::{
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
-    simple_vote::ViewSyncFinalizeData,
+    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::signature_key::SignatureKey,
 };
 use hotshot_types::{
@@ -31,11 +31,10 @@ use hotshot_types::{
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
-        network::CommunicationChannel,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use snafu::Snafu;
 use std::{collections::BTreeMap, collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -52,10 +51,6 @@ pub enum ViewSyncPhase {
     /// Finalize phase
     Finalize,
 }
-
-#[derive(Snafu, Debug)]
-/// Stub of a view sync error
-pub struct ViewSyncTaskError {}
 
 /// Type alias for a map from View Number to Relay to Vote Task
 type RelayMap<TYPES, VOTE, CERT> =
@@ -702,6 +697,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+                // HACK sending a timeout vote to the next leader so we they
+                // can actually propose.  We don't give the leader the actual view sync cert
+                // so they have nothing to propose from.  Proper fix is to handle the
+                // view sync cert in the consensus task as another cert to propose from
+                let Ok(vote) = TimeoutVote::create_signed_vote(
+                    TimeoutData {
+                        view: self.next_view - 1,
+                    },
+                    self.next_view - 1,
+                    &self.public_key,
+                    &self.private_key,
+                ) else {
+                    error!("Failed to sign TimeoutData!");
+                    return None;
+                };
+
+                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
                 // Ignore certificate if it is for an older round
                 if certificate.get_view_number() < self.next_view {
                     warn!("We're already in a higher round");

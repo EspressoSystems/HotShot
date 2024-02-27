@@ -3,8 +3,10 @@ use crate::{
     helpers::broadcast_event,
 };
 use async_broadcast::Sender;
+use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
 use hotshot_constants::VERSION_0_1;
+use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -13,7 +15,7 @@ use hotshot_types::{
     },
     traits::{
         election::Membership,
-        network::{CommunicationChannel, TransmitType},
+        network::{ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::NodeType,
     },
     vote::{HasViewNumber, Vote},
@@ -181,9 +183,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
 }
 
 /// network event task state
-pub struct NetworkEventTaskState<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> {
+pub struct NetworkEventTaskState<
+    TYPES: NodeType,
+    COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+> {
     /// comm channel
-    pub channel: COMMCHANNEL,
+    pub channel: Arc<COMMCHANNEL>,
     /// view number
     pub view: TYPES::Time,
     /// membership for the channel
@@ -193,7 +198,7 @@ pub struct NetworkEventTaskState<TYPES: NodeType, COMMCHANNEL: CommunicationChan
     pub filter: fn(&HotShotEvent<TYPES>) -> bool,
 }
 
-impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> TaskState
+impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>> TaskState
     for NetworkEventTaskState<TYPES, COMMCHANNEL>
 {
     type Event = HotShotEvent<TYPES>;
@@ -221,7 +226,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>> TaskState
     }
 }
 
-impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
+impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>>
     NetworkEventTaskState<TYPES, COMMCHANNEL>
 {
     /// Handle the given event.
@@ -269,7 +274,7 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::DAProposal(proposal),
                 ))),
-                TransmitType::Broadcast,
+                TransmitType::DACommitteeBroadcast,
                 None,
             ),
             HotShotEvent::DAVoteSend(vote) => (
@@ -364,19 +369,23 @@ impl<TYPES: NodeType, COMMCHANNEL: CommunicationChannel<TYPES>>
             sender,
             kind: message_kind,
         };
-        let transmit_result = match transmit_type {
-            TransmitType::Direct => {
-                self.channel
-                    .direct_message(message, recipient.unwrap())
-                    .await
-            }
-            TransmitType::Broadcast => self.channel.broadcast_message(message, membership).await,
-        };
+        let view = message.kind.get_view_number();
+        let committee = membership.get_committee(view);
+        let net = self.channel.clone();
+        async_spawn(async move {
+            let transmit_result = match transmit_type {
+                TransmitType::Direct => net.direct_message(message, recipient.unwrap()).await,
+                TransmitType::Broadcast => net.broadcast_message(message, committee).await,
+                TransmitType::DACommitteeBroadcast => {
+                    net.da_broadcast_message(message, committee).await
+                }
+            };
 
-        match transmit_result {
-            Ok(()) => {}
-            Err(e) => error!("Failed to send message from network task: {:?}", e),
-        }
+            match transmit_result {
+                Ok(()) => {}
+                Err(e) => error!("Failed to send message from network task: {:?}", e),
+            }
+        });
 
         None
     }

@@ -12,7 +12,7 @@ use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotConsensusApi, HotShotInitializer, Memberships, Networks, SystemContext,
+    HotShotInitializer, Memberships, Networks, SystemContext,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -63,7 +63,7 @@ pub async fn build_system_handle(
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TestTypes>::from_genesis(&TestInstanceState {}).unwrap();
+    let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {}).unwrap();
 
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
@@ -212,9 +212,6 @@ async fn build_quorum_proposal_and_signature(
     let genesis_consensus = handle.get_consensus();
     let cur_consensus = genesis_consensus.upgradable_read().await;
     let mut consensus = RwLockUpgradableReadGuard::upgrade(cur_consensus).await;
-    let api: HotShotConsensusApi<TestTypes, MemoryImpl> = HotShotConsensusApi {
-        inner: handle.hotshot.inner.clone(),
-    };
     // parent_view_number should be equal to 0
     let parent_view_number = &consensus.high_qc.get_view_number();
     assert_eq!(parent_view_number.get_u64(), 0);
@@ -233,12 +230,7 @@ async fn build_quorum_proposal_and_signature(
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
-        handle
-            .hotshot
-            .inner
-            .memberships
-            .quorum_membership
-            .total_nodes(),
+        handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     let mut parent_state = Arc::new(<TestValidatedState as ValidatedState>::from_header(
         &parent_leaf.block_header,
@@ -257,7 +249,7 @@ async fn build_quorum_proposal_and_signature(
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: None,
-        proposer_id: *api.public_key(),
+        proposer_id: *handle.public_key(),
     };
 
     let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
@@ -267,6 +259,7 @@ async fn build_quorum_proposal_and_signature(
         view_number: ViewNumber::new(1),
         justify_qc: QuorumCertificate::genesis(),
         timeout_certificate: None,
+        upgrade_certificate: None,
         proposer_id: leaf.proposer_id,
     };
 
@@ -290,7 +283,7 @@ async fn build_quorum_proposal_and_signature(
         );
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         // create a qc by aggregate signatures on the previous view (the data signed is last leaf commitment)
-        let quorum_membership = handle.hotshot.inner.memberships.quorum_membership.clone();
+        let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
         let quorum_data = QuorumData {
             leaf_commit: leaf.commit(),
         };
@@ -324,6 +317,7 @@ async fn build_quorum_proposal_and_signature(
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
             timeout_certificate: None,
+            upgrade_certificate: None,
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
@@ -377,6 +371,6 @@ pub fn vid_init<TYPES: NodeType>(
 
     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
     let srs = hotshot_types::data::test_srs(num_committee);
-
-    VidScheme::new(chunk_size, num_committee, srs).unwrap()
+    let multiplicity = 1;
+    VidScheme::new(chunk_size, num_committee, multiplicity, srs).unwrap()
 }

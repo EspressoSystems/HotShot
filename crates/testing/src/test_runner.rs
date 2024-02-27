@@ -12,6 +12,7 @@ use crate::{
     view_sync_task::ViewSyncTask,
 };
 use async_broadcast::broadcast;
+use either::Either::{self, Left, Right};
 use futures::future::join_all;
 use hotshot::{types::SystemContextHandle, Memberships};
 use hotshot_example_types::state_types::TestInstanceState;
@@ -20,16 +21,18 @@ use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemCont
 
 use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::traits::{
-    network::CommunicationChannel, node_implementation::NodeImplementation,
-};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
+    data::Leaf,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
+};
+use hotshot_types::{
+    message::Message,
+    traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -51,13 +54,24 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
+/// Either the node context or the parameters to construct the context for nodes that start late.
+pub type LateNodeContext<TYPES, I> = Either<
+    Arc<SystemContext<TYPES, I>>,
+    (
+        <I as NodeImplementation<TYPES>>::Storage,
+        Memberships<TYPES>,
+        HotShotConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
+    ),
+>;
+
 /// A yet-to-be-started node that participates in tests
 #[derive(Clone)]
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
-    /// The context to which we will use to launch HotShot when it's time
-    pub context: SystemContext<TYPES, I>,
+    /// Either the context to which we will use to launch HotShot for initialized node when it's
+    /// time, or the parameters that will be used to initialize the node and launch HotShot.
+    pub context: LateNodeContext<TYPES, I>,
 }
 
 /// The runner of a test network
@@ -65,7 +79,7 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
 pub struct TestRunner<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES>,
-    N: CommunicationChannel<TYPES>,
+    N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
 > {
     /// test launcher, contains a bunch of useful metadata and closures
     pub(crate) launcher: TestLauncher<TYPES, I>,
@@ -102,13 +116,14 @@ impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 impl<
         TYPES: NodeType<InstanceState = TestInstanceState>,
         I: TestableNodeImplementation<TYPES>,
-        N: CommunicationChannel<TYPES>,
+        N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
     I: NodeImplementation<TYPES, QuorumNetwork = N, CommitteeNetwork = N>,
 {
     /// excecute test
+    ///
     /// # Panics
     /// if the test fails
     #[allow(clippy::too_many_lines)]
@@ -195,6 +210,7 @@ where
             late_start,
             latest_view: None,
             changes,
+            last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
@@ -232,6 +248,7 @@ where
         // wait for networks to be ready
         for node in &nodes {
             node.networks.0.wait_for_ready().await;
+            node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
@@ -252,7 +269,7 @@ where
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
-            tracing::error!("test tasks joined");
+            tracing::info!("test tasks joined");
             for result in results {
                 match result {
                     HotShotTaskCompleted::ShutDown => {
@@ -297,45 +314,82 @@ where
         );
     }
 
-    /// add nodes
+    /// Add nodes.
+    ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
     pub async fn add_nodes(&mut self, total: usize, late_start: &HashSet<u64>) -> Vec<u64> {
         let mut results = vec![];
         for i in 0..total {
-            tracing::debug!("launch node {}", i);
             let node_id = self.next_node_id;
+            self.next_node_id += 1;
+            tracing::debug!("launch node {}", i);
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
-            let initializer =
-                HotShotInitializer::<TYPES>::from_genesis(&TestInstanceState {}).unwrap();
+            let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+            let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+                TYPES::Membership::default_election_config(config.total_nodes.get() as u64)
+            });
+            let committee_election_config = I::committee_election_config_generator();
+            let memberships = Memberships {
+                quorum_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                da_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    committee_election_config(config.da_committee_size as u64),
+                ),
+                vid_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                ),
+                view_sync_membership: <TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config,
+                ),
+            };
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
-            // We assign node's public key and stake value rather than read from config file since it's a test
-            let validator_config =
-                ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
-            let hotshot = self
-                .add_node_with_config(
+
+            if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
+                self.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        networks,
+                        context: Right((storage, memberships, config)),
+                    },
+                );
+            } else {
+                let initializer =
+                    HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {}).unwrap();
+                // We assign node's public key and stake value rather than read from config file since it's a test
+                let validator_config =
+                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
+                let hotshot = Self::add_node_with_config(
+                    node_id,
                     networks.clone(),
                     storage,
+                    memberships,
                     initializer,
                     config,
                     validator_config,
                 )
                 .await;
-            if late_start.contains(&node_id) {
-                self.late_start.insert(
-                    node_id,
-                    LateStartNode {
+                if late_start.contains(&node_id) {
+                    self.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            networks,
+                            context: Left(hotshot),
+                        },
+                    );
+                } else {
+                    self.nodes.push(Node {
+                        node_id,
                         networks,
-                        context: hotshot,
-                    },
-                );
-            } else {
-                self.nodes.push(Node {
-                    node_id,
-                    networks,
-                    handle: hotshot.run_tasks().await,
-                });
+                        handle: hotshot.run_tasks().await,
+                    });
+                }
             }
             results.push(node_id);
         }
@@ -347,46 +401,22 @@ where
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
     pub async fn add_node_with_config(
-        &mut self,
+        node_id: u64,
         networks: Networks<TYPES, I>,
         storage: I::Storage,
+        memberships: Memberships<TYPES>,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
-    ) -> SystemContext<TYPES, I> {
-        let node_id = self.next_node_id;
-        self.next_node_id += 1;
-        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+    ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
         let public_key = validator_config.public_key.clone();
-        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.total_nodes.get() as u64)
-        });
-        let committee_election_config = I::committee_election_config_generator();
+
         let network_bundle = hotshot::Networks {
             quorum_network: networks.0.clone(),
             da_network: networks.1.clone(),
             _pd: PhantomData,
-        };
-
-        let memberships = Memberships {
-            quorum_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            da_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                committee_election_config(config.da_committee_size as u64),
-            ),
-            vid_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-            ),
-            view_sync_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config,
-            ),
         };
 
         SystemContext::new(

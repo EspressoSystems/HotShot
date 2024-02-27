@@ -159,9 +159,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 block_size: maybe_block_size,
             } => {
                 // Skip the genesis leaf.
-                if leaf_chain.len() == 1
-                    && leaf_chain[0].0.get_view_number() == TYPES::Time::genesis()
-                {
+                if leaf_chain.last().unwrap().0.get_view_number() == TYPES::Time::genesis() {
                     return None;
                 }
                 let paired_up = (leaf_chain.to_vec(), (*qc).clone());
@@ -233,6 +231,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                     return None;
                 }
                 ViewStatus::Err(e) => {
+                    task.send_event(GlobalTestEvent::ShutDown).await;
                     return Some(HotShotTaskCompleted::Error(Box::new(e)));
                 }
                 ViewStatus::InProgress => {
@@ -419,7 +418,6 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
     ) {
         let num_decided = self.success_nodes.len();
         let num_failed = self.failed_nodes.len();
-        let remaining_nodes = total_num_nodes - (num_decided + num_failed);
 
         if check_leaf && self.leaf_map.len() != 1 {
             error!("LEAF MAP (that is mismatched) IS: {:?}", self.leaf_map);
@@ -462,7 +460,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
             }
         }
 
-        let is_success_possible = remaining_nodes + num_decided >= threshold;
+        let is_success_possible = total_num_nodes - num_failed >= threshold;
         if !is_success_possible {
             self.status = ViewStatus::Failed;
         }

@@ -6,13 +6,10 @@ use std::{
 };
 
 /// a local caching layer for the DHT key value pairs
-mod cache;
-
-use async_compatibility_layer::art::{async_block_on, async_spawn};
 use futures::channel::oneshot::Sender;
 use lazy_static::lazy_static;
-use libp2p::kad::Behaviour as KademliaBehaviour;
 use libp2p::kad::Event as KademliaEvent;
+use libp2p::kad::{store::RecordStore, Behaviour as KademliaBehaviour};
 use libp2p::{
     kad::{
         /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapError, BootstrapOk,
@@ -33,8 +30,6 @@ lazy_static! {
     /// the maximum number of nodes to query in the DHT at any one time
     static ref MAX_DHT_QUERY_SIZE: NonZeroUsize = NonZeroUsize::new(50).unwrap();
 }
-
-use self::cache::Cache;
 
 use super::exponential_backoff::ExponentialBackoff;
 
@@ -65,14 +60,10 @@ pub struct DHTBehaviour {
     pub kadem: KademliaBehaviour<MemoryStore>,
     /// State of bootstrapping
     pub bootstrap_state: Bootstrap,
-    /// State of last random walk
-    pub random_walk: RandomWalk,
     /// the peer id (useful only for debugging right now)
     pub peer_id: PeerId,
     /// replication factor
     pub replication_factor: NonZeroUsize,
-    /// kademlia cache
-    cache: Cache,
 }
 
 /// State of bootstrapping
@@ -84,14 +75,6 @@ pub struct Bootstrap {
     pub backoff: ExponentialBackoff,
 }
 
-/// State of the periodic random walk
-pub struct RandomWalk {
-    /// State of random walk
-    state: State,
-    /// Retry timeout
-    backoff: ExponentialBackoff,
-}
-
 /// State used for random walk and bootstrapping
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum State {
@@ -99,8 +82,6 @@ pub enum State {
     NotStarted,
     /// In progress
     Started,
-    /// Sucessfully completed
-    Finished,
 }
 
 /// DHT event enum
@@ -123,11 +104,10 @@ impl DHTBehaviour {
 
     /// Create a new DHT behaviour
     #[must_use]
-    pub async fn new(
+    pub fn new(
         mut kadem: KademliaBehaviour<MemoryStore>,
         pid: PeerId,
         replication_factor: NonZeroUsize,
-        cache_location: Option<String>,
     ) -> Self {
         // needed because otherwise we stay in client mode when testing locally
         // and don't publish keys stuff
@@ -149,20 +129,8 @@ impl DHTBehaviour {
                 state: State::NotStarted,
                 backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
             },
-            random_walk: RandomWalk {
-                state: State::NotStarted,
-                // TODO jr this may be way too frequent
-                backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
-            },
             in_progress_get_closest_peers: HashMap::default(),
             replication_factor,
-            cache: Cache::new(
-                cache::ConfigBuilder::default()
-                    .filename(cache_location)
-                    .build()
-                    .unwrap_or_default(),
-            )
-            .await,
         }
     }
 
@@ -249,9 +217,9 @@ impl DHTBehaviour {
         }
 
         // check cache before making the request
-        if let Some(entry) = async_block_on(self.cache.get(&key)) {
+        if let Some(entry) = self.kadem.store_mut().get(&key.clone().into()) {
             // exists in cache
-            if chan.send(entry.value().clone()).is_err() {
+            if chan.send(entry.value.clone()).is_err() {
                 error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
@@ -338,13 +306,15 @@ impl DHTBehaviour {
                     .into_iter()
                     .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
                 {
-                    // insert into cache
-                    // TODO we should find a better place to set the cache
-                    // https://github.com/EspressoSystems/HotShot/issues/2554
-                    let cache = self.cache.clone();
-                    let val = r.clone();
-                    async_spawn(async move { cache.insert(key, val).await });
-
+                    let record = Record {
+                        key: key.into(),
+                        value: r.clone(),
+                        publisher: None,
+                        expires: None,
+                    };
+                    if self.kadem.store_mut().put(record).is_err() {
+                        error!("Error putting DHT Get result into Record Store");
+                    }
                     // return value
                     if notify.send(r).is_err() {
                         error!("Get DHT: channel closed before get record request result could be sent");
@@ -434,10 +404,7 @@ impl DHTBehaviour {
                         if chan.send(()).is_err() {
                             warn!("DHT: finished query but client no longer interested");
                         };
-                    } else {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(true);
-                    }
+                    };
                     info!(
                         "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
                         self.peer_id, key, peers
@@ -446,10 +413,7 @@ impl DHTBehaviour {
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         let _: Result<_, _> = chan.send(());
-                    } else {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(true);
-                    }
+                    };
                     warn!(
                         "peer {:?} failed to get closest peers with {:?} and stats {:?}",
                         self.peer_id, e, stats
@@ -474,11 +438,13 @@ impl DHTBehaviour {
                 ..
             } => {
                 if num_remaining == 0 {
-                    // if bootstrap is successful, restart.
                     info!("Finished bootstrap for peer {:?}", self.peer_id);
-                    self.bootstrap_state.state = State::Finished;
+                    self.bootstrap_state.state = State::NotStarted;
                     self.event_queue.push(DHTEvent::IsBootstrapped);
-                    self.begin_bootstrap = false;
+                    // After initial bootstrap suceeds do it every 2 minutes to maintain routing.
+                    self.bootstrap_state.backoff =
+                        ExponentialBackoff::new(1, Duration::from_secs(120));
+                    self.bootstrap_state.backoff.start_next(true);
                 } else {
                     warn!(
                         "Bootstrap in progress: num remaining nodes to ping {:?}",
@@ -524,7 +490,15 @@ impl DHTBehaviour {
                 addresses: _,
                 bucket_range: _,
                 old_peer: _,
-            } => {}
+            } => {
+                // Trigger a new bootstrap when our table changes, if it's not running
+                // We do this to refresh our peers when we know routing has changed
+                // For more info see: https://github.com/libp2p/rust-libp2p/pull/4838
+                // TODO: Remove once that pr is in a libp2p release
+                if self.bootstrap_state.state == State::NotStarted {
+                    self.bootstrap_state.backoff.expire();
+                }
+            }
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
@@ -587,10 +561,6 @@ impl NetworkBehaviour for DHTBehaviour {
 
     type ToSwarm = DHTEvent;
 
-    // fn new_handler(&mut self) -> Self::ConnectionHandler {
-    //     self.kadem.new_handler()
-    // }
-
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -602,6 +572,7 @@ impl NetworkBehaviour for DHTBehaviour {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     self.bootstrap_state.state = State::Started;
+                    info!("Starting bootstrap");
                 }
                 Err(e) => {
                     error!(
@@ -615,14 +586,6 @@ impl NetworkBehaviour for DHTBehaviour {
                     }
                 }
             }
-        }
-
-        if matches!(self.random_walk.state, State::NotStarted)
-            && self.random_walk.backoff.is_expired()
-            && matches!(self.bootstrap_state.state, State::Finished)
-        {
-            self.kadem.get_closest_peers(PeerId::random());
-            self.random_walk.state = State::Started;
         }
 
         // retry put/gets if they are ready

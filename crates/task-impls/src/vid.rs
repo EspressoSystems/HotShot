@@ -6,7 +6,7 @@ use async_lock::RwLock;
 use async_std::task::spawn_blocking;
 
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::traits::network::CommunicationChannel;
+use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
@@ -25,14 +25,9 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
-use snafu::Snafu;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{debug, error, instrument, warn};
-
-#[derive(Snafu, Debug)]
-/// Error type for consensus tasks
-pub struct ConsensusTaskError {}
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<
@@ -87,7 +82,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
-                    let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
+                    let multiplicity = 1;
+                    let vid = VidScheme::new(chunk_size, num_quorum_committee, multiplicity, &srs)
+                        .unwrap();
                     vid.disperse(encoded_transactions.clone()).unwrap()
                 })
                 .await;
@@ -149,6 +146,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.consensus.write().await.update_view(view);
 
                 // Start polling for VID disperse for the new view
                 self.network
