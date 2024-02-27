@@ -12,6 +12,9 @@ use hotshot::traits::{
     },
     NodeImplementation,
 };
+
+use hotshot_constants::{WEB_SERVER_MAJOR, WEB_SERVER_MINOR};
+
 use hotshot_types::{
     data::ViewNumber, message::Message, signature_key::BLSPubKey,
     traits::node_implementation::NodeType,
@@ -77,10 +80,10 @@ pub type StaticMemoryDAComm =
 type StaticLibp2pDAComm = Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server network communication channel
-type StaticWebDAComm = WebServerNetwork<TestTypes, 0, 1>;
+type StaticWebDAComm = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 
 /// combined network
-type StaticCombinedDAComm = CombinedNetworks<TestTypes, 0, 1>;
+type StaticCombinedDAComm = CombinedNetworks<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 
 /// memory comm channel
 pub type StaticMemoryQuorumComm =
@@ -91,10 +94,10 @@ type StaticLibp2pQuorumComm =
     Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server comm channel
-type StaticWebQuorumComm = WebServerNetwork<TestTypes, 0, 1>;
+type StaticWebQuorumComm = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 
 /// combined network (libp2p + web server)
-type StaticCombinedQuorumComm = CombinedNetworks<TestTypes, 0, 1>;
+type StaticCombinedQuorumComm = CombinedNetworks<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 
 impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;

@@ -9,6 +9,7 @@ use dyn_clone::DynClone;
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
+use versioned_binary_serialization::version::StaticVersion;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
@@ -27,10 +28,10 @@ impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
         match error {
             NetworkNodeHandleError::SerializationError { source } => {
-                NetworkError::FailedToSerialize { source }
+                NetworkError::FailedToSerialize { source: source.into() }
             }
             NetworkNodeHandleError::DeserializationError { source } => {
-                NetworkError::FailedToDeserialize { source }
+                NetworkError::FailedToDeserialize { source: source.into() }
             }
             NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
             NetworkNodeHandleError::Killed => NetworkError::ShutDown,
@@ -112,12 +113,12 @@ pub enum NetworkError {
     /// Failed to serialize a network message
     FailedToSerialize {
         /// Originating bincode error
-        source: bincode::Error,
+        source: anyhow::Error,
     },
     /// Failed to deserealize a network message
     FailedToDeserialize {
         /// originating bincode error
-        source: bincode::Error,
+        source: anyhow::Error,
     },
     /// A timeout occurred
     Timeout {
@@ -252,15 +253,21 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
+    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: M,
         recipients: BTreeSet<K>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
+    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
+        &self,
+        message: M,
+        recipient: K,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
+    ) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///

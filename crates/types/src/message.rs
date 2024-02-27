@@ -28,15 +28,11 @@ use either::Either::{self, Left, Right};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
-use versioned_binary_serialization::version::Version;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct Message<TYPES: NodeType> {
-    /// The version of the protocol in use for this message
-    pub version: Version,
-
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 

@@ -26,7 +26,6 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use hotshot_utils::version::read_version;
 use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
@@ -34,6 +33,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use surf_disco::Url;
+use versioned_binary_serialization::version::{StaticVersion, Version};
+use versioned_binary_serialization::{BinarySerializer, Serializer};
 
 use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
 use std::collections::BTreeMap;
@@ -229,7 +230,9 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx) {
+        if let Ok(deserialized_message_inner) =
+            Serializer::<MAJOR, MINOR>::deserialize::<Message<TYPES>>(&tx)
+        {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
             };
@@ -261,7 +264,9 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
     ) -> bool {
         let broadcast_poll_queue = &self.broadcast_poll_queue_0_1;
         let direct_poll_queue = &self.direct_poll_queue_0_1;
-        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&message) {
+        if let Ok(deserialized_message_inner) =
+            Serializer::<0, 1>::deserialize::<Message<TYPES>>(&message)
+        {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
             };
@@ -426,23 +431,23 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
                             }
                             Some(1) => {
                                 let tx = tx_raw[1..].to_vec();
-                                let tx_version = read_version(&tx);
+                                let tx_version = Version::deserialize(&tx);
 
                                 match tx_version {
-                                    Some(VERSION_0_1) => {
+                                    Ok((VERSION_0_1, _)) => {
                                         self.handle_tx_0_1(tx, first_tx_index, &mut tx_index).await;
                                     }
-                                    Some(version) => {
+                                    Ok((version, _)) => {
                                         warn!(
                                       "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                                       version,
                                       tx
                                   );
                                     }
-                                    _ => {
+                                    Err(e) => {
                                         warn!(
-                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
-                                      tx
+                                      "Error {:?}, could not read version number.\n\nPayload:\n\n{:?}",
+                                      e, tx
                                   );
                                     }
                                 }
@@ -480,12 +485,12 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
                             }
                             Some(1) => {
                                 let message = message_raw[1..].to_vec();
-                                let message_version = read_version(&message);
+                                let message_version = Version::deserialize(&message);
 
                                 let should_return;
 
                                 match message_version {
-                                    Some(VERSION_0_1) => {
+                                    Ok((VERSION_0_1, _)) => {
                                         should_return = self
                                             .handle_message_0_1(
                                                 message,
@@ -501,18 +506,12 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
                                             return Ok(());
                                         }
                                     }
-                                    Some(version) => {
+                                    Ok((version, _)) => {
                                         warn!(
-                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                      version,
-                                      message
-                                  );
+                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}", version, message);
                                     }
-                                    _ => {
-                                        warn!(
-                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
-                                      message
-                                  );
+                                    Err(e) => {
+                                        warn!("Error {:?}, could not read version number.\n\nPayload:\n\n{:?}", e, message);
                                     }
                                 }
                             }
@@ -813,10 +812,11 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
+    async fn broadcast_message<const MAJ: u16, const MIN: u16>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
+        _bind_version: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -835,10 +835,11 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(
+    async fn direct_message<const MAJ: u16, const MIN: u16>(
         &self,
         message: Message<TYPES>,
         _recipient: TYPES::SignatureKey,
+        _bind_version: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]

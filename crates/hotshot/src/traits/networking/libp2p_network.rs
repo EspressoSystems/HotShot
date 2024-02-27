@@ -11,8 +11,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use bincode::Options;
-use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
+use hotshot_constants::{LOOK_AHEAD, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -29,7 +28,6 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
@@ -57,7 +55,10 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
-use versioned_binary_serialization::version::Version;
+use versioned_binary_serialization::{
+    version::{StaticVersion, Version},
+    BinarySerializer, Serializer,
+};
 
 /// convienence alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -531,7 +532,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg, _) => {
-                let result: Result<M, _> = bincode_opts().deserialize(&msg);
+                let result: Result<M, _> = Serializer::<0, 1>::deserialize(&msg);
                 if let Ok(result) = result {
                     broadcast_send
                         .send(result)
@@ -540,9 +541,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 }
             }
             DirectRequest(msg, _pid, chan) => {
-                let result: Result<M, _> = bincode_opts()
-                    .deserialize(&msg)
-                    .context(FailedToSerializeSnafu);
+                let result: Result<M, _> =
+                    Serializer::<0, 1>::deserialize(&msg).context(FailedToSerializeSnafu);
                 if let Ok(result) = result {
                     direct_send
                         .send(result)
@@ -565,9 +565,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 };
             }
             DirectResponse(msg, _) => {
-                let _result: Result<M, _> = bincode_opts()
-                    .deserialize(&msg)
-                    .context(FailedToSerializeSnafu);
+                let _result: Result<M, _> =
+                    Serializer::<0, 1>::deserialize(&msg).context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
@@ -657,10 +656,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
-    async fn broadcast_message(
+    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: M,
         recipients: BTreeSet<K>,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
@@ -699,8 +699,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             if let Some(ref config) = &self.inner.reliability_config {
                 let handle = self.inner.handle.clone();
 
-                let serialized_msg = bincode_opts()
-                    .serialize(&message)
+                let serialized_msg = Serializer::<MAJOR, MINOR>::serialize(&message)
                     .context(FailedToSerializeSnafu)?;
                 let fut = config.clone().chaos_send_msg(
                     serialized_msg,
@@ -739,7 +738,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
+        &self,
+        message: M,
+        recipient: K,
+        _bind_version: StaticVersion<MAJOR, MINOR>,
+    ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
@@ -780,8 +784,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             if let Some(ref config) = &self.inner.reliability_config {
                 let handle = self.inner.handle.clone();
 
-                let serialized_msg = bincode_opts()
-                    .serialize(&message)
+                let serialized_msg = Serializer::<MAJOR, MINOR>::serialize(&message)
                     .context(FailedToSerializeSnafu)?;
                 let fut = config.clone().chaos_send_msg(
                     serialized_msg,

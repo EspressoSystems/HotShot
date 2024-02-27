@@ -31,6 +31,8 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
+use versioned_binary_serialization::version::StaticVersion;
+
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
 use std::hash::Hash;
@@ -250,10 +252,11 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
+    async fn broadcast_message<const MAJ: u16, const MIN: u16>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
+        bind_version: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -263,7 +266,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             // broadcast on the primary network as it is not down, or we are checking if it is back up
             match self
                 .primary()
-                .broadcast_message(message.clone(), recipients.clone())
+                .broadcast_message(message.clone(), recipients.clone(), bind_version)
                 .await
             {
                 Ok(()) => {
@@ -277,14 +280,15 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
         }
 
         self.secondary()
-            .broadcast_message(message, recipients)
+            .broadcast_message(message, recipients, bind_version)
             .await
     }
 
-    async fn direct_message(
+    async fn direct_message<const MAJ: u16, const MIN: u16>(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
+        bind_version: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // DM optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -294,7 +298,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             // message on the primary network as it is not down, or we are checking if it is back up
             match self
                 .primary()
-                .direct_message(message.clone(), recipient.clone())
+                .direct_message(message.clone(), recipient.clone(), bind_version)
                 .await
             {
                 Ok(()) => {
@@ -307,7 +311,9 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             };
         }
 
-        self.secondary().direct_message(message, recipient).await
+        self.secondary()
+            .direct_message(message, recipient, bind_version)
+            .await
     }
 
     fn recv_msgs<'a, 'b>(

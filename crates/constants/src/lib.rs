@@ -1,7 +1,6 @@
 //! configurable constants for hotshot
 
-use serde::{Deserialize, Serialize};
-use versioned_binary_serialization::version::Version;
+use versioned_binary_serialization::version::{StaticVersion, Version};
 
 /// the number of views to gather information for ahead of time
 pub const LOOK_AHEAD: u64 = 5;
@@ -21,5 +20,15 @@ pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 /// Constant for protocol version 0.1.
 pub const VERSION_0_1: Version = Version { major: 0, minor: 1 };
 
+/// Constant for protocol static version 0.1.
+pub const STATIC_V_0_1: StaticVersion<0, 1> = StaticVersion;
+
 /// Default Channel Size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;
+
+/// Constants for WebServerNetwork and WebServer
+/// The Web CDN is not, strictly speaking, bound to the network; it can have its own versioning.
+/// Web Server CDN Version (major)
+pub const WEB_SERVER_MAJOR: u16 = 0;
+/// Orchestrator Version (minor)
+pub const WEB_SERVER_MINOR: u16 = 1;

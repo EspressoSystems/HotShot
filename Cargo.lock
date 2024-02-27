@@ -2965,6 +2965,7 @@ dependencies = [
  "snafu",
  "tokio",
  "tracing",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
@@ -3000,6 +3001,7 @@ dependencies = [
 name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "ark-bls12-381",
  "ark-ed-on-bn254",
  "ark-ff",
@@ -3201,7 +3203,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -7406,7 +7408,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "versioned-binary-serialization"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?branch=main#86f0e7533d5da9d4f66a286e7ae661e252b8d455"
+source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?branch=main#4e4695bf0b77ab43700bf625fd4489151f189527"
 dependencies = [
  "anyhow",
  "bincode",
@@ -7585,7 +7587,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core 0.51.1",
+ "windows-core",
  "windows-targets 0.48.5",
 ]
 
@@ -7596,15 +7598,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
-dependencies = [
- "windows-targets 0.52.0",
 ]
 
 [[package]]

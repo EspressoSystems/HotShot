@@ -1,5 +1,6 @@
 use crate::infra::WebServerDARun;
 use hotshot::traits::implementations::{MemoryStorage, WebServerNetwork};
+use hotshot_constants::{WEB_SERVER_MAJOR, WEB_SERVER_MINOR};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
@@ -10,13 +11,13 @@ use std::fmt::Debug;
 pub struct NodeImpl {}
 
 /// convenience type alias
-pub type DANetwork = WebServerNetwork<TestTypes, 0, 1>;
+pub type DANetwork = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 /// convenience type alias
-pub type VIDNetwork = WebServerNetwork<TestTypes, 0, 1>;
+pub type VIDNetwork = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 /// convenience type alias
-pub type QuorumNetwork = WebServerNetwork<TestTypes, 0, 1>;
+pub type QuorumNetwork = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 /// convenience type alias
-pub type ViewSyncNetwork = WebServerNetwork<TestTypes, 0, 1>;
+pub type ViewSyncNetwork = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
     type Storage = MemoryStorage<TestTypes>;
@@ -24,4 +25,4 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
 }
 /// convenience type alias
-pub type ThisRun = WebServerDARun<TestTypes, 0, 1>;
+pub type ThisRun = WebServerDARun<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
