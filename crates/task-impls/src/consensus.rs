@@ -39,7 +39,6 @@ use tracing::warn;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
-use snafu::Snafu;
 use std::{
     collections::{BTreeMap, HashSet},
     marker::PhantomData,
@@ -48,10 +47,6 @@ use std::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
-
-/// Error returned by the consensus task
-#[derive(Snafu, Debug)]
-pub struct ConsensusTaskError {}
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -400,15 +395,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
                 }
             }));
-            let consensus = self.consensus.read().await;
+            let consensus = self.consensus.upgradable_read().await;
             consensus
                 .metrics
                 .current_view
                 .set(usize::try_from(self.cur_view.get_u64()).unwrap());
-            consensus.metrics.number_of_views_since_last_decide.set(
-                usize::try_from(self.cur_view.get_u64()).unwrap()
-                    - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
-            );
+            // Do the comparison before the substraction to avoid potential overflow, since
+            // `last_decided_view` may be greater than `cur_view` if the node is catching up.
+            if usize::try_from(self.cur_view.get_u64()).unwrap()
+                > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
+            {
+                consensus.metrics.number_of_views_since_last_decide.set(
+                    usize::try_from(self.cur_view.get_u64()).unwrap()
+                        - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                );
+            }
+            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+            consensus.update_view(new_view);
+            drop(consensus);
 
             return true;
         }

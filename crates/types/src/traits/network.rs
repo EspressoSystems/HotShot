@@ -77,6 +77,8 @@ pub enum TransmitType {
     Direct,
     /// broadcast the message to all
     Broadcast,
+    /// broadcast to DA committee
+    DACommitteeBroadcast,
 }
 
 /// Error type for networking
@@ -87,6 +89,11 @@ pub enum NetworkError {
     Libp2p {
         /// source of error
         source: NetworkNodeHandleError,
+    },
+    /// collection of libp2p secific errors
+    Libp2pMulti {
+        /// sources of errors
+        sources: Vec<NetworkNodeHandleError>,
     },
     /// memory network specific errors
     MemoryNetwork {
@@ -260,6 +267,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError>;
 
+    /// broadcast a message only to a DA committee
+    /// blocking
+    async fn da_broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError>;
+
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message<const MAJOR: u16, const MINOR: u16>(
@@ -273,10 +288,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    fn recv_msgs<'a, 'b>(
-        &'a self,
-        transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
+    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
     where
         'a: 'b,
         Self: 'b;

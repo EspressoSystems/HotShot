@@ -26,7 +26,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, TransmitType},
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -284,6 +284,16 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             .await
     }
 
+    async fn da_broadcast_message<const MAJ: u16, const MIN: u16>(
+        &self,
+        message: Message<TYPES>,
+        recipients: BTreeSet<TYPES::SignatureKey>,
+        bind_version: StaticVersion<MAJ, MIN>,
+    ) -> Result<(), NetworkError> {
+        self.broadcast_message(message, recipients, bind_version)
+            .await
+    }
+
     async fn direct_message<const MAJ: u16, const MIN: u16>(
         &self,
         message: Message<TYPES>,
@@ -316,10 +326,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             .await
     }
 
-    fn recv_msgs<'a, 'b>(
-        &'a self,
-        transmit_type: TransmitType,
-    ) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
+    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
     where
         'a: 'b,
         Self: 'b,
@@ -327,8 +334,8 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
         let closure = async move {
-            let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
-            let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
+            let mut primary_msgs = self.primary().recv_msgs().await?;
+            let mut secondary_msgs = self.secondary().recv_msgs().await?;
 
             primary_msgs.append(secondary_msgs.as_mut());
 

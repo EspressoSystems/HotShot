@@ -274,7 +274,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
                     CommitteeConsensusMessage::DAProposal(proposal),
                 ))),
-                TransmitType::Broadcast,
+                TransmitType::DACommitteeBroadcast,
                 None,
             ),
             HotShotEvent::DAVoteSend(vote) => (
@@ -379,6 +379,10 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 }
                 TransmitType::Broadcast => {
                     net.broadcast_message(message, committee, STATIC_V_0_1)
+                        .await
+                }
+                TransmitType::DACommitteeBroadcast => {
+                    net.da_broadcast_message(message, committee, STATIC_V_0_1)
                         .await
                 }
             };
