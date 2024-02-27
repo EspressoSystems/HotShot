@@ -45,7 +45,7 @@ async fn test_upgrade_task() {
       &private_key,
       &public_key,
       2,
-      3,
+      4,
     ).await;
 
     // Build the API for node 2.
@@ -80,6 +80,9 @@ async fn test_upgrade_task() {
     // Build the API for node 4.
     let handle_4 = build_system_handle(4).await.0;
     let (private_key_4, public_key_4) = key_pair_for_id(4);
+
+    let handle_5 = build_system_handle(5).await.0;
+    let (private_key_5, public_key_5) = key_pair_for_id(5);
 //
 //    let quorum_proposal_4 = build_quorum_proposal(&handle_4, None, &private_key_4, 4).await;
 //
@@ -87,22 +90,43 @@ async fn test_upgrade_task() {
     let mut output = HashMap::new();
 
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
+    input.push(HotShotEvent::QuorumProposalRecv(
+        proposals[1].clone(),
+        public_key,
+    ));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::QuorumProposalRecv(
         proposals[2].clone(),
         public_key,
     ));
-    input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
+    input.push(HotShotEvent::ViewChange(ViewNumber::new(3)));
     input.push(HotShotEvent::QuorumProposalRecv(
         proposals[3].clone(),
         public_key,
     ));
+    input.push(HotShotEvent::ViewChange(ViewNumber::new(4)));
     input.push(HotShotEvent::QuorumProposalRecv(
         proposals[4].clone(),
         public_key_4,
     ));
+    input.push(HotShotEvent::ViewChange(ViewNumber::new(5)));
+    input.push(HotShotEvent::QuorumProposalRecv(
+        proposals[5].clone(),
+        public_key_5,
+    ));
+    input.push(HotShotEvent::Shutdown);
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(3)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(4)), 1);
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(4)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
+//    output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
 //
 //    let handle = build_system_handle(1).await.0;
 
