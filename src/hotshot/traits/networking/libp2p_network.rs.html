@@ -870,16 +870,6 @@
 <a href="#869" id="869">869</a>
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1440,10 +1430,7 @@
 
     <span class="doccomment">/// task to propagate messages to handlers
     /// terminates on shut down of network
-    </span><span class="kw">fn </span>handle_event_generator(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        sender: UnboundedSender&lt;M&gt;,
-    ) {
+    </span><span class="kw">fn </span>handle_event_generator(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: UnboundedSender&lt;M&gt;) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
         <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
         async_spawn(<span class="kw">async move </span>{
@@ -1456,9 +1443,7 @@
                         <span class="kw">let </span>message_version = read_version(raw);
                         <span class="kw">match </span>message_version {
                             <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {
-                                <span class="kw">let _ </span>= handle
-                                    .handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender)
-                                    .<span class="kw">await</span>;
+                                <span class="kw">let _ </span>= handle.handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
                             }
                             <span class="prelude-val">Some</span>(version) =&gt; {
                                 <span class="macro">warn!</span>(
@@ -1701,9 +1686,7 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
@@ -1718,10 +1701,7 @@
                     .drain_at_least_one()
                     .<span class="kw">await
                     </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                <span class="self">self</span>.inner
-                    .metrics
-                    .incoming_message_count
-                    .add(result.len());
+                <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
                 <span class="prelude-val">Ok</span>(result)
             }
         };

@@ -1284,15 +1284,6 @@
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
 <a href="#1285" id="1285">1285</a>
-<a href="#1286" id="1286">1286</a>
-<a href="#1287" id="1287">1287</a>
-<a href="#1288" id="1288">1288</a>
-<a href="#1289" id="1289">1289</a>
-<a href="#1290" id="1290">1290</a>
-<a href="#1291" id="1291">1291</a>
-<a href="#1292" id="1292">1292</a>
-<a href="#1293" id="1293">1293</a>
-<a href="#1294" id="1294">1294</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1524,10 +1515,7 @@
             <span class="kw">let </span>deserialized_message = RecvMsg {
                 message: <span class="prelude-val">Some</span>(deserialized_message_inner),
             };
-            poll_queue
-                .write()
-                .<span class="kw">await
-                </span>.push(deserialized_message.clone());
+            poll_queue.write().<span class="kw">await</span>.push(deserialized_message.clone());
         } <span class="kw">else </span>{
             async_sleep(<span class="self">self</span>.wait_between_polls).<span class="kw">await</span>;
         }
@@ -1585,7 +1573,9 @@
                     }
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
-                MessagePurpose::Vote | MessagePurpose::ViewSyncVote | MessagePurpose::ViewSyncCertificate =&gt; {
+                MessagePurpose::Vote
+                | MessagePurpose::ViewSyncVote
+                | MessagePurpose::ViewSyncCertificate =&gt; {
                     <span class="kw">let </span>vote = deserialized_message.clone();
                     <span class="kw-2">*</span>vote_index += <span class="number">1</span>;
                     poll_queue.write().<span class="kw">await</span>.push(vote);
@@ -1597,10 +1587,7 @@
                         <span class="string">"Received DAC from web server for view {} {}"</span>,
                         view_number, <span class="self">self</span>.is_da
                     );
-                    poll_queue
-                        .write()
-                        .<span class="kw">await
-                        </span>.push(deserialized_message.clone());
+                    poll_queue.write().<span class="kw">await</span>.push(deserialized_message.clone());
 
                     <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                     // return if we found a DAC, since there will only be 1 per view
@@ -1626,10 +1613,7 @@
                 }
 
                 MessagePurpose::Upgrade =&gt; {
-                    poll_queue
-                        .write()
-                        .<span class="kw">await
-                        </span>.push(deserialized_message.clone());
+                    poll_queue.write().<span class="kw">await</span>.push(deserialized_message.clone());
 
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
@@ -2146,9 +2130,7 @@
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-    ) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
+    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt;&gt;
     <span class="kw">where
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
