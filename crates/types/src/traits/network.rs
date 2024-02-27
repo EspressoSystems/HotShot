@@ -28,10 +28,10 @@ impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
         match error {
             NetworkNodeHandleError::SerializationError { source } => {
-                NetworkError::FailedToSerialize { source: source.into() }
+                NetworkError::FailedToSerialize { source }
             }
             NetworkNodeHandleError::DeserializationError { source } => {
-                NetworkError::FailedToDeserialize { source: source.into() }
+                NetworkError::FailedToDeserialize { source }
             }
             NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
             NetworkNodeHandleError::Killed => NetworkError::ShutDown,
@@ -266,7 +266,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         &self,
         message: M,
         recipient: K,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`

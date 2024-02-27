@@ -614,8 +614,7 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
         // TODO ED Wait for healthcheck
-        let initial_url = url.clone();
-        let client = surf_disco::Client::<ClientError, MAJOR, MINOR>::new(initial_url);
+        let client = surf_disco::Client::<ClientError, MAJOR, MINOR>::new(url);
 
         let inner = Arc::new(Inner {
             broadcast_poll_queue_0_1: Arc::default(),
@@ -792,7 +791,7 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        _bind_version: StaticVersion<MAJ, MIN>,
+        _: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -815,7 +814,7 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
         &self,
         message: Message<TYPES>,
         _recipient: TYPES::SignatureKey,
-        _bind_version: StaticVersion<MAJ, MIN>,
+        _: StaticVersion<MAJ, MIN>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]

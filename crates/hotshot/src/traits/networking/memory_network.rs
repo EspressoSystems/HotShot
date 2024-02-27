@@ -304,7 +304,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         &self,
         message: M,
         recipients: BTreeSet<K>,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         trace!(?message, "Broadcasting message");
         // Bincode the message
@@ -356,7 +356,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         &self,
         message: M,
         recipient: K,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         // debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message

@@ -377,7 +377,10 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                     net.direct_message(message, recipient.unwrap(), STATIC_V_0_1)
                         .await
                 }
-                TransmitType::Broadcast => net.broadcast_message(message, committee, STATIC_V_0_1).await,
+                TransmitType::Broadcast => {
+                    net.broadcast_message(message, committee, STATIC_V_0_1)
+                        .await
+                }
             };
 
             match transmit_result {

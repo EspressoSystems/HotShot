@@ -26,7 +26,7 @@ pub const STATIC_V_0_1: StaticVersion<0, 1> = StaticVersion;
 /// Default Channel Size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;
 
-/// Constants for WebServerNetwork and WebServer
+/// Constants for `WebServerNetwork` and `WebServer`
 /// The Web CDN is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Web Server CDN Version (major)
 pub const WEB_SERVER_MAJOR: u16 = 0;

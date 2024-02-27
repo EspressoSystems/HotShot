@@ -77,6 +77,8 @@ pub const QC_TOPIC: &str = "global";
 ///   * we must have an explicit version field.
 #[derive(Serialize)]
 pub struct Empty {
+    /// This should not be required, but it is. Version automatically gets prepended.
+    /// Perhaps this could be replaced with something zero-sized and serializable.
     byte: u8,
 }
 
@@ -604,7 +606,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                         is_bootstrapped.store(true, Ordering::Relaxed);
                     }
                     GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
-                        match Version::deserialize(&raw) {
+                        match Version::deserialize(raw) {
                             Ok((VERSION_0_1, _rest)) => {
                                 let _ = handle
                                     .handle_recvd_events_0_1(message, &direct_send, &broadcast_send)

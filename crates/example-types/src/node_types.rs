@@ -47,10 +47,6 @@ impl NodeType for TestTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
-    const MAJOR_V_OLD: u16 = 0;
-    const MINOR_V_OLD: u16 = 0;
-    const MAJOR_V_NEW: u16 = 0;
-    const MINOR_V_NEW: u16 = 0;
 }
 
 /// Memory network implementation

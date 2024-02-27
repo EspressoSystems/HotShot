@@ -319,7 +319,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         key: &impl Serialize,
         value: &impl Serialize,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
@@ -345,7 +345,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         key: &impl Serialize,
         retry_count: u8,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
@@ -465,7 +465,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         pid: PeerId,
         msg: &impl Serialize,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg =
             Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
@@ -497,7 +497,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         chan: ResponseChannel<Vec<u8>>,
         msg: &impl Serialize,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg =
             Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
@@ -525,7 +525,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         topic: String,
         msg: &impl Serialize,
-        _bind_version: StaticVersion<MAJOR, MINOR>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg =
             Serializer::<MAJOR, MINOR>::serialize(msg).context(SerializationSnafu)?;
