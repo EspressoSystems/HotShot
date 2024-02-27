@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::{fmt::Debug, ops::Range};
 
+/// VID commitment type
+pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
+
 /// VID scheme constructor.
 ///
 /// We prefer a return type of the form `impl VidScheme`.

@@ -15,7 +15,7 @@ use crate::{
         storage::StoredView,
         BlockPayload,
     },
-    vid::VidSchemeType,
+    vid::{VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber},
 };
 use ark_bls12_381::Bls12_381;
@@ -135,10 +135,6 @@ where
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
-
-/// VID commitment type
-/// TODO move to vid.rs?
-pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
 
 /// VID dispersal data
 ///

@@ -5,13 +5,13 @@ use std::{
 
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, VidCommitment},
+    data::BlockError,
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
-    vid::VidSchemeType,
+    vid::{VidCommitment, VidSchemeType},
 };
 use jf_primitives::vid::VidScheme;
 use serde::{Deserialize, Serialize};

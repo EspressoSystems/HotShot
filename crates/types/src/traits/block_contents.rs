@@ -4,10 +4,9 @@
 //! describe the behaviors that a block is expected to have.
 
 use crate::{
-    data::VidCommitment,
     traits::ValidatedState,
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidSchemeType},
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 use commit::{Commitment, Committable};
 use jf_primitives::vid::VidScheme;
