@@ -7,13 +7,12 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::BlockError,
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
-    vid::{VidCommitment, VidSchemeType},
+    vid::{VidCommitment},
 };
-use jf_primitives::vid::VidScheme;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 
@@ -172,17 +171,6 @@ impl BlockPayload for TestBlockPayload {
     }
 }
 
-/// Computes the (empty) genesis VID commitment
-/// The number of storage nodes does not do anything, unless in the future we add fake transactions
-/// to the genesis payload.
-///
-/// In that case, the payloads may mismatch and cause problems.
-/// TODO shall we gate this function with #[cfg(test)]? Or maybe the entire example-types crate?
-#[must_use]
-pub fn genesis_vid_commitment() -> <VidSchemeType as VidScheme>::Commit {
-    vid_commitment(&vec![], 8)
-}
-
 /// A [`BlockHeader`] that commits to [`TestBlockPayload`].
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Deserialize, Serialize)]
 pub struct TestBlockHeader {
@@ -211,20 +199,13 @@ impl BlockHeader for TestBlockHeader {
 
     fn genesis(
         _instance_state: &<Self::State as ValidatedState>::Instance,
-    ) -> (
-        Self,
-        Self::Payload,
-        <Self::Payload as BlockPayload>::Metadata,
-    ) {
-        let (payload, metadata) = <Self::Payload as BlockPayload>::genesis();
-        (
-            Self {
-                block_number: 0,
-                payload_commitment: genesis_vid_commitment(),
-            },
-            payload,
-            metadata,
-        )
+        payload_commitment: VidCommitment,
+        _metadata: <Self::Payload as BlockPayload>::Metadata,
+    ) -> Self {
+        Self {
+            block_number: 0,
+            payload_commitment,
+        }
     }
 
     fn block_number(&self) -> u64 {

@@ -106,6 +106,12 @@ pub fn vid_commitment(
     vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
 
+/// The number of storage nodes to use when computing the genesis VID commitment.
+///
+/// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
+/// do dispersal for the genesis block. For simplicity and performance, we use 1.
+pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
+
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
@@ -129,11 +135,9 @@ pub trait BlockHeader:
     /// Build the genesis header, payload, and metadata.
     fn genesis(
         instance_state: &<Self::State as ValidatedState>::Instance,
-    ) -> (
-        Self,
-        Self::Payload,
-        <Self::Payload as BlockPayload>::Metadata,
-    );
+        payload_commitment: VidCommitment,
+        metadata: <Self::Payload as BlockPayload>::Metadata,
+    ) -> Self;
 
     /// Get the block number.
     fn block_number(&self) -> u64;
