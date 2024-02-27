@@ -427,6 +427,7 @@ pub trait RunDA<
         let mut event_stream = context.get_event_stream();
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
+        let mut failed_num_views = 0;
 
         context.hotshot.start_consensus().await;
 
@@ -505,17 +506,28 @@ pub trait RunDA<
                             // when we make progress, submit new events
                         }
                         EventType::ReplicaViewTimeout { view_number } => {
+                            failed_num_views += 1;
                             warn!("Timed out as a replicas in view {:?}", view_number);
                         }
                         EventType::NextLeaderViewTimeout { view_number } => {
+                            failed_num_views += 1;
                             warn!("Timed out as the next leader in view {:?}", view_number);
+                        }
+                        EventType::ViewTimeout { view_number } => {
+                            failed_num_views += 1;
+                            warn!("Timed out in view {:?}", view_number);
                         }
                         _ => {}
                     }
                 }
             }
         }
-
+        let consensus_lock = context.hotshot.get_consensus();
+        let consensus = consensus_lock.read().await;
+        let total_num_views = consensus.locked_view.get_u64() as usize;
+        // When posting to the orchestrator, note that the total number of views also include un-finalized views.
+        error!("Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
+        assert_eq!(total_num_views, failed_num_views + num_successful_commits);
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
         error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
@@ -929,7 +941,7 @@ pub async fn main_entry_point<
         .await;
 
     let node_index = run_config.node_index;
-    error!("Retrieved config; our node index is {node_index}");
+    error!("Retrieved config; our node index is {node_index}. Leader election is {:?}", std::any::type_name::<TYPES::ElectionConfigType>());
 
     // one more round of orchestrator here to get peer's public key/config
     let updated_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
