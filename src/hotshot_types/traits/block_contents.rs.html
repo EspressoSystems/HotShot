@@ -148,6 +148,10 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -259,6 +263,12 @@
     vid.commit_only(encoded_transactions).unwrap()
 }
 
+<span class="doccomment">/// The number of storage nodes to use when computing the genesis VID commitment.
+///
+/// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
+/// do dispersal for the genesis block. For simplicity and performance, we use 1.
+</span><span class="kw">pub const </span>GENESIS_VID_NUM_STORAGE_NODES: usize = <span class="number">1</span>;
+
 <span class="doccomment">/// Header of a block, which commits to a [`BlockPayload`].
 </span><span class="kw">pub trait </span>BlockHeader:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
@@ -282,11 +292,9 @@
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
     </span><span class="kw">fn </span>genesis(
         instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
-    ) -&gt; (
-        <span class="self">Self</span>,
-        <span class="self">Self</span>::Payload,
-        &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-    );
+        payload_commitment: VidCommitment,
+        metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Get the block number.
     </span><span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;

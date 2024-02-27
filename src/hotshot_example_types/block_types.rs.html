@@ -234,23 +234,6 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -258,9 +241,9 @@
 
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
-    data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, VidCommitment},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -423,16 +406,6 @@
     }
 }
 
-<span class="doccomment">/// Computes the (empty) genesis VID commitment
-/// The number of storage nodes does not do anything, unless in the future we add fake transactions
-/// to the genesis payload.
-///
-/// In that case, the payloads may mismatch and cause problems.
-</span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>genesis_vid_commitment() -&gt; &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Commit {
-    vid_commitment(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[], <span class="number">8</span>)
-}
-
 <span class="doccomment">/// A [`BlockHeader`] that commits to [`TestBlockPayload`].
 </span><span class="attr">#[derive(PartialEq, Eq, Hash, Clone, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>TestBlockHeader {
@@ -461,20 +434,13 @@
 
     <span class="kw">fn </span>genesis(
         _instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
-    ) -&gt; (
-        <span class="self">Self</span>,
-        <span class="self">Self</span>::Payload,
-        &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-    ) {
-        <span class="kw">let </span>(payload, metadata) = &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::genesis();
-        (
-            <span class="self">Self </span>{
-                block_number: <span class="number">0</span>,
-                payload_commitment: genesis_vid_commitment(),
-            },
-            payload,
-            metadata,
-        )
+        payload_commitment: VidCommitment,
+        _metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            block_number: <span class="number">0</span>,
+            payload_commitment,
+        }
     }
 
     <span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {

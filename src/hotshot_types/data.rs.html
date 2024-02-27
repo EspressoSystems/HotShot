@@ -523,6 +523,20 @@
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -532,7 +546,9 @@
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::UpgradeProposalData,
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock},
+        block_contents::{
+            vid_commitment, BlockHeader, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
+        },
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -855,15 +871,27 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
     <span class="doccomment">/// Create a new leaf from its components.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
+    /// interpreted as bytes).
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(block_header, block_payload, <span class="kw">_</span>) = TYPES::BlockHeader::genesis(instance_state);
+        <span class="kw">let </span>(payload, metadata) = TYPES::BlockPayload::genesis();
+        <span class="kw">let </span>payload_bytes = payload
+            .encode()
+            .expect(<span class="string">"unable to encode genesis payload"</span>)
+            .collect();
+        <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        <span class="kw">let </span>block_header =
+            TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
         <span class="self">Self </span>{
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),
             parent_commitment: fake_commitment(),
             block_header: block_header.clone(),
-            block_payload: <span class="prelude-val">Some</span>(block_payload),
+            block_payload: <span class="prelude-val">Some</span>(payload),
             proposer_id: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::genesis_proposer_pk(),
         }
     }

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","TestableBlock","Transaction"]};
+window.SIDEBAR_ITEMS = {"constant":["GENESIS_VID_NUM_STORAGE_NODES"],"fn":["vid_commitment"],"trait":["BlockHeader","BlockPayload","TestableBlock","Transaction"]};

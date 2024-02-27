@@ -80,8 +80,6 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions over the immutable instance-level state and hte global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
@@ -143,9 +141,7 @@
 
     <span class="doccomment">/// Construct a genesis validated state.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">fn </span>genesis(instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::from_header(<span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader::genesis(instance).<span class="number">0</span>)
-    }
+    </span><span class="kw">fn </span>genesis(instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Gets called to notify the persistence backend that this state has been committed
     </span><span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>);
