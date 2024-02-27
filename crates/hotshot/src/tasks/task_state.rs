@@ -12,7 +12,6 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{traits::election::Membership, utils::BuilderCommitment};
 use hotshot_types::traits::{
-    block_contents::vid_commitment,
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     BlockPayload,

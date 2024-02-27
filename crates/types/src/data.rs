@@ -5,7 +5,7 @@
 
 use crate::{
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate}, simple_vote::UpgradeProposalData, traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock},
+        block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,

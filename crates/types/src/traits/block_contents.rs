@@ -92,22 +92,22 @@ pub trait TestableBlock: BlockPayload + Debug {
     fn txn_count(&self) -> u64;
 }
 
-/// Compute the VID payload commitment.
-/// # Panics
-/// If the VID computation fails.
-#[must_use]
-pub fn vid_commitment(
-    encoded_transactions: &Vec<u8>,
-    num_storage_nodes: usize,
-) -> <VidScheme as VidSchemeTrait>::Commit {
-    let num_chunks = 1 << num_storage_nodes.ilog2();
+// /// Compute the VID payload commitment.
+// /// # Panics
+// /// If the VID computation fails.
+// #[must_use]
+// pub fn vid_commitment(
+//     encoded_transactions: &Vec<u8>,
+//     num_storage_nodes: usize,
+// ) -> <VidScheme as VidSchemeTrait>::Commit {
+//     let num_chunks = 1 << num_storage_nodes.ilog2();
 
-    // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-    let srs = test_srs(num_storage_nodes);
-    let multiplicity = 1;
-    let vid = VidScheme::new(num_chunks, num_storage_nodes, multiplicity, srs).unwrap();
-    vid.commit_only(encoded_transactions).unwrap()
-}
+//     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
+//     let srs = test_srs(num_storage_nodes);
+//     let multiplicity = 1;
+//     let vid = VidScheme::new(num_chunks, num_storage_nodes, multiplicity, srs).unwrap();
+//     vid.commit_only(encoded_transactions).unwrap()
+// }
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader:

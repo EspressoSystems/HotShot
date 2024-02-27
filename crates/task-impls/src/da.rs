@@ -15,7 +15,6 @@ use hotshot_types::{
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
     traits::{
-        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
