@@ -357,7 +357,7 @@ pub fn key_pair_for_id(node_id: u64) -> (<BLSPubKey as SignatureKey>::PrivateKey
 
 /// initialize VID
 /// # Panics
-/// if unable to create a [`VidScheme`]
+/// if unable to create a [`VidSchemeType`]
 #[must_use]
 pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
