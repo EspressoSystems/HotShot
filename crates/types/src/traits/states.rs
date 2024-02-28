@@ -7,7 +7,7 @@
 use super::block_contents::{BlockHeader, TestableBlock};
 use crate::traits::{node_implementation::ConsensusTime, BlockPayload};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, hash::Hash};
+use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 /// Instance-level state, which allows us to fetch missing validated state.
 pub trait InstanceState: Clone + Debug + Send + Sync {}
@@ -50,7 +50,7 @@ pub trait ValidatedState:
         instance: &Self::Instance,
         parent_header: &Self::BlockHeader,
         proposed_header: &Self::BlockHeader,
-    ) -> Result<Self, Self::Error>;
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Construct the state with the given block header.
     ///
@@ -59,9 +59,7 @@ pub trait ValidatedState:
 
     /// Construct a genesis validated state.
     #[must_use]
-    fn genesis(instance: &Self::Instance) -> Self {
-        Self::from_header(&Self::BlockHeader::genesis(instance).0)
-    }
+    fn genesis(instance: &Self::Instance) -> Self;
 
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);

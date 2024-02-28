@@ -17,7 +17,7 @@ use crate::block_types::{TestBlockHeader, TestBlockPayload};
 pub use crate::node_types::TestTypes;
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct TestInstanceState {}
 
 impl InstanceState for TestInstanceState {}
@@ -64,7 +64,7 @@ impl ValidatedState for TestValidatedState {
 
     type Time = ViewNumber;
 
-    fn validate_and_apply_header(
+    async fn validate_and_apply_header(
         &self,
         _instance: &Self::Instance,
         _parent_header: &Self::BlockHeader,
@@ -84,6 +84,10 @@ impl ValidatedState for TestValidatedState {
     }
 
     fn on_commit(&self) {}
+
+    fn genesis(_instance: &Self::Instance) -> Self {
+        Self::default()
+    }
 }
 
 impl TestableState for TestValidatedState {

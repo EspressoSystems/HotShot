@@ -10,6 +10,7 @@ version = "0.1.0"
 
 [dependencies]
 ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
 ark-ed-on-bn254 = { workspace = true }
 ark-ff = { workspace = true }
 ark-serialize = { workspace = true, features = ["derive"] }
@@ -25,7 +26,7 @@ custom_debug = { workspace = true }
 derivative = "2.2.0"
 digest = { workspace = true }
 displaydoc = { version = "0.2.3", default-features = false }
-dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.16" }
+dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.17" }
 either = { workspace = true, features = ["serde"] }
 espresso-systems-common = { workspace = true }
 ethereum-types = { workspace = true }
@@ -35,6 +36,7 @@ hotshot-utils = { path = "../utils" }
 jf-plonk = { workspace = true }
 jf-primitives = { workspace = true, features = ["test-srs"] }
 jf-utils = { workspace = true }
+lazy_static = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
@@ -47,7 +49,7 @@ tracing = { workspace = true }
 typenum = { workspace = true }
 
 [dev-dependencies]
-serde_json = "1.0.114"
+serde_json = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
