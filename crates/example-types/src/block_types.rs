@@ -6,9 +6,9 @@ use std::{
 use crate::{node_types::TestTypes, state_types::TestValidatedState};
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, Leaf, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, Leaf, VidCommitment},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -170,16 +170,6 @@ impl BlockPayload for TestBlockPayload {
     }
 }
 
-/// Computes the (empty) genesis VID commitment
-/// The number of storage nodes does not do anything, unless in the future we add fake transactions
-/// to the genesis payload.
-///
-/// In that case, the payloads may mismatch and cause problems.
-#[must_use]
-pub fn genesis_vid_commitment() -> <VidScheme as VidSchemeTrait>::Commit {
-    vid_commitment(&vec![], 8)
-}
-
 /// A [`BlockHeader`] that commits to [`TestBlockPayload`].
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Deserialize, Serialize)]
 pub struct TestBlockHeader {
@@ -208,20 +198,13 @@ impl<TYPES: NodeType> BlockHeader<TYPES> for TestBlockHeader {
 
     fn genesis(
         _instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
-    ) -> (
-        Self,
-        Self::Payload,
-        <Self::Payload as BlockPayload>::Metadata,
-    ) {
-        let (payload, metadata) = <Self::Payload as BlockPayload>::genesis();
-        (
-            Self {
-                block_number: 0,
-                payload_commitment: genesis_vid_commitment(),
-            },
-            payload,
-            metadata,
-        )
+        payload_commitment: VidCommitment,
+        _metadata: <Self::Payload as BlockPayload>::Metadata,
+    ) -> Self {
+        Self {
+            block_number: 0,
+            payload_commitment,
+        }
     }
 
     fn block_number(&self) -> u64 {

@@ -114,12 +114,14 @@ check:
   echo Checking
   cargo check --workspace --bins --tests --examples
 
-lint: fmt
+lint: 
   echo linting
+  cargo fmt --check
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
-lint_release: fmt
+lint_release: 
   echo linting
+  cargo fmt --check
   cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
