@@ -6,13 +6,14 @@ use std::{
 use crate::{node_types::TestTypes, state_types::TestValidatedState};
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, Leaf, VidCommitment},
+    data::{BlockError, Leaf},
     traits::{
         block_contents::{BlockHeader, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};

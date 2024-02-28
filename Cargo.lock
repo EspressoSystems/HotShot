@@ -2941,6 +2941,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
+ "jf-primitives",
  "sha2 0.10.8",
  "snafu",
  "time 0.3.34",
@@ -2970,6 +2971,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-utils",
+ "jf-primitives",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3013,6 +3015,7 @@ name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
  "ark-bls12-381",
+ "ark-ec",
  "ark-ed-on-bn254",
  "ark-ff",
  "ark-serialize",
@@ -3039,6 +3042,7 @@ dependencies = [
  "jf-plonk",
  "jf-primitives",
  "jf-utils",
+ "lazy_static",
  "libp2p-networking",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
