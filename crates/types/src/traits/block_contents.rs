@@ -118,27 +118,21 @@ pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 pub trait BlockHeader<TYPES: NodeType>:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
-    /// Block payload associated with the commitment.
-    type Payload: BlockPayload;
-
-    /// Validated state.
-    type State: ValidatedState<TYPES>;
-
     /// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, and metadata.
     fn new(
-        parent_state: &Self::State,
-        instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        parent_state: &TYPES::ValidatedState,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        metadata: <Self::Payload as BlockPayload>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(
-        instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
-        metadata: <Self::Payload as BlockPayload>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self;
 
     /// Get the block number.
@@ -148,5 +142,5 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn payload_commitment(&self) -> VidCommitment;
 
     /// Get the metadata.
-    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata;
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
 }

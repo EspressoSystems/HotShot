@@ -621,7 +621,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let Ok(state) = parent_state
                     .validate_and_apply_header(
                         &consensus.instance_state,
-                        &parent_leaf.clone(),
+                        &parent_leaf,
                         &proposal.data.block_header.clone(),
                     )
                     .await

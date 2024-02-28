@@ -4,7 +4,7 @@
 //! compatibilities over the current network state, which is modified by the transactions contained
 //! within blocks.
 
-use super::block_contents::{BlockHeader, TestableBlock};
+use super::block_contents::TestableBlock;
 use crate::{
     data::Leaf,
     traits::{
@@ -34,10 +34,6 @@ pub trait ValidatedState<TYPES: NodeType>:
     type Error: Error + Debug + Send + Sync;
     /// The type of the instance-level state this state is assocaited with
     type Instance: InstanceState;
-    /// The type of block header this state is associated with
-    type BlockHeader: BlockHeader<TYPES, State = Self>;
-    /// The type of block payload this state is associated with
-    type BlockPayload: BlockPayload;
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
@@ -55,13 +51,13 @@ pub trait ValidatedState<TYPES: NodeType>:
         &self,
         instance: &Self::Instance,
         parent_leaf: &Leaf<TYPES>,
-        proposed_header: &Self::BlockHeader,
+        proposed_header: &TYPES::BlockHeader,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Construct the state with the given block header.
     ///
     /// This can also be used to rebuild the state for catchup.
-    fn from_header(block_header: &Self::BlockHeader) -> Self;
+    fn from_header(block_header: &TYPES::BlockHeader) -> Self;
 
     /// Construct a genesis validated state.
     #[must_use]
@@ -75,7 +71,7 @@ pub trait ValidatedState<TYPES: NodeType>:
 pub trait TestableState<TYPES>: ValidatedState<TYPES>
 where
     TYPES: NodeType,
-    <Self as ValidatedState<TYPES>>::BlockPayload: TestableBlock,
+    TYPES::BlockPayload: TestableBlock,
 {
     /// Creates random transaction if possible
     /// otherwise panics
@@ -84,5 +80,5 @@ where
         state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <Self::BlockPayload as BlockPayload>::Transaction;
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction;
 }

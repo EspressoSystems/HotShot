@@ -221,7 +221,7 @@ pub trait NodeType:
     /// This should be the same `Time` that `ValidatedState::Time` is using.
     type Time: ConsensusTime;
     /// The block header type that this hotshot setup is using.
-    type BlockHeader: BlockHeader<Self, Payload = Self::BlockPayload, State = Self::ValidatedState>;
+    type BlockHeader: BlockHeader<Self>;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
@@ -239,13 +239,7 @@ pub trait NodeType:
     type InstanceState: InstanceState;
 
     /// The validated state type that this hotshot setup is using.
-    type ValidatedState: ValidatedState<
-        Self,
-        Instance = Self::InstanceState,
-        BlockHeader = Self::BlockHeader,
-        BlockPayload = Self::BlockPayload,
-        Time = Self::Time,
-    >;
+    type ValidatedState: ValidatedState<Self, Instance = Self::InstanceState, Time = Self::Time>;
 
     /// Membership used for this implementation
     type Membership: Membership<Self>;

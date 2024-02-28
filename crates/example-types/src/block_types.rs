@@ -3,7 +3,7 @@ use std::{
     mem::size_of,
 };
 
-use crate::{node_types::TestTypes, state_types::TestValidatedState};
+use crate::node_types::TestTypes;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
@@ -180,16 +180,13 @@ pub struct TestBlockHeader {
     pub payload_commitment: VidCommitment,
 }
 
-impl<TYPES: NodeType> BlockHeader<TYPES> for TestBlockHeader {
-    type Payload = TestBlockPayload;
-    type State = TestValidatedState;
-
+impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> BlockHeader<TYPES> for TestBlockHeader {
     async fn new(
-        _parent_state: &Self::State,
-        _instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        _parent_state: &TYPES::ValidatedState,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
             block_number: parent_leaf.block_header.block_number() + 1,
@@ -198,9 +195,9 @@ impl<TYPES: NodeType> BlockHeader<TYPES> for TestBlockHeader {
     }
 
     fn genesis(
-        _instance_state: &<Self::State as ValidatedState<TYPES>>::Instance,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
@@ -216,7 +213,7 @@ impl<TYPES: NodeType> BlockHeader<TYPES> for TestBlockHeader {
         self.payload_commitment
     }
 
-    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata {
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
     }
 }
