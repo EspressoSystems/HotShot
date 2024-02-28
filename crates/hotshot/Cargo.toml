@@ -55,23 +55,23 @@ tracing = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-client = { path = "../../../cdn2/client" }
-broker = { path = "../../../cdn2/broker", features = ["local_discovery"]}
-marshal = { path = "../../../cdn2/marshal", features = ["local_discovery"]}
+client = { path = "../../../cdn/client" }
+broker = { path = "../../../cdn/broker", features = ["local_discovery"]}
+marshal = { path = "../../../cdn/marshal", features = ["local_discovery"]}
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
-client = { path = "../../../cdn2/client", default-features = false, features = [
+client = { path = "../../../cdn/client", default-features = false, features = [
     "insecure",
     "runtime-async-std",
 ] }
-broker = { path = "../../../cdn2/broker", default-features = false, features = [
+broker = { path = "../../../cdn/broker", default-features = false, features = [
     "strong_consistency",
     "insecure",
     "runtime-async-std",
     "local_discovery",
 ] }
-marshal = { path = "../../../cdn2/marshal", default-features = false, features = [
+marshal = { path = "../../../cdn/marshal", default-features = false, features = [
     "insecure",
     "runtime-async-std",
     "local_discovery",

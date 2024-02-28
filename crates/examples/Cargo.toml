@@ -120,9 +120,9 @@ lru = "0.12.2"
 hotshot-task = { path = "../task" }
 hotshot = { path = "../hotshot" }
 hotshot-example-types = { path = "../example-types" }
-client = { path = "../../../cdn2/client" }
-broker = { path = "../../../cdn2/broker", features = ["local_discovery"]}
-marshal = { path = "../../../cdn2/marshal", features = ["local_discovery"]}
+client = { path = "../../../cdn/client" }
+broker = { path = "../../../cdn/broker", features = ["local_discovery"]}
+marshal = { path = "../../../cdn/marshal", features = ["local_discovery"]}
 
 tracing = { workspace = true }
 
