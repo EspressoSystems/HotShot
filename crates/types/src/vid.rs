@@ -80,9 +80,11 @@ pub type VidShare = <VidSchemeType as VidScheme>::Share;
 /// [`VidScheme`], [`PayloadProver`], [`Precomputable`].
 pub struct VidSchemeType(Advz<E, H>);
 
-/// Newtype wrapper for a namespace proof.
+/// Newtype wrapper for a large payload range proof.
+///
+/// Useful for namespace proofs.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NamespaceProofType(
+pub struct LargeRangeProofType(
     // # Type complexity
     //
     // Jellyfish's `LargeRangeProof` type has a prime field generic parameter `F`.
@@ -97,12 +99,14 @@ pub struct NamespaceProofType(
     LargeRangeProof<<UnivariateKzgPCS<E> as PolynomialCommitmentScheme>::Evaluation>,
 );
 
-/// Newtype wrapper for a transaction proof.
+/// Newtype wrapper for a small payload range proof.
+///
+/// Useful for transaction proofs.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TransactionProofType(
+pub struct SmallRangeProofType(
     // # Type complexity
     //
-    // Similar to the comments in `NamespaceProofType`.
+    // Similar to the comments in `LargeRangeProofType`.
     SmallRangeProof<<UnivariateKzgPCS<E> as PolynomialCommitmentScheme>::Proof>,
 );
 
@@ -165,37 +169,39 @@ impl VidScheme for VidSchemeType {
     }
 }
 
-impl PayloadProver<NamespaceProofType> for VidSchemeType {
-    fn payload_proof<B>(&self, payload: B, range: Range<usize>) -> VidResult<NamespaceProofType>
-    where
-        B: AsRef<[u8]>,
-    {
-        self.0.payload_proof(payload, range).map(NamespaceProofType)
-    }
-
-    fn payload_verify(
-        &self,
-        stmt: Statement<'_, Self>,
-        proof: &NamespaceProofType,
-    ) -> VidResult<Result<(), ()>> {
-        self.0.payload_verify(stmt_conversion(stmt), &proof.0)
-    }
-}
-
-impl PayloadProver<TransactionProofType> for VidSchemeType {
-    fn payload_proof<B>(&self, payload: B, range: Range<usize>) -> VidResult<TransactionProofType>
+impl PayloadProver<LargeRangeProofType> for VidSchemeType {
+    fn payload_proof<B>(&self, payload: B, range: Range<usize>) -> VidResult<LargeRangeProofType>
     where
         B: AsRef<[u8]>,
     {
         self.0
             .payload_proof(payload, range)
-            .map(TransactionProofType)
+            .map(LargeRangeProofType)
     }
 
     fn payload_verify(
         &self,
         stmt: Statement<'_, Self>,
-        proof: &TransactionProofType,
+        proof: &LargeRangeProofType,
+    ) -> VidResult<Result<(), ()>> {
+        self.0.payload_verify(stmt_conversion(stmt), &proof.0)
+    }
+}
+
+impl PayloadProver<SmallRangeProofType> for VidSchemeType {
+    fn payload_proof<B>(&self, payload: B, range: Range<usize>) -> VidResult<SmallRangeProofType>
+    where
+        B: AsRef<[u8]>,
+    {
+        self.0
+            .payload_proof(payload, range)
+            .map(SmallRangeProofType)
+    }
+
+    fn payload_verify(
+        &self,
+        stmt: Statement<'_, Self>,
+        proof: &SmallRangeProofType,
     ) -> VidResult<Result<(), ()>> {
         self.0.payload_verify(stmt_conversion(stmt), &proof.0)
     }
