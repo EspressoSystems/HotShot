@@ -27,7 +27,7 @@ use crate::network::behaviours::{
     direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
-    request_response::{handle_vid, VidReqeust, VidResponse},
+    request_response::{handle_vid, Request, Response},
 };
 use async_compatibility_layer::{
     art::async_spawn,
@@ -282,8 +282,8 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
             let request_response: libp2p::request_response::cbor::Behaviour<
-                VidReqeust,
-                VidResponse,
+                Request,
+                Response,
             > = RequestResponse::new(
                 [(
                     StreamProtocol::new("/HotShot/request_response/1.0"),

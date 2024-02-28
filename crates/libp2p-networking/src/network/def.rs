@@ -15,7 +15,7 @@ use super::{
         direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
         gossip::{GossipBehaviour, GossipEvent},
-        request_response::{VidReqeust, VidResponse},
+        request_response::{Request, Response},
     },
     NetworkEventInternal,
 };
@@ -52,7 +52,7 @@ pub struct NetworkDef {
 
     /// Behaviour for requesting and receiving data
     #[debug(skip)]
-    pub request_response: libp2p::request_response::cbor::Behaviour<VidReqeust, VidResponse>,
+    pub request_response: libp2p::request_response::cbor::Behaviour<Request, Response>,
 }
 
 impl NetworkDef {
@@ -63,7 +63,7 @@ impl NetworkDef {
         dht: DHTBehaviour,
         identify: IdentifyBehaviour,
         direct_message: DMBehaviour,
-        request_response: cbor::Behaviour<VidReqeust, VidResponse>,
+        request_response: cbor::Behaviour<Request, Response>,
     ) -> NetworkDef {
         Self {
             gossipsub,
@@ -180,8 +180,8 @@ impl From<IdentifyEvent> for NetworkEventInternal {
     }
 }
 
-impl From<libp2p::request_response::Event<VidReqeust, VidResponse>> for NetworkEventInternal {
-    fn from(event: libp2p::request_response::Event<VidReqeust, VidResponse>) -> Self {
+impl From<libp2p::request_response::Event<Request, Response>> for NetworkEventInternal {
+    fn from(event: libp2p::request_response::Event<Request, Response>) -> Self {
         Self::RequestResponseEvent(event)
     }
 }

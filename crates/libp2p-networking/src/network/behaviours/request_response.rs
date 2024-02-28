@@ -6,31 +6,24 @@ use serde::{Deserialize, Serialize};
 /// Request for VID data, contains the commitment for the data we want, and the hotshot
 /// Public key.  
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VidReqeust(#[serde(with = "serde_bytes")] pub Vec<u8>, pub u64);
+pub struct Request(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Response for some VID data that we already collected
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VidResponse {
+pub struct Response(
     /// Data was found and sent back to us as bytes
     #[serde(with = "serde_bytes")]
-    Found(Vec<u8>),
-    /// Requested node did not have the data
-    NotFound,
-    /// Requested node denied our request
-    Denied,
-}
+    pub Vec<u8>
+);
 
 /// Represents a request sent from another node for some data
 /// Ecapusulates the request and the channel for the response.
 #[derive(Debug)]
-pub enum ResponseRequested {
-    /// VID data requested
-    VID(VidReqeust, ResponseChannel<VidResponse>),
-}
+pub struct ResponseRequested(Request, ResponseChannel<Response>);
 
 /// Handles messages from the `request_response` behaviour by sending them to the application
 pub async fn handle_vid(
-    event: libp2p::request_response::Event<VidReqeust, VidResponse>,
+    event: libp2p::request_response::Event<Request, Response>,
     sender: UnboundedSender<NetworkEvent>,
 ) {
     match event {
@@ -41,7 +34,7 @@ pub async fn handle_vid(
                 channel,
             } => {
                 let _ = sender
-                    .send(NetworkEvent::ResponseRequested(ResponseRequested::VID(
+                    .send(NetworkEvent::ResponseRequested(ResponseRequested(
                         request, channel,
                     )))
                     .await;
@@ -51,8 +44,8 @@ pub async fn handle_vid(
                 response,
             } => {
                 let _ = sender
-                    .send(NetworkEvent::ResponseReceived(ResponseEvent::VidResponse(
-                        response, request_id,
+                    .send(NetworkEvent::ResponseReceived(ResponseEvent(
+                        Some(response), request_id,
                     )))
                     .await;
             }
@@ -64,8 +57,8 @@ pub async fn handle_vid(
         } => {
             tracing::warn!("Error Sending VID Request {:?}", error);
             let _ = sender
-                .send(NetworkEvent::ResponseReceived(ResponseEvent::VidResponse(
-                    VidResponse::NotFound,
+                .send(NetworkEvent::ResponseReceived(ResponseEvent(
+                    None,
                     request_id,
                 )))
                 .await;
