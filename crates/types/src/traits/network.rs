@@ -269,10 +269,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// broadcast a message only to a DA committee
     /// blocking
-    async fn da_broadcast_message(
+    async fn da_broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: M,
         recipients: BTreeSet<K>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node

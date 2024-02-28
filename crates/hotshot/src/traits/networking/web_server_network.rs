@@ -63,14 +63,20 @@ fn hash<T: Hash>(t: &T) -> u64 {
 
 /// The web server network state
 #[derive(Clone, Debug)]
-pub struct WebServerNetwork<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
+pub struct WebServerNetwork<
+    TYPES: NodeType,
+    const NETWORK_MAJOR_VERSION: u16,
+    const NETWORK_MINOR_VERSION: u16,
+> {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<TYPES, MAJOR, MINOR>>,
+    inner: Arc<Inner<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> WebServerNetwork<TYPES, MAJOR, MINOR> {
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+    WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+{
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(
         &self,
@@ -169,7 +175,7 @@ impl<K: SignatureKey> TaskMap<K> {
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
+struct Inner<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for messages
@@ -179,7 +185,7 @@ struct Inner<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
     /// The web server connection is ready
     connected: AtomicBool,
     /// The connection to the web server
-    client: surf_disco::Client<ClientError, MAJOR, MINOR>,
+    client: surf_disco::Client<ClientError, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
@@ -208,7 +214,9 @@ struct Inner<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MINOR> {
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+    Inner<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+{
     #![allow(clippy::too_many_lines)]
 
     /// Handle version 0.1 transactions
@@ -228,8 +236,8 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message_inner) =
-            Serializer::<0, 1>::deserialize::<Message<TYPES>>(&tx)
+        if let Ok(Some(deserialized_message_inner)) =
+            Serializer::<0, 1>::deserialize::<Option<Message<TYPES>>>(&tx)
         {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
@@ -258,89 +266,89 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let poll_queue = &self.poll_queue_0_1;
-        if let Ok(deserialized_message_inner) =
-            Serializer::<0, 1>::deserialize::<Message<TYPES>>(&message)
-        {
-            let deserialized_message = RecvMsg {
-                message: Some(deserialized_message_inner),
-            };
-            match message_purpose {
-                MessagePurpose::Data => {
-                    error!("We should not receive transactions in this function");
-                }
-                MessagePurpose::Proposal => {
-                    let proposal = deserialized_message.clone();
-                    poll_queue.write().await.push(proposal);
-
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-                MessagePurpose::LatestProposal => {
-                    let proposal = deserialized_message.clone();
-                    let hash = hash(&proposal);
-                    // Only allow unseen proposals to be pushed to the queue
-                    if seen_proposals.put(hash, ()).is_none() {
+        match Serializer::<0, 1>::deserialize::<Option<Message<TYPES>>>(&message) {
+            Ok(Some(deserialized_message_inner)) => {
+                let deserialized_message = RecvMsg {
+                    message: Some(deserialized_message_inner),
+                };
+                match message_purpose {
+                    MessagePurpose::Data => {
+                        error!("We should not receive transactions in this function");
+                    }
+                    MessagePurpose::Proposal => {
+                        let proposal = deserialized_message.clone();
                         poll_queue.write().await.push(proposal);
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
+                    }
+                    MessagePurpose::LatestProposal => {
+                        let proposal = deserialized_message.clone();
+                        let hash = hash(&proposal);
+                        // Only allow unseen proposals to be pushed to the queue
+                        if seen_proposals.put(hash, ()).is_none() {
+                            poll_queue.write().await.push(proposal);
+                        }
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
+                    }
+                    MessagePurpose::LatestViewSyncCertificate => {
+                        let cert = deserialized_message.clone();
+                        let hash = hash(&cert);
+                        if seen_view_sync_certificates.put(hash, ()).is_none() {
+                            poll_queue.write().await.push(cert);
+                        }
+                        return false;
+                    }
+                    MessagePurpose::Vote
+                    | MessagePurpose::ViewSyncVote
+                    | MessagePurpose::ViewSyncCertificate => {
+                        let vote = deserialized_message.clone();
+                        *vote_index += 1;
+                        poll_queue.write().await.push(vote);
+
+                        return false;
+                    }
+                    MessagePurpose::DAC => {
+                        debug!(
+                            "Received DAC from web server for view {} {}",
+                            view_number, self.is_da
+                        );
+                        poll_queue.write().await.push(deserialized_message.clone());
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        // return if we found a DAC, since there will only be 1 per view
+                        // In future we should check to make sure DAC is valid
+                        return true;
+                    }
+                    MessagePurpose::VidDisperse => {
+                        // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
+
+                        self.poll_queue_0_1
+                            .write()
+                            .await
+                            .push(deserialized_message.clone());
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
                     }
 
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-                MessagePurpose::LatestViewSyncCertificate => {
-                    let cert = deserialized_message.clone();
-                    let hash = hash(&cert);
-                    if seen_view_sync_certificates.put(hash, ()).is_none() {
-                        poll_queue.write().await.push(cert);
+                    MessagePurpose::Internal => {
+                        error!("Received internal message in web server network");
+
+                        return false;
                     }
-                    return false;
-                }
-                MessagePurpose::Vote
-                | MessagePurpose::ViewSyncVote
-                | MessagePurpose::ViewSyncCertificate => {
-                    let vote = deserialized_message.clone();
-                    *vote_index += 1;
-                    poll_queue.write().await.push(vote);
 
-                    return false;
-                }
-                MessagePurpose::DAC => {
-                    debug!(
-                        "Received DAC from web server for view {} {}",
-                        view_number, self.is_da
-                    );
-                    poll_queue.write().await.push(deserialized_message.clone());
+                    MessagePurpose::Upgrade => {
+                        poll_queue.write().await.push(deserialized_message.clone());
 
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    // return if we found a DAC, since there will only be 1 per view
-                    // In future we should check to make sure DAC is valid
-                    return true;
-                }
-                MessagePurpose::VidDisperse => {
-                    // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
-                    self.poll_queue_0_1
-                        .write()
-                        .await
-                        .push(deserialized_message.clone());
-
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-
-                MessagePurpose::Internal => {
-                    error!("Received internal message in web server network");
-
-                    return false;
-                }
-
-                MessagePurpose::Upgrade => {
-                    poll_queue.write().await.push(deserialized_message.clone());
-
-                    return true;
+                        return true;
+                    }
                 }
             }
+            Ok(None) | Err(_) => {}
         }
-
         false
     }
 
@@ -393,48 +401,25 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> Inner<TYPES, MAJOR, MI
                 // then try again next time.
                 if let Ok(Some((first_tx_index, txs))) = possible_message {
                     for tx_raw in txs {
-                        // This is very hacky.
-                        //
-                        // Fundamentally, tx_raw is a serialized Option(Message<TYPES>).
-                        // The problem is, we want to extract the serialized Message<TYPES>
-                        // *without* deserializing the entire tx_raw
-                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
-                        // which we have not yet read at this point).
-                        //
-                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
-                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
-                        //
-                        // It would be nice to do this with serde primitives, but I'm not sure how.
+                        let tx_version = Version::deserialize(&tx_raw);
 
-                        match tx_raw.first() {
-                            Some(0) => {
-                                continue;
+                        match tx_version {
+                            Ok((VERSION_0_1, _)) => {
+                                self.handle_tx_0_1(tx_raw, first_tx_index, &mut tx_index)
+                                    .await;
                             }
-                            Some(1) => {
-                                let tx = tx_raw[1..].to_vec();
-                                let tx_version = Version::deserialize(&tx);
-
-                                match tx_version {
-                                    Ok((VERSION_0_1, _)) => {
-                                        self.handle_tx_0_1(tx, first_tx_index, &mut tx_index).await;
-                                    }
-                                    Ok((version, _)) => {
-                                        warn!(
-                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                      version,
-                                      tx
-                                  );
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                      "Error {:?}, could not read version number.\n\nPayload:\n\n{:?}",
-                                      e, tx
-                                  );
-                                    }
-                                }
+                            Ok((version, _)) => {
+                                warn!(
+                                    "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                    version,
+                                    tx_raw
+                                );
                             }
-                            _ => {
-                                warn!("Could not deserialize transaction: {:?}", tx_raw);
+                            Err(e) => {
+                                warn!(
+                                    "Error {:?}, could not read version number.\n\nPayload:\n\n{:?}",
+                                    e, tx_raw
+                                );
                             }
                         }
                     }

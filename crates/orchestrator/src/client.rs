@@ -164,7 +164,11 @@ impl OrchestratorClient {
     /// # Panics
     /// if unable to post
     pub async fn get_node_index_for_init_validator_config(&self) -> u16 {
-        let cur_node_index = |client: Client<ClientError>| {
+        let cur_node_index = |client: Client<
+            ClientError,
+            { crate::ORCHESTRATOR_MAJOR },
+            { crate::ORCHESTRATOR_MINOR },
+        >| {
             async move {
                 let cur_node_index: Result<u16, ClientError> =
                     client.post("api/tmp_node_index").send().await;
