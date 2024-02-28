@@ -149,6 +149,7 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -166,6 +167,7 @@
 <span class="kw">use </span>std::{
     error::Error,
     fmt::{Debug, Display},
+    future::Future,
     hash::Hash,
 };
 
@@ -281,7 +283,7 @@
         parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
         payload_commitment: VidCommitment,
         metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-    ) -&gt; <span class="self">Self</span>;
+    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="self">Self</span>&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
     </span><span class="kw">fn </span>genesis(

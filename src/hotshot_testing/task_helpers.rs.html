@@ -367,6 +367,8 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -611,7 +613,8 @@
         <span class="kw-2">&amp;</span>parent_leaf.block_header,
         payload_commitment,
         (),
-    );
+    )
+    .<span class="kw">await</span>;
     <span class="comment">// current leaf that can be re-assigned everytime when entering a new view
     </span><span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf {
         view_number: ViewNumber::new(<span class="number">1</span>),
@@ -638,7 +641,8 @@
         <span class="kw">let </span>state_new_view = Arc::new(
             parent_state
                 .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header)
-                .unwrap(),
+                .<span class="kw">await
+                </span>.unwrap(),
         );
         <span class="comment">// save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
