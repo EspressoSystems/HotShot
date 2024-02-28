@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG TARGETARCH
 
-COPY ./target/$TARGETARCH/debug/examples/orchestrator-libp2p /usr/local/bin/orchestrator-libp2p
+COPY ./target/release-lto/examples/orchestrator-libp2p /usr/local/bin/orchestrator-libp2p
 
 # logging
 ENV RUST_LOG="warn"
@@ -14,5 +14,4 @@ ENV RUST_LOG="warn"
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
 
-ENTRYPOINT ["tini", "--"]
-CMD ["orchestrator-libp2p"]
+ENTRYPOINT "orchestrator-libp2p"
