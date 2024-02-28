@@ -12,21 +12,26 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use hotshot_constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1};
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
-    message::{Message, MessageKind},
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ViewMessage,
+            NetworkMsg,
         },
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::ConsensusTime,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
+};
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{
+    message::{Message, MessageKind},
+    traits::{
+        network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
+        node_implementation::NodeType,
+    },
 };
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]

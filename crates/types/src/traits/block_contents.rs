@@ -4,16 +4,18 @@
 //! describe the behaviors that a block is expected to have.
 
 use crate::{
-    data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
     traits::ValidatedState,
     utils::BuilderCommitment,
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 use commit::{Commitment, Committable};
+use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{
     error::Error,
     fmt::{Debug, Display},
+    future::Future,
     hash::Hash,
 };
 
@@ -93,21 +95,23 @@ pub trait TestableBlock: BlockPayload + Debug {
 }
 
 /// Compute the VID payload commitment.
+/// TODO(Gus) delete this function?
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
 pub fn vid_commitment(
     encoded_transactions: &Vec<u8>,
     num_storage_nodes: usize,
-) -> <VidScheme as VidSchemeTrait>::Commit {
-    let num_chunks = 1 << num_storage_nodes.ilog2();
-
-    // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-    let srs = test_srs(num_storage_nodes);
-    let multiplicity = 1;
-    let vid = VidScheme::new(num_chunks, num_storage_nodes, multiplicity, srs).unwrap();
-    vid.commit_only(encoded_transactions).unwrap()
+) -> <VidSchemeType as VidScheme>::Commit {
+    #[allow(clippy::panic)]
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
+
+/// The number of storage nodes to use when computing the genesis VID commitment.
+///
+/// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
+/// do dispersal for the genesis block. For simplicity and performance, we use 1.
+pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader:
@@ -127,16 +131,14 @@ pub trait BlockHeader:
         parent_header: &Self,
         payload_commitment: VidCommitment,
         metadata: <Self::Payload as BlockPayload>::Metadata,
-    ) -> Self;
+    ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(
         instance_state: &<Self::State as ValidatedState>::Instance,
-    ) -> (
-        Self,
-        Self::Payload,
-        <Self::Payload as BlockPayload>::Metadata,
-    );
+        payload_commitment: VidCommitment,
+        metadata: <Self::Payload as BlockPayload>::Metadata,
+    ) -> Self;
 
     /// Get the block number.
     fn block_number(&self) -> u64;
