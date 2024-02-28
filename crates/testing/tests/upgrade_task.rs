@@ -3,12 +3,13 @@ use hotshot::types::SystemContextHandle;
 use hotshot_constants::Version;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent};
-use hotshot_testing::task_helpers::{build_cert, build_quorum_proposals_with_upgrade, key_pair_for_id};
+use hotshot_testing::task_helpers::{build_cert, build_quorum_proposals_with_upgrade, key_pair_for_id, build_vote};
 use hotshot_types::{
     data::ViewNumber,
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
-    traits::node_implementation::ConsensusTime,
+    traits::{node_implementation::ConsensusTime, election::Membership},
+    message::GeneralConsensusMessage,
 };
 use std::collections::HashMap;
 
@@ -20,6 +21,8 @@ use std::collections::HashMap;
 async fn test_upgrade_task() {
     use hotshot_task_impls::harness::run_harness;
     use hotshot_testing::task_helpers::build_system_handle;
+
+std::env::set_var("RUST_LOG", "debug");
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -42,85 +45,53 @@ async fn test_upgrade_task() {
     let proposals = build_quorum_proposals_with_upgrade(
       &handle,
       Some(upgrade_data),
-      &private_key,
+//      &private_key,
       &public_key,
       2,
       4,
     ).await;
 
-    // Build the API for node 2.
-    let handle_2 = build_system_handle(2).await.0;
-    let quorum_membership_2 = handle_2.hotshot.memberships.quorum_membership.clone();
-//
-//
-//    let (private_key_2, public_key_2) = key_pair_for_id(2);
-//    let upgrade_cert = build_cert::<
-//        TestTypes,
-//        UpgradeProposalData<TestTypes>,
-//        UpgradeVote<TestTypes>,
-//        UpgradeCertificate<TestTypes>,
-//    >(
-//        upgrade_data,
-//        &quorum_membership_2,
-//        ViewNumber::new(2),
-//        &public_key_2,
-//        &private_key_2,
-//    );
-//
-//    let quorum_proposal_2 =
-//        build_quorum_proposal(&handle_2, Some(upgrade_cert), &private_key_2, 2).await;
-//
-    // Build the API for node 3.
-    let handle_3 = build_system_handle(3).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let (private_key_3, public_key_3) = key_pair_for_id(3);
-//
-//    let quorum_proposal_3 = build_quorum_proposal(&handle_3, None, &private_key_3, 3).await;
-//
-    // Build the API for node 4.
-    let handle_4 = build_system_handle(4).await.0;
-    let (private_key_4, public_key_4) = key_pair_for_id(4);
-
-    let handle_5 = build_system_handle(5).await.0;
-    let (private_key_5, public_key_5) = key_pair_for_id(5);
-//
-//    let quorum_proposal_4 = build_quorum_proposal(&handle_4, None, &private_key_4, 4).await;
-//
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::QuorumProposalRecv(
-        proposals[1].clone(),
-        public_key,
+        proposals[0].clone(),
+        quorum_membership.get_leader(ViewNumber::new(1)),
     ));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::QuorumProposalRecv(
-        proposals[2].clone(),
-        public_key,
+        proposals[1].clone(),
+        quorum_membership.get_leader(ViewNumber::new(2)),
     ));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(3)));
     input.push(HotShotEvent::QuorumProposalRecv(
-        proposals[3].clone(),
-        public_key,
+        proposals[2].clone(),
+        quorum_membership.get_leader(ViewNumber::new(3)),
     ));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(4)));
     input.push(HotShotEvent::QuorumProposalRecv(
-        proposals[4].clone(),
-        public_key_4,
+        proposals[3].clone(),
+        quorum_membership.get_leader(ViewNumber::new(4)),
     ));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(5)));
     input.push(HotShotEvent::QuorumProposalRecv(
-        proposals[5].clone(),
-        public_key_5,
+        proposals[4].clone(),
+        quorum_membership.get_leader(ViewNumber::new(5)),
     ));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+    if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposals[0].clone().data).await {
+        output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
+    }
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 1);
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(3)), 1);
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(4)), 1);
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
+
 //    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
 //    output.insert(HotShotEvent::ViewChange(ViewNumber::new(5)), 1);
 //    output.insert(HotShotEvent::ViewChange(ViewNumber::new(4)), 1);
@@ -139,4 +110,5 @@ async fn test_upgrade_task() {
     inject_consensus_polls(&consensus_state).await;
 
     run_harness(input, output, consensus_state, false).await;
+    panic!();
 }

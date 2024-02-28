@@ -18,7 +18,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
-    message::Proposal,
+    message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     simple_vote::{SimpleVote, UpgradeProposalData, UpgradeVote},
     traits::{
@@ -343,7 +343,6 @@ async fn build_quorum_proposal_and_signature(
 pub async fn build_quorum_proposals_with_upgrade(
     handle: &SystemContextHandle<TestTypes, MemoryImpl>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
-    private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
     public_key: &BLSPubKey,
     view: u64,
     count: u64,
@@ -393,7 +392,8 @@ pub async fn build_quorum_proposals_with_upgrade(
         proposer_id: *handle.public_key(),
     };
 
-    let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
+    let (private_key, _) = key_pair_for_id(1);
+    let mut signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
         .expect("Failed to sign leaf commitment!");
     let mut proposal = QuorumProposal::<TestTypes> {
         block_header: block_header.clone(),
@@ -412,6 +412,7 @@ pub async fn build_quorum_proposals_with_upgrade(
 
     // Only view 2 is tested, higher views are not tested
     for cur_view in 2..=(view + count) {
+        let (private_key, _) = key_pair_for_id(cur_view);
         let state_new_view = Arc::new(
             parent_state
                 .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
@@ -444,7 +445,7 @@ pub async fn build_quorum_proposals_with_upgrade(
             &quorum_membership,
             ViewNumber::new(cur_view - 1),
             public_key,
-            private_key,
+            &private_key,
         );
         // create a new leaf for the current view
         let parent_leaf = leaf.clone();
@@ -457,7 +458,7 @@ pub async fn build_quorum_proposals_with_upgrade(
             proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
         };
         let signature_new_view =
-            <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
+            <BLSPubKey as SignatureKey>::sign(&private_key, leaf_new_view.commit().as_ref())
                 .expect("Failed to sign leaf commitment!");
 
         let upgrade_certificate = if cur_view != view {
@@ -554,4 +555,55 @@ pub fn vid_init<TYPES: NodeType>(
     let srs = hotshot_types::data::test_srs(num_committee);
 
     VidScheme::new(chunk_size, num_committee, srs).unwrap()
+}
+
+pub async fn build_vote(
+    handle: &SystemContextHandle<TestTypes, MemoryImpl>,
+    proposal: QuorumProposal<TestTypes>,
+) -> GeneralConsensusMessage<TestTypes> {
+    let consensus_lock = handle.get_consensus();
+    let consensus = consensus_lock.read().await;
+    let membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    let justify_qc = proposal.justify_qc.clone();
+    let view = ViewNumber::new(*proposal.view_number);
+    let parent = if justify_qc.is_genesis {
+        let Some(genesis_view) = consensus.validated_state_map.get(&ViewNumber::new(0)) else {
+            panic!("Couldn't find genesis view in state map.");
+        };
+        let Some(leaf) = genesis_view.get_leaf_commitment() else {
+            panic!("Genesis view points to a view without a leaf");
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            panic!("Failed to find genesis leaf.");
+        };
+        leaf.clone()
+    } else {
+        consensus
+            .saved_leaves
+            .get(&justify_qc.get_data().leaf_commit)
+            .cloned()
+            .unwrap()
+    };
+
+    let parent_commitment = parent.commit();
+
+    let leaf: Leaf<_> = Leaf {
+        view_number: view,
+        justify_qc: proposal.justify_qc.clone(),
+        parent_commitment,
+        block_header: proposal.block_header,
+        block_payload: None,
+        proposer_id: membership.get_leader(view),
+    };
+    let vote = QuorumVote::<TestTypes>::create_signed_vote(
+        QuorumData {
+            leaf_commit: leaf.commit(),
+        },
+        view,
+        handle.public_key(),
+        handle.private_key(),
+    )
+    .expect("Failed to create quorum vote");
+    GeneralConsensusMessage::<TestTypes>::Vote(vote)
 }
