@@ -36,10 +36,7 @@ use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 use libp2p_networking::{
     network::{
-        spawn_network_node,
-        NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
-        NetworkNodeType,
+        behaviours::request_response::ResponseRequested, spawn_network_node, NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg}, NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver, NetworkNodeType, ResponseEvent
     },
     reexport::Multiaddr,
 };
@@ -556,8 +553,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .deserialize(&msg)
                     .context(FailedToSerializeSnafu);
             }
+
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+            }
+            NetworkEvent::ResponseRequested(req) => {}
+
+            NetworkEvent::ResponseReceived(response) => {
             }
         }
         Ok::<(), NetworkError>(())
@@ -568,6 +570,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     fn handle_event_generator(
         &self,
         sender: UnboundedSender<M>,
+        request_sender: UnboundedSender<Either<ResponseRequested, ResponseEvent>>,
         mut network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
@@ -612,6 +615,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                             );
                                     }
                                 }
+                            }
+                            NetworkEvent::ResponseReceived(msg) => {
+                                request_sender.send(Either::Right(msg)).await;
+                            } 
+                            NetworkEvent::ResponseRequested(msg) => {
+
                             }
                         };
                         // re-set the `kill_switch` for the next loop
