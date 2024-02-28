@@ -10,7 +10,11 @@
 
 use ark_bls12_381::Bls12_381;
 use jf_primitives::{
-    pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
+    pcs::{
+        checked_fft_size,
+        prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
+        PolynomialCommitmentScheme,
+    },
     vid::{
         advz::{
             payload_prover::{LargeRangeProof, SmallRangeProof},
@@ -21,6 +25,7 @@ use jf_primitives::{
         VidDisperse, VidResult, VidScheme,
     },
 };
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::{fmt::Debug, ops::Range};
@@ -45,17 +50,6 @@ use std::{fmt::Debug, ops::Range};
 /// When the construction fails for the underlying VID scheme.
 #[must_use]
 pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
-    // TODO use a proper SRS
-    // https://github.com/EspressoSystems/HotShot/issues/1686
-    let srs = {
-        let mut rng = jf_utils::test_rng();
-        UnivariateKzgPCS::<E>::gen_srs_for_testing(
-            &mut rng,
-            checked_fft_size(num_storage_nodes).unwrap(),
-        )
-        .unwrap()
-    };
-
     // chunk_size is currently num_storage_nodes rounded down to a power of two
     // TODO chunk_size should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152
@@ -66,7 +60,7 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(chunk_size, num_storage_nodes, multiplicity, srs).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}")))
+    VidSchemeType(Advz::new(chunk_size, num_storage_nodes, multiplicity, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}")))
 }
 
 /// VID commitment type
@@ -109,6 +103,22 @@ pub struct SmallRangeProofType(
     // Similar to the comments in `LargeRangeProofType`.
     SmallRangeProof<<UnivariateKzgPCS<E> as PolynomialCommitmentScheme>::Proof>,
 );
+
+lazy_static! {
+    /// SRS comment
+    ///
+    /// TODO use a proper SRS
+    /// https://github.com/EspressoSystems/HotShot/issues/1686
+    static ref KZG_SRS: UnivariateUniversalParams<E> = {
+        let mut rng = jf_utils::test_rng();
+        UnivariateKzgPCS::<E>::gen_srs_for_testing(
+            &mut rng,
+            // TODO what's the maximum possible SRS size?
+            checked_fft_size(200).unwrap(),
+        )
+        .unwrap()
+    };
+}
 
 /// Private type alias for the EC pairing type parameter for [`Advz`].
 type E = Bls12_381;

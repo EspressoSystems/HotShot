@@ -3042,6 +3042,7 @@ dependencies = [
  "jf-plonk",
  "jf-primitives",
  "jf-utils",
+ "lazy_static",
  "libp2p-networking",
  "rand 0.8.5",
  "rand_chacha 0.3.1",

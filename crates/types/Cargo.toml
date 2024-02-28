@@ -36,6 +36,7 @@ hotshot-utils = { path = "../utils" }
 jf-plonk = { workspace = true }
 jf-primitives = { workspace = true, features = ["test-srs"] }
 jf-utils = { workspace = true }
+lazy_static = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
