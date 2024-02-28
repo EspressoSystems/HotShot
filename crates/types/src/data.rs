@@ -20,16 +20,12 @@ use crate::{
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
-use ark_bls12_381::Bls12_381;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::Options;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
-    vid::VidDisperse as JfVidDisperse,
-};
+use jf_primitives::vid::VidDisperse as JfVidDisperse;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -177,25 +173,6 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             payload_commitment: vid_disperse.commit,
         }
     }
-}
-
-/// Trusted KZG setup for VID.
-///
-/// TESTING ONLY: don't use this in production
-/// TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-///
-/// # Panics
-/// ...because this is only for tests. This comment exists to pacify clippy.
-#[must_use]
-pub fn test_srs(
-    num_storage_nodes: usize,
-) -> <UnivariateKzgPCS<Bls12_381> as PolynomialCommitmentScheme>::SRS {
-    let mut rng = jf_utils::test_rng();
-    UnivariateKzgPCS::<ark_bls12_381::Bls12_381>::gen_srs_for_testing(
-        &mut rng,
-        checked_fft_size(num_storage_nodes).unwrap(),
-    )
-    .unwrap()
 }
 
 /// Proposal to append a block.

@@ -10,7 +10,7 @@
 
 use ark_bls12_381::Bls12_381;
 use jf_primitives::{
-    pcs::{prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
+    pcs::{checked_fft_size, prelude::UnivariateKzgPCS, PolynomialCommitmentScheme},
     vid::{
         advz::{
             payload_prover::{LargeRangeProof, SmallRangeProof},
@@ -47,7 +47,14 @@ use std::{fmt::Debug, ops::Range};
 pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // TODO use a proper SRS
     // https://github.com/EspressoSystems/HotShot/issues/1686
-    let srs = crate::data::test_srs(num_storage_nodes);
+    let srs = {
+        let mut rng = jf_utils::test_rng();
+        UnivariateKzgPCS::<E>::gen_srs_for_testing(
+            &mut rng,
+            checked_fft_size(num_storage_nodes).unwrap(),
+        )
+        .unwrap()
+    };
 
     // chunk_size is currently num_storage_nodes rounded down to a power of two
     // TODO chunk_size should be a function of the desired erasure code rate
