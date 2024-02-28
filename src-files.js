@@ -11,7 +11,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["hotshot_task_impls",["",[],["consensus.rs","da.rs","events.rs","harness.rs","helpers.rs","lib.rs","network.rs","transactions.rs","upgrade.rs","vid.rs","view_sync.rs","vote.rs"]]],\
 ["hotshot_testing",["",[],["completion_task.rs","lib.rs","overall_safety_task.rs","spinning_task.rs","task_helpers.rs","test_builder.rs","test_launcher.rs","test_runner.rs","txn_task.rs","view_sync_task.rs"]]],\
 ["hotshot_testing_macros",["",[],["lib.rs"]]],\
-["hotshot_types",["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","states.rs","storage.rs"]]],["consensus.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","qc.rs","signature_key.rs","simple_certificate.rs","simple_vote.rs","stake_table.rs","traits.rs","utils.rs","vote.rs"]]],\
+["hotshot_types",["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","states.rs","storage.rs"]]],["consensus.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","qc.rs","signature_key.rs","simple_certificate.rs","simple_vote.rs","stake_table.rs","traits.rs","utils.rs","vid.rs","vote.rs"]]],\
 ["hotshot_utils",["",[],["bincode.rs","lib.rs","version.rs"]]],\
 ["hotshot_web_server",["",[],["config.rs","lib.rs"]]],\
 ["libp2p_networking",["",[["network",[["behaviours",[["dht",[],["mod.rs"]]],["direct_message.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs"]]],\

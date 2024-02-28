@@ -234,6 +234,7 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -241,12 +242,13 @@
 
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
-    data::{BlockError, VidCommitment},
+    data::BlockError,
     traits::{
         block_contents::{BlockHeader, TestableBlock, Transaction},
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};

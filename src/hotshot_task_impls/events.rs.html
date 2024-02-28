@@ -127,11 +127,12 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidCommitment, VidDisperse},
+    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -142,6 +143,7 @@
         ViewSyncPreCommitVote,
     },
     traits::{node_implementation::NodeType, BlockPayload},
+    vid::VidCommitment,
 };
 
 <span class="doccomment">/// Marker that the task completed

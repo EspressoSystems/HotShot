@@ -257,6 +257,7 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple vote types.
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
@@ -268,8 +269,9 @@
 <span class="kw">use </span>hotshot_constants::Version;
 
 <span class="kw">use crate</span>::{
-    data::{Leaf, VidCommitment},
+    data::Leaf,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
+    vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
 

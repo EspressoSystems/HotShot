@@ -535,15 +535,17 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
-    data::{Leaf, VidCommitment, VidDisperse},
+    data::{Leaf, VidDisperse},
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
     traits::node_implementation::{ConsensusTime, NodeType},
+    vid::VidCommitment,
 };
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>std::{

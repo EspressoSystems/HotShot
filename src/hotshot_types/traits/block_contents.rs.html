@@ -149,20 +149,18 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
 </span><span class="kw">use crate</span>::{
-    data::{test_srs, VidCommitment, VidScheme, VidSchemeTrait},
     traits::ValidatedState,
     utils::BuilderCommitment,
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 <span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 
 <span class="kw">use </span>std::{
@@ -247,20 +245,16 @@
 }
 
 <span class="doccomment">/// Compute the VID payload commitment.
+/// TODO(Gus) delete this function?
 /// # Panics
 /// If the VID computation fails.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>vid_commitment(
     encoded_transactions: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
     num_storage_nodes: usize,
-) -&gt; &lt;VidScheme <span class="kw">as </span>VidSchemeTrait&gt;::Commit {
-    <span class="kw">let </span>num_chunks = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
-
-    <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
-    </span><span class="kw">let </span>srs = test_srs(num_storage_nodes);
-    <span class="kw">let </span>multiplicity = <span class="number">1</span>;
-    <span class="kw">let </span>vid = VidScheme::new(num_chunks, num_storage_nodes, multiplicity, srs).unwrap();
-    vid.commit_only(encoded_transactions).unwrap()
+) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
+    <span class="attr">#[allow(clippy::panic)]
+    </span>vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}"</span>, encoded_transactions.len()))
 }
 
 <span class="doccomment">/// The number of storage nodes to use when computing the genesis VID commitment.

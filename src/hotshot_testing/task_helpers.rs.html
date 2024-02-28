@@ -367,14 +367,6 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -394,7 +386,7 @@
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
+    data::{Leaf, QuorumProposal, ViewNumber},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     simple_vote::SimpleVote,
@@ -406,6 +398,7 @@
         states::ValidatedState,
         BlockPayload,
     },
+    vid::{vid_scheme, VidSchemeType},
     vote::HasViewNumber,
 };
 
@@ -733,22 +726,13 @@
 
 <span class="doccomment">/// initialize VID
 /// # Panics
-/// if unable to create a [`VidScheme`]
+/// if unable to create a [`VidSchemeType`]
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>vid_init&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub fn </span>vid_scheme_from_view_number&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view_number: TYPES::Time,
-) -&gt; VidScheme {
-    <span class="kw">let </span>num_committee = membership.get_committee(view_number).len();
-
-    <span class="comment">// calculate the last power of two
-    // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
-    // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-    </span><span class="kw">let </span>chunk_size = <span class="number">1 </span>&lt;&lt; num_committee.ilog2();
-
-    <span class="comment">// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1686&gt;
-    </span><span class="kw">let </span>srs = hotshot_types::data::test_srs(num_committee);
-    <span class="kw">let </span>multiplicity = <span class="number">1</span>;
-    VidScheme::new(chunk_size, num_committee, multiplicity, srs).unwrap()
+) -&gt; VidSchemeType {
+    <span class="kw">let </span>num_storage_nodes = membership.get_committee(view_number).len();
+    vid_scheme(num_storage_nodes)
 }
 </code></pre></div></section></main></body></html>

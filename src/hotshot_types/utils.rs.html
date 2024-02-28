@@ -135,15 +135,9 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
-</span><span class="kw">use crate</span>::{
-    data::{Leaf, VidCommitment},
-    traits::node_implementation::NodeType,
-};
+</span><span class="kw">use crate</span>::{data::Leaf, traits::node_implementation::NodeType, vid::VidCommitment};
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>digest::OutputSizeUser;

@@ -1398,6 +1398,7 @@
 <a href="#1397" id="1397">1397</a>
 <a href="#1398" id="1398">1398</a>
 <a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1417,7 +1418,7 @@
 
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
+    data::{Leaf, QuorumProposal, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
@@ -1433,6 +1434,7 @@
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
+    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tracing::warn;
