@@ -13,7 +13,7 @@ use crate::{
     },
 };
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, hash::Hash};
+use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 /// Instance-level state, which allows us to fetch missing validated state.
 pub trait InstanceState: Clone + Debug + Send + Sync {}
@@ -56,7 +56,7 @@ pub trait ValidatedState<TYPES: NodeType>:
         instance: &Self::Instance,
         parent_leaf: &Leaf<TYPES>,
         proposed_header: &Self::BlockHeader,
-    ) -> Result<Self, Self::Error>;
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Construct the state with the given block header.
     ///

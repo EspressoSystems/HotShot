@@ -618,11 +618,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                let Ok(state) = parent_state.validate_and_apply_header(
-                    &consensus.instance_state,
-                    &parent_leaf.clone(),
-                    &proposal.data.block_header.clone(),
-                ) else {
+                let Ok(state) = parent_state
+                    .validate_and_apply_header(
+                        &consensus.instance_state,
+                        &parent_leaf.clone(),
+                        &proposal.data.block_header.clone(),
+                    )
+                    .await
+                else {
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
@@ -1299,7 +1302,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 &parent_leaf,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
-            );
+            )
+            .await;
             let leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),

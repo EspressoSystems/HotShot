@@ -16,6 +16,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{
     error::Error,
     fmt::{Debug, Display},
+    future::Future,
     hash::Hash,
 };
 
@@ -131,7 +132,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         metadata: <Self::Payload as BlockPayload>::Metadata,
-    ) -> Self;
+    ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(

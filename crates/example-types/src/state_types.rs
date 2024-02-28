@@ -65,7 +65,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
 
     type Time = ViewNumber;
 
-    fn validate_and_apply_header(
+    async fn validate_and_apply_header(
         &self,
         _instance: &Self::Instance,
         _parent_leaf: &Leaf<TYPES>,
