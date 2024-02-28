@@ -1,6 +1,8 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
+
+
 use super::NetworkingMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_block_on;
@@ -16,18 +18,14 @@ use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
-    boxed_sync,
-    data::ViewNumber,
-    message::{Message, MessageKind},
-    traits::{
+    boxed_sync, consensus::Consensus, data::ViewNumber, message::{Message, MessageKind}, traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
             NetworkMsg, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-    },
-    BoxSyncFuture,
+    }, BoxSyncFuture
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
@@ -36,7 +34,11 @@ use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 use libp2p_networking::{
     network::{
-        behaviours::request_response::ResponseRequested, spawn_network_node, NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg}, NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver, NetworkNodeType, ResponseEvent
+        behaviours::request_response::ResponseRequested,
+        spawn_network_node,
+        NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+        NetworkNodeType, ResponseEvent,
     },
     reexport::Multiaddr,
 };
@@ -349,13 +351,16 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
         let (sender, receiver) = unbounded();
+        let (requester_tx, requester_rx) = unbounded();
         let (node_lookup_send, node_lookup_recv) = unbounded();
         let (kill_tx, kill_rx) = bounded(1);
         rx.set_kill_switch(kill_rx);
 
+        let net_handle = Arc::new(network_handle);
+
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
-                handle: Arc::new(network_handle),
+                handle: net_handle.clone(),
                 receiver,
                 sender: sender.clone(),
                 pk,
@@ -380,7 +385,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             }),
         };
 
-        result.handle_event_generator(sender, rx);
+        result.handle_event_generator(sender, requester_tx, rx);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -557,10 +562,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
-            NetworkEvent::ResponseRequested(req) => {}
-
-            NetworkEvent::ResponseReceived(response) => {
-            }
+            NetworkEvent::ResponseRequested(_)| NetworkEvent::ResponseReceived(_) => {}
         }
         Ok::<(), NetworkError>(())
     }
@@ -589,13 +591,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 let msg_or_killed = futures::future::select(next_msg, kill_switch).await;
                 match msg_or_killed {
                     Either::Left((Ok(message), other_stream)) => {
-                        match &message {
+                        match message {
                             NetworkEvent::IsBootstrapped => {
                                 is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            GossipMsg(raw, _)
-                            | DirectRequest(raw, _, _)
-                            | DirectResponse(raw, _) => {
+                            GossipMsg(ref raw, _)
+                            | DirectRequest(ref raw, _, _)
+                            | DirectResponse(ref raw, _) => {
                                 let message_version = read_version(raw);
                                 match message_version {
                                     Some(VERSION_0_1) => {
@@ -617,10 +619,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                                 }
                             }
                             NetworkEvent::ResponseReceived(msg) => {
-                                request_sender.send(Either::Right(msg)).await;
-                            } 
+                                let _ = request_sender.send(Either::Right(msg)).await;
+                            }
                             NetworkEvent::ResponseRequested(msg) => {
-
+                                let _ = request_sender.send(Either::Left(msg)).await;
                             }
                         };
                         // re-set the `kill_switch` for the next loop

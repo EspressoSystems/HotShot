@@ -2,6 +2,8 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
+pub mod request;
+pub mod response;
 
 use crate::tasks::task_state::CreateTaskState;
 use crate::ConsensusApi;
