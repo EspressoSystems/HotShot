@@ -19,7 +19,7 @@ use hotshot_types::{
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, 
+            NetworkMsg,
         },
         node_implementation::ConsensusTime,
         signature_key::SignatureKey,

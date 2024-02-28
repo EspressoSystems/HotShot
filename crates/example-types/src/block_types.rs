@@ -11,7 +11,7 @@ use hotshot_types::{
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
-    vid::{VidCommitment},
+    vid::VidCommitment,
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};

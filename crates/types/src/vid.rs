@@ -221,12 +221,13 @@ impl Precomputable for VidSchemeType {
     }
 }
 
-// Foreign type rules prevent us from doing:
-// - `impl From<VidDisperse<VidSchemeType>> for VidDisperse<Advz<E, H>>`
-// - `impl VidDisperse<VidSchemeType> {...}`
-// and similarly for `Statement`.
-// Thus, we accomplish type conversion via functions.
-
+/// Convert a [`VidDisperse<Advz<E, H>>`] to a [`VidDisperse<VidSchemeType>`].
+///
+/// Foreign type rules prevent us from doing:
+/// - `impl From<VidDisperse<VidSchemeType>> for VidDisperse<Advz<E, H>>`
+/// - `impl VidDisperse<VidSchemeType> {...}`
+/// and similarly for `Statement`.
+/// Thus, we accomplish type conversion via functions.
 fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz<E, H>>) -> VidDisperse<VidSchemeType> {
     VidDisperse {
         shares: vid_disperse.shares,
@@ -235,6 +236,7 @@ fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz<E, H>>) -> VidDisperse
     }
 }
 
+/// Convert a [`Statement<'_, VidSchemeType>`] to a [`Statement<'_, Advz<E, H>>`].
 fn stmt_conversion(stmt: Statement<'_, VidSchemeType>) -> Statement<'_, Advz<E, H>> {
     Statement {
         payload_subslice: stmt.payload_subslice,
