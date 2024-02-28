@@ -753,23 +753,25 @@ pub struct Options {
 /// Transport versioning (generic params here) only changes when the web-CDN itself changes.
 /// When transport versioning changes, the application itself must update its version.
 #[allow(clippy::too_many_lines)]
-fn define_api<State, KEY, const MAJOR: u16, const MINOR: u16>(
+fn define_api<State, KEY, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>(
     options: &Options,
-) -> Result<Api<State, Error, MAJOR, MINOR>, ApiError>
+) -> Result<Api<State, Error, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + WebServerDataSource<KEY>,
     KEY: SignatureKey,
 {
     let mut api = match &options.api_path {
-        Some(path) => Api::<State, Error, MAJOR, MINOR>::from_file(path)?,
+        Some(path) => {
+            Api::<State, Error, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>::from_file(path)?
+        }
         None => {
             let toml: toml::Value = toml::from_str(include_str!("../api.toml")).map_err(|err| {
                 ApiError::CannotReadToml {
                     reason: err.to_string(),
                 }
             })?;
-            Api::<State, Error, MAJOR, MINOR>::new(toml)?
+            Api::<State, Error, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>::new(toml)?
         }
     };
     api.get("getproposal", |req, state| {
@@ -945,7 +947,11 @@ where
 /// this looks like it will panic not error
 /// # Panics
 /// on errors creating or registering the tide disco api
-pub async fn run_web_server<KEY: SignatureKey + 'static, const MAJOR: u16, const MINOR: u16>(
+pub async fn run_web_server<
+    KEY: SignatureKey + 'static,
+    const NETWORK_MAJOR_VERSION: u16,
+    const NETWORK_MINOR_VERSION: u16,
+>(
     shutdown_listener: Option<OneShotReceiver<()>>,
     url: Url,
 ) -> io::Result<()> {
@@ -953,7 +959,8 @@ pub async fn run_web_server<KEY: SignatureKey + 'static, const MAJOR: u16, const
 
     let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State<KEY>, Error, MAJOR, MINOR>::with_state(state);
+    let mut app =
+        App::<State<KEY>, Error, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>::with_state(state);
 
     app.register_module("api", web_api).unwrap();
 

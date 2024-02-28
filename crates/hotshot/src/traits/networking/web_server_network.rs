@@ -565,8 +565,11 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
 impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
-impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
-    WebServerNetwork<TYPES, MAJOR, MINOR>
+impl<
+        TYPES: NodeType + 'static,
+        const NETWORK_MAJOR_VERSION: u16,
+        const NETWORK_MINOR_VERSION: u16,
+    > WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
@@ -580,7 +583,10 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
         // TODO ED Wait for healthcheck
-        let client = surf_disco::Client::<ClientError, MAJOR, MINOR>::new(url);
+        let client =
+            surf_disco::Client::<ClientError, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>::new(
+                url,
+            );
 
         let inner = Arc::new(Inner {
             poll_queue_0_1: Arc::default(),
@@ -662,10 +668,11 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
         info!("Launching web server on port {port}");
         // Start web server
         async_spawn(async {
-            match hotshot_web_server::run_web_server::<TYPES::SignatureKey, MAJOR, MINOR>(
-                Some(server_shutdown),
-                url,
-            )
+            match hotshot_web_server::run_web_server::<
+                TYPES::SignatureKey,
+                NETWORK_MAJOR_VERSION,
+                NETWORK_MINOR_VERSION,
+            >(Some(server_shutdown), url)
             .await
             {
                 Ok(()) => error!("Web server future finished unexpectedly"),
@@ -699,9 +706,12 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
 }
 
 #[async_trait]
-impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
-    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for WebServerNetwork<TYPES, MAJOR, MINOR>
+impl<
+        TYPES: NodeType + 'static,
+        const NETWORK_MAJOR_VERSION: u16,
+        const NETWORK_MINOR_VERSION: u16,
+    > ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -1221,8 +1231,9 @@ impl<TYPES: NodeType + 'static, const MAJOR: u16, const MINOR: u16>
     }
 }
 
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImplementation<TYPES>
-    for WebServerNetwork<TYPES, MAJOR, MINOR>
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+    TestableNetworkingImplementation<TYPES>
+    for WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
     fn generator(
         expected_node_count: usize,

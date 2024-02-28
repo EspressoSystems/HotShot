@@ -26,7 +26,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use futures::join;
-use hotshot_constants::{EVENT_CHANNEL_SIZE, STATIC_V_0_1};
+use hotshot_constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
@@ -326,7 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_committee(view_number),
-                        STATIC_V_0_1,
+                        STATIC_VER_0_1,
                     ),
                 api
                     .send_external_event(Event {

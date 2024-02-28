@@ -16,8 +16,8 @@ pub struct OrchestratorClient {
     /// the client
     client: surf_disco::Client<
         ClientError,
-        { crate::ORCHESTRATOR_MAJOR },
-        { crate::ORCHESTRATOR_MINOR },
+        { crate::ORCHESTRATOR_MAJOR_VERSION },
+        { crate::ORCHESTRATOR_MINOR_VERSION },
     >,
     /// the identity
     pub identity: String,
@@ -101,8 +101,8 @@ impl OrchestratorClient {
     pub fn new(args: ValidatorArgs, identity: String) -> Self {
         let client = surf_disco::Client::<
             ClientError,
-            { crate::ORCHESTRATOR_MAJOR },
-            { crate::ORCHESTRATOR_MINOR },
+            { crate::ORCHESTRATOR_MAJOR_VERSION },
+            { crate::ORCHESTRATOR_MINOR_VERSION },
         >::new(args.url);
         // TODO ED: Add healthcheck wait here
         OrchestratorClient { client, identity }
@@ -123,8 +123,8 @@ impl OrchestratorClient {
         let identity = identity.as_str();
         let identity = |client: Client<
             ClientError,
-            { crate::ORCHESTRATOR_MAJOR },
-            { crate::ORCHESTRATOR_MINOR },
+            { crate::ORCHESTRATOR_MAJOR_VERSION },
+            { crate::ORCHESTRATOR_MINOR_VERSION },
         >| {
             async move {
                 let node_index: Result<u16, ClientError> = client
@@ -140,8 +140,8 @@ impl OrchestratorClient {
         // get the corresponding config
         let f = |client: Client<
             ClientError,
-            { crate::ORCHESTRATOR_MAJOR },
-            { crate::ORCHESTRATOR_MINOR },
+            { crate::ORCHESTRATOR_MAJOR_VERSION },
+            { crate::ORCHESTRATOR_MINOR_VERSION },
         >| {
             async move {
                 let config: Result<NetworkConfig<K, E>, ClientError> = client
@@ -166,8 +166,8 @@ impl OrchestratorClient {
     pub async fn get_node_index_for_init_validator_config(&self) -> u16 {
         let cur_node_index = |client: Client<
             ClientError,
-            { crate::ORCHESTRATOR_MAJOR },
-            { crate::ORCHESTRATOR_MINOR },
+            { crate::ORCHESTRATOR_MAJOR_VERSION },
+            { crate::ORCHESTRATOR_MINOR_VERSION },
         >| {
             async move {
                 let cur_node_index: Result<u16, ClientError> =
@@ -202,8 +202,8 @@ impl OrchestratorClient {
         let wait_for_all_nodes_pub_key =
             |client: Client<
                 ClientError,
-                { crate::ORCHESTRATOR_MAJOR },
-                { crate::ORCHESTRATOR_MINOR },
+                { crate::ORCHESTRATOR_MAJOR_VERSION },
+                { crate::ORCHESTRATOR_MINOR_VERSION },
             >| { async move { client.get("api/peer_pub_ready").send().await }.boxed() };
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
@@ -223,8 +223,8 @@ impl OrchestratorClient {
     pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<
             ClientError,
-            { crate::ORCHESTRATOR_MAJOR },
-            { crate::ORCHESTRATOR_MINOR },
+            { crate::ORCHESTRATOR_MAJOR_VERSION },
+            { crate::ORCHESTRATOR_MINOR_VERSION },
         >| {
             async move {
                 let result: Result<_, ClientError> = client
@@ -243,8 +243,8 @@ impl OrchestratorClient {
         let wait_for_all_nodes_ready_f =
             |client: Client<
                 ClientError,
-                { crate::ORCHESTRATOR_MAJOR },
-                { crate::ORCHESTRATOR_MINOR },
+                { crate::ORCHESTRATOR_MAJOR_VERSION },
+                { crate::ORCHESTRATOR_MINOR_VERSION },
             >| { async move { client.get("api/start").send().await }.boxed() };
         self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
             .await
@@ -255,7 +255,11 @@ impl OrchestratorClient {
     async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(
-            Client<ClientError, { crate::ORCHESTRATOR_MAJOR }, { crate::ORCHESTRATOR_MINOR }>,
+            Client<
+                ClientError,
+                { crate::ORCHESTRATOR_MAJOR_VERSION },
+                { crate::ORCHESTRATOR_MINOR_VERSION },
+            >,
         ) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
     {

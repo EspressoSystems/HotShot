@@ -7,7 +7,7 @@ use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
 use std::sync::Arc;
 
-use hotshot_constants::STATIC_V_0_1;
+use hotshot_constants::STATIC_VER_0_1;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     message::{
@@ -374,15 +374,15 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
         async_spawn(async move {
             let transmit_result = match transmit_type {
                 TransmitType::Direct => {
-                    net.direct_message(message, recipient.unwrap(), STATIC_V_0_1)
+                    net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
                         .await
                 }
                 TransmitType::Broadcast => {
-                    net.broadcast_message(message, committee, STATIC_V_0_1)
+                    net.broadcast_message(message, committee, STATIC_VER_0_1)
                         .await
                 }
                 TransmitType::DACommitteeBroadcast => {
-                    net.da_broadcast_message(message, committee, STATIC_V_0_1)
+                    net.da_broadcast_message(message, committee, STATIC_VER_0_1)
                         .await
                 }
             };

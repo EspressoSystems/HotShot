@@ -108,9 +108,13 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
-pub struct CombinedNetworks<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> {
+pub struct CombinedNetworks<
+    TYPES: NodeType,
+    const NETWORK_MAJOR_VERSION: u16,
+    const NETWORK_MINOR_VERSION: u16,
+> {
     /// The two networks we'll use for send/recv
-    networks: Arc<UnderlyingCombinedNetworks<TYPES, MAJOR, MINOR>>,
+    networks: Arc<UnderlyingCombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>,
 
     /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<Cache>>,
@@ -119,10 +123,16 @@ pub struct CombinedNetworks<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
     primary_down: Arc<AtomicU64>,
 }
 
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> CombinedNetworks<TYPES, MAJOR, MINOR> {
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+    CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+{
     /// Constructor
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES, MAJOR, MINOR>>) -> Self {
+    pub fn new(
+        networks: Arc<
+            UnderlyingCombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+        >,
+    ) -> Self {
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
@@ -132,7 +142,9 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> CombinedNetworks<TYPES
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn primary(&self) -> &WebServerNetwork<TYPES, MAJOR, MINOR> {
+    pub fn primary(
+        &self,
+    ) -> &WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
         &self.networks.0
     }
 
@@ -147,14 +159,19 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> CombinedNetworks<TYPES
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 #[derive(Debug, Clone)]
-pub struct UnderlyingCombinedNetworks<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>(
-    pub WebServerNetwork<TYPES, MAJOR, MINOR>,
+pub struct UnderlyingCombinedNetworks<
+    TYPES: NodeType,
+    const NETWORK_MAJOR_VERSION: u16,
+    const NETWORK_MINOR_VERSION: u16,
+>(
+    pub WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
     pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 );
 
 #[cfg(feature = "hotshot-testing")]
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImplementation<TYPES>
-    for CombinedNetworks<TYPES, MAJOR, MINOR>
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+    TestableNetworkingImplementation<TYPES>
+    for CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
     fn generator(
         expected_node_count: usize,
@@ -165,7 +182,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImpl
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
-            <WebServerNetwork<TYPES, MAJOR, MINOR> as TestableNetworkingImplementation<_>>::generator(
+            <WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -186,11 +203,11 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImpl
             let (quorum_web, da_web) = generators.0(node_id);
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, MAJOR, MINOR>>::into_inner(da_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>::into_inner(da_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, MAJOR, MINOR>>::into_inner(quorum_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>::into_inner(quorum_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
                     quorum_p2p,
                 ),
@@ -218,9 +235,9 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16> TestableNetworkingImpl
 }
 
 #[async_trait]
-impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
+impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
     ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for CombinedNetworks<TYPES, MAJOR, MINOR>
+    for CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
     fn pause(&self) {
         self.networks.0.pause();
@@ -252,11 +269,11 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
         boxed_sync(closure)
     }
 
-    async fn broadcast_message<const MAJ: u16, const MIN: u16>(
+    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJ, MIN>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -284,21 +301,21 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
             .await
     }
 
-    async fn da_broadcast_message<const MAJ: u16, const MIN: u16>(
+    async fn da_broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJ, MIN>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, recipients, bind_version)
             .await
     }
 
-    async fn direct_message<const MAJ: u16, const MIN: u16>(
+    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-        bind_version: StaticVersion<MAJ, MIN>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         // DM optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -374,7 +391,7 @@ impl<TYPES: NodeType, const MAJOR: u16, const MINOR: u16>
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_, MAJOR, MINOR> as ConnectedNetwork<
+        <WebServerNetwork<_, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> as ConnectedNetwork<
             Message<TYPES>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(self.primary(), event.clone())

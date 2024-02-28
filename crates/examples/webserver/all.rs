@@ -18,7 +18,7 @@ pub mod infra;
 
 use async_compatibility_layer::{art::async_spawn, channel::oneshot};
 use clap::Parser;
-use hotshot_constants::{WEB_SERVER_MAJOR, WEB_SERVER_MINOR};
+use hotshot_constants::{WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
@@ -44,8 +44,8 @@ async fn main() {
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
-            { WEB_SERVER_MAJOR },
-            { WEB_SERVER_MINOR },
+            { WEB_SERVER_MAJOR_VERSION },
+            { WEB_SERVER_MINOR_VERSION },
         >(
             Some(server_shutdown_cdn),
             Url::parse("http://localhost:9000").unwrap(),
@@ -58,8 +58,8 @@ async fn main() {
     async_spawn(async move {
         if let Err(e) = hotshot_web_server::run_web_server::<
             <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
-            { WEB_SERVER_MAJOR },
-            { WEB_SERVER_MINOR },
+            { WEB_SERVER_MAJOR_VERSION },
+            { WEB_SERVER_MINOR_VERSION },
         >(
             Some(server_shutdown_da),
             Url::parse("http://localhost:9001").unwrap(),

@@ -36,9 +36,9 @@ use libp2p::identity::{
 
 /// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)
-pub const ORCHESTRATOR_MAJOR: u16 = 0;
+pub const ORCHESTRATOR_MAJOR_VERSION: u16 = 0;
 /// Orchestrator Version (minor)
-pub const ORCHESTRATOR_MINOR: u16 = 1;
+pub const ORCHESTRATOR_MINOR_VERSION: u16 = 1;
 
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
@@ -382,8 +382,8 @@ where
     let mut app = App::<
         RwLock<OrchestratorState<KEY, ELECTION>>,
         ServerError,
-        { crate::ORCHESTRATOR_MAJOR },
-        { crate::ORCHESTRATOR_MINOR },
+        { crate::ORCHESTRATOR_MAJOR_VERSION },
+        { crate::ORCHESTRATOR_MINOR_VERSION },
     >::with_state(state);
     app.register_module("api", web_api.unwrap())
         .expect("Error registering api");

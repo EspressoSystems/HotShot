@@ -21,7 +21,7 @@ pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 pub const VERSION_0_1: Version = Version { major: 0, minor: 1 };
 
 /// Constant for protocol static version 0.1.
-pub const STATIC_V_0_1: StaticVersion<0, 1> = StaticVersion;
+pub const STATIC_VER_0_1: StaticVersion<0, 1> = StaticVersion;
 
 /// Default Channel Size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;
@@ -29,6 +29,6 @@ pub const EVENT_CHANNEL_SIZE: usize = 100_000;
 /// Constants for `WebServerNetwork` and `WebServer`
 /// The Web CDN is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Web Server CDN Version (major)
-pub const WEB_SERVER_MAJOR: u16 = 0;
+pub const WEB_SERVER_MAJOR_VERSION: u16 = 0;
 /// Orchestrator Version (minor)
-pub const WEB_SERVER_MINOR: u16 = 1;
+pub const WEB_SERVER_MINOR_VERSION: u16 = 1;

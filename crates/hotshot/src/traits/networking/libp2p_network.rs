@@ -11,7 +11,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use hotshot_constants::{LOOK_AHEAD, STATIC_V_0_1, VERSION_0_1};
+use hotshot_constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -380,8 +380,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         };
 
         result.handle_event_generator(sender);
-        result.spawn_node_lookup(node_lookup_recv, STATIC_V_0_1);
-        result.spawn_connect(id, STATIC_V_0_1);
+        result.spawn_node_lookup(node_lookup_recv, STATIC_VER_0_1);
+        result.spawn_connect(id, STATIC_VER_0_1);
 
         Ok(result)
     }
@@ -553,7 +553,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &Empty { byte: 0u8 }, STATIC_V_0_1)
+                    .direct_response(chan, &Empty { byte: 0u8 }, STATIC_VER_0_1)
                     .await
                     .is_err()
                 {

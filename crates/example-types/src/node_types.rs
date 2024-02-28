@@ -13,7 +13,7 @@ use hotshot::traits::{
     NodeImplementation,
 };
 
-use hotshot_constants::{WEB_SERVER_MAJOR, WEB_SERVER_MINOR};
+use hotshot_constants::{WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION};
 
 use hotshot_types::{
     data::ViewNumber, message::Message, signature_key::BLSPubKey,
@@ -76,10 +76,12 @@ pub type StaticMemoryDAComm =
 type StaticLibp2pDAComm = Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server network communication channel
-type StaticWebDAComm = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
+type StaticWebDAComm =
+    WebServerNetwork<TestTypes, WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION>;
 
 /// combined network
-type StaticCombinedDAComm = CombinedNetworks<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
+type StaticCombinedDAComm =
+    CombinedNetworks<TestTypes, WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION>;
 
 /// memory comm channel
 pub type StaticMemoryQuorumComm =
@@ -90,10 +92,12 @@ type StaticLibp2pQuorumComm =
     Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server comm channel
-type StaticWebQuorumComm = WebServerNetwork<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
+type StaticWebQuorumComm =
+    WebServerNetwork<TestTypes, WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION>;
 
 /// combined network (libp2p + web server)
-type StaticCombinedQuorumComm = CombinedNetworks<TestTypes, WEB_SERVER_MAJOR, WEB_SERVER_MINOR>;
+type StaticCombinedQuorumComm =
+    CombinedNetworks<TestTypes, WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION>;
 
 impl NodeImplementation<TestTypes> for Libp2pImpl {
     type Storage = MemoryStorage<TestTypes>;
