@@ -604,13 +604,13 @@
         <span class="kw-2">&amp;</span>block.encode().unwrap().collect(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
-    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = Arc::new(&lt;TestValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(
-        <span class="kw-2">&amp;</span>parent_leaf.block_header,
-    ));
+    <span class="kw">let </span><span class="kw-2">mut </span>parent_state = Arc::new(
+        &lt;TestValidatedState <span class="kw">as </span>ValidatedState&lt;TestTypes&gt;&gt;::from_header(<span class="kw-2">&amp;</span>parent_leaf.block_header),
+    );
     <span class="kw">let </span>block_header = TestBlockHeader::new(
         <span class="kw-2">&amp;*</span>parent_state,
         <span class="kw-2">&amp;</span>TestInstanceState {},
-        <span class="kw-2">&amp;</span>parent_leaf.block_header,
+        <span class="kw-2">&amp;</span>parent_leaf,
         payload_commitment,
         (),
     )
@@ -640,7 +640,7 @@
     </span><span class="kw">for </span>cur_view <span class="kw">in </span><span class="number">2</span>..=view {
         <span class="kw">let </span>state_new_view = Arc::new(
             parent_state
-                .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>block_header, <span class="kw-2">&amp;</span>block_header)
+                .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>parent_leaf, <span class="kw-2">&amp;</span>block_header)
                 .<span class="kw">await
                 </span>.unwrap(),
         );

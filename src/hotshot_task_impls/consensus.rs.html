@@ -1403,6 +1403,7 @@
 <a href="#1402" id="1402">1402</a>
 <a href="#1403" id="1403">1403</a>
 <a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1971,9 +1972,11 @@
                         block_payload: <span class="prelude-val">None</span>,
                         proposer_id: sender,
                     };
-                    <span class="kw">let </span>state = Arc::new(&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&gt;::from_header(
-                        <span class="kw-2">&amp;</span>proposal.data.block_header,
-                    ));
+                    <span class="kw">let </span>state = Arc::new(
+                        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(
+                            <span class="kw-2">&amp;</span>proposal.data.block_header,
+                        ),
+                    );
 
                     consensus.validated_state_map.insert(
                         view,
@@ -2024,7 +2027,7 @@
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(state) = parent_state
                     .validate_and_apply_header(
                         <span class="kw-2">&amp;</span>consensus.instance_state,
-                        <span class="kw-2">&amp;</span>parent_leaf.block_header.clone(),
+                        <span class="kw-2">&amp;</span>parent_leaf,
                         <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
                     )
                     .<span class="kw">await
@@ -2680,7 +2683,6 @@
         }
 
         <span class="kw">let </span>parent_leaf = leaf.clone();
-        <span class="kw">let </span>parent_header = parent_leaf.block_header.clone();
 
         <span class="kw">let </span>original_parent_hash = parent_leaf.commit();
 
@@ -2703,7 +2705,7 @@
             <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
                 state,
                 <span class="kw-2">&amp;</span>consensus.instance_state,
-                <span class="kw-2">&amp;</span>parent_header,
+                <span class="kw-2">&amp;</span>parent_leaf,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
             )

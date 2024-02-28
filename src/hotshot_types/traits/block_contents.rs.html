@@ -145,18 +145,14 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
 </span><span class="kw">use crate</span>::{
-    traits::ValidatedState,
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
@@ -266,30 +262,24 @@
 </span><span class="kw">pub const </span>GENESIS_VID_NUM_STORAGE_NODES: usize = <span class="number">1</span>;
 
 <span class="doccomment">/// Header of a block, which commits to a [`BlockPayload`].
-</span><span class="kw">pub trait </span>BlockHeader:
+</span><span class="kw">pub trait </span>BlockHeader&lt;TYPES: NodeType&gt;:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
-    <span class="doccomment">/// Block payload associated with the commitment.
-    </span><span class="kw">type </span>Payload: BlockPayload;
-
-    <span class="doccomment">/// Validated state.
-    </span><span class="kw">type </span>State: ValidatedState&lt;BlockHeader = <span class="self">Self</span>&gt;;
-
-    <span class="doccomment">/// Build a header with the payload commitment, metadata, instance-level state, parent header,
-    /// and parent state.
+    <span class="doccomment">/// Build a header with the parent validate state, instance-level state, parent leaf, payload
+    /// commitment, and metadata.
     </span><span class="kw">fn </span>new(
-        parent_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::State,
-        instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
-        parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
-        metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="self">Self</span>&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
     </span><span class="kw">fn </span>genesis(
-        instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         payload_commitment: VidCommitment,
-        metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Get the block number.
@@ -299,6 +289,6 @@
     </span><span class="kw">fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment;
 
     <span class="doccomment">/// Get the metadata.
-    </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata;
+    </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata;
 }
 </code></pre></div></section></main></body></html>

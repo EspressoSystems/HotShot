@@ -80,14 +80,23 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions over the immutable instance-level state and hte global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
 //! compatibilities over the current network state, which is modified by the transactions contained
 //! within blocks.
 
-</span><span class="kw">use </span><span class="kw">super</span>::block_contents::{BlockHeader, TestableBlock};
-<span class="kw">use </span><span class="kw">crate</span>::traits::{node_implementation::ConsensusTime, BlockPayload};
+</span><span class="kw">use </span><span class="kw">super</span>::block_contents::TestableBlock;
+<span class="kw">use crate</span>::{
+    data::Leaf,
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        BlockPayload,
+    },
+};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
@@ -103,17 +112,13 @@
 ///   * The ability to validate that a block header is actually a valid extension of this state and
 /// produce a new state, with the modifications from the block applied
 /// ([`validate_and_apply_header`](`ValidatedState::validate_and_apply_header))
-</span><span class="kw">pub trait </span>ValidatedState:
+</span><span class="kw">pub trait </span>ValidatedState&lt;TYPES: NodeType&gt;:
     Serialize + DeserializeOwned + Debug + Default + Hash + PartialEq + Eq + Send + Sync
 {
     <span class="doccomment">/// The error type for this particular type of ledger state
     </span><span class="kw">type </span>Error: Error + Debug + Send + Sync;
     <span class="doccomment">/// The type of the instance-level state this state is assocaited with
     </span><span class="kw">type </span>Instance: InstanceState;
-    <span class="doccomment">/// The type of block header this state is associated with
-    </span><span class="kw">type </span>BlockHeader: BlockHeader&lt;State = <span class="self">Self</span>&gt;;
-    <span class="doccomment">/// The type of block payload this state is associated with
-    </span><span class="kw">type </span>BlockPayload: BlockPayload;
     <span class="doccomment">/// Time compatibility needed for reward collection
     </span><span class="kw">type </span>Time: ConsensusTime;
 
@@ -130,14 +135,14 @@
     </span><span class="kw">fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
-        parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
-        proposed_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
 
     <span class="doccomment">/// Construct the state with the given block header.
     ///
     /// This can also be used to rebuild the state for catchup.
-    </span><span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Construct a genesis validated state.
     </span><span class="attr">#[must_use]
@@ -148,9 +153,10 @@
 }
 
 <span class="doccomment">/// extra functions required on state to be usable by hotshot-testing
-</span><span class="kw">pub trait </span>TestableState: ValidatedState
+</span><span class="kw">pub trait </span>TestableState&lt;TYPES&gt;: ValidatedState&lt;TYPES&gt;
 <span class="kw">where
-    </span>&lt;<span class="self">Self </span><span class="kw">as </span>ValidatedState&gt;::BlockPayload: TestableBlock,
+    </span>TYPES: NodeType,
+    TYPES::BlockPayload: TestableBlock,
 {
     <span class="doccomment">/// Creates random transaction if possible
     /// otherwise panics
@@ -159,6 +165,6 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;<span class="self">Self</span>::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
 }
 </code></pre></div></section></main></body></html>

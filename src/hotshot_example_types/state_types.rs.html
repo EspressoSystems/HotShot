@@ -102,15 +102,14 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>commit::{Commitment, Committable};
 
 <span class="kw">use </span>hotshot_types::{
-    data::{fake_commitment, BlockError, ViewNumber},
+    data::{fake_commitment, BlockError, Leaf, ViewNumber},
     traits::{
+        block_contents::BlockHeader,
+        node_implementation::NodeType,
         states::{InstanceState, TestableState, ValidatedState},
         BlockPayload,
     },
@@ -119,8 +118,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::fmt::Debug;
 
-<span class="kw">use </span><span class="kw">crate</span>::block_types::TestTransaction;
-<span class="kw">use </span><span class="kw">crate</span>::block_types::{TestBlockHeader, TestBlockPayload};
+<span class="kw">use </span><span class="kw">crate</span>::block_types::{TestBlockPayload, TestTransaction};
 <span class="kw">pub use </span><span class="kw">crate</span>::node_types::TestTypes;
 
 <span class="doccomment">/// Instance-level state implementation for testing purposes.
@@ -160,22 +158,18 @@
     }
 }
 
-<span class="kw">impl </span>ValidatedState <span class="kw">for </span>TestValidatedState {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ValidatedState&lt;TYPES&gt; <span class="kw">for </span>TestValidatedState {
     <span class="kw">type </span>Error = BlockError;
 
     <span class="kw">type </span>Instance = TestInstanceState;
-
-    <span class="kw">type </span>BlockHeader = TestBlockHeader;
-
-    <span class="kw">type </span>BlockPayload = TestBlockPayload;
 
     <span class="kw">type </span>Time = ViewNumber;
 
     <span class="kw">async fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
-        _parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
-        _proposed_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader,
+        _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="prelude-val">Ok</span>(TestValidatedState {
             block_height: <span class="self">self</span>.block_height + <span class="number">1</span>,
@@ -183,9 +177,9 @@
         })
     }
 
-    <span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockHeader) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            block_height: block_header.block_number,
+            block_height: block_header.block_number(),
             ..Default::default()
         }
     }
@@ -197,12 +191,12 @@
     }
 }
 
-<span class="kw">impl </span>TestableState <span class="kw">for </span>TestValidatedState {
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockPayload = TestBlockPayload&gt;&gt; TestableState&lt;TYPES&gt; <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>create_random_transaction(
         _state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         _rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;<span class="self">Self</span>::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
         <span class="doccomment">/// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         </span><span class="kw">const </span>RANDOM_TX_BASE_SIZE: usize = <span class="number">8</span>;
         TestTransaction(<span class="macro">vec!</span>[

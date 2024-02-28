@@ -245,9 +245,6 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -356,7 +353,7 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestableNodeImplementation&lt;TYPES&gt; <span class="kw">for </span>I
 <span class="kw">where
-    </span>TYPES::ValidatedState: TestableState,
+    </span>TYPES::ValidatedState: TestableState&lt;TYPES&gt;,
     TYPES::BlockPayload: TestableBlock,
     I::Storage: TestableStorage&lt;TYPES&gt;,
     I::QuorumNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
@@ -374,7 +371,9 @@
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
-        &lt;TYPES::ValidatedState <span class="kw">as </span>TestableState&gt;::create_random_transaction(state, rng, padding)
+        &lt;TYPES::ValidatedState <span class="kw">as </span>TestableState&lt;TYPES&gt;&gt;::create_random_transaction(
+            state, rng, padding,
+        )
     }
 
     <span class="kw">fn </span>leaf_create_random_transaction(
@@ -469,7 +468,7 @@
     /// This should be the same `Time` that `ValidatedState::Time` is using.
     </span><span class="kw">type </span>Time: ConsensusTime;
     <span class="doccomment">/// The block header type that this hotshot setup is using.
-    </span><span class="kw">type </span>BlockHeader: BlockHeader&lt;Payload = <span class="self">Self</span>::BlockPayload, State = <span class="self">Self</span>::ValidatedState&gt;;
+    </span><span class="kw">type </span>BlockHeader: BlockHeader&lt;<span class="self">Self</span>&gt;;
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
@@ -487,12 +486,7 @@
     </span><span class="kw">type </span>InstanceState: InstanceState;
 
     <span class="doccomment">/// The validated state type that this hotshot setup is using.
-    </span><span class="kw">type </span>ValidatedState: ValidatedState&lt;
-        Instance = <span class="self">Self</span>::InstanceState,
-        BlockHeader = <span class="self">Self</span>::BlockHeader,
-        BlockPayload = <span class="self">Self</span>::BlockPayload,
-        Time = <span class="self">Self</span>::Time,
-    &gt;;
+    </span><span class="kw">type </span>ValidatedState: ValidatedState&lt;<span class="self">Self</span>, Instance = <span class="self">Self</span>::InstanceState, Time = <span class="self">Self</span>::Time&gt;;
 
     <span class="doccomment">/// Membership used for this implementation
     </span><span class="kw">type </span>Membership: Membership&lt;<span class="self">Self</span>&gt;;

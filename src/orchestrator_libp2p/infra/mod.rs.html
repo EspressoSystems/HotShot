@@ -1153,7 +1153,7 @@
         Storage = MemoryStorage&lt;TYPES&gt;,
     &gt;,
 &gt; <span class="kw">where
-    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState,
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
@@ -1363,7 +1363,7 @@
         &gt;,
     &gt; RunDA&lt;TYPES, WebServerNetwork&lt;TYPES&gt;, WebServerNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>WebServerDARun&lt;TYPES&gt;
 <span class="kw">where
-    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState,
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
@@ -1443,7 +1443,7 @@
         NODE,
     &gt; <span class="kw">for </span>Libp2pDARun&lt;TYPES&gt;
 <span class="kw">where
-    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState,
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
@@ -1507,7 +1507,7 @@
         &gt;,
     &gt; RunDA&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDARun&lt;TYPES&gt;
 <span class="kw">where
-    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState,
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
@@ -1595,7 +1595,7 @@
 &gt;(
     args: ValidatorArgs,
 ) <span class="kw">where
-    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState,
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
 {

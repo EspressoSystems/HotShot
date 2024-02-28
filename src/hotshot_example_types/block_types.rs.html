@@ -235,16 +235,22 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::node_types::TestTypes;
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
-    data::BlockError,
+    data::{BlockError, Leaf},
     traits::{
         block_contents::{BlockHeader, TestableBlock, Transaction},
+        node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -252,8 +258,6 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};
-
-<span class="kw">use </span><span class="kw">crate</span>::state_types::TestValidatedState;
 
 <span class="doccomment">/// The transaction in a [`TestBlockPayload`].
 </span><span class="attr">#[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -417,27 +421,24 @@
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
 }
 
-<span class="kw">impl </span>BlockHeader <span class="kw">for </span>TestBlockHeader {
-    <span class="kw">type </span>Payload = TestBlockPayload;
-    <span class="kw">type </span>State = TestValidatedState;
-
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockPayload = TestBlockPayload&gt;&gt; BlockHeader&lt;TYPES&gt; <span class="kw">for </span>TestBlockHeader {
     <span class="kw">async fn </span>new(
-        _parent_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::State,
-        _instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
-        parent_header: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
+        _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
-        _metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            block_number: parent_header.block_number + <span class="number">1</span>,
+            block_number: parent_leaf.block_header.block_number() + <span class="number">1</span>,
             payload_commitment,
         }
     }
 
     <span class="kw">fn </span>genesis(
-        _instance_state: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::State <span class="kw">as </span>ValidatedState&gt;::Instance,
+        _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         payload_commitment: VidCommitment,
-        _metadata: &lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             block_number: <span class="number">0</span>,
@@ -453,7 +454,7 @@
         <span class="self">self</span>.payload_commitment
     }
 
-    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Payload <span class="kw">as </span>BlockPayload&gt;::Metadata {
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata {
         <span class="kw-2">&amp;</span>()
     }
 }
@@ -461,9 +462,16 @@
 <span class="kw">impl </span>Committable <span class="kw">for </span>TestBlockHeader {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         RawCommitmentBuilder::new(<span class="string">"Header Comm"</span>)
-            .u64_field(<span class="string">"block number"</span>, <span class="self">self</span>.block_number())
+            .u64_field(
+                <span class="string">"block number"</span>,
+                &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::block_number(<span class="self">self</span>),
+            )
             .constant_str(<span class="string">"payload commitment"</span>)
-            .fixed_size_bytes(<span class="self">self</span>.payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(
+                &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::payload_commitment(<span class="self">self</span>)
+                    .as_ref()
+                    .as_ref(),
+            )
             .finalize()
     }
 
