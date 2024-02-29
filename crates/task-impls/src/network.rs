@@ -353,6 +353,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
+                self.channel.update_view::<TYPES>(self.view);
                 return None;
             }
             HotShotEvent::Shutdown => {
