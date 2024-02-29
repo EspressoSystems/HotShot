@@ -1,15 +1,40 @@
-use async_broadcast::Receiver;
-use async_compatibility_layer::channel::UnboundedReceiver;
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
+use async_broadcast::Receiver;
+use async_compatibility_layer::art::async_spawn;
+use async_lock::RwLock;
+use hotshot_types::{
+    consensus::Consensus,
+    data::VidCommitment,
+    traits::{
+        network::{DataRequest, RequestKind},
+        node_implementation::{NodeImplementation, NodeType},
+    },
+};
 
 /// Task for requesting information from the network
 struct RequestStateTask<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    pub(crate) event_stream: Receiver<HotShotEvent<TYPES>>,
-    pub(crate) quorum_membership: TYPES::Membership,
-    pub(crate) da_mebership: TYPES::Membership,
-    pub(crate) quorum_network: I::QuorumNetwork,
-    pub(crate) da_network: I::CommitteeNetwork,
+    event_stream: Receiver<DataRequest<TYPES>>,
+    quorum_membership: TYPES::Membership,
+    da_mebership: TYPES::Membership,
+    quorum_network: I::QuorumNetwork,
+    da_network: I::CommitteeNetwork,
+    vid_equests: BTreeMap<TYPES::Time, HashMap<VidCommitment, u64>>,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
 }
 
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> RequestStateTask<TYPES, I> {
+    fn run_loop(mut self) {
+        async_spawn(async move {
+            while let Ok(event) = self.event_stream.recv().await {
+                match event.request {
+                    RequestKind::VID(commit, key) => todo!(),
+                    RequestKind::DAProposal(view) => todo!(),
+                }
+            }
+        });
+    }
+}

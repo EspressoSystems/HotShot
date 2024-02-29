@@ -17,7 +17,10 @@ use hotshot_types::{
     boxed_sync,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
+        network::{
+            ConnectedNetwork, DataRequest, DataResponse, NetworkMsg, RequestId,
+            TestableNetworkingImplementation,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -211,6 +214,16 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 // TODO instrument these functions
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
+    async fn request_data<TYPES: NodeType>(
+        &self,
+        request: DataRequest<TYPES>,
+    ) -> Result<RequestId, NetworkError> {
+        return Ok(RequestId(0));
+    }
+
+    async fn recv_data_response(&self) -> DataResponse<M> {
+        todo!();
+    }
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 

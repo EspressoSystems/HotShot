@@ -1,14 +1,20 @@
 use crate::network::{
-    error::DHTError, gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilderError,
+    behaviours::request_response::Request,
+    error::{CancelledRequestSnafu, DHTError},
+    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use bincode::Options;
+use futures::channel::oneshot;
 use hotshot_utils::bincode::bincode_opts;
-use libp2p::{request_response::ResponseChannel, Multiaddr};
+use libp2p::{
+    request_response::{OutboundRequestId, ResponseChannel},
+    Multiaddr,
+};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -172,6 +178,33 @@ impl NetworkNodeHandle {
         }
         Ok(())
     }
+
+    /// Request another peer for some data we want.  Returns the id of the request
+    ///
+    /// # Errors
+    ///
+    /// Will retrun a networking error if the channel closes before the result
+    /// can be sent back
+    pub async fn request_data(
+        &self,
+        request: &impl Serialize,
+        peer: PeerId,
+    ) -> Result<OutboundRequestId, NetworkNodeHandleError> {
+        let (tx, rx) = oneshot::channel();
+        let serialized_msg = bincode_opts()
+            .serialize(request)
+            .context(SerializationSnafu)?;
+        let req = ClientRequest::DataRequest {
+            request: Request(serialized_msg),
+            peer,
+            id_chan: tx,
+        };
+
+        self.send_request(req).await?;
+
+        rx.await.context(CancelledRequestSnafu).context(DHTSnafu)
+    }
+
     /// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors
@@ -209,8 +242,6 @@ impl NetworkNodeHandle {
         key: &impl Serialize,
         value: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        use crate::network::error::CancelledRequestSnafu;
-
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_opts().serialize(key).context(SerializationSnafu)?,
@@ -236,8 +267,6 @@ impl NetworkNodeHandle {
         key: &impl Serialize,
         retry_count: u8,
     ) -> Result<V, NetworkNodeHandleError> {
-        use crate::network::error::CancelledRequestSnafu;
-
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: bincode_opts().serialize(key).context(SerializationSnafu)?,

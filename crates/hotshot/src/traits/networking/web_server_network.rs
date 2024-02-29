@@ -35,7 +35,9 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use surf_disco::Url;
 
-use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
+use hotshot_types::traits::network::{
+    DataRequest, DataResponse, NetworkReliability, RequestId, ViewMessage,
+};
 use std::collections::BTreeMap;
 use std::{
     collections::{btree_map::Entry, BTreeSet},
@@ -736,6 +738,16 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for WebServerNetwork<TYPES>
 {
+    async fn request_data<T: NodeType>(
+        &self,
+        request: DataRequest<T>,
+    ) -> Result<RequestId, NetworkError> {
+        return Ok(RequestId(0));
+    }
+
+    async fn recv_data_response(&self) -> DataResponse<Message<TYPES>> {
+        todo!();
+    }
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
         while !self.inner.connected.load(Ordering::Relaxed) {

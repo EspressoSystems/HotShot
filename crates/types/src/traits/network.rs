@@ -6,13 +6,15 @@ use async_compatibility_layer::art::async_sleep;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
 use dyn_clone::DynClone;
-use libp2p_networking::network::NetworkNodeHandleError;
+use libp2p_networking::{network::NetworkNodeHandleError, reexport::OutboundRequestId};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::{VidCommitment, ViewNumber}, message::MessagePurpose, BoxSyncFuture};
+use crate::{
+    data::{VidCommitment, ViewNumber}, message::MessagePurpose, BoxSyncFuture
+};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use rand::{
@@ -21,7 +23,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, hash::Hash, fmt::Debug, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -217,9 +219,7 @@ pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
 {
 }
-
-pub trait RequestId : Into<u64> {}
-
+pub trait Id : Eq + PartialEq + Hash {}
 impl NetworkMsg for Vec<u8> {}
 
 /// a message
@@ -232,10 +232,34 @@ pub trait ViewMessage<TYPES: NodeType> {
 }
 
 /// A request for some data that the consensus layer is asking for.
-pub enum DataRequest<TYPES: NodeType> {
-    VID(VidCommitment, TYPES::SignatureKey),
-    DAProposal(TYPES::Time),
+#[derive(Clone, Serialize, Debug)]
+pub struct DataRequest<TYPES: NodeType> {
+    pub recipient: TYPES::SignatureKey,
+    pub request: RequestKind<TYPES>,
+}
 
+/// Underlying data request
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum RequestKind<TYPES: NodeType> {
+    /// Request VID data by our key and the VID commitment
+    VID(VidCommitment, TYPES::SignatureKey),
+    /// Request a DA proposal for a certain view
+    DAProposal(TYPES::Time),
+}
+
+/// Identifies a request
+#[derive(Clone, Copy, Serialize, PartialEq, Eq, Hash)]
+pub struct RequestId(pub u64);
+impl Id for RequestId {}
+
+impl Id for OutboundRequestId {}
+/// A response from the network to our request
+#[derive(Clone, Serialize)]
+pub struct DataResponse<M: NetworkMsg> {
+    /// Data Received
+    pub msg: M,
+    /// Id of Rquest being responded to
+    pub id: RequestId,
 }
 
 /// represents a networking implmentration
@@ -295,13 +319,18 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         'a: 'b,
         Self: 'b;
 
-
-    /// Ask the network to request some data.  Returns the request ID for that data, 
+    /// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request
-    async fn request_data<TYPES: NodeType>(&self, request: DataRequest<TYPES>) -> Result<impl RequestId, NetworkError>;
+    async fn request_data<TYPES: NodeType>(
+        &self,
+        request: DataRequest<TYPES>,
+    ) -> Result<impl Id, NetworkError>;
+
+    /// Responses to our data requests
+    async fn recv_data_response(&self) -> DataResponse<M>;
 
     /// Trys to cancel a request.  Cancellation is not guaranteed
-    async fn cancel_request(&self, request_id: u64);
+    async fn cancel_request(&self, _request_id: RequestId) {}
 
     /// queues lookup of a node
     async fn queue_node_lookup(

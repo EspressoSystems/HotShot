@@ -21,10 +21,10 @@ use self::behaviours::{
     dht::DHTEvent,
     direct_message::DMEvent,
     gossip::GossipEvent,
-    request_response::{ResponseRequested, Request, Response},
+    request_response::{Request, Response, ResponseRequested},
 };
 use bincode::Options;
-use futures::channel::oneshot::Sender;
+use futures::channel::oneshot::{self, Sender};
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
@@ -127,6 +127,22 @@ pub enum ClientRequest {
     },
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<Vec<u8>>, Vec<u8>),
+    /// request for data from another peer
+    DataRequest {
+        /// request sent on wire
+        request: Request,
+        /// Peer to try sending the request to
+        peer: PeerId,
+        /// Send back request ID to client
+        id_chan: oneshot::Sender<OutboundRequestId>,
+    },
+    /// Respond with some data to another peer
+    DataResponse {
+        /// Data
+        response: Response,
+        /// Send back channel
+        chan: ResponseChannel<Response>,
+    },
     /// prune a peer
     Prune(PeerId),
     /// add vec of known peers or addresses

@@ -7,4 +7,5 @@ pub mod network;
 pub mod reexport {
     pub use libp2p::Multiaddr;
     pub use libp2p_identity::PeerId;
+    pub use libp2p::request_response::OutboundRequestId;
 }

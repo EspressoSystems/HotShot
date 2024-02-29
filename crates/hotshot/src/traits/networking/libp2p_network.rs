@@ -2,7 +2,6 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
-
 use super::NetworkingMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_block_on;
@@ -18,14 +17,19 @@ use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
-    boxed_sync, consensus::Consensus, data::ViewNumber, message::{Message, MessageKind}, traits::{
+    boxed_sync,
+    consensus::Consensus,
+    data::ViewNumber,
+    message::{Message, MessageKind},
+    traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ViewMessage,
+            ConnectedNetwork, ConsensusIntentEvent, DataRequest, DataResponse,
+            FailedToSerializeSnafu, NetworkError, NetworkMsg, RequestId, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
-    }, BoxSyncFuture
+    },
+    BoxSyncFuture,
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
@@ -40,7 +44,7 @@ use libp2p_networking::{
         NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
         NetworkNodeType, ResponseEvent,
     },
-    reexport::Multiaddr,
+    reexport::{Multiaddr, OutboundRequestId},
 };
 
 use serde::Serialize;
@@ -562,7 +566,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
-            NetworkEvent::ResponseRequested(_)| NetworkEvent::ResponseReceived(_) => {}
+            NetworkEvent::ResponseRequested(_) | NetworkEvent::ResponseReceived(_) => {}
         }
         Ok::<(), NetworkError>(())
     }
@@ -646,6 +650,38 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
+    async fn cancel_request(&self, id: RequestId) {}
+    async fn request_data<TYPES: NodeType>(
+        &self,
+        request: DataRequest<TYPES>,
+    ) -> Result<OutboundRequestId, NetworkError> {
+        self.wait_for_ready().await;
+
+        let pid = match self
+            .inner
+            .handle
+            .lookup_node::<TYPES::SignatureKey>(request.recipient.clone(), self.inner.dht_timeout)
+            .await
+        {
+            Ok(pid) => pid,
+            Err(err) => {
+                self.inner.metrics.message_failed_to_send.add(1);
+                error!(
+                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                    request.request, request.recipient
+                );
+                return Err(NetworkError::Libp2p { source: err });
+            }
+        };
+        match self.inner.handle.request_data(&request, pid).await {
+            Ok(id) => Ok(id),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    async fn recv_data_response(&self) -> DataResponse<M> {
+        todo!();
+    }
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;

@@ -13,7 +13,7 @@ pub struct Request(#[serde(with = "serde_bytes")] pub Vec<u8>);
 pub struct Response(
     /// Data was found and sent back to us as bytes
     #[serde(with = "serde_bytes")]
-    pub Vec<u8>
+    pub Vec<u8>,
 );
 
 /// Represents a request sent from another node for some data
@@ -45,7 +45,8 @@ pub async fn handle_vid(
             } => {
                 let _ = sender
                     .send(NetworkEvent::ResponseReceived(ResponseEvent(
-                        Some(response), request_id,
+                        Some(response),
+                        request_id,
                     )))
                     .await;
             }
@@ -58,8 +59,7 @@ pub async fn handle_vid(
             tracing::warn!("Error Sending VID Request {:?}", error);
             let _ = sender
                 .send(NetworkEvent::ResponseReceived(ResponseEvent(
-                    None,
-                    request_id,
+                    None, request_id,
                 )))
                 .await;
         }

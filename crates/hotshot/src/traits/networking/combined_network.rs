@@ -7,6 +7,7 @@ use hotshot_constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
+use libp2p_networking::reexport::OutboundRequestId;
 use std::{
     collections::{BTreeSet, HashSet},
     hash::Hasher,
@@ -26,7 +27,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent},
+        network::{ConnectedNetwork, ConsensusIntentEvent, DataRequest, DataResponse, RequestId},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -219,6 +220,16 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for CombinedNetworks<TYPES>
 {
+    async fn request_data<T: NodeType>(
+        &self,
+        _request: DataRequest<T>,
+    ) -> Result<RequestId, NetworkError> {
+        return Ok(RequestId(0));
+    }
+
+    async fn recv_data_response(&self) -> DataResponse<Message<TYPES>> {
+        todo!();
+    }
     fn pause(&self) {
         self.networks.0.pause();
     }

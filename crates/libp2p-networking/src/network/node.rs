@@ -281,17 +281,15 @@ impl NetworkNode {
                     .into_iter(),
                     rrconfig.clone(),
                 );
-            let request_response: libp2p::request_response::cbor::Behaviour<
-                Request,
-                Response,
-            > = RequestResponse::new(
-                [(
-                    StreamProtocol::new("/HotShot/request_response/1.0"),
-                    ProtocolSupport::Full,
-                )]
-                .into_iter(),
-                rrconfig.clone(),
-            );
+            let request_response: libp2p::request_response::cbor::Behaviour<Request, Response> =
+                RequestResponse::new(
+                    [(
+                        StreamProtocol::new("/HotShot/request_response/1.0"),
+                        ProtocolSupport::Full,
+                    )]
+                    .into_iter(),
+                    rrconfig.clone(),
+                );
 
             let network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
@@ -438,6 +436,23 @@ impl NetworkNode {
                     }
                     ClientRequest::DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
+                    }
+                    ClientRequest::DataRequest {
+                        request,
+                        peer,
+                        id_chan,
+                    } => {
+                        let id = behaviour.request_response.send_request(&peer, request);
+                        let _ = id_chan.send(id);
+                    }
+                    ClientRequest::DataResponse { response, chan } => {
+                        if behaviour
+                            .request_response
+                            .send_response(chan, response)
+                            .is_err()
+                        {
+                            info!("Data Response dropped because response peer disconnected");
+                        }
                     }
                     ClientRequest::AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
