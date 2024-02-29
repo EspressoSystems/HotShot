@@ -8,7 +8,7 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_types::{
     consensus::Consensus,
-    data::VidCommitment,
+    vid::VidCommitment,
     traits::{
         network::{DataRequest, RequestKind},
         node_implementation::{NodeImplementation, NodeType},
