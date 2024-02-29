@@ -302,9 +302,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {}
 
     /// handles view update
-    #[instrument(name="ConnectedNetwork::update_view", skip(self))]
-    fn update_view<TYPES: NodeType>(&self, _view: TYPES::Time) {
-        info!("Entered update_view")
+    #[instrument(name = "ConnectedNetwork::update_view", skip(self))]
+    fn update_view<TYPES: NodeType>(&self, view: TYPES::Time) {
+        info!("Entered update_view");
     }
 }
 
