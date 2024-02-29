@@ -897,8 +897,6 @@
 <a href="#896" id="896">896</a>
 <a href="#897" id="897">897</a>
 <a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1423,7 +1421,7 @@
         sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
-            GossipMsg(msg, <span class="kw">_</span>) =&gt; {
+            GossipMsg(msg) =&gt; {
                 <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = bincode_opts().deserialize(<span class="kw-2">&amp;</span>msg);
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
                     sender
@@ -1496,9 +1494,7 @@
                             NetworkEvent::IsBootstrapped =&gt; {
                                 is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                             }
-                            GossipMsg(raw, <span class="kw">_</span>)
-                            | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>)
-                            | DirectResponse(raw, <span class="kw">_</span>) =&gt; {
+                            GossipMsg(raw) | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>) | DirectResponse(raw, <span class="kw">_</span>) =&gt; {
                                 <span class="kw">let </span>message_version = read_version(raw);
                                 <span class="kw">match </span>message_version {
                                     <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {

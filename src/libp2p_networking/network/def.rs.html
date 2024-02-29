@@ -173,23 +173,26 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
-    gossipsub::IdentTopic <span class="kw">as </span>Topic,
+    gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
     request_response::ResponseChannel,
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>std::num::NonZeroUsize;
-<span class="kw">use </span>tracing::debug;
+<span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">use super</span>::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
-        gossip::{GossipBehaviour, GossipEvent},
     },
     NetworkEventInternal,
 };
@@ -260,18 +263,23 @@
 <span class="doccomment">/// Gossip functions
 </span><span class="kw">impl </span>NetworkDef {
     <span class="doccomment">/// Publish a given gossip
-    </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: Topic, contents: Vec&lt;u8&gt;) {
-        <span class="self">self</span>.gossipsub.publish_gossip(topic, contents);
+    </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: IdentTopic, contents: Vec&lt;u8&gt;) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.publish(topic, contents) {
+            <span class="macro">tracing::warn!</span>(<span class="string">"Failed to publish gossip message. Error: {:?}"</span>, e);
+        }
     }
-
     <span class="doccomment">/// Subscribe to a given topic
     </span><span class="kw">pub fn </span>subscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
-        <span class="self">self</span>.gossipsub.subscribe_gossip(t);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.subscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)) {
+            <span class="macro">error!</span>(<span class="string">"Failed to subsribe to topic {:?}. Error: {:?}"</span>, t, e);
+        }
     }
 
     <span class="doccomment">/// Unsubscribe from a given topic
     </span><span class="kw">pub fn </span>unsubscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
-        <span class="self">self</span>.gossipsub.unsubscribe_gossip(t);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.unsubscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)) {
+            <span class="macro">error!</span>(<span class="string">"Failed to unsubsribe from topic {:?}. Error: {:?}"</span>, t, e);
+        }
     }
 }
 
@@ -332,7 +340,7 @@
 
 <span class="kw">impl </span>From&lt;GossipEvent&gt; <span class="kw">for </span>NetworkEventInternal {
     <span class="kw">fn </span>from(event: GossipEvent) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::GossipEvent(event)
+        <span class="self">Self</span>::GossipEvent(Box::new(event))
     }
 }
 

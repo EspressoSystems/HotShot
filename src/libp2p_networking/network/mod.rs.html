@@ -247,14 +247,14 @@
     },
 };
 
-<span class="kw">use </span><span class="self">self</span>::behaviours::{dht::DHTEvent, direct_message::DMEvent, gossip::GossipEvent};
+<span class="kw">use </span><span class="self">self</span>::behaviours::{dht::DHTEvent, direct_message::DMEvent};
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
-    gossipsub::TopicHash,
+    gossipsub::Event <span class="kw">as </span>GossipEvent,
     identify::Event <span class="kw">as </span>IdentifyEvent,
     identity::Keypair,
     quic,
@@ -393,7 +393,7 @@
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>NetworkEvent {
     <span class="doccomment">/// Recv-ed a broadcast
-    </span>GossipMsg(Vec&lt;u8&gt;, TopicHash),
+    </span>GossipMsg(Vec&lt;u8&gt;),
     <span class="doccomment">/// Recv-ed a direct message from a node
     </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;Vec&lt;u8&gt;&gt;),
     <span class="doccomment">/// Recv-ed a direct response from a node (that hopefully was initiated by this node)
@@ -412,7 +412,7 @@
     /// to store it on the heap.
     </span>IdentifyEvent(Box&lt;IdentifyEvent&gt;),
     <span class="doccomment">/// a gossip  event
-    </span>GossipEvent(GossipEvent),
+    </span>GossipEvent(Box&lt;GossipEvent&gt;),
     <span class="doccomment">/// a direct message event
     </span>DMEvent(DMEvent),
 }
