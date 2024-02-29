@@ -7,15 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::NetworkEvent;
 
-/// Request for VID data, contains the commitment for the data we want, and the hotshot
-/// Public key.  
+/// Request for Consenus data
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Request(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Response for some VID data that we already collected
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Response(
-    /// Data was found and sent back to us as bytes
+    /// Data
     #[serde(with = "serde_bytes")]
     pub Vec<u8>,
 );
@@ -62,7 +61,7 @@ impl RequestResponseState {
                 request_id,
                 error,
             } => {
-                tracing::warn!("Error Sending VID Request {:?}", error);
+                tracing::warn!("Error Sending Request {:?}", error);
                 let Some(chan) = self.request_map.remove(&request_id) else {
                     return;
                 };

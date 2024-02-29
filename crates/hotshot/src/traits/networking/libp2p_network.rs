@@ -1,7 +1,6 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
-
 use super::NetworkingMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_block_on;
@@ -363,11 +362,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let (kill_tx, kill_rx) = bounded(1);
         rx.set_kill_switch(kill_rx);
 
-        let net_handle = Arc::new(network_handle);
-
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
-                handle: net_handle.clone(),
+                handle: Arc::new(network_handle),
                 receiver,
                 requests_rx,
                 sender: sender.clone(),
@@ -567,7 +564,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .deserialize(&msg)
                     .context(FailedToSerializeSnafu);
             }
-
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
@@ -713,7 +709,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .requests_rx
             .recv()
             .await
-            .map_err(|_x| NetworkError::ShutDown)
+            .map_err(|_| NetworkError::ShutDown)
     }
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {

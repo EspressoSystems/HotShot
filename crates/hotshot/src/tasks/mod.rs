@@ -1,4 +1,5 @@
 //! Provides a number of tasks that run continuously
+
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
 

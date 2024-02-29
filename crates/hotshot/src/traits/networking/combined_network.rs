@@ -7,6 +7,9 @@ use hotshot_constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
+use libp2p_networking::{
+    network::behaviours::request_response::Response, reexport::ResponseChannel,
+};
 use std::{
     collections::{BTreeSet, HashSet},
     hash::Hasher,
@@ -226,7 +229,18 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<ResponseMessage<T>, NetworkError> {
         self.secondary().request_data(request, recipient).await
     }
-
+    async fn send_response(
+        &self,
+        response: Message<TYPES>,
+        chan: ResponseChannel<Response>,
+    ) -> Result<(), NetworkError> {
+        self.secondary().send_response(response, chan).await
+    }
+    async fn recv_requests(
+        &self,
+    ) -> Result<(Message<TYPES>, ResponseChannel<Response>), NetworkError> {
+        self.secondary().recv_requests().await
+    }
     fn pause(&self) {
         self.networks.0.pause();
     }
