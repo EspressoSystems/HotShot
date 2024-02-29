@@ -12,7 +12,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ViewNumber, message::MessagePurpose, BoxSyncFuture};
+use crate::{data::{VidCommitment, ViewNumber}, message::MessagePurpose, BoxSyncFuture};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use rand::{
@@ -218,6 +218,8 @@ pub trait NetworkMsg:
 {
 }
 
+pub trait RequestId : Into<u64> {}
+
 impl NetworkMsg for Vec<u8> {}
 
 /// a message
@@ -227,6 +229,13 @@ pub trait ViewMessage<TYPES: NodeType> {
     // TODO move out of this trait.
     /// get the purpose of the message
     fn purpose(&self) -> MessagePurpose;
+}
+
+/// A request for some data that the consensus layer is asking for.
+pub enum DataRequest<TYPES: NodeType> {
+    VID(VidCommitment, TYPES::SignatureKey),
+    DAProposal(TYPES::Time),
+
 }
 
 /// represents a networking implmentration
@@ -285,6 +294,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     where
         'a: 'b,
         Self: 'b;
+
+
+    /// Ask the network to request some data.  Returns the request ID for that data, 
+    /// The ID returned can be used for cancelling the request
+    async fn request_data<TYPES: NodeType>(&self, request: DataRequest<TYPES>) -> Result<impl RequestId, NetworkError>;
+
+    /// Trys to cancel a request.  Cancellation is not guaranteed
+    async fn cancel_request(&self, request_id: u64);
 
     /// queues lookup of a node
     async fn queue_node_lookup(
