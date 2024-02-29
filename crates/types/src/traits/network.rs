@@ -6,7 +6,7 @@ use async_compatibility_layer::art::async_sleep;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
 use dyn_clone::DynClone;
-use libp2p_networking::{network::NetworkNodeHandleError, reexport::OutboundRequestId};
+use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
@@ -251,19 +251,13 @@ pub enum RequestKind<TYPES: NodeType> {
     DAProposal(TYPES::Time),
 }
 
-/// Identifies a request
-#[derive(Clone, Copy, Serialize, PartialEq, Eq, Hash)]
-pub struct RequestId(pub u64);
-impl Id for RequestId {}
-
-impl Id for OutboundRequestId {}
-/// A response from the network to our request
-#[derive(Clone, Serialize)]
-pub struct DataResponse<M: NetworkMsg, I: Id> {
-    /// Data Received
-    pub msg: M,
-    /// Id of Rquest being responded to
-    pub id: I,
+/// A resopnse for a request.  `M` is the same as other network messages
+/// The kind of message `M` is is determined by what we requested
+pub enum ResponseMessage<M: NetworkMsg> {
+    /// Peer returned us some data
+    Found(M),
+    /// Peer failed to get us data
+    NotFound,
 }
 
 /// represents a networking implmentration
@@ -325,13 +319,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request
-    async fn request_data<TYPES: NodeType>(
+    async fn request_data(
         &self,
-        request: DataRequest<TYPES>,
-    ) -> Result<impl Id, NetworkError>;
-
-    /// Responses to our data requests
-    async fn recv_data_response(&self) -> Result<DataResponse<M, impl Id>, NetworkError>;
+        request: M,
+        recipient: K,
+    ) -> Result<ResponseMessage<M>, NetworkError>;
 
     /// queues lookup of a node
     async fn queue_node_lookup(

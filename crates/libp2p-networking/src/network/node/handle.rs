@@ -1,5 +1,5 @@
 use crate::network::{
-    behaviours::request_response::Request,
+    behaviours::request_response::{Request, Response},
     error::{CancelledRequestSnafu, DHTError},
     gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
@@ -12,10 +12,7 @@ use bincode::Options;
 use futures::channel::oneshot;
 
 use hotshot_utils::bincode::bincode_opts;
-use libp2p::{
-    request_response::{OutboundRequestId, ResponseChannel},
-    Multiaddr,
-};
+use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -190,7 +187,7 @@ impl NetworkNodeHandle {
         &self,
         request: &impl Serialize,
         peer: PeerId,
-    ) -> Result<OutboundRequestId, NetworkNodeHandleError> {
+    ) -> Result<Option<Response>, NetworkNodeHandleError> {
         let (tx, rx) = oneshot::channel();
         let serialized_msg = bincode_opts()
             .serialize(request)
@@ -198,12 +195,12 @@ impl NetworkNodeHandle {
         let req = ClientRequest::DataRequest {
             request: Request(serialized_msg),
             peer,
-            id_chan: tx,
+            chan: tx,
         };
 
         self.send_request(req).await?;
 
-        rx.await.context(CancelledRequestSnafu).context(DHTSnafu)
+        rx.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
     /// Look up a peer's addresses in kademlia

@@ -18,8 +18,7 @@ use hotshot_types::{
     message::Message,
     traits::{
         network::{
-            ConnectedNetwork, DataRequest, DataResponse, NetworkMsg, RequestId,
-            TestableNetworkingImplementation,
+            ConnectedNetwork, NetworkMsg, ResponseMessage, TestableNetworkingImplementation,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -214,18 +213,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 // TODO instrument these functions
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
-    #[allow(refining_impl_trait)]
-    async fn request_data<TYPES: NodeType>(
+    async fn request_data(
         &self,
-        _request: DataRequest<TYPES>,
-    ) -> Result<RequestId, NetworkError> {
+        _request: M,
+        _recipient: K,
+    ) -> Result<ResponseMessage<M>, NetworkError> {
         Err(NetworkError::UnimplementedFeature)
     }
 
-    #[allow(refining_impl_trait)]
-    async fn recv_data_response(&self) -> Result<DataResponse<M, RequestId>, NetworkError> {
-        Err(NetworkError::UnimplementedFeature)
-    }
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 

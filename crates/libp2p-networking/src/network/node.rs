@@ -27,7 +27,7 @@ use crate::network::behaviours::{
     direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
     gossip::GossipEvent,
-    request_response::{handle_vid, Request, Response},
+    request_response::{Request, RequestResponseState, Response},
 };
 use async_compatibility_layer::{
     art::async_spawn,
@@ -87,6 +87,8 @@ pub struct NetworkNode {
     config: NetworkNodeConfig,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
+    /// Handler for requests and response behavior events.
+    request_response_state: RequestResponseState,
 }
 
 impl NetworkNode {
@@ -333,6 +335,7 @@ impl NetworkNode {
             swarm,
             config,
             listener_id: None,
+            request_response_state: RequestResponseState::default(),
         })
     }
 
@@ -440,10 +443,10 @@ impl NetworkNode {
                     ClientRequest::DataRequest {
                         request,
                         peer,
-                        id_chan,
+                        chan,
                     } => {
                         let id = behaviour.request_response.send_request(&peer, request);
-                        let _ = id_chan.send(id);
+                        self.request_response_state.add_request(id, chan);
                     }
                     ClientRequest::DataResponse { response, chan } => {
                         if behaviour
@@ -597,7 +600,9 @@ impl NetworkNode {
                         }
                     }),
                     NetworkEventInternal::RequestResponseEvent(e) => {
-                        handle_vid(e, send_to_client.clone()).await;
+                        self.request_response_state
+                            .handle_request_response(e, send_to_client.clone())
+                            .await;
                         None
                     }
                 };
