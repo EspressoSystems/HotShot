@@ -203,6 +203,24 @@ impl NetworkNodeHandle {
         rx.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
+    /// Send a response to a request with the response channel
+    /// # Errors
+    /// Will error if the client request channel is closed, or serialization fails.
+    pub async fn respond_data(
+        &self,
+        response: &impl Serialize,
+        chan: ResponseChannel<Response>,
+    ) -> Result<(), NetworkNodeHandleError> {
+        let serialized_msg = bincode_opts()
+            .serialize(response)
+            .context(SerializationSnafu)?;
+        let req = ClientRequest::DataResponse {
+            response: Response(serialized_msg),
+            chan,
+        };
+        self.send_request(req).await
+    }
+
     /// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors

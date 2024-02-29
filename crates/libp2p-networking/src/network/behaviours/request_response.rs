@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use async_compatibility_layer::channel::UnboundedSender;
 use futures::channel::oneshot::Sender;
-use libp2p::request_response::{Message, OutboundRequestId, ResponseChannel};
+use libp2p::request_response::{Message, OutboundRequestId};
 use serde::{Deserialize, Serialize};
 
 use crate::network::NetworkEvent;
@@ -19,11 +19,6 @@ pub struct Response(
     #[serde(with = "serde_bytes")]
     pub Vec<u8>,
 );
-
-/// Represents a request sent from another node for some data
-/// Ecapusulates the request and the channel for the response.
-#[derive(Debug)]
-pub struct ResponseRequested(Request, ResponseChannel<Response>);
 
 #[derive(Default, Debug)]
 /// Handler for request response messages
@@ -47,9 +42,7 @@ impl RequestResponseState {
                     channel,
                 } => {
                     let _ = sender
-                        .send(NetworkEvent::ResponseRequested(ResponseRequested(
-                            request, channel,
-                        )))
+                        .send(NetworkEvent::ResponseRequested(request, channel))
                         .await;
                 }
                 Message::Response {

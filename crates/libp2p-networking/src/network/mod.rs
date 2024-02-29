@@ -20,7 +20,7 @@ pub use self::{
 use self::behaviours::{
     dht::DHTEvent,
     direct_message::DMEvent,
-    request_response::{Request, Response, ResponseRequested},
+    request_response::{Request, Response},
 };
 use bincode::Options;
 use futures::channel::oneshot::{self, Sender};
@@ -189,7 +189,7 @@ pub enum NetworkEvent {
     /// Recv-ed a direct response from a node (that hopefully was initiated by this node)
     DirectResponse(Vec<u8>, PeerId),
     /// A peer is asking us for data
-    ResponseRequested(ResponseRequested),
+    ResponseRequested(Request, ResponseChannel<Response>),
     /// Report that kademlia has successfully bootstrapped into the network
     IsBootstrapped,
 }

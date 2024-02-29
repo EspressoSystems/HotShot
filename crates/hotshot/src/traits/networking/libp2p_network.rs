@@ -39,13 +39,13 @@ use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 use libp2p_networking::{
     network::{
-        behaviours::request_response::ResponseRequested,
+        behaviours::request_response::{Request, Response},
         spawn_network_node,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
         NetworkNodeType,
     },
-    reexport::Multiaddr,
+    reexport::{Multiaddr, ResponseChannel},
 };
 
 use serde::Serialize;
@@ -107,8 +107,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     handle: Arc<NetworkNodeHandle>,
     /// Message Receiver
     receiver: UnboundedReceiver<M>,
-    /// Receiver for Requests for Data
-    requests_rx: UnboundedReceiver<ResponseRequested>,
+    /// Receiver for Requests for Data, includes the request and the response chan
+    requests_rx: UnboundedReceiver<(M, ResponseChannel<Response>)>,
     /// Sender for broadcast messages
     sender: UnboundedSender<M>,
     /// Sender for node lookup (relevant view number, key of node) (None for shutdown)
@@ -302,11 +302,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             async_sleep(Duration::from_secs(1)).await;
         }
         info!("LIBP2P: IS READY GOT TRIGGERED!!");
-    }
-
-    /// TODO make this part of connected network.
-    pub async fn recv_requests(&self) {
-        let _ = self.inner.requests_rx.recv().await;
     }
 
     /// Constructs new network for a node. Note that this network is unconnected.
@@ -530,6 +525,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         &self,
         msg: NetworkEvent,
         sender: &UnboundedSender<M>,
+        request_tx: &UnboundedSender<(M, ResponseChannel<Response>)>,
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
@@ -575,7 +571,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
-            NetworkEvent::ResponseRequested(_) => {}
+            NetworkEvent::ResponseRequested(msg, chan) => {
+                let reqeust = bincode_opts()
+                    .deserialize(&msg.0)
+                    .context(FailedToSerializeSnafu)?;
+                request_tx
+                    .send((reqeust, chan))
+                    .await
+                    .map_err(|_| NetworkError::ChannelSend)?;
+            }
         }
         Ok::<(), NetworkError>(())
     }
@@ -585,7 +589,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     fn handle_event_generator(
         &self,
         sender: UnboundedSender<M>,
-        request_tx: UnboundedSender<ResponseRequested>,
+        request_tx: UnboundedSender<(M, ResponseChannel<Response>)>,
         mut network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
@@ -604,18 +608,20 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 let msg_or_killed = futures::future::select(next_msg, kill_switch).await;
                 match msg_or_killed {
                     Either::Left((Ok(message), other_stream)) => {
-                        match message {
+                        match &message {
                             NetworkEvent::IsBootstrapped => {
                                 is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            GossipMsg(ref raw)
-                            | DirectRequest(ref raw, _, _)
-                            | DirectResponse(ref raw, _) => {
+                            GossipMsg(raw)
+                            | DirectRequest(raw, _, _)
+                            | DirectResponse(raw, _)
+                            | NetworkEvent::ResponseRequested(Request(raw), _) => {
                                 let message_version = read_version(raw);
                                 match message_version {
                                     Some(VERSION_0_1) => {
-                                        let _ =
-                                            handle.handle_recvd_events_0_1(message, &sender).await;
+                                        let _ = handle
+                                            .handle_recvd_events_0_1(message, &sender, &request_tx)
+                                            .await;
                                     }
                                     Some(version) => {
                                         warn!(
@@ -630,9 +636,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                             );
                                     }
                                 }
-                            }
-                            NetworkEvent::ResponseRequested(msg) => {
-                                let _ = request_tx.send(msg).await;
                             }
                         };
                         // re-set the `kill_switch` for the next loop
@@ -693,6 +696,25 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
+    async fn send_response(
+        &self,
+        response: M,
+        chan: ResponseChannel<Response>,
+    ) -> Result<(), NetworkError> {
+        self.inner
+            .handle
+            .respond_data(&response, chan)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn recv_requests(&self) -> Result<(M, ResponseChannel<Response>), NetworkError> {
+        self.inner
+            .requests_rx
+            .recv()
+            .await
+            .map_err(|_x| NetworkError::ShutDown)
+    }
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;

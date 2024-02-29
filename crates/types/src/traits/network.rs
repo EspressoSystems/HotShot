@@ -7,7 +7,10 @@ use async_compatibility_layer::art::async_sleep;
 use async_std::future::TimeoutError;
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use libp2p_networking::network::NetworkNodeHandleError;
+use libp2p_networking::{
+    network::{behaviours::request_response::Response, NetworkNodeHandleError},
+    reexport::ResponseChannel,
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
@@ -335,7 +338,22 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         _request: M,
         _recipient: K,
     ) -> Result<ResponseMessage<TYPES>, NetworkError> {
-        Err(NetworkError::NotFound)
+        Err(NetworkError::UnimplementedFeature)
+    }
+
+    // TODO make this not libp2p specific
+    /// Get any incoming network Requests.
+    async fn recv_requests(&self) -> Result<(M, ResponseChannel<Response>), NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
+    }
+    // TODO make this not libp2p specific
+    /// Send a response on the channel provided
+    async fn send_response(
+        &self,
+        _response: M,
+        _chan: ResponseChannel<Response>,
+    ) -> Result<(), NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
     }
 
     /// queues lookup of a node
