@@ -659,12 +659,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
-    #[allow(refining_impl_trait)]
-    async fn request_data(
+    async fn request_data<TYPES: NodeType>(
         &self,
         request: M,
         recipient: K,
-    ) -> Result<ResponseMessage<M>, NetworkError> {
+    ) -> Result<ResponseMessage<TYPES>, NetworkError> {
         self.wait_for_ready().await;
 
         let pid = match self

@@ -12,6 +12,7 @@ use crate::simple_vote::{
     DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
     ViewSyncPreCommitVote,
 };
+use crate::traits::network::ResponseMessage;
 use crate::traits::signature_key::SignatureKey;
 use crate::vote::HasViewNumber;
 use crate::{
@@ -19,7 +20,7 @@ use crate::{
     simple_vote::QuorumVote,
     traits::{
         network::{DataRequest, NetworkMsg, ViewMessage},
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
     },
 };
 
@@ -120,7 +121,10 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
             MessageKind::Consensus(message) => message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
             MessageKind::Data(DataMessage::RequestData(msg)) => msg.view,
-            MessageKind::Data(DataMessage::DataResponse(msg)) => msg.view_number(),
+            MessageKind::Data(DataMessage::DataResponse(msg)) => match msg {
+                ResponseMessage::Found(m) => m.view_number(),
+                ResponseMessage::NotFound => TYPES::Time::new(1),
+            },
         }
     }
 
@@ -422,7 +426,7 @@ pub enum DataMessage<TYPES: NodeType> {
     /// A request for data
     RequestData(DataRequest<TYPES>),
     /// A response to a data request
-    DataResponse(SequencingMessage<TYPES>),
+    DataResponse(ResponseMessage<TYPES>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

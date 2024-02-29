@@ -219,11 +219,11 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for CombinedNetworks<TYPES>
 {
-    async fn request_data(
+    async fn request_data<T: NodeType>(
         &self,
         request: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<ResponseMessage<Message<TYPES>>, NetworkError> {
+    ) -> Result<ResponseMessage<T>, NetworkError> {
         self.secondary().request_data(request, recipient).await
     }
 

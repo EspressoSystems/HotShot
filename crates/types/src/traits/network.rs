@@ -13,7 +13,12 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ViewNumber, message::MessagePurpose, vid::VidCommitment, BoxSyncFuture};
+use crate::{
+    data::ViewNumber,
+    message::{MessagePurpose, SequencingMessage},
+    vid::VidCommitment,
+    BoxSyncFuture,
+};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use rand::{
@@ -255,11 +260,13 @@ pub enum RequestKind<TYPES: NodeType> {
     DAProposal(TYPES::Time),
 }
 
-/// A resopnse for a request.  `M` is the same as other network messages
+/// A resopnse for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
-pub enum ResponseMessage<M: NetworkMsg> {
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ResponseMessage<TYPES: NodeType> {
     /// Peer returned us some data
-    Found(M),
+    Found(SequencingMessage<TYPES>),
     /// Peer failed to get us data
     NotFound,
 }
@@ -323,11 +330,13 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request
-    async fn request_data(
+    async fn request_data<TYPES: NodeType>(
         &self,
-        request: M,
-        recipient: K,
-    ) -> Result<ResponseMessage<M>, NetworkError>;
+        _request: M,
+        _recipient: K,
+    ) -> Result<ResponseMessage<TYPES>, NetworkError> {
+        Err(NetworkError::NotFound)
+    }
 
     /// queues lookup of a node
     async fn queue_node_lookup(
