@@ -17,7 +17,7 @@ use async_broadcast::Sender;
 
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, VidCommitment, VidDisperse},
+    data::{Leaf, QuorumProposal, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
@@ -33,6 +33,7 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
+    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
@@ -565,9 +566,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         block_payload: None,
                         proposer_id: sender,
                     };
-                    let state = Arc::new(<TYPES::ValidatedState as ValidatedState>::from_header(
-                        &proposal.data.block_header,
-                    ));
+                    let state = Arc::new(
+                        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
+                            &proposal.data.block_header,
+                        ),
+                    );
 
                     consensus.validated_state_map.insert(
                         view,
@@ -615,11 +618,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                let Ok(state) = parent_state.validate_and_apply_header(
-                    &consensus.instance_state,
-                    &parent_leaf.block_header.clone(),
-                    &proposal.data.block_header.clone(),
-                ) else {
+                let Ok(state) = parent_state
+                    .validate_and_apply_header(
+                        &consensus.instance_state,
+                        &parent_leaf,
+                        &proposal.data.block_header.clone(),
+                    )
+                    .await
+                else {
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
@@ -1269,7 +1275,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         let parent_leaf = leaf.clone();
-        let parent_header = parent_leaf.block_header.clone();
 
         let original_parent_hash = parent_leaf.commit();
 
@@ -1292,10 +1297,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let block_header = TYPES::BlockHeader::new(
                 state,
                 &consensus.instance_state,
-                &parent_header,
+                &parent_leaf,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
-            );
+            )
+            .await;
             let leaf = Leaf {
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
