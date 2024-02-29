@@ -102,6 +102,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Networks<TYPES, I> {
 }
 
 /// Bundle of all the memberships a consensus instance uses
+#[derive(Clone)]
 pub struct Memberships<TYPES: NodeType> {
     /// Quorum Membership
     pub quorum_membership: TYPES::Membership,
@@ -155,8 +156,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Creates a new [`Arc<SystemContext>`] with the given configuration options and sets it up with the given
-    /// genesis block
+    /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
@@ -185,9 +185,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .await
             .context(StorageSnafu)?;
 
-        // insert genesis (or latest block) to state map
+        // Get the validated state from the initializer or construct an incomplete one from the
+        // block header.
+        let validated_state = match initializer.validated_state {
+            Some(state) => state,
+            None => Arc::new(TYPES::ValidatedState::from_header(
+                &anchored_leaf.block_header,
+            )),
+        };
+
+        // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
-        let validated_state = Arc::new(TYPES::ValidatedState::genesis(&instance_state));
         validated_state_map.insert(
             anchored_leaf.get_view_number(),
             View {
@@ -211,10 +219,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 }
             };
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            // View 1 doesn't have DA which is responsible for saving the payloads, so we store the
+            // payload for view 1 manually during the intialization.
             saved_payloads.insert(TYPES::Time::new(1), encoded_txns);
         }
 
-        let start_view = anchored_leaf.get_view_number();
+        let start_view = initializer.start_view;
 
         let consensus = Consensus {
             instance_state,
@@ -279,7 +289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         broadcast_event(event, &self.output_event_stream.0).await;
     }
 
-    /// Publishes a transaction asynchronously to the network
+    /// Publishes a transaction asynchronously to the network.
     ///
     /// # Errors
     ///
@@ -290,11 +300,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         transaction: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         trace!("Adding transaction to our own queue");
-        // Wrap up a message
-        // TODO place a view number here that makes sense
-        // we haven't worked out how this will work yet
-        let message = DataMessage::SubmitTransaction(transaction.clone(), TYPES::Time::new(0));
+
         let api = self.clone();
+        let view_number = api.consensus.read().await.cur_view;
+
+        // Wrap up a message
+        let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
         async_spawn(async move {
             let da_membership = &api.memberships.da_membership.clone();
@@ -312,11 +323,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(TYPES::Time::new(0)),
+                        da_membership.get_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
-                        view_number: api.consensus.read().await.cur_view,
+                        view_number,
                         event: EventType::Transactions {
                             transactions: vec![transaction],
                         },
@@ -606,26 +617,49 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Instance-level state.
     instance_state: TYPES::InstanceState,
+
+    /// Optional validated state.
+    ///
+    /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
+    /// the state from the block header.
+    validated_state: Option<Arc<TYPES::ValidatedState>>,
+
+    /// Starting view number that we are confident won't lead to a double vote after restart.
+    start_view: TYPES::Time,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(
-        instance_state: &TYPES::InstanceState,
-    ) -> Result<Self, HotShotError<TYPES>> {
+    pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
+        let validated_state = Some(Arc::new(TYPES::ValidatedState::genesis(&instance_state)));
         Ok(Self {
-            inner: Leaf::genesis(instance_state),
-            instance_state: instance_state.clone(),
+            inner: Leaf::genesis(&instance_state),
+            instance_state,
+            validated_state,
+            start_view: TYPES::Time::new(0),
         })
     }
 
-    /// reload previous state based on most recent leaf and the instance-level state.
-    pub fn from_reload(anchor_leaf: Leaf<TYPES>, instance_state: TYPES::InstanceState) -> Self {
+    /// Reload previous state based on most recent leaf and the instance-level state.
+    ///
+    /// # Arguments
+    /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
+    /// after restart.
+    /// * `validated_state` - Optional validated state that if given, will be used to constrcut the
+    /// `SystemContext`.
+    pub fn from_reload(
+        anchor_leaf: Leaf<TYPES>,
+        instance_state: TYPES::InstanceState,
+        validated_state: Option<Arc<TYPES::ValidatedState>>,
+        start_view: TYPES::Time,
+    ) -> Self {
         Self {
             inner: anchor_leaf,
             instance_state,
+            validated_state,
+            start_view,
         }
     }
 }

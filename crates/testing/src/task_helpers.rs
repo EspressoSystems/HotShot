@@ -63,7 +63,7 @@ pub async fn build_system_handle(
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TestTypes>::from_genesis(&TestInstanceState {}).unwrap();
+    let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {}).unwrap();
 
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
@@ -371,6 +371,6 @@ pub fn vid_init<TYPES: NodeType>(
 
     // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
     let srs = hotshot_types::data::test_srs(num_committee);
-
-    VidScheme::new(chunk_size, num_committee, srs).unwrap()
+    let multiplicity = 1;
+    VidScheme::new(chunk_size, num_committee, multiplicity, srs).unwrap()
 }
