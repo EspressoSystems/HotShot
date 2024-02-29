@@ -28,6 +28,10 @@ async := "async-std"
   echo setting executor to async-std
   export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' CARGO_TARGET_DIR='{{original_target_dir}}/async-std' && just {{target}} {{ARGS}}
 
+@async-std target *ARGS:
+  echo setting executor to async-std
+  export RUST_MIN_STACK=4194304 RUSTDOCFLAGS='-D warnings --cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustdocflags}}' RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" {{original_rustflags}}' CARGO_TARGET_DIR='{{original_target_dir}}/async-std' && just {{target}} {{ARGS}}
+
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 

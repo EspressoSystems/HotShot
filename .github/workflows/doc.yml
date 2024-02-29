@@ -37,11 +37,11 @@ jobs:
 
       - name: Test Docs
         run: |
-          just async_std doc_test
+          just async-std doc_test
 
       - name: Build Docs
         run: |
-          just async_std doc
+          just async-std doc
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}

@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         just_variants:
-          - async_std
+          - async-std
           - tokio
     runs-on: ubuntu-latest
     steps:
