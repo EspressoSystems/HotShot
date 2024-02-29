@@ -31,6 +31,54 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
     }
 }
 
+// A much more tightly-choreographed version of `TestHarnessState`.
+//
+// A `TestScript` is a sequence of pairs (input sequence, output sequence).
+type TestScript<TYPES> = Vec<(Vec<HotShotEvent<TYPES>>, Vec<HotShotEvent<TYPES>>)>;
+
+
+/// `run_test_script` reads a pair (inputs, outputs) in the vector,
+/// broadcasts all given inputs (in order) and waits to receive all outputs (in order).
+/// It moves on to the next pair only *after* it has finished receiving all expected outputs.
+pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
+    script: TestScript<TYPES>,
+    state: S,
+) where
+    TYPES: NodeType,
+    S: Send + 'static,
+{
+    let registry = Arc::new(TaskRegistry::default());
+
+    let (test_input, task_receiver) = broadcast(1024);
+    let (task_input, mut test_receiver) = broadcast(1024);
+
+    Task::new(task_input.clone(), task_receiver.clone(), registry.clone(), state).run();
+
+    for (inputs, outputs) in script.clone().iter_mut() {
+        for input in &mut *inputs {
+            test_input.broadcast_direct(input.clone()).await.unwrap();
+            println!("Sending input: {:?}", input);
+        }
+
+        for output in outputs {
+            if let Ok(received_output) =
+                async_timeout(Duration::from_secs(2), test_receiver.recv_direct()).await
+            {
+                println!("Received output: {:?}", output);
+                assert_eq!(received_output, Ok(output.clone()));
+            } else {
+                panic!("Timeout while waiting for output: {:?}", output);
+            }
+        }
+
+        // Once we've seen all expected outputs, we wait to see
+        // if there are any trailing unexpected outputs.
+        if let Ok(output) = async_timeout(Duration::from_secs(2), test_receiver.recv_direct()).await {
+            panic!("Received unexpected output: {:?}", output);
+        }
+    }
+}
+
 /// Runs a test by building the task using `build_fn` and then passing it the `input` events
 /// and testing the make sure all of the `expected_output` events are seen
 ///

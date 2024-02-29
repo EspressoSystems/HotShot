@@ -346,8 +346,12 @@ pub async fn build_quorum_proposals_with_upgrade(
     public_key: &BLSPubKey,
     view: u64,
     count: u64,
-) -> Vec<Proposal<TestTypes, QuorumProposal<TestTypes>>> {
-    let mut result = Vec::new();
+) -> (
+    Vec<Proposal<TestTypes, QuorumProposal<TestTypes>>>,
+    Vec<QuorumVote<TestTypes>>,
+) {
+    let mut proposals = Vec::new();
+    let mut votes = Vec::new();
     // build the genesis view
     let genesis_consensus = handle.get_consensus();
     let cur_consensus = genesis_consensus.upgradable_read().await;
@@ -403,8 +407,18 @@ pub async fn build_quorum_proposals_with_upgrade(
         upgrade_certificate: None,
         proposer_id: leaf.proposer_id,
     };
+    let vote = QuorumVote::<TestTypes>::create_signed_vote(
+        QuorumData {
+            leaf_commit: leaf.commit(),
+        },
+        ViewNumber::new(1),
+        handle.public_key(),
+        handle.private_key(),
+    )
+    .unwrap();
+    votes.push(vote);
 
-    result.push(Proposal {
+    proposals.push(Proposal {
         data: proposal,
         signature,
         _pd: PhantomData,
@@ -491,8 +505,18 @@ pub async fn build_quorum_proposals_with_upgrade(
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
+        let vote = QuorumVote::<TestTypes>::create_signed_vote(
+            QuorumData {
+                leaf_commit: leaf.commit(),
+            },
+            ViewNumber::new(cur_view),
+            handle.public_key(),
+            handle.private_key(),
+        )
+        .unwrap();
+        votes.push(vote);
         signature = signature_new_view;
-        result.push(Proposal {
+        proposals.push(Proposal {
             data: proposal,
             signature,
             _pd: PhantomData,
@@ -501,7 +525,7 @@ pub async fn build_quorum_proposals_with_upgrade(
         parent_state = state_new_view;
     }
 
-    result
+    (proposals, votes)
 }
 
 /// create a quorum proposal
