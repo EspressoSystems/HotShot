@@ -27,7 +27,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, DataRequest, DataResponse, RequestId},
+        network::{ConnectedNetwork, ConsensusIntentEvent, DataRequest, DataResponse},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -220,15 +220,19 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for CombinedNetworks<TYPES>
 {
+    #[allow(refining_impl_trait)]
     async fn request_data<T: NodeType>(
         &self,
-        _request: DataRequest<T>,
-    ) -> Result<RequestId, NetworkError> {
-        return Ok(RequestId(0));
+        request: DataRequest<T>,
+    ) -> Result<OutboundRequestId, NetworkError> {
+        self.secondary().request_data(request).await
     }
 
-    async fn recv_data_response(&self) -> DataResponse<Message<TYPES>> {
-        todo!();
+    #[allow(refining_impl_trait)]
+    async fn recv_data_response(
+        &self,
+    ) -> Result<DataResponse<Message<TYPES>, OutboundRequestId>, NetworkError> {
+        self.secondary().recv_data_response().await
     }
     fn pause(&self) {
         self.networks.0.pause();

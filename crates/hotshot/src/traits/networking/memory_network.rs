@@ -214,15 +214,17 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 // TODO instrument these functions
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
+    #[allow(refining_impl_trait)]
     async fn request_data<TYPES: NodeType>(
         &self,
-        request: DataRequest<TYPES>,
+        _request: DataRequest<TYPES>,
     ) -> Result<RequestId, NetworkError> {
-        return Ok(RequestId(0));
+        Err(NetworkError::UnimplementedFeature)
     }
 
-    async fn recv_data_response(&self) -> DataResponse<M> {
-        todo!();
+    #[allow(refining_impl_trait)]
+    async fn recv_data_response(&self) -> Result<DataResponse<M, RequestId>, NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
     }
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}

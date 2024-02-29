@@ -738,15 +738,19 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for WebServerNetwork<TYPES>
 {
+    #[allow(refining_impl_trait)]
     async fn request_data<T: NodeType>(
         &self,
-        request: DataRequest<T>,
+        _request: DataRequest<T>,
     ) -> Result<RequestId, NetworkError> {
-        return Ok(RequestId(0));
+        Err(NetworkError::UnimplementedFeature)
     }
 
-    async fn recv_data_response(&self) -> DataResponse<Message<TYPES>> {
-        todo!();
+    #[allow(refining_impl_trait)]
+    async fn recv_data_response(
+        &self,
+    ) -> Result<DataResponse<Message<TYPES>, RequestId>, NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
     }
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {

@@ -12,10 +12,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{
-    vid::VidCommitment,
-    data::ViewNumber, message::MessagePurpose, BoxSyncFuture
-};
+use crate::{data::ViewNumber, message::MessagePurpose, vid::VidCommitment, BoxSyncFuture};
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use rand::{
@@ -24,7 +21,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{collections::BTreeSet, hash::Hash, fmt::Debug, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -141,6 +138,8 @@ pub enum NetworkError {
     ShutDown,
     /// unable to cancel a request, the request has already been cancelled
     UnableToCancel,
+    /// The requested data was not found
+    NotFound,
 }
 
 #[derive(Clone, Debug)]
@@ -220,7 +219,9 @@ pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
 {
 }
-pub trait Id : Eq + PartialEq + Hash {}
+
+/// Trait that bundles what we need from a request ID
+pub trait Id: Eq + PartialEq + Hash {}
 impl NetworkMsg for Vec<u8> {}
 
 /// a message
@@ -235,7 +236,9 @@ pub trait ViewMessage<TYPES: NodeType> {
 /// A request for some data that the consensus layer is asking for.
 #[derive(Clone, Serialize, Debug)]
 pub struct DataRequest<TYPES: NodeType> {
+    /// Hotshot key of who to send the request to
     pub recipient: TYPES::SignatureKey,
+    /// Request
     pub request: RequestKind<TYPES>,
 }
 
@@ -256,11 +259,11 @@ impl Id for RequestId {}
 impl Id for OutboundRequestId {}
 /// A response from the network to our request
 #[derive(Clone, Serialize)]
-pub struct DataResponse<M: NetworkMsg> {
+pub struct DataResponse<M: NetworkMsg, I: Id> {
     /// Data Received
     pub msg: M,
     /// Id of Rquest being responded to
-    pub id: RequestId,
+    pub id: I,
 }
 
 /// represents a networking implmentration
@@ -328,10 +331,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ) -> Result<impl Id, NetworkError>;
 
     /// Responses to our data requests
-    async fn recv_data_response(&self) -> DataResponse<M>;
-
-    /// Trys to cancel a request.  Cancellation is not guaranteed
-    async fn cancel_request(&self, _request_id: RequestId) {}
+    async fn recv_data_response(&self) -> Result<DataResponse<M, impl Id>, NetworkError>;
 
     /// queues lookup of a node
     async fn queue_node_lookup(
