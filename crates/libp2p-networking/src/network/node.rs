@@ -9,7 +9,10 @@ pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
     },
-    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
+    handle::{
+        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeReceiver,
+    },
 };
 
 use super::{
@@ -284,7 +287,6 @@ impl NetworkNode {
                     config
                         .replication_factor
                         .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
-                    config.dht_cache_location.clone(),
                 ),
                 identify,
                 DMBehaviour::new(request_response),

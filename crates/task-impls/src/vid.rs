@@ -6,7 +6,6 @@ use async_lock::RwLock;
 use async_std::task::spawn_blocking;
 
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
@@ -14,25 +13,19 @@ use hotshot_types::{
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    vid::vid_scheme,
 };
-use hotshot_types::{
-    data::{test_srs, VidScheme, VidSchemeTrait},
-    traits::network::ConsensusIntentEvent,
-};
+use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
-use snafu::Snafu;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{debug, error, instrument, warn};
-
-#[derive(Snafu, Debug)]
-/// Error type for consensus tasks
-pub struct ConsensusTaskError {}
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<
@@ -75,20 +68,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event {
             HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
                 // get the number of quorum committee members to be used for VID calculation
-                let num_quorum_committee = self.membership.total_nodes();
-
-                // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-                let srs = test_srs(num_quorum_committee);
-
-                // calculate the last power of two
-                // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
-                // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-                let chunk_size = 1 << num_quorum_committee.ilog2();
+                let num_storage_nodes = self.membership.total_nodes();
 
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
-                    let vid = VidScheme::new(chunk_size, num_quorum_committee, &srs).unwrap();
-                    vid.disperse(encoded_transactions.clone()).unwrap()
+                    #[allow(clippy::panic)]
+                    vid_scheme(num_storage_nodes).disperse(&encoded_transactions).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_storage_nodes},{})\n\terror: : {err}", encoded_transactions.len()))
                 })
                 .await;
 
@@ -149,6 +134,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.consensus.write().await.update_view(view);
 
                 // Start polling for VID disperse for the new view
                 self.network

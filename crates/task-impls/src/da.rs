@@ -28,16 +28,11 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 
 use crate::vote::HandleVoteEvent;
-use snafu::Snafu;
 use std::{marker::PhantomData, sync::Arc};
 use tracing::{debug, error, instrument, warn};
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
-
-#[derive(Snafu, Debug)]
-/// Error type for consensus tasks
-pub struct ConsensusTaskError {}
 
 /// Tracks state of a DA task
 pub struct DATaskState<
@@ -233,6 +228,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.consensus.write().await.update_view(view);
 
                 // Inject view info into network
                 let is_da = self
