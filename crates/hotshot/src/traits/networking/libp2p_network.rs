@@ -14,22 +14,27 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
     boxed_sync,
     consensus::Consensus,
     data::ViewNumber,
-    message::{Message, MessageKind},
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, DataRequest, DataResponse,
-            FailedToSerializeSnafu, NetworkError, NetworkMsg, RequestId, ViewMessage,
+            FailedToSerializeSnafu, NetworkError, NetworkMsg, RequestId,
         },
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::ConsensusTime,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
+};
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{
+    message::{Message, MessageKind},
+    traits::{
+        network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
+        node_implementation::NodeType,
+    },
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;

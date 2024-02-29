@@ -10,6 +10,7 @@ use async_compatibility_layer::{
 };
 use bincode::Options;
 use futures::channel::oneshot;
+
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     request_response::{OutboundRequestId, ResponseChannel},

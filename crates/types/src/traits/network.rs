@@ -13,7 +13,8 @@ use tokio::time::error::Elapsed as TimeoutError;
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
-    data::{VidCommitment, ViewNumber}, message::MessagePurpose, BoxSyncFuture
+    vid::VidCommitment,
+    data::ViewNumber, message::MessagePurpose, BoxSyncFuture
 };
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
