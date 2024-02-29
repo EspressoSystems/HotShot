@@ -5,6 +5,7 @@
 use async_compatibility_layer::art::async_sleep;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
+use derivative::Derivative;
 use dyn_clone::DynClone;
 use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
@@ -234,16 +235,19 @@ pub trait ViewMessage<TYPES: NodeType> {
 }
 
 /// A request for some data that the consensus layer is asking for.
-#[derive(Clone, Serialize, Debug)]
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[serde(bound(deserialize = ""))]
 pub struct DataRequest<TYPES: NodeType> {
     /// Hotshot key of who to send the request to
     pub recipient: TYPES::SignatureKey,
     /// Request
     pub request: RequestKind<TYPES>,
+    /// View this message is for
+    pub view: TYPES::Time,
 }
 
 /// Underlying data request
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RequestKind<TYPES: NodeType> {
     /// Request VID data by our key and the VID commitment
     VID(VidCommitment, TYPES::SignatureKey),
