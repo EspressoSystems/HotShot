@@ -875,6 +875,30 @@
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -883,7 +907,7 @@
 </span><span class="kw">use </span>async_compatibility_layer::art::async_block_on;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{bounded, unbounded, Sender, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -918,8 +942,10 @@
 
 <span class="kw">use </span>libp2p_networking::{
     network::{
+        spawn_network_node,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+        NetworkNodeType,
     },
     reexport::Multiaddr,
 };
@@ -929,7 +955,10 @@
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
-<span class="kw">use </span>futures::future::join_all;
+<span class="kw">use </span>futures::{
+    future::{join_all, Either},
+    FutureExt,
+};
 <span class="kw">use </span>std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -977,7 +1006,7 @@
     <span class="doccomment">/// this node's public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
-    </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
+    </span>handle: Arc&lt;NetworkNodeHandle&gt;,
     <span class="doccomment">/// map of known replica peer ids to public keys
     </span>receiver: UnboundedReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for broadcast messages
@@ -1010,6 +1039,8 @@
     </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     <span class="doccomment">/// if we're a member of the DA committee or not
     </span>is_da: bool,
+    <span class="doccomment">/// Killswitch sender
+    </span>kill_switch: Sender&lt;()&gt;,
 }
 
 <span class="doccomment">/// Networking implementation that uses libp2p
@@ -1200,12 +1231,9 @@
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">"Need at least 5 bootstrap nodes"</span>);
-        <span class="kw">let </span>network_handle = Arc::new(
-            Box::pin(NetworkNodeHandle::&lt;()&gt;::new(config, id))
-                .<span class="kw">await
-                </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>,
-        );
-
+        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node(config.clone(), id)
+            .<span class="kw">await
+            </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>;
         <span class="comment">// Make bootstrap mappings known
         </span><span class="kw">if </span><span class="macro">matches!</span>(
             network_handle.config().node_type,
@@ -1231,10 +1259,12 @@
         // if bounded figure out a way to log dropped msgs
         </span><span class="kw">let </span>(sender, receiver) = unbounded();
         <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
+        <span class="kw">let </span>(kill_tx, kill_rx) = bounded(<span class="number">1</span>);
+        rx.set_kill_switch(kill_rx);
 
         <span class="kw">let </span><span class="kw-2">mut </span>result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
-                handle: network_handle,
+                handle: Arc::new(network_handle),
                 receiver,
                 sender: sender.clone(),
                 pk,
@@ -1255,10 +1285,11 @@
                 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                 </span>reliability_config,
                 is_da,
+                kill_switch: kill_tx,
             }),
         };
 
-        result.handle_event_generator(sender);
+        result.handle_event_generator(sender, rx);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -1440,38 +1471,70 @@
 
     <span class="doccomment">/// task to propagate messages to handlers
     /// terminates on shut down of network
-    </span><span class="kw">fn </span>handle_event_generator(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: UnboundedSender&lt;M&gt;) {
+    </span><span class="kw">fn </span>handle_event_generator(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        sender: UnboundedSender&lt;M&gt;,
+        <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver,
+    ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
         <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
         async_spawn(<span class="kw">async move </span>{
-            <span class="kw">while let </span><span class="prelude-val">Ok</span>(message) = handle.inner.handle.receiver().recv().<span class="kw">await </span>{
-                <span class="kw">match </span><span class="kw-2">&amp;</span>message {
-                    NetworkEvent::IsBootstrapped =&gt; {
-                        is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+            <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>kill_switch) = network_rx.take_kill_switch() <span class="kw">else </span>{
+                <span class="macro">tracing::error!</span>(
+                    <span class="string">"`spawn_handle` was called on a network handle that was already closed"
+                </span>);
+                <span class="kw">return</span>;
+            };
+            <span class="kw">let </span><span class="kw-2">mut </span>kill_switch = kill_switch.recv().boxed();
+            <span class="kw">let </span><span class="kw-2">mut </span>next_msg = network_rx.recv().boxed();
+
+            <span class="kw">loop </span>{
+                <span class="kw">let </span>msg_or_killed = futures::future::select(next_msg, kill_switch).<span class="kw">await</span>;
+                <span class="kw">match </span>msg_or_killed {
+                    Either::Left((<span class="prelude-val">Ok</span>(message), other_stream)) =&gt; {
+                        <span class="kw">match </span><span class="kw-2">&amp;</span>message {
+                            NetworkEvent::IsBootstrapped =&gt; {
+                                is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+                            }
+                            GossipMsg(raw, <span class="kw">_</span>)
+                            | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>)
+                            | DirectResponse(raw, <span class="kw">_</span>) =&gt; {
+                                <span class="kw">let </span>message_version = read_version(raw);
+                                <span class="kw">match </span>message_version {
+                                    <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {
+                                        <span class="kw">let _ </span>=
+                                            handle.handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
+                                    }
+                                    <span class="prelude-val">Some</span>(version) =&gt; {
+                                        <span class="macro">warn!</span>(
+                                <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
+                                version, message
+                            );
+                                    }
+                                    <span class="kw">_ </span>=&gt; {
+                                        <span class="macro">warn!</span>(
+                                <span class="string">"Received message with unreadable version number.\n\nPayload:\n\n{:?}"</span>,
+                                message
+                            );
+                                    }
+                                }
+                            }
+                        };
+                        <span class="comment">// re-set the `kill_switch` for the next loop
+                        </span>kill_switch = other_stream;
+                        <span class="comment">// re-set `receiver.recv()` for the next loop
+                        </span>next_msg = network_rx.recv().boxed();
                     }
-                    GossipMsg(raw, <span class="kw">_</span>) | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>) | DirectResponse(raw, <span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>message_version = read_version(raw);
-                        <span class="kw">match </span>message_version {
-                            <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {
-                                <span class="kw">let _ </span>= handle.handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
-                            }
-                            <span class="prelude-val">Some</span>(version) =&gt; {
-                                <span class="macro">warn!</span>(
-                            <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
-                            version, message
-                        );
-                            }
-                            <span class="kw">_ </span>=&gt; {
-                                <span class="macro">warn!</span>(
-                            <span class="string">"Received message with unreadable version number.\n\nPayload:\n\n{:?}"</span>,
-                            message
-                        );
-                            }
-                        }
+                    Either::Left((<span class="prelude-val">Err</span>(<span class="kw">_</span>), <span class="kw">_</span>)) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">"Network receiver shut down!"</span>);
+                        <span class="kw">return</span>;
+                    }
+                    Either::Right(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">"Event Handler shutdown"</span>);
+                        <span class="kw">return</span>;
                     }
                 }
             }
-            <span class="macro">warn!</span>(<span class="string">"Network receiver shut down!"</span>);
         });
     }
 }
@@ -1503,12 +1566,9 @@
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-                <span class="macro">error!</span>(<span class="string">"Called shut down when already shut down! Noop."</span>);
-            } <span class="kw">else </span>{
-                <span class="kw">let _ </span>= <span class="self">self</span>.inner.node_lookup_send.send(<span class="prelude-val">None</span>).<span class="kw">await</span>;
-                <span class="kw">let _ </span>= <span class="self">self</span>.inner.handle.shutdown().<span class="kw">await</span>;
-            }
+            <span class="kw">let _ </span>= <span class="self">self</span>.inner.handle.shutdown().<span class="kw">await</span>;
+            <span class="kw">let _ </span>= <span class="self">self</span>.inner.node_lookup_send.send(<span class="prelude-val">None</span>).<span class="kw">await</span>;
+            <span class="kw">let _ </span>= <span class="self">self</span>.inner.kill_switch.send(()).<span class="kw">await</span>;
         };
         boxed_sync(closure)
     }
@@ -1519,10 +1579,6 @@
         message: M,
         recipients: BTreeSet&lt;K&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
-        }
-
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
         <span class="macro">info!</span>(
             <span class="string">"broadcasting msg: {:?} with nodes: {:?} connected"</span>,
@@ -1623,10 +1679,6 @@
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::direct_message"</span>, skip_all)]
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
-        }
-
         <span class="comment">// short circuit if we're dming ourselves
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.inner.pk {
             <span class="comment">// panic if we already shut down?
@@ -1702,18 +1754,14 @@
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
         <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
-                <span class="prelude-val">Err</span>(NetworkError::ShutDown)
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>result = <span class="self">self
-                    </span>.inner
-                    .receiver
-                    .drain_at_least_one()
-                    .<span class="kw">await
-                    </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-                <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
-                <span class="prelude-val">Ok</span>(result)
-            }
+            <span class="kw">let </span>result = <span class="self">self
+                </span>.inner
+                .receiver
+                .drain_at_least_one()
+                .<span class="kw">await
+                </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+            <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
+            <span class="prelude-val">Ok</span>(result)
         };
         boxed_sync(closure)
     }

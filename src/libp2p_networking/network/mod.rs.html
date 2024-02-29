@@ -228,18 +228,6 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p's behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
@@ -253,9 +241,9 @@
     def::NetworkDef,
     error::NetworkError,
     node::{
-        network_node_handle_error, MeshParams, NetworkNode, NetworkNodeConfig,
+        network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
         NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
-        NetworkNodeHandleError,
+        NetworkNodeHandleError, NetworkNodeReceiver,
     },
 };
 
@@ -274,9 +262,8 @@
     Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>rand::seq::IteratorRandom;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr};
 <span class="kw">use </span>tracing::instrument;
 
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -469,16 +456,5 @@
     <span class="prelude-val">Ok</span>(dns_quic
         .map(|(peer_id, connection), <span class="kw">_</span>| (peer_id, StreamMuxerBox::new(connection)))
         .boxed())
-}
-
-<span class="doccomment">/// Given a slice of handles assumed to be larger than 0,
-/// chooses one
-/// # Panics
-/// panics if handles is of length 0
-</span><span class="kw">pub fn </span>get_random_handle&lt;S&gt;(
-    handles: <span class="kw-2">&amp;</span>[Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;],
-    rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; Arc&lt;NetworkNodeHandle&lt;S&gt;&gt; {
-    handles.iter().choose(rng).unwrap().clone()
 }
 </code></pre></div></section></main></body></html>
