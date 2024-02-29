@@ -22,7 +22,7 @@ use hotshot_types::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
             NetworkMsg, ResponseMessage,
         },
-        node_implementation::ConsensusTime,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
@@ -30,10 +30,7 @@ use hotshot_types::{
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     message::{Message, MessageKind},
-    traits::{
-        network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
-        node_implementation::NodeType,
-    },
+    traits::network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
 };
 use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
