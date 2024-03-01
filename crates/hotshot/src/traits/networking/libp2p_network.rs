@@ -578,8 +578,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     .deserialize(&msg.0)
                     .context(FailedToSerializeSnafu)?;
                 request_tx
-                    .send((reqeust, chan))
-                    .await
+                    .try_send((reqeust, chan))
                     .map_err(|_| NetworkError::ChannelSend)?;
             }
         }
@@ -714,8 +713,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             while let Some((request, chan)) = internal_rx.next().await {
                 let (response_tx, response_rx) = futures::channel::oneshot::channel();
                 if tx
-                    .send((request, network::ResponseChannel(response_tx)))
-                    .await
+                    .try_send((request, network::ResponseChannel(response_tx)))
                     .is_err()
                 {
                     continue;
