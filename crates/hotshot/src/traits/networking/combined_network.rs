@@ -285,10 +285,17 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        if self.primary().broadcast_message(message.clone(), recipients.clone()).await.is_err() {
+        if self
+            .primary()
+            .broadcast_message(message.clone(), recipients.clone())
+            .await
+            .is_err()
+        {
             warn!("Failed broadcasting DA on primary");
         }
-        self.secondary().da_broadcast_message(message, recipients).await
+        self.secondary()
+            .da_broadcast_message(message, recipients)
+            .await
     }
 
     async fn direct_message(
