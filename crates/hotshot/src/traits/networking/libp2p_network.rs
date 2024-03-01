@@ -544,7 +544,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         sender: &UnboundedSender<M>,
     ) -> Result<(), NetworkError> {
         match msg {
-            GossipMsg(msg, _) => {
+            GossipMsg(msg) => {
                 let result: Result<M, _> = Serializer::<0, 1>::deserialize(&msg);
                 if let Ok(result) = result {
                     sender
@@ -610,25 +610,26 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                             NetworkEvent::IsBootstrapped => {
                                 is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            GossipMsg(raw, _)
-                            | DirectRequest(raw, _, _)
-                            | DirectResponse(raw, _) => match Version::deserialize(raw) {
-                                Ok((VERSION_0_1, _rest)) => {
-                                    let _ = handle.handle_recvd_events_0_1(message, &sender).await;
-                                }
-                                Ok((version, _)) => {
-                                    warn!(
+                            GossipMsg(raw) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
+                                match Version::deserialize(raw) {
+                                    Ok((VERSION_0_1, _rest)) => {
+                                        let _ =
+                                            handle.handle_recvd_events_0_1(message, &sender).await;
+                                    }
+                                    Ok((version, _)) => {
+                                        warn!(
                                                 "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
                                                 version, message
                                             );
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
+                                            e, message
+                                        );
+                                    }
                                 }
-                                Err(e) => {
-                                    warn!(
-                                        "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
-                                        e, message
-                                    );
-                                }
-                            },
+                            }
                         }
                         // re-set the `kill_switch` for the next loop
                         kill_switch = other_stream;
