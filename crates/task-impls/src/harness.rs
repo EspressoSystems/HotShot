@@ -34,15 +34,16 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
 // A much more tightly-choreographed version of `TestHarnessState`.
 //
 // A `TestScript` is a sequence of pairs (input sequence, output sequence).
-type TestScript<TYPES> = Vec<TestScriptStage<TYPES>>;
+type TestScript<TYPES, S> = Vec<TestScriptStage<TYPES, S>>;
 
-pub struct TestScriptStage<TYPES: NodeType> {
+pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
     pub outputs: Vec<Predicate<HotShotEvent<TYPES>>>,
+    pub asserts: Vec<Predicate<S>>,
 }
 
 pub struct Predicate<INPUT> {
-    pub function: Box<dyn Fn(INPUT) -> bool>,
+    pub function: Box<dyn for<'a> Fn(&'a INPUT) -> bool>,
     pub info: String,
 }
 
@@ -56,7 +57,7 @@ impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
 /// broadcasts all given inputs (in order) and waits to receive all outputs (in order).
 /// It moves on to the next pair only *after* it has finished receiving all expected outputs.
 pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
-    mut script: TestScript<TYPES>,
+    mut script: TestScript<TYPES, S>,
     state: S,
 ) where
     TYPES: NodeType,
@@ -67,17 +68,28 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     let (test_input, task_receiver) = broadcast(1024);
     let (task_input, mut test_receiver) = broadcast(1024);
 
-    Task::new(
+    let mut task = Task::new(
         task_input.clone(),
         task_receiver.clone(),
         registry.clone(),
         state,
-    )
-    .run();
+    );
 
     for stage in script.iter_mut() {
         for input in &mut *stage.inputs {
-            test_input.broadcast_direct(input.clone()).await.unwrap();
+            if S::should_shutdown(&input) {
+                task.state_mut().shutdown().await;
+                break;
+            }
+            if task.state_mut().filter(&input) {
+                continue;
+            }
+            if let Some(res) = S::handle_event(input.clone(), &mut task).await {
+                task.state_mut().handle_result(&res).await;
+                task.state_mut().shutdown().await;
+                break;
+            }
+            // test_input.broadcast_direct(input.clone()).await.unwrap();
             println!("Sending input: {:?}", input);
         }
 
@@ -90,13 +102,22 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
                 let predicate = &expected.function;
                 println!("Received output: {:?}", received_output);
                 assert!(
-                    predicate(received_output),
-                    "Output failed to satisfy {:?} ",
+                    predicate(&received_output),
+                    "Output failed to satisfy {:?}",
                     expected
                 );
             } else {
                 panic!("Timeout while waiting for output: {:?}", expected);
             }
+        }
+
+        for assert in &stage.asserts {
+            let predicate = task.test_state_with(&assert.function);
+//            assert!(
+//                predicate(task.state_mut()),
+//                "Output failed to satisfy {:?}",
+//                assert
+//            );
         }
 
         // Once we've seen all expected outputs, we wait to see

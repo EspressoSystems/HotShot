@@ -166,6 +166,11 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn state_mut(&mut self) -> &mut S {
         &mut self.state
     }
+
+    pub fn test_state_with(&self, predicate: &Box<dyn Fn(&S) -> bool>) -> bool {
+      predicate(&self.state)
+    }
+
     /// Spawn a new task adn register it.  It will get all events not seend
     /// by the task creating it.
     pub async fn run_sub_task(&self, state: S) {
