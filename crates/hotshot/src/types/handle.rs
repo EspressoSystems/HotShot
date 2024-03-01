@@ -7,7 +7,6 @@ use async_lock::RwLock;
 use futures::Stream;
 
 use hotshot_task_impls::events::HotShotEvent;
-#[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::election::Membership;
 
 use hotshot_task::task::TaskRegistry;
