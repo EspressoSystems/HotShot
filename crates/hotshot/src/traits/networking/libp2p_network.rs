@@ -6,7 +6,7 @@ use super::NetworkingMetricsValue;
 use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{bounded, unbounded, Sender, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -39,8 +39,10 @@ use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
 
 use libp2p_networking::{
     network::{
+        spawn_network_node,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+        NetworkNodeType,
     },
     reexport::Multiaddr,
 };
@@ -50,7 +52,10 @@ use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
-use futures::future::join_all;
+use futures::{
+    future::{join_all, Either},
+    FutureExt,
+};
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -103,7 +108,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// this node's public key
     pk: K,
     /// handle to control the network
-    handle: Arc<NetworkNodeHandle<()>>,
+    handle: Arc<NetworkNodeHandle>,
     /// map of known replica peer ids to public keys
     receiver: UnboundedReceiver<M>,
     /// Sender for broadcast messages
@@ -136,6 +141,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     reliability_config: Option<Box<dyn NetworkReliability>>,
     /// if we're a member of the DA committee or not
     is_da: bool,
+    /// Killswitch sender
+    kill_switch: Sender<()>,
 }
 
 /// Networking implementation that uses libp2p
@@ -326,12 +333,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
-        let network_handle = Arc::new(
-            Box::pin(NetworkNodeHandle::<()>::new(config, id))
-                .await
-                .map_err(Into::<NetworkError>::into)?,
-        );
-
+        let (mut rx, network_handle) = spawn_network_node(config.clone(), id)
+            .await
+            .map_err(Into::<NetworkError>::into)?;
         // Make bootstrap mappings known
         if matches!(
             network_handle.config().node_type,
@@ -357,10 +361,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         // if bounded figure out a way to log dropped msgs
         let (sender, receiver) = unbounded();
         let (node_lookup_send, node_lookup_recv) = unbounded();
+        let (kill_tx, kill_rx) = bounded(1);
+        rx.set_kill_switch(kill_rx);
 
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
-                handle: network_handle,
+                handle: Arc::new(network_handle),
                 receiver,
                 sender: sender.clone(),
                 pk,
@@ -381,10 +387,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 #[cfg(feature = "hotshot-testing")]
                 reliability_config,
                 is_da,
+                kill_switch: kill_tx,
             }),
         };
 
-        result.handle_event_generator(sender);
+        result.handle_event_generator(sender, rx);
         result.spawn_node_lookup(node_lookup_recv, STATIC_VER_0_1);
         result.spawn_connect(id, STATIC_VER_0_1);
 
@@ -578,37 +585,66 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
     /// task to propagate messages to handlers
     /// terminates on shut down of network
-    fn handle_event_generator(&self, sender: UnboundedSender<M>) {
+    fn handle_event_generator(
+        &self,
+        sender: UnboundedSender<M>,
+        mut network_rx: NetworkNodeReceiver,
+    ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
-            while let Ok(message) = handle.inner.handle.receiver().recv().await {
-                match &message {
-                    NetworkEvent::IsBootstrapped => {
-                        is_bootstrapped.store(true, Ordering::Relaxed);
-                    }
-                    GossipMsg(raw, _) | DirectRequest(raw, _, _) | DirectResponse(raw, _) => {
-                        match Version::deserialize(raw) {
-                            Ok((VERSION_0_1, _rest)) => {
-                                let _ = handle.handle_recvd_events_0_1(message, &sender).await;
+            let Some(mut kill_switch) = network_rx.take_kill_switch() else {
+                tracing::error!(
+                    "`spawn_handle` was called on a network handle that was already closed"
+                );
+                return;
+            };
+            let mut kill_switch = kill_switch.recv().boxed();
+            let mut next_msg = network_rx.recv().boxed();
+
+            loop {
+                let msg_or_killed = futures::future::select(next_msg, kill_switch).await;
+                match msg_or_killed {
+                    Either::Left((Ok(message), other_stream)) => {
+                        match &message {
+                            NetworkEvent::IsBootstrapped => {
+                                is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            Ok((version, _)) => {
-                                warn!(
-                                        "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                        version, message
+                            GossipMsg(raw, _)
+                            | DirectRequest(raw, _, _)
+                            | DirectResponse(raw, _) => match Version::deserialize(raw) {
+                                Ok((VERSION_0_1, _rest)) => {
+                                    let _ = handle.handle_recvd_events_0_1(message, &sender).await;
+                                }
+                                Ok((version, _)) => {
+                                    warn!(
+                                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                                version, message
+                                            );
+                                }
+                                Err(e) => {
+                                    warn!(
+                                        "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
+                                        e, message
                                     );
-                            }
-                            Err(e) => {
-                                warn!(
-                                    "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
-                                    e, message
-                                );
-                            }
+                                }
+                            },
                         }
+                        // re-set the `kill_switch` for the next loop
+                        kill_switch = other_stream;
+                        // re-set `receiver.recv()` for the next loop
+                        next_msg = network_rx.recv().boxed();
+                    }
+                    Either::Left((Err(_), _)) => {
+                        warn!("Network receiver shut down!");
+                        return;
+                    }
+                    Either::Right(_) => {
+                        warn!("Event Handler shutdown");
+                        return;
                     }
                 }
             }
-            warn!("Network receiver shut down!");
         });
     }
 }
@@ -640,12 +676,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
-            if self.inner.handle.is_killed() {
-                error!("Called shut down when already shut down! Noop.");
-            } else {
-                let _ = self.inner.node_lookup_send.send(None).await;
-                let _ = self.inner.handle.shutdown().await;
-            }
+            let _ = self.inner.handle.shutdown().await;
+            let _ = self.inner.node_lookup_send.send(None).await;
+            let _ = self.inner.kill_switch.send(()).await;
         };
         boxed_sync(closure)
     }
@@ -657,10 +690,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipients: BTreeSet<K>,
         bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed() {
-            return Err(NetworkError::ShutDown);
-        }
-
         self.wait_for_ready().await;
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
@@ -771,10 +800,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipient: K,
         bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed() {
-            return Err(NetworkError::ShutDown);
-        }
-
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
@@ -854,18 +879,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         Self: 'b,
     {
         let closure = async move {
-            if self.inner.handle.is_killed() {
-                Err(NetworkError::ShutDown)
-            } else {
-                let result = self
-                    .inner
-                    .receiver
-                    .drain_at_least_one()
-                    .await
-                    .map_err(|_x| NetworkError::ShutDown)?;
-                self.inner.metrics.incoming_message_count.add(result.len());
-                Ok(result)
-            }
+            let result = self
+                .inner
+                .receiver
+                .drain_at_least_one()
+                .await
+                .map_err(|_x| NetworkError::ShutDown)?;
+            self.inner.metrics.incoming_message_count.add(result.len());
+            Ok(result)
         };
         boxed_sync(closure)
     }
