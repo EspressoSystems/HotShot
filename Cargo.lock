@@ -2734,7 +2734,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.3.3"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2776,7 +2776,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-constants"
-version = "0.3.3"
+version = "0.5.21"
 dependencies = [
  "serde",
  "versioned-binary-serialization",
@@ -2784,7 +2784,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2813,7 +2813,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.3.3"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2856,7 +2856,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.1.1"
+version = "0.5.21"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -2879,7 +2879,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.3.3"
+version = "0.5.21"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -2898,7 +2898,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2910,7 +2910,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2938,7 +2938,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2970,7 +2970,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing-macros"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "ark-bls12-381",
  "async-compatibility-layer",
@@ -2999,7 +2999,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -3048,7 +3048,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-utils"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "bincode",
  "hotshot-constants",
@@ -3056,7 +3056,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.1.1"
+version = "0.5.21"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -3979,7 +3979,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.1.0"
+version = "0.5.21"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -6498,8 +6498,8 @@ dependencies = [
 
 [[package]]
 name = "surf-disco"
-version = "0.4.6"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=adding_vbs_support#e5cfa4b81b7d2dececb7ed20933067d73c80105e"
+version = "0.4.7"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.7#070e18d1daf0c9783e009a1a3b7f8b28b4546e24"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -6757,8 +6757,8 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.4.6"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?branch=adding_vbs_support#7173ae0db08f37e5b9ca84c8004f4f15195cbbf8"
+version = "0.4.7"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.7#1f8515bde918b9e2c50875a68dfa0e23b8167579"
 dependencies = [
  "anyhow",
  "async-std",
@@ -7420,7 +7420,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "versioned-binary-serialization"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?branch=main#4e4695bf0b77ab43700bf625fd4489151f189527"
+source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?tag=0.1.0#6b5bf0c0b74f8384c940880d5a988d5ec757de3e"
 dependencies = [
  "anyhow",
  "bincode",

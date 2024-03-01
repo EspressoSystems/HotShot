@@ -1,10 +1,10 @@
 [package]
-authors = ["Espresso Systems <hello@espressosys.com>"]
+authors = { workspace = true }
 description = "Accompanying utilities used by hotshot."
-edition = "2021"
+edition = { workspace = true }
 name = "hotshot-utils"
 readme = "../README.md"
-version = "0.1.0"
+version = { workspace = true }
 
 [dependencies]
 bincode = { workspace = true }

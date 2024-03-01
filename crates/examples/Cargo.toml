@@ -1,10 +1,10 @@
 [package]
-authors = ["Espresso Systems <hello@espressosys.com>"]
+authors = { workspace = true }
 description = "HotShot Examples and binaries"
-edition = "2021"
+edition = { workspace = true }
 name = "hotshot-examples"
 readme = "README.md"
-version = "0.3.3"
+version = { workspace = true }
 rust-version = "1.65.0"
 
 [features]
@@ -92,11 +92,11 @@ dashmap = "5.5.1"
 either = { workspace = true }
 embed-doc-image = "0.1.4"
 futures = { workspace = true }
-hotshot-web-server = { version = "0.1.1", path = "../web_server", default-features = false }
-hotshot-orchestrator = { version = "0.1.1", path = "../orchestrator", default-features = false }
-hotshot-types = { path = "../types", version = "0.1.0", default-features = false }
+hotshot-web-server = { version = "0.5.21", path = "../web_server", default-features = false }
+hotshot-orchestrator = { version = "0.5.21", path = "../orchestrator", default-features = false }
+hotshot-types = { path = "../types", version = "0.5.21", default-features = false }
 hotshot-utils = { path = "../utils" }
-hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.21", default-features = false }
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }

@@ -1,9 +1,9 @@
 [package]
 description = "Libp2p Networking Layer"
 name = "libp2p-networking"
-version = "0.1.0"
-edition = "2021"
-authors = ["Espresso Systems <hello@espressosys.com>"]
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 

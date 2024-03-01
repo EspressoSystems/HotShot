@@ -1,9 +1,9 @@
 [package]
-authors = ["Espresso Systems <hello@espressosys.com>"]
+authors = { workspace = true }
 description = "Async task implementations for consensus"
-edition = "2021"
+edition = { workspace = true }
 name = "hotshot-task-impls"
-version = "0.1.0"
+version = { workspace = true }
 
 [dependencies]
 async-compatibility-layer = { workspace = true }
