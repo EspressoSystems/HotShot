@@ -52,6 +52,19 @@ where
     }
 }
 
+type ConsensusTaskTestState =
+    ConsensusTaskState<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>;
+
+pub fn consensus_predicate(
+    function: Box<dyn for<'a> Fn(&'a ConsensusTaskTestState) -> bool>,
+    info: &str,
+) -> Predicate<ConsensusTaskTestState> {
+    Predicate {
+        function: function,
+        info: info.to_string(),
+    }
+}
+
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -103,7 +116,8 @@ async fn test_upgrade_task() {
     };
 
     let (proposals, votes) =
-        build_quorum_proposals_with_upgrade(&handle, Some(upgrade_data.clone()), &public_key, 2, 4).await;
+        build_quorum_proposals_with_upgrade(&handle, Some(upgrade_data.clone()), &public_key, 3, 6)
+            .await;
 
     let view_1 = TestScriptStage {
         inputs: vec![
@@ -117,7 +131,10 @@ async fn test_upgrade_task() {
             exact(ViewChange(ViewNumber::new(1))),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+            "expected no decided_upgrade_cert",
+        )],
     };
 
     let view_2 = TestScriptStage {
@@ -130,7 +147,10 @@ async fn test_upgrade_task() {
             ),
         ],
         outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
-        asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+            "expected no decided_upgrade_cert",
+        )],
     };
 
     let view_3 = TestScriptStage {
@@ -142,7 +162,10 @@ async fn test_upgrade_task() {
             ),
         ],
         outputs: vec![exact(ViewChange(ViewNumber::new(3))), leaf_decided()],
-        asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+            "expected a decided_upgrade_cert",
+        )],
     };
 
     let view_4 = TestScriptStage {
@@ -154,10 +177,28 @@ async fn test_upgrade_task() {
             ),
         ],
         outputs: vec![exact(ViewChange(ViewNumber::new(4))), leaf_decided()],
-        asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+            "expected a decided_upgrade_cert",
+        )],
     };
 
-    let script = vec![view_1, view_2, view_3, view_4];
+    let view_5 = TestScriptStage {
+        inputs: vec![
+            ViewChange(ViewNumber::new(5)),
+            QuorumProposalRecv(
+                proposals[4].clone(),
+                quorum_membership.get_leader(ViewNumber::new(5)),
+            ),
+        ],
+        outputs: vec![exact(ViewChange(ViewNumber::new(5))), leaf_decided()],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_some()),
+            "expected a decided_upgrade_cert",
+        )],
+    };
+
+    let script = vec![view_1, view_2, view_3, view_4, view_5];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -167,9 +208,9 @@ async fn test_upgrade_task() {
 
     inject_consensus_polls(&consensus_state).await;
 
-//    assert_eq!(consensus_state.upgrade_cert, None);
+    //    assert_eq!(consensus_state.upgrade_cert, None);
 
     run_test_script(script, consensus_state).await;
-    
-//    assert_eq!(consensus_state.upgrade_cert.unwrap().data, upgrade_data);
+
+    //    assert_eq!(consensus_state.upgrade_cert.unwrap().data, upgrade_data);
 }

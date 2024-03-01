@@ -74,8 +74,8 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         registry.clone(),
         state,
     );
-
-    for stage in script.iter_mut() {
+    
+    for (stage_number, stage) in script.iter_mut().enumerate() {
         for input in &mut *stage.inputs {
             if S::should_shutdown(&input) {
                 task.state_mut().shutdown().await;
@@ -107,24 +107,23 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
                     expected
                 );
             } else {
-                panic!("Timeout while waiting for output: {:?}", expected);
+                panic!("Timeout while waiting for output at stage {}: {:?}", stage_number, expected);
             }
         }
 
         for assert in &stage.asserts {
-            let predicate = task.test_state_with(&assert.function);
-//            assert!(
-//                predicate(task.state_mut()),
-//                "Output failed to satisfy {:?}",
-//                assert
-//            );
+            assert!(
+                task.test_state_with(&assert.function),
+                "Task state failed assertion at stage {}: {:?}", stage_number,
+                assert
+            );
         }
 
         // Once we've seen all expected outputs, we wait to see
         // if there are any trailing unexpected outputs.
         if let Ok(output) = async_timeout(Duration::from_secs(2), test_receiver.recv_direct()).await
         {
-            panic!("Received unexpected output: {:?}", output);
+            panic!("Received unexpected output at stage {}: {:?}", stage_number, output);
         }
     }
 }
