@@ -14,7 +14,6 @@ slow-tests = []
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 sha3 = "^0.10"
-bincode = { workspace = true }
 commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
