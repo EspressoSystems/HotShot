@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CommitteeConsensusMessage","DataMessage","GeneralConsensusMessage","MessageKind","MessagePurpose","ProcessedCommitteeConsensusMessage","ProcessedGeneralConsensusMessage"],"struct":["Message","Messages","Proposal","SequencingMessage"],"type":["ProcessedSequencingMessage"]};
+window.SIDEBAR_ITEMS = {"enum":["CommitteeConsensusMessage","DataMessage","GeneralConsensusMessage","MessageKind","MessagePurpose"],"struct":["Message","Messages","Proposal","SequencingMessage"]};
