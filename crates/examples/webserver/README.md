@@ -16,13 +16,16 @@ just async_std example validator-webserver -- <ORCHESTRATOR_URL> <ORCHESTRATOR_P
 just async_std example multi-validator-webserver -- <NUM_VALIDATORS> <ORCHESTRATOR_URL> <ORCHESTRATOR_PORT>
 
 I.e. 
-just async_std example webserver -- http://127.0.0.1 9000 
-just async_std example webserver -- http://127.0.0.1 9001 
-just async_std example webserver -- http://127.0.0.1 9002
-just async_std example orchestrator-webserver -- http://127.0.0.1 4444 ./orchestrator/default-run-config.toml 
-just async_std example validator-webserver -- 2 http://127.0.0.1 4444
+just async_std example webserver -- http://127.0.0.1:9000 
+just async_std example webserver -- http://127.0.0.1:9001 
+just async_std example webserver -- http://127.0.0.1:9002
+just async_std example orchestrator-webserver -- http://127.0.0.1:4444 ./crates/orchestrator/run-config.toml 
+just async_std example validator-webserver -- 2 http://127.0.0.1:4444
 
 OR: 
 just async_std example multi-webserver -- 9000 9001 9002
-just async_std example orchestrator-webserver -- http://127.0.0.1 4444 ./orchestrator/default-run-config.toml 
-just async_std example multi-validator-webserver -- 10 http://127.0.0.1 4444
+just async_std example orchestrator-webserver -- http://127.0.0.1:4444 ./crates/orchestrator/run-config.toml 
+just async_std example multi-validator-webserver -- 10 http://127.0.0.1:4444
+
+OR:
+just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml

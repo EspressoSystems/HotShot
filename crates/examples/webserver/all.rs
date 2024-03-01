@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub mod infra;
 
 use async_compatibility_layer::{art::async_spawn, channel::oneshot};
-use clap::Parser;
+use clap::{Arg, Command};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
@@ -32,8 +32,23 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    // use configfile args
-    let args = ConfigArgs::parse();
+    let matches = Command::new("orchestrator")
+        .arg(
+            Arg::new("config_file")
+                .short('c')
+                .long("config_file")
+                .value_name("FILE")
+                .help("Sets a custom config file")
+                .required(true),
+        )
+        .get_matches();
+    let mut args = ConfigArgs { config_file: "./crates/orchestrator/run-config.toml".to_string() };
+    if let Some(config_file_string) = matches.get_one::<String>("config_file"){
+        args = ConfigArgs { 
+            config_file: config_file_string.clone(),
+        };
+        error!("args: {:?}", args);
+    }
     // spawn web servers
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();
