@@ -29,3 +29,5 @@ just async_std example multi-validator-webserver -- 10 http://127.0.0.1:4444
 
 OR:
 just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
+For other argument setting, checkout `read_orchestrator_initialization_config` in `crates/examples/webserver/all.rs`.
+One example is: `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml --total_nodes 15`.

@@ -10,6 +10,7 @@ use crate::{
     types::{DANetwork, NodeImpl, QuorumNetwork},
 };
 use std::net::{IpAddr, Ipv4Addr};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 /// general infra used for this example
@@ -22,16 +23,14 @@ use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::PeerConfig;
 use surf_disco::Url;
 use tracing::error;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
-async fn main() {
-    use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-    setup_logging();
-    setup_backtrace();
-
+fn read_orchestrator_initialization_config() -> NetworkConfig<
+    <TestTypes as NodeType>::SignatureKey,
+    <TestTypes as NodeType>::ElectionConfigType,
+> {
     let matches = Command::new("orchestrator")
         .arg(
             Arg::new("config_file")
@@ -41,6 +40,14 @@ async fn main() {
                 .help("Sets a custom config file")
                 .required(true),
         )
+        .arg(
+            Arg::new("total_nodes")
+                .short('n')
+                .long("total_nodes")
+                .value_name("NUM")
+                .help("Sets the total number of nodes")
+                .required(false),
+        )
         .get_matches();
     let mut args = ConfigArgs { config_file: "./crates/orchestrator/run-config.toml".to_string() };
     if let Some(config_file_string) = matches.get_one::<String>("config_file"){
@@ -49,6 +56,30 @@ async fn main() {
         };
         error!("args: {:?}", args);
     }
+    let mut config: NetworkConfig<
+        <TestTypes as NodeType>::SignatureKey,
+        <TestTypes as NodeType>::ElectionConfigType,
+    > = load_config_from_file::<TestTypes>(&args.config_file);
+
+    if let Some(total_nodes_string) = matches.get_one::<String>("total_nodes"){
+        config.config.total_nodes = total_nodes_string.parse::<NonZeroUsize>().unwrap();
+        config.config.known_nodes_with_stake =
+            vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
+        error!("config.config.total_nodes: {:?}", config.config.total_nodes);
+    }
+
+    config
+}
+
+#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+async fn main() {
+    use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+    setup_logging();
+    setup_backtrace();
+
+    let config = read_orchestrator_initialization_config();
+
     // spawn web servers
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();
@@ -81,23 +112,18 @@ async fn main() {
     });
 
     let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
-
     // web server orchestrator
     async_spawn(run_orchestrator::<
         TestTypes,
         DANetwork,
         QuorumNetwork,
         NodeImpl,
-    >(OrchestratorArgs {
+    >(OrchestratorArgs::<TestTypes> {
         url: orchestrator_url.clone(),
-        config_file: args.config_file.clone(),
+        config: config.clone(),
     }));
 
     // multi validator run
-    let config: NetworkConfig<
-        <TestTypes as NodeType>::SignatureKey,
-        <TestTypes as NodeType>::ElectionConfigType,
-    > = load_config_from_file::<TestTypes>(&args.config_file);
     let mut nodes = Vec::new();
     for _ in 0..(config.config.total_nodes.get()) {
         let orchestrator_url = orchestrator_url.clone();

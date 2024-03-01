@@ -63,17 +63,13 @@ use std::fmt::Debug;
 use std::{fs, time::Instant};
 use tracing::{error, info, warn};
 
-#[derive(Parser, Debug, Clone)]
-#[command(
-    name = "Multi-machine consensus",
-    about = "Simulates consensus among multiple machines"
-)]
+#[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
-pub struct OrchestratorArgs {
+pub struct OrchestratorArgs<TYPES: NodeType> {
     /// The url the orchestrator runs on; this should be in the form of `http://localhost:5555` or `http://0.0.0.0:5555`
     pub url: Url,
     /// The configuration file to be used for this run
-    pub config_file: String,
+    pub config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -128,14 +124,13 @@ pub async fn run_orchestrator<
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
     NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
 >(
-    OrchestratorArgs { url, config_file }: OrchestratorArgs,
+    OrchestratorArgs { url, config }: OrchestratorArgs::<TYPES>,
 ) {
     error!("Starting orchestrator",);
-    let run_config = load_config_from_file::<TYPES>(&config_file);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
-    >(run_config, url)
+    >(config, url)
     .await;
 }
 
