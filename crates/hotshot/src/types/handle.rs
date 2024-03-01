@@ -153,11 +153,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.get_next_view_timeout()
     }
 
-    // Below is for testing only:
-
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     #[allow(clippy::unused_async)] // async for API compatibility reasons
-    #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.hotshot
             .memberships
@@ -165,6 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .get_leader(view_number)
     }
 
+    // Below is for testing only:
     /// Wrapper to get this node's public key
     #[cfg(feature = "hotshot-testing")]
     pub fn get_public_key(&self) -> TYPES::SignatureKey {
