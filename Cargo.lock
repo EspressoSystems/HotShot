@@ -3036,6 +3036,7 @@ dependencies = [
  "either",
  "espresso-systems-common 0.4.1",
  "ethereum-types",
+ "futures",
  "generic-array",
  "hotshot-constants",
  "hotshot-utils",

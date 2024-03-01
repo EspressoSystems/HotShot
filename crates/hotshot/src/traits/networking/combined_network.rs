@@ -7,9 +7,6 @@ use hotshot_constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
-use libp2p_networking::{
-    network::behaviours::request_response::Response, reexport::ResponseChannel,
-};
 use std::{
     collections::{BTreeSet, HashSet},
     hash::Hasher,
@@ -19,7 +16,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 
-use futures::join;
+use futures::{channel::mpsc, join};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -29,7 +26,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseMessage},
+        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -229,18 +226,13 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<ResponseMessage<T>, NetworkError> {
         self.secondary().request_data(request, recipient).await
     }
-    async fn send_response(
+
+    async fn spawn_request_receiver_task(
         &self,
-        response: Message<TYPES>,
-        chan: ResponseChannel<Response>,
-    ) -> Result<(), NetworkError> {
-        self.secondary().send_response(response, chan).await
+    ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
+        self.secondary().spawn_request_receiver_task().await
     }
-    async fn recv_requests(
-        &self,
-    ) -> Result<(Message<TYPES>, ResponseChannel<Response>), NetworkError> {
-        self.secondary().recv_requests().await
-    }
+
     fn pause(&self) {
         self.networks.0.pause();
     }

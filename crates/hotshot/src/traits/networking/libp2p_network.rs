@@ -6,9 +6,9 @@ use super::NetworkingMetricsValue;
 use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{bounded, unbounded, Sender, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{self, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
-use async_lock::RwLock;
+use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
@@ -18,7 +18,7 @@ use hotshot_types::{
     data::ViewNumber,
     traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
+            self, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
             NetworkMsg, ResponseMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
@@ -53,8 +53,9 @@ use snafu::ResultExt;
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
 use futures::{
+    channel::mpsc::{self, channel, Receiver, Sender},
     future::{join_all, Either},
-    FutureExt,
+    FutureExt, SinkExt, StreamExt,
 };
 use std::{
     collections::BTreeSet,
@@ -94,6 +95,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Debug for Libp2pNetwork<M, K> {
     }
 }
 
+/// Locked Option of a receiver for moving the value out of the option
+type TakeReceiver<M> = Mutex<Option<Receiver<(M, ResponseChannel<Response>)>>>;
+
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
@@ -107,7 +111,9 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// Message Receiver
     receiver: UnboundedReceiver<M>,
     /// Receiver for Requests for Data, includes the request and the response chan
-    requests_rx: UnboundedReceiver<(M, ResponseChannel<Response>)>,
+    /// Lock should only be used once to take the channel and move it into the request
+    /// handler task
+    requests_rx: TakeReceiver<M>,
     /// Sender for broadcast messages
     sender: UnboundedSender<M>,
     /// Sender for node lookup (relevant view number, key of node) (None for shutdown)
@@ -139,7 +145,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// if we're a member of the DA committee or not
     is_da: bool,
     /// Killswitch sender
-    kill_switch: Sender<()>,
+    kill_switch: channel::Sender<()>,
 }
 
 /// Networking implementation that uses libp2p
@@ -357,7 +363,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
         let (sender, receiver) = unbounded();
-        let (requests_tx, requests_rx) = unbounded();
+        let (requests_tx, requests_rx) = channel(100);
         let (node_lookup_send, node_lookup_recv) = unbounded();
         let (kill_tx, kill_rx) = bounded(1);
         rx.set_kill_switch(kill_rx);
@@ -366,7 +372,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: Arc::new(network_handle),
                 receiver,
-                requests_rx,
+                requests_rx: Mutex::new(Some(requests_rx)),
                 sender: sender.clone(),
                 pk,
                 bootstrap_addrs_len,
@@ -522,7 +528,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         &self,
         msg: NetworkEvent,
         sender: &UnboundedSender<M>,
-        request_tx: &UnboundedSender<(M, ResponseChannel<Response>)>,
+        mut request_tx: Sender<(M, ResponseChannel<Response>)>,
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
@@ -585,7 +591,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     fn handle_event_generator(
         &self,
         sender: UnboundedSender<M>,
-        request_tx: UnboundedSender<(M, ResponseChannel<Response>)>,
+        request_tx: Sender<(M, ResponseChannel<Response>)>,
         mut network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
@@ -616,7 +622,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                                 match message_version {
                                     Some(VERSION_0_1) => {
                                         let _ = handle
-                                            .handle_recvd_events_0_1(message, &sender, &request_tx)
+                                            .handle_recvd_events_0_1(
+                                                message,
+                                                &sender,
+                                                request_tx.clone(),
+                                            )
                                             .await;
                                     }
                                     Some(version) => {
@@ -692,24 +702,32 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
-    async fn send_response(
+    async fn spawn_request_receiver_task(
         &self,
-        response: M,
-        chan: ResponseChannel<Response>,
-    ) -> Result<(), NetworkError> {
-        self.inner
-            .handle
-            .respond_data(&response, chan)
-            .await
-            .map_err(Into::into)
-    }
+    ) -> Option<mpsc::Receiver<(M, network::ResponseChannel<M>)>> {
+        let Some(mut internal_rx) = self.inner.requests_rx.lock().await.take() else {
+            return None;
+        };
+        let handle = self.inner.handle.clone();
+        let (mut tx, rx) = mpsc::channel(100);
+        async_spawn(async move {
+            while let Some((request, chan)) = internal_rx.next().await {
+                let (response_tx, response_rx) = futures::channel::oneshot::channel();
+                if tx
+                    .send((request, network::ResponseChannel(response_tx)))
+                    .await
+                    .is_err()
+                {
+                    continue;
+                }
+                let Ok(response) = response_rx.await else {
+                    continue;
+                };
+                let _ = handle.respond_data(&response, chan).await;
+            }
+        });
 
-    async fn recv_requests(&self) -> Result<(M, ResponseChannel<Response>), NetworkError> {
-        self.inner
-            .requests_rx
-            .recv()
-            .await
-            .map_err(|_| NetworkError::ShutDown)
+        Some(rx)
     }
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {

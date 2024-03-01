@@ -7,10 +7,8 @@ use async_compatibility_layer::art::async_sleep;
 use async_std::future::TimeoutError;
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use libp2p_networking::{
-    network::{behaviours::request_response::Response, NetworkNodeHandleError},
-    reexport::ResponseChannel,
-};
+use futures::channel::{mpsc, oneshot};
+use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
@@ -242,6 +240,9 @@ pub trait ViewMessage<TYPES: NodeType> {
     fn purpose(&self) -> MessagePurpose;
 }
 
+/// Wraps a oneshot channel for responding to requests
+pub struct ResponseChannel<M: NetworkMsg>(pub oneshot::Sender<M>);
+
 /// A request for some data that the consensus layer is asking for.
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -341,19 +342,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         Err(NetworkError::UnimplementedFeature)
     }
 
-    // TODO make this not libp2p specific
-    /// Get any incoming network Requests.
-    async fn recv_requests(&self) -> Result<(M, ResponseChannel<Response>), NetworkError> {
-        Err(NetworkError::UnimplementedFeature)
-    }
-    // TODO make this not libp2p specific
-    /// Send a response on the channel provided
-    async fn send_response(
-        &self,
-        _response: M,
-        _chan: ResponseChannel<Response>,
-    ) -> Result<(), NetworkError> {
-        Err(NetworkError::UnimplementedFeature)
+    /// Spawn a request task in the given network layer.  If it supports
+    /// Request and responses it will return the receiving end of a channel.
+    /// Requests the network receives will be sent over this channel along
+    /// with a return channel to send the response back to.  
+    ///
+    /// Returns `None`` if network does not support handling requests
+    async fn spawn_request_receiver_task(&self) -> Option<mpsc::Receiver<(M, ResponseChannel<M>)>> {
+        None
     }
 
     /// queues lookup of a node
