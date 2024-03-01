@@ -11,7 +11,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use hotshot_constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1};
+use hotshot_constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1, VERSION_MAJ, VERSION_MIN};
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
@@ -545,7 +545,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
-                let result: Result<M, _> = Serializer::<0, 1>::deserialize(&msg);
+                let result: Result<M, _> =
+                    Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(&msg);
                 if let Ok(result) = result {
                     sender
                         .send(result)
@@ -555,7 +556,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             }
             DirectRequest(msg, _pid, chan) => {
                 let result: Result<M, _> =
-                    Serializer::<0, 1>::deserialize(&msg).context(FailedToSerializeSnafu);
+                    Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(&msg)
+                        .context(FailedToSerializeSnafu);
                 if let Ok(result) = result {
                     sender
                         .send(result)
@@ -574,7 +576,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             }
             DirectResponse(msg, _) => {
                 let _result: Result<M, _> =
-                    Serializer::<0, 1>::deserialize(&msg).context(FailedToSerializeSnafu);
+                    Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(&msg)
+                        .context(FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");

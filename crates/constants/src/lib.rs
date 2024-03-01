@@ -17,11 +17,20 @@ pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 /// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
 pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 
+/// CONSTANT for protocol major version
+pub const VERSION_MAJ: u16 = 0;
+
+/// CONSTANT for protocol major version
+pub const VERSION_MIN: u16 = 1;
+
 /// Constant for protocol version 0.1.
-pub const VERSION_0_1: Version = Version { major: 0, minor: 1 };
+pub const VERSION_0_1: Version = Version {
+    major: VERSION_MAJ,
+    minor: VERSION_MIN,
+};
 
 /// Constant for protocol static version 0.1.
-pub const STATIC_VER_0_1: StaticVersion<0, 1> = StaticVersion;
+pub const STATIC_VER_0_1: StaticVersion<VERSION_MAJ, VERSION_MIN> = StaticVersion;
 
 /// Default Channel Size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;

@@ -12,7 +12,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
-use hotshot_constants::VERSION_0_1;
+use hotshot_constants::{VERSION_0_1, VERSION_MAJ, VERSION_MIN};
 use hotshot_types::{
     boxed_sync,
     message::{Message, MessagePurpose},
@@ -237,7 +237,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         *tx_index += 1;
 
         if let Ok(Some(deserialized_message_inner)) =
-            Serializer::<0, 1>::deserialize::<Option<Message<TYPES>>>(&tx)
+            Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<Option<Message<TYPES>>>(&tx)
         {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
@@ -266,7 +266,9 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let poll_queue = &self.poll_queue_0_1;
-        match Serializer::<0, 1>::deserialize::<Option<Message<TYPES>>>(&message) {
+        match Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<Option<Message<TYPES>>>(
+            &message,
+        ) {
             Ok(Some(deserialized_message_inner)) => {
                 let deserialized_message = RecvMsg {
                     message: Some(deserialized_message_inner),

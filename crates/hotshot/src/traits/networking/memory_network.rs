@@ -12,6 +12,7 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::StreamExt;
+use hotshot_constants::{VERSION_MAJ, VERSION_MIN};
 use hotshot_types::{
     boxed_sync,
     message::Message,
@@ -123,7 +124,7 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
                 while let Some(vec) = task_stream.next().await {
                     trace!(?vec, "Incoming message");
                     // Attempt to decode message
-                    let x = Serializer::<0, 1>::deserialize(&vec);
+                    let x = Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(&vec);
                     match x {
                         Ok(x) => {
                             let ts = task_send.clone();

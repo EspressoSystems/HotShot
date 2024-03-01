@@ -184,10 +184,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hotshot_constants::{VERSION_MAJ, VERSION_MIN};
     use jf_primitives::signatures::{
         bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
         SignatureScheme,
     };
+    use versioned_binary_serialization::{BinarySerializer, Serializer};
 
     macro_rules! test_quorum_certificate {
         ($aggsig:tt) => {
@@ -253,12 +255,18 @@ mod tests {
             // Check the QC and the QCParams can be serialized / deserialized
             assert_eq!(
                 qc,
-                bincode::deserialize(&bincode::serialize(&qc).unwrap()).unwrap()
+                Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(
+                    &Serializer::<VERSION_MAJ, VERSION_MIN>::serialize(&qc).unwrap()
+                )
+                .unwrap()
             );
 
             assert_eq!(
                 qc_pp,
-                bincode::deserialize(&bincode::serialize(&qc_pp).unwrap()).unwrap()
+                Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize(
+                    &Serializer::<VERSION_MAJ, VERSION_MIN>::serialize(&qc_pp).unwrap()
+                )
+                .unwrap()
             );
 
             // bad paths
