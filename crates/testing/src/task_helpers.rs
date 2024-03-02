@@ -2,7 +2,7 @@
 use std::marker::PhantomData;
 
 use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload},
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -17,10 +17,10 @@ use hotshot::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidScheme, ViewNumber},
+    data::{Leaf, QuorumProposal, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
-    simple_vote::{SimpleVote, UpgradeProposalData, UpgradeVote},
+    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
+    simple_vote::{DAData, DAVote, SimpleVote, UpgradeProposalData, UpgradeVote},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},
         consensus_api::ConsensusApi,
@@ -380,7 +380,12 @@ impl Messages {
 
         let (private_key, public_key) = key_pair_for_id(*genesis_view);
 
-        let block_header = TestBlockHeader::genesis(&TestInstanceState {}).0;
+        let payload_commitment = vid_commitment(&Vec::new(), quorum_membership.total_nodes());
+
+        let block_header = TestBlockHeader {
+            block_number: 1,
+            payload_commitment,
+        };
 
         let proposal = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
@@ -395,7 +400,7 @@ impl Messages {
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: Leaf::genesis(&TestInstanceState {}).commit(),
-            block_header: TestBlockHeader::genesis(&TestInstanceState {}).0,
+            block_header: block_header.clone(),
             block_payload: None,
             proposer_id: public_key,
         };
@@ -426,7 +431,7 @@ impl Messages {
             leaf_commit: old.leaf.commit(),
         };
 
-        let (old_private_key, old_public_key) = key_pair_for_id(*view);
+        let (old_private_key, old_public_key) = key_pair_for_id(*old.view);
 
         let (private_key, public_key) = key_pair_for_id(*view);
 
@@ -447,7 +452,7 @@ impl Messages {
             view_number: view,
             justify_qc: quorum_certificate.clone(),
             parent_commitment: old.leaf.commit(),
-            block_header: old.leaf.block_header.clone(),
+            block_header: old.quorum_proposal.data.block_header.clone(),
             block_payload: None,
             proposer_id: public_key,
         };
@@ -455,8 +460,15 @@ impl Messages {
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment.");
 
+        let payload_commitment = vid_commitment(&Vec::new(), self.quorum_membership.total_nodes());
+
+        let block_header = TestBlockHeader {
+            block_number: 1,
+            payload_commitment,
+        };
+
         let proposal = QuorumProposal::<TestTypes> {
-            block_header: old.leaf.block_header.clone(),
+            block_header: block_header.clone(),
             view_number: view,
             justify_qc: quorum_certificate.clone(),
             timeout_certificate: None,
@@ -476,6 +488,30 @@ impl Messages {
             view,
             quorum_membership: old.quorum_membership.clone(),
         }
+    }
+
+    pub fn create_da_certificate(&self) -> DACertificate<TestTypes> {
+        let (private_key, public_key) = key_pair_for_id(*self.view);
+
+        build_da_certificate(
+            &self.quorum_membership,
+            self.view,
+            &public_key,
+            &private_key,
+        )
+    }
+
+    pub fn create_vid_proposal(
+        &self,
+    ) -> (
+        Proposal<TestTypes, VidDisperse<TestTypes>>,
+        <TestTypes as NodeType>::SignatureKey,
+    ) {
+        let (private_key, public_key) = key_pair_for_id(*self.view);
+
+        let vid_proposal = build_vid_proposal(&self.quorum_membership, self.view, &private_key);
+
+        (vid_proposal, public_key)
     }
 
     pub fn create_vote(
@@ -742,6 +778,56 @@ pub fn vid_init<TYPES: NodeType>(
     let srs = hotshot_types::data::test_srs(num_committee);
 
     VidScheme::new(chunk_size, num_committee, srs).unwrap()
+}
+
+pub fn build_vid_proposal(
+    quorum_membership: &<TestTypes as NodeType>::Membership,
+    view_number: ViewNumber,
+    private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
+) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
+    let vid = vid_init::<TestTypes>(&quorum_membership, view_number);
+    let transactions = vec![];
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let payload_commitment = vid_disperse.commit;
+
+    let vid_signature =
+        <TestTypes as NodeType>::SignatureKey::sign(&private_key, payload_commitment.as_ref())
+            .expect("Failed to sign payload commitment");
+    let vid_disperse = VidDisperse::from_membership(
+        view_number,
+        vid.disperse(&encoded_transactions).unwrap(),
+        &quorum_membership.clone().into(),
+    );
+
+    Proposal {
+        data: vid_disperse.clone(),
+        signature: vid_signature,
+        _pd: PhantomData,
+    }
+}
+
+pub fn build_da_certificate(
+    quorum_membership: &<TestTypes as NodeType>::Membership,
+    view_number: ViewNumber,
+    public_key: &<TestTypes as NodeType>::SignatureKey,
+    private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
+) -> DACertificate<TestTypes> {
+    let block = <TestBlockPayload as TestableBlock>::genesis();
+
+    let da_payload_commitment = vid_commitment(&Vec::new(), quorum_membership.total_nodes());
+
+    let da_data = DAData {
+        payload_commit: da_payload_commitment,
+    };
+
+    build_cert::<TestTypes, DAData, DAVote<TestTypes>, DACertificate<TestTypes>>(
+        da_data,
+        &quorum_membership,
+        view_number,
+        &public_key,
+        &private_key,
+    )
 }
 
 pub async fn build_vote(

@@ -84,25 +84,7 @@ async fn test_upgrade_task() {
     let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let payload_commitment = vid_disperse.commit;
     let (private_key, public_key) = key_pair_for_id(1);
-
-    let vid_signature =
-        <TestTypes as NodeType>::SignatureKey::sign(&private_key, payload_commitment.as_ref())
-            .expect("Failed to sign payload commitment");
-    let vid_disperse_inner = VidDisperse::from_membership(
-        ViewNumber::new(2),
-        vid_disperse,
-        &quorum_membership.clone().into(),
-    );
-    // TODO for now reuse the same block payload commitment and signature as DA committee
-    // https://github.com/EspressoSystems/jellyfish/issues/369
-    let vid_proposal = Proposal {
-        data: vid_disperse_inner.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    };
 
     let current_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -117,6 +99,8 @@ async fn test_upgrade_task() {
 
     let mut proposals = Vec::new();
     let mut votes = Vec::new();
+    let mut dacs = Vec::new();
+    let mut vids = Vec::new();
 
     let gen = MessagesGenerator::new(quorum_membership.clone());
 
@@ -126,6 +110,8 @@ async fn test_upgrade_task() {
     for g in gen.take(10) {
       proposals.push(g.quorum_proposal.clone());
       votes.push(Messages::create_vote(&g, &handle));
+      dacs.push(g.create_da_certificate().clone());
+      vids.push(g.create_vid_proposal().clone());
     }
 
 //   let (_, votes) =
@@ -155,11 +141,12 @@ async fn test_upgrade_task() {
     let view_2 = TestScriptStage {
         inputs: vec![
             ViewChange(ViewNumber::new(2)),
-            VidDisperseRecv(vid_proposal.clone(), public_key),
             QuorumProposalRecv(
                 proposals[1].clone(),
                 quorum_membership.get_leader(ViewNumber::new(2)),
             ),
+            DACRecv(dacs[1].clone()),
+            VidDisperseRecv(vids[1].0.clone(), vids[1].1.clone()),
         ],
         outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
         asserts: vec![],
