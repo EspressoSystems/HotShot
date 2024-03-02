@@ -4,8 +4,9 @@ pub use crate::utils::{View, ViewInner};
 use displaydoc::Display;
 
 use crate::{
-    data::Leaf,
+    data::{Leaf, VidDisperse},
     error::HotShotError,
+    message::Proposal,
     simple_certificate::{DACertificate, QuorumCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
@@ -34,6 +35,12 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// The validated states that are currently loaded in memory.
     pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+
+    /// All the VID shares we've received for current and future views.
+    /// In the future we will need a different struct similar to VidDisperse except
+    /// it stores only one share.
+    /// TODO <https://github.com/EspressoSystems/HotShot/issues/1732>
+    pub vid_shares: BTreeMap<TYPES::Time, Proposal<TYPES, VidDisperse<TYPES>>>,
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
@@ -318,6 +325,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             });
         self.validated_state_map = self.validated_state_map.split_off(&new_anchor_view);
         self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
+        self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
     }
 
     /// Gets the last decided leaf.

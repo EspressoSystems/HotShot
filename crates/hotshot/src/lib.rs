@@ -229,6 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Consensus {
             instance_state,
             validated_state_map,
+            vid_shares: BTreeMap::new(),
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,

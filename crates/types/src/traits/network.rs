@@ -17,7 +17,6 @@ use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::ViewNumber,
     message::{MessagePurpose, SequencingMessage},
-    vid::VidCommitment,
     BoxSyncFuture,
 };
 use async_compatibility_layer::channel::UnboundedSendError;
@@ -247,8 +246,6 @@ pub struct ResponseChannel<M: NetworkMsg>(pub oneshot::Sender<M>);
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct DataRequest<TYPES: NodeType> {
-    /// Hotshot key of who to send the request to
-    pub recipient: TYPES::SignatureKey,
     /// Request
     pub request: RequestKind<TYPES>,
     /// View this message is for
@@ -259,7 +256,7 @@ pub struct DataRequest<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RequestKind<TYPES: NodeType> {
     /// Request VID data by our key and the VID commitment
-    VID(VidCommitment, TYPES::SignatureKey),
+    VID(TYPES::Time, TYPES::SignatureKey),
     /// Request a DA proposal for a certain view
     DAProposal(TYPES::Time),
 }
