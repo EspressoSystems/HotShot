@@ -74,8 +74,9 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         registry.clone(),
         state,
     );
-    
+
     for (stage_number, stage) in script.iter_mut().enumerate() {
+        tracing::debug!("Beginning test stage {}", stage_number);
         for input in &mut *stage.inputs {
             if S::should_shutdown(&input) {
                 task.state_mut().shutdown().await;
@@ -89,32 +90,37 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
                 task.state_mut().shutdown().await;
                 break;
             }
-            // test_input.broadcast_direct(input.clone()).await.unwrap();
-            println!("Sending input: {:?}", input);
+            tracing::debug!("Test sent: {:?}", input);
         }
 
         for expected in &stage.outputs {
+            let timeout_error = format!(
+                "Timeout while waiting for output at stage {}: {:?}",
+                stage_number, expected
+            );
+
             if let Ok(received_output) =
                 async_timeout(Duration::from_secs(2), test_receiver.recv_direct())
                     .await
-                    .unwrap()
+                    .expect(&timeout_error)
             {
                 let predicate = &expected.function;
-                println!("Received output: {:?}", received_output);
+                tracing::debug!("Test received: {:?}", received_output);
                 assert!(
                     predicate(&received_output),
                     "Output failed to satisfy {:?}",
                     expected
                 );
             } else {
-                panic!("Timeout while waiting for output at stage {}: {:?}", stage_number, expected);
+                panic!("{}", timeout_error);
             }
         }
 
         for assert in &stage.asserts {
             assert!(
                 task.test_state_with(&assert.function),
-                "Task state failed assertion at stage {}: {:?}", stage_number,
+                "TaskState assertion failed at stage {}: {:?}",
+                stage_number,
                 assert
             );
         }
@@ -123,7 +129,10 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
         // if there are any trailing unexpected outputs.
         if let Ok(output) = async_timeout(Duration::from_secs(2), test_receiver.recv_direct()).await
         {
-            panic!("Received unexpected output at stage {}: {:?}", stage_number, output);
+            panic!(
+                "Received unexpected output at stage {}: {:?}",
+                stage_number, output
+            );
         }
     }
 }
