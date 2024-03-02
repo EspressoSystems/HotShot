@@ -10,7 +10,7 @@ use hotshot_task_impls::{
     harness::Predicate,
 };
 use hotshot_testing::task_helpers::{
-    build_quorum_proposals_with_upgrade, key_pair_for_id, vid_init, Messages, MessagesGenerator
+    build_quorum_proposals_with_upgrade, key_pair_for_id, vid_init, Messages, MessagesGenerator,
 };
 use hotshot_types::{
     data::{VidDisperse, VidSchemeTrait, ViewNumber},
@@ -43,6 +43,22 @@ where
     let info = "LeafDecided".to_string();
     let function = |e: &_| match e {
         LeafDecided(_) => true,
+        _ => false,
+    };
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
+pub fn quorum_vote_send<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "QuorumVoteSend".to_string();
+    let function = |e: &_| match e {
+        QuorumVoteSend(_) => true,
         _ => false,
     };
 
@@ -104,20 +120,12 @@ async fn test_upgrade_task() {
 
     let gen = MessagesGenerator::new(quorum_membership.clone());
 
-//    proposals.push(gen.quorum_proposal.clone());
-//    votes.push(Generator::create_vote(&gen, &handle));
-
     for g in gen.take(10) {
-      proposals.push(g.quorum_proposal.clone());
-      votes.push(Messages::create_vote(&g, &handle));
-      dacs.push(g.create_da_certificate().clone());
-      vids.push(g.create_vid_proposal().clone());
+        proposals.push(g.quorum_proposal.clone());
+        votes.push(Messages::create_vote(&g, &handle));
+        dacs.push(g.create_da_certificate().clone());
+        vids.push(g.create_vid_proposal().clone());
     }
-
-//   let (_, votes) =
-//       build_quorum_proposals_with_upgrade(&handle, Some(upgrade_data.clone()), &public_key, 3, 6)
-//           .await;
-
 
     let view_1 = TestScriptStage {
         inputs: vec![
@@ -148,7 +156,10 @@ async fn test_upgrade_task() {
             DACRecv(dacs[1].clone()),
             VidDisperseRecv(vids[1].0.clone(), vids[1].1.clone()),
         ],
-        outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumVoteSend(votes[1].clone())),
+        ],
         asserts: vec![],
         // asserts: vec![consensus_predicate(
         //     Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
@@ -163,8 +174,14 @@ async fn test_upgrade_task() {
                 proposals[2].clone(),
                 quorum_membership.get_leader(ViewNumber::new(3)),
             ),
+            DACRecv(dacs[2].clone()),
+            VidDisperseRecv(vids[2].0.clone(), vids[2].1.clone()),
         ],
-        outputs: vec![exact(ViewChange(ViewNumber::new(3))), leaf_decided()],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(3))),
+            leaf_decided(),
+            exact(QuorumVoteSend(votes[2].clone())),
+        ],
         asserts: vec![],
         // asserts: vec![consensus_predicate(
         //     Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
@@ -179,13 +196,19 @@ async fn test_upgrade_task() {
                 proposals[3].clone(),
                 quorum_membership.get_leader(ViewNumber::new(4)),
             ),
+            DACRecv(dacs[3].clone()),
+            VidDisperseRecv(vids[3].0.clone(), vids[3].1.clone()),
         ],
-        outputs: vec![exact(ViewChange(ViewNumber::new(4))), leaf_decided()],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(4))),
+            leaf_decided(),
+            exact(QuorumVoteSend(votes[3].clone())),
+        ],
         asserts: vec![],
-//        asserts: vec![consensus_predicate(
-//            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
-//            "expected a decided_upgrade_cert",
-//        )],
+        //        asserts: vec![consensus_predicate(
+        //            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+        //            "expected a decided_upgrade_cert",
+        //        )],
     };
 
     let view_5 = TestScriptStage {
@@ -198,10 +221,10 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![exact(ViewChange(ViewNumber::new(5))), leaf_decided()],
         asserts: vec![],
-//        asserts: vec![consensus_predicate(
-//            Box::new(|state: &_| state.decided_upgrade_cert.is_some()),
-//            "expected a decided_upgrade_cert",
-//        )],
+        //        asserts: vec![consensus_predicate(
+        //            Box::new(|state: &_| state.decided_upgrade_cert.is_some()),
+        //            "expected a decided_upgrade_cert",
+        //        )],
     };
 
     let script = vec![view_1, view_2, view_3, view_4, view_5];
