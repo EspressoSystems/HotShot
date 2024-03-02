@@ -66,7 +66,10 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     let registry = Arc::new(TaskRegistry::default());
 
     let (test_input, task_receiver) = broadcast(1024);
-    let (task_input, mut test_receiver) = broadcast(1024);
+    // let (task_input, mut test_receiver) = broadcast(1024);
+
+    let task_input = test_input.clone();
+    let mut test_receiver = task_receiver.clone();
 
     let mut task = Task::new(
         task_input.clone(),
@@ -78,19 +81,13 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
         for input in &mut *stage.inputs {
-            if S::should_shutdown(&input) {
-                task.state_mut().shutdown().await;
-                break;
+            if !task.state_mut().filter(&input) {
+                tracing::debug!("Test sent: {:?}", input);
+
+                if let Some(res) = S::handle_event(input.clone(), &mut task).await {
+                    task.state_mut().handle_result(&res).await;
+                }
             }
-            if task.state_mut().filter(&input) {
-                continue;
-            }
-            if let Some(res) = S::handle_event(input.clone(), &mut task).await {
-                task.state_mut().handle_result(&res).await;
-                task.state_mut().shutdown().await;
-                break;
-            }
-            tracing::debug!("Test sent: {:?}", input);
         }
 
         for expected in &stage.outputs {

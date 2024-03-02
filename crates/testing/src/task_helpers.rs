@@ -17,7 +17,9 @@ use hotshot::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber},
+    data::{
+        Leaf, QuorumProposal, VidCommitment, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber,
+    },
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
     simple_vote::{DAData, DAVote, SimpleVote, UpgradeProposalData, UpgradeVote},
@@ -338,49 +340,95 @@ async fn build_quorum_proposal_and_signature(
     (proposal, signature)
 }
 
-pub struct MessagesGenerator {
-    pub current_messages: Option<Messages>,
+pub struct TestViewGenerator {
+    pub current_view: Option<TestView>,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
 }
 
 #[derive(Clone)]
-pub struct Messages {
+pub struct TestView {
     pub quorum_proposal: Proposal<TestTypes, QuorumProposal<TestTypes>>,
     pub leaf: Leaf<TestTypes>,
-    pub view: ViewNumber,
+    pub view_number: ViewNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
+    pub vid_proposal: (
+        Proposal<TestTypes, VidDisperse<TestTypes>>,
+        <TestTypes as NodeType>::SignatureKey,
+    ),
+    pub da_certificate: DACertificate<TestTypes>,
+    pub transactions: Vec<TestTransaction>,
+    upgrade_data: Option<UpgradeProposalData<TestTypes>>,
 }
 
-impl Iterator for MessagesGenerator {
-    type Item = Messages;
+impl Iterator for TestViewGenerator {
+    type Item = TestView;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(messages) = &self.current_messages {
-            self.current_messages = Some(Messages::next_view(&messages));
+        if let Some(view) = &self.current_view {
+            self.current_view = Some(TestView::next_view(&view));
         } else {
-            self.current_messages = Some(Messages::genesis(&self.quorum_membership));
+            self.current_view = Some(TestView::genesis(&self.quorum_membership));
         }
 
-        self.current_messages.clone()
+        self.current_view.clone()
     }
 }
 
-impl MessagesGenerator {
-    pub fn new(quorum_membership: <TestTypes as NodeType>::Membership) -> Self {
-        MessagesGenerator {
-            current_messages: None,
+impl TestViewGenerator {
+    pub fn generate(quorum_membership: <TestTypes as NodeType>::Membership) -> Self {
+        TestViewGenerator {
+            current_view: None,
             quorum_membership,
         }
     }
+
+    pub fn add_upgrade(&mut self, upgrade_proposal_data: UpgradeProposalData<TestTypes>) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                upgrade_data: Some(upgrade_proposal_data),
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach upgrade proposal to the genesis view.");
+        }
+    }
+
+    pub fn add_transactions(&mut self, transactions: Vec<TestTransaction>) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                transactions,
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach transactions to the genesis view.");
+        }
+    }
 }
 
-impl Messages {
+impl TestView {
     pub fn genesis(quorum_membership: &<TestTypes as NodeType>::Membership) -> Self {
         let genesis_view = ViewNumber::new(1);
 
+        let transactions = Vec::new();
+
         let (private_key, public_key) = key_pair_for_id(*genesis_view);
 
-        let payload_commitment = vid_commitment(&Vec::new(), quorum_membership.total_nodes());
+        let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
+
+        let vid_proposal = build_vid_proposal(
+            &quorum_membership,
+            genesis_view,
+            transactions.clone(),
+            &private_key,
+        );
+
+        let da_certificate = build_da_certificate(
+            &quorum_membership,
+            genesis_view,
+            transactions.clone(),
+            &public_key,
+            &private_key,
+        );
 
         let block_header = TestBlockHeader {
             block_number: 1,
@@ -401,7 +449,11 @@ impl Messages {
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: Leaf::genesis(&TestInstanceState {}).commit(),
             block_header: block_header.clone(),
-            block_payload: None,
+            // Note: this field is not relevant in calculating the leaf commitment.
+            block_payload: Some(TestBlockPayload {
+                transactions: transactions.clone(),
+            }),
+            // Note: this field is not relevant in calculating the leaf commitment.
             proposer_id: public_key,
         };
 
@@ -414,26 +466,50 @@ impl Messages {
             _pd: PhantomData,
         };
 
-        Messages {
+        TestView {
             quorum_proposal,
             leaf,
-            view: genesis_view,
+            view_number: genesis_view,
             quorum_membership: quorum_membership.clone(),
+            vid_proposal: (vid_proposal, public_key),
+            da_certificate,
+            transactions,
+            upgrade_data: None,
         }
     }
 
     pub fn next_view(&self) -> Self {
         let old = self;
+        let old_view = old.view_number;
+        let next_view = old_view + 1;
 
-        let view = old.view + 1;
+        let quorum_membership = &self.quorum_membership;
+        let transactions = &self.transactions;
 
         let quorum_data = QuorumData {
             leaf_commit: old.leaf.commit(),
         };
 
-        let (old_private_key, old_public_key) = key_pair_for_id(*old.view);
+        let (old_private_key, old_public_key) = key_pair_for_id(*old_view);
 
-        let (private_key, public_key) = key_pair_for_id(*view);
+        let (private_key, public_key) = key_pair_for_id(*next_view);
+
+        let payload_commitment = da_payload_commitment(&quorum_membership, transactions.clone());
+
+        let vid_proposal = build_vid_proposal(
+            &quorum_membership,
+            next_view,
+            transactions.clone(),
+            &private_key,
+        );
+
+        let da_certificate = build_da_certificate(
+            &quorum_membership,
+            next_view,
+            transactions.clone(),
+            &public_key,
+            &private_key,
+        );
 
         let quorum_certificate = build_cert::<
             TestTypes,
@@ -442,38 +518,59 @@ impl Messages {
             QuorumCertificate<TestTypes>,
         >(
             quorum_data,
-            &old.quorum_membership,
-            old.view,
+            &quorum_membership,
+            old_view,
             &old_public_key,
             &old_private_key,
         );
 
+        let upgrade_certificate = if let Some(ref data) = self.upgrade_data {
+            let cert = build_cert::<
+                TestTypes,
+                UpgradeProposalData<TestTypes>,
+                UpgradeVote<TestTypes>,
+                UpgradeCertificate<TestTypes>,
+            >(
+                data.clone(),
+                &quorum_membership,
+                next_view,
+                &public_key,
+                &private_key,
+            );
+
+            Some(cert)
+        } else {
+            None
+        };
+
+        let block_header = TestBlockHeader {
+            block_number: *next_view,
+            payload_commitment,
+        };
+
         let leaf = Leaf {
-            view_number: view,
+            view_number: next_view,
             justify_qc: quorum_certificate.clone(),
             parent_commitment: old.leaf.commit(),
-            block_header: old.quorum_proposal.data.block_header.clone(),
-            block_payload: None,
+            block_header: block_header.clone(),
+            // Note: this field is not relevant in calculating the leaf commitment.
+            block_payload: Some(TestBlockPayload {
+                transactions: transactions.clone(),
+            }),
+            // Note: this field is not relevant in calculating the leaf commitment.
             proposer_id: public_key,
         };
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment.");
 
-        let payload_commitment = vid_commitment(&Vec::new(), self.quorum_membership.total_nodes());
-
-        let block_header = TestBlockHeader {
-            block_number: 1,
-            payload_commitment,
-        };
-
         let proposal = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
-            view_number: view,
+            view_number: next_view,
             justify_qc: quorum_certificate.clone(),
             timeout_certificate: None,
-            upgrade_certificate: None,
-            proposer_id: leaf.clone().proposer_id,
+            upgrade_certificate,
+            proposer_id: public_key,
         };
 
         let quorum_proposal = Proposal {
@@ -482,36 +579,16 @@ impl Messages {
             _pd: PhantomData,
         };
 
-        Messages {
+        TestView {
             quorum_proposal,
             leaf,
-            view,
-            quorum_membership: old.quorum_membership.clone(),
+            view_number: next_view,
+            quorum_membership: quorum_membership.clone(),
+            vid_proposal: (vid_proposal, public_key),
+            da_certificate,
+            transactions: transactions.clone(),
+            upgrade_data: None,
         }
-    }
-
-    pub fn create_da_certificate(&self) -> DACertificate<TestTypes> {
-        let (private_key, public_key) = key_pair_for_id(*self.view);
-
-        build_da_certificate(
-            &self.quorum_membership,
-            self.view,
-            &public_key,
-            &private_key,
-        )
-    }
-
-    pub fn create_vid_proposal(
-        &self,
-    ) -> (
-        Proposal<TestTypes, VidDisperse<TestTypes>>,
-        <TestTypes as NodeType>::SignatureKey,
-    ) {
-        let (private_key, public_key) = key_pair_for_id(*self.view);
-
-        let vid_proposal = build_vid_proposal(&self.quorum_membership, self.view, &private_key);
-
-        (vid_proposal, public_key)
     }
 
     pub fn create_vote(
@@ -522,209 +599,12 @@ impl Messages {
             QuorumData {
                 leaf_commit: self.leaf.commit(),
             },
-            self.view,
+            self.view_number,
             &handle.public_key(),
             &handle.private_key(),
         )
         .expect("Failed to generate a signature on QuorumVote")
     }
-}
-
-/// build a quorum proposal and signature
-#[allow(clippy::too_many_lines)]
-pub async fn build_quorum_proposals_with_upgrade(
-    handle: &SystemContextHandle<TestTypes, MemoryImpl>,
-    upgrade_data: Option<UpgradeProposalData<TestTypes>>,
-    public_key: &BLSPubKey,
-    view: u64,
-    count: u64,
-) -> (
-    Vec<Proposal<TestTypes, QuorumProposal<TestTypes>>>,
-    Vec<QuorumVote<TestTypes>>,
-) {
-    let mut proposals = Vec::new();
-    let mut votes = Vec::new();
-    // build the genesis view
-    let genesis_consensus = handle.get_consensus();
-    // let cur_consensus = genesis_consensus.upgradable_read().await;
-    let mut consensus = genesis_consensus.write().await; // RwLockUpgradableReadGuard::upgrade(cur_consensus).await;
-                                                         // parent_view_number should be equal to 0
-    let parent_view_number = &consensus.high_qc.get_view_number();
-    assert_eq!(parent_view_number.get_u64(), 0);
-    let Some(parent_view) = consensus.validated_state_map.get(parent_view_number) else {
-        panic!("Couldn't find high QC parent in state map.");
-    };
-    let Some(leaf_view_0) = parent_view.get_leaf_commitment() else {
-        panic!("Parent of high QC points to a view without a proposal");
-    };
-    println!("leaf commitment {:?}", leaf_view_0);
-    let Some(leaf_view_0) = consensus.saved_leaves.get(&leaf_view_0) else {
-        panic!("Failed to find high QC parent.");
-    };
-    let parent_leaf = leaf_view_0.clone();
-    println!("parent leaf {:?}", parent_leaf);
-    assert_eq!(parent_leaf, Leaf::genesis(&TestInstanceState {}));
-
-    // every event input is seen on the event stream in the output.
-    let block = <TestBlockPayload as TestableBlock>::genesis();
-    let payload_commitment = vid_commitment(
-        &block.encode().unwrap().collect(),
-        handle.hotshot.memberships.quorum_membership.total_nodes(),
-    );
-    let mut parent_state = Arc::new(<TestValidatedState as ValidatedState>::from_header(
-        &parent_leaf.block_header,
-    ));
-    assert_eq!(
-        parent_leaf.block_header,
-        TestBlockHeader::genesis(&TestInstanceState {}).0
-    );
-    let block_header = TestBlockHeader::new(
-        &*parent_state,
-        &TestInstanceState {},
-        &parent_leaf.block_header,
-        payload_commitment,
-        (),
-    );
-    // current leaf that can be re-assigned everytime when entering a new view
-    let mut leaf = Leaf {
-        view_number: ViewNumber::new(1),
-        justify_qc: consensus.high_qc.clone(),
-        parent_commitment: parent_leaf.commit(),
-        block_header: block_header.clone(),
-        block_payload: None,
-        proposer_id: *handle.public_key(),
-    };
-
-    let (private_key, public_key) = key_pair_for_id(1);
-    let mut signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
-        .expect("Failed to sign leaf commitment!");
-    let mut proposal = QuorumProposal::<TestTypes> {
-        block_header: block_header.clone(),
-        view_number: ViewNumber::new(1),
-        justify_qc: QuorumCertificate::genesis(),
-        timeout_certificate: None,
-        upgrade_certificate: None,
-        proposer_id: leaf.proposer_id,
-    };
-    let vote = QuorumVote::<TestTypes>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(),
-        },
-        ViewNumber::new(1),
-        &public_key,
-        &private_key,
-    )
-    .unwrap();
-    votes.push(vote);
-
-    proposals.push(Proposal {
-        data: proposal,
-        signature,
-        _pd: PhantomData,
-    });
-
-    // Only view 2 is tested, higher views are not tested
-    for cur_view in 2..=(view + count) {
-        let (private_key, public_key) = key_pair_for_id(cur_view);
-        let state_new_view = Arc::new(
-            parent_state
-                .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
-                .unwrap(),
-        );
-        // save states for the previous view to pass all the qc checks
-        // In the long term, we want to get rid of this, do not manually update consensus state
-        // consensus.validated_state_map.insert(
-        //     ViewNumber::new(cur_view - 1),
-        //     View {
-        //         view_inner: ViewInner::Leaf {
-        //             leaf: leaf.commit(),
-        //             state: state_new_view.clone(),
-        //         },
-        //     },
-        // );
-        // consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-        // create a qc by aggregate signatures on the previous view (the data signed is last leaf commitment)
-        let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-        let quorum_data = QuorumData {
-            leaf_commit: leaf.commit(),
-        };
-        let created_qc = build_cert::<
-            TestTypes,
-            QuorumData<TestTypes>,
-            QuorumVote<TestTypes>,
-            QuorumCertificate<TestTypes>,
-        >(
-            quorum_data,
-            &quorum_membership,
-            ViewNumber::new(cur_view - 1),
-            &public_key,
-            &private_key,
-        );
-        // create a new leaf for the current view
-        let parent_leaf = leaf.clone();
-        let leaf_new_view = Leaf {
-            view_number: ViewNumber::new(cur_view),
-            justify_qc: created_qc.clone(),
-            parent_commitment: parent_leaf.commit(),
-            block_header: block_header.clone(),
-            block_payload: None,
-            proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
-        };
-        let signature_new_view =
-            <BLSPubKey as SignatureKey>::sign(&private_key, leaf_new_view.commit().as_ref())
-                .expect("Failed to sign leaf commitment!");
-
-        let upgrade_certificate = if cur_view != view {
-            None
-        } else if let Some(ref data) = upgrade_data {
-            let cert = build_cert::<
-                TestTypes,
-                UpgradeProposalData<TestTypes>,
-                UpgradeVote<TestTypes>,
-                UpgradeCertificate<TestTypes>,
-            >(
-                data.clone(),
-                &quorum_membership,
-                ViewNumber::new(cur_view),
-                &public_key,
-                &private_key,
-            );
-
-            Some(cert)
-        } else {
-            None
-        };
-
-        let proposal_new_view = QuorumProposal::<TestTypes> {
-            block_header: block_header.clone(),
-            view_number: ViewNumber::new(cur_view),
-            justify_qc: created_qc,
-            timeout_certificate: None,
-            upgrade_certificate,
-            proposer_id: leaf_new_view.clone().proposer_id,
-        };
-        proposal = proposal_new_view;
-        let vote = QuorumVote::<TestTypes>::create_signed_vote(
-            QuorumData {
-                leaf_commit: leaf.commit(),
-            },
-            ViewNumber::new(cur_view),
-            handle.public_key(),
-            handle.private_key(),
-        )
-        .unwrap();
-        votes.push(vote);
-        signature = signature_new_view;
-        proposals.push(Proposal {
-            data: proposal,
-            signature,
-            _pd: PhantomData,
-        });
-        leaf = leaf_new_view;
-        parent_state = state_new_view;
-    }
-
-    (proposals, votes)
 }
 
 /// create a quorum proposal
@@ -780,15 +660,37 @@ pub fn vid_init<TYPES: NodeType>(
     VidScheme::new(chunk_size, num_committee, srs).unwrap()
 }
 
+pub fn vid_payload_commitment(
+    quorum_membership: &<TestTypes as NodeType>::Membership,
+    view_number: ViewNumber,
+    transactions: Vec<TestTransaction>,
+) -> VidCommitment {
+    let vid = vid_init::<TestTypes>(&quorum_membership, view_number);
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+
+    vid_disperse.commit
+}
+
+pub fn da_payload_commitment(
+    quorum_membership: &<TestTypes as NodeType>::Membership,
+    transactions: Vec<TestTransaction>,
+) -> VidCommitment {
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+
+    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+}
+
 pub fn build_vid_proposal(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,
+    transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
     let vid = vid_init::<TestTypes>(&quorum_membership, view_number);
-    let transactions = vec![];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+
     let payload_commitment = vid_disperse.commit;
 
     let vid_signature =
@@ -810,12 +712,14 @@ pub fn build_vid_proposal(
 pub fn build_da_certificate(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,
+    transactions: Vec<TestTransaction>,
     public_key: &<TestTypes as NodeType>::SignatureKey,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> DACertificate<TestTypes> {
-    let block = <TestBlockPayload as TestableBlock>::genesis();
+    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    let da_payload_commitment = vid_commitment(&Vec::new(), quorum_membership.total_nodes());
+    let da_payload_commitment =
+        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

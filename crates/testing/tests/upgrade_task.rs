@@ -10,7 +10,7 @@ use hotshot_task_impls::{
     harness::Predicate,
 };
 use hotshot_testing::task_helpers::{
-    build_quorum_proposals_with_upgrade, key_pair_for_id, vid_init, Messages, MessagesGenerator,
+    key_pair_for_id, vid_init, TestView, TestViewGenerator,
 };
 use hotshot_types::{
     data::{VidDisperse, VidSchemeTrait, ViewNumber},
@@ -118,14 +118,24 @@ async fn test_upgrade_task() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
 
-    let gen = MessagesGenerator::new(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-    for g in gen.take(10) {
-        proposals.push(g.quorum_proposal.clone());
-        votes.push(Messages::create_vote(&g, &handle));
-        dacs.push(g.create_da_certificate().clone());
-        vids.push(g.create_vid_proposal().clone());
+    for view in (&mut generator).take(2) {
+        proposals.push(view.quorum_proposal.clone());
+        votes.push(view.create_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
     }
+
+    generator.add_upgrade(upgrade_data);
+
+    for view in generator.take(4) {
+        proposals.push(view.quorum_proposal.clone());
+        votes.push(view.create_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
+    }
+
 
     let view_1 = TestScriptStage {
         inputs: vec![
@@ -149,22 +159,22 @@ async fn test_upgrade_task() {
     let view_2 = TestScriptStage {
         inputs: vec![
             ViewChange(ViewNumber::new(2)),
+            VidDisperseRecv(vids[1].0.clone(), vids[1].1.clone()),
             QuorumProposalRecv(
                 proposals[1].clone(),
                 quorum_membership.get_leader(ViewNumber::new(2)),
             ),
             DACRecv(dacs[1].clone()),
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             exact(QuorumVoteSend(votes[1].clone())),
         ],
-        asserts: vec![],
-        // asserts: vec![consensus_predicate(
-        //     Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
-        //     "expected no decided_upgrade_cert",
-        // )],
+        // asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
+            "expected no decided_upgrade_cert",
+        )],
     };
 
     let view_3 = TestScriptStage {
@@ -182,11 +192,11 @@ async fn test_upgrade_task() {
             leaf_decided(),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
-        asserts: vec![],
-        // asserts: vec![consensus_predicate(
-        //     Box::new(|state: &_| state.decided_upgrade_cert.is_none()),
-        //     "expected a decided_upgrade_cert",
-        // )],
+        // asserts: vec![],
+        asserts: vec![consensus_predicate(
+            Box::new(|state: &_| state.decided_upgrade_cert.is_some()),
+            "expected a decided_upgrade_cert",
+        )],
     };
 
     let view_4 = TestScriptStage {
