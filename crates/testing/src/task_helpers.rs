@@ -586,7 +586,9 @@ impl TestView {
             quorum_membership: quorum_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
-            transactions: transactions.clone(),
+            // Transactions need to be manually injected each view,
+            // so we reset to an empty transaction list.
+            transactions: Vec::new(),
             upgrade_data: None,
         }
     }
