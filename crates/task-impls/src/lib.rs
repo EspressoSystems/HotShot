@@ -35,4 +35,4 @@ pub mod upgrade;
 pub mod helpers;
 
 /// Task which responsds to requests from the network
-pub mod request;
+pub mod response;
