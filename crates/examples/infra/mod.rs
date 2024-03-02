@@ -606,7 +606,8 @@ pub trait RunDA<
         let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
         error!("Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
-        assert_eq!(total_num_views, failed_num_views + num_successful_commits);
+        // +2 is for uncommitted views
+        assert!(total_num_views <= (failed_num_views + num_successful_commits + 2));
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
         error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");

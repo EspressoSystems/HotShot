@@ -32,4 +32,4 @@ OR:
 `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml`
 For other argument setting, checkout `read_orchestrator_initialization_config` in `crates/examples/infra/mod.rs`.
 One example is: `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml --total_nodes 15`.
-Another example is `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml --total_nodes 20 --da_committee_size 10 --transactions_per_round 10 --transaction_size 512 --rounds 100`.
+Another example is `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml --total_nodes 20 --da_committee_size 5 --transactions_per_round 10 --transaction_size 512 --rounds 100`, I'll get throughput `0.29M/s` for this one.
