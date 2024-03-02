@@ -159,19 +159,16 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
     }
     if let Some(da_committee_size_string) = matches.get_one::<String>("da_committee_size") {
         config.config.da_committee_size = da_committee_size_string.parse::<usize>().unwrap();
-        error!("config.config.da_committee_size: {:?}", config.config.da_committee_size);
     }
-    if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round") {
+    if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round")
+    {
         config.transactions_per_round = transactions_per_round_string.parse::<usize>().unwrap();
-        error!("config.config.transactions_per_round: {:?}", config.transactions_per_round);
     }
     if let Some(transaction_size_string) = matches.get_one::<String>("transaction_size_in_bytes") {
         config.transaction_size = transaction_size_string.parse::<usize>().unwrap();
-        error!("config.config.transaction_size_in_bytes: {:?}", config.transaction_size);
     }
     if let Some(rounds_string) = matches.get_one::<String>("rounds") {
         config.rounds = rounds_string.parse::<usize>().unwrap();
-        error!("config.config.rounds: {:?}", config.rounds);
     }
     config
 }
