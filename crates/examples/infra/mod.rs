@@ -4,6 +4,7 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
+use clap::{Arg, Command};
 use futures::StreamExt;
 use hotshot::traits::implementations::{CombinedNetworks, UnderlyingCombinedNetworks};
 use hotshot::traits::BlockPayload;
@@ -83,6 +84,83 @@ pub struct ConfigArgs {
     pub config_file: String,
 }
 
+/// Reads the orchestrator initialization config from the command line
+/// # Panics
+/// If unable to read the config file from the command line
+pub fn read_orchestrator_init_config<TYPES: NodeType>(
+) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+    let matches = Command::new("orchestrator")
+        .arg(
+            Arg::new("config_file")
+                .short('c')
+                .long("config_file")
+                .value_name("FILE")
+                .help("Sets a custom config file")
+                .required(true),
+        )
+        .arg(
+            Arg::new("total_nodes")
+                .short('n')
+                .long("total_nodes")
+                .value_name("NUM")
+                .help("Sets the total number of nodes")
+                .required(false),
+        )
+        .arg(
+            Arg::new("da_committee_size")
+                .short('d')
+                .long("committee_nodes")
+                .value_name("NUM")
+                .help("Sets the size of the data availability committee")
+                .required(false),
+        )
+        .arg(
+            Arg::new("transactions_per_round")
+                .short('t')
+                .long("transactions_per_round")
+                .value_name("NUM")
+                .help("Sets the number of transactions per round")
+                .required(false),
+        )
+        .arg(
+            Arg::new("transaction_size_in_bytes")
+                .short('s')
+                .long("transaction_size_in_bytes")
+                .value_name("NUM")
+                .help("Sets the size of each transaction in bytes")
+                .required(false),
+        )
+        .arg(
+            Arg::new("rounds")
+                .short('r')
+                .long("rounds")
+                .value_name("NUM")
+                .help("Sets the number of rounds to run")
+                .required(false),
+        )
+        .get_matches();
+    let mut args = ConfigArgs {
+        config_file: "./crates/orchestrator/run-config.toml".to_string(),
+    };
+    if let Some(config_file_string) = matches.get_one::<String>("config_file") {
+        args = ConfigArgs {
+            config_file: config_file_string.clone(),
+        };
+        error!("args: {:?}", args);
+    }
+    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
+        load_config_from_file::<TYPES>(&args.config_file);
+
+    if let Some(total_nodes_string) = matches.get_one::<String>("total_nodes") {
+        config.config.total_nodes = total_nodes_string.parse::<NonZeroUsize>().unwrap();
+        config.config.known_nodes_with_stake =
+            vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
+        error!("config.config.total_nodes: {:?}", config.config.total_nodes);
+    }
+
+    config
+}
+
 /// Reads a network configuration from a given filepath
 /// # Panics
 /// if unable to convert the config file into toml
@@ -124,7 +202,7 @@ pub async fn run_orchestrator<
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
     NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
 >(
-    OrchestratorArgs { url, config }: OrchestratorArgs::<TYPES>,
+    OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
     error!("Starting orchestrator",);
     let _result = hotshot_orchestrator::run_orchestrator::<

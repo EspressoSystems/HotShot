@@ -2,15 +2,14 @@
 /// types used for this example
 pub mod types;
 
-use crate::infra::load_config_from_file;
-use crate::infra::{ConfigArgs, OrchestratorArgs};
+use crate::infra::read_orchestrator_init_config;
+use crate::infra::OrchestratorArgs;
 use crate::types::ThisRun;
 use crate::{
     infra::run_orchestrator,
     types::{DANetwork, NodeImpl, QuorumNetwork},
 };
 use std::net::{IpAddr, Ipv4Addr};
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 /// general infra used for this example
@@ -18,58 +17,10 @@ use std::sync::Arc;
 pub mod infra;
 
 use async_compatibility_layer::{art::async_spawn, channel::oneshot};
-use clap::{Arg, Command};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
-use hotshot_orchestrator::config::NetworkConfig;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::PeerConfig;
 use surf_disco::Url;
 use tracing::error;
-
-fn read_orchestrator_initialization_config() -> NetworkConfig<
-    <TestTypes as NodeType>::SignatureKey,
-    <TestTypes as NodeType>::ElectionConfigType,
-> {
-    let matches = Command::new("orchestrator")
-        .arg(
-            Arg::new("config_file")
-                .short('c')
-                .long("config_file")
-                .value_name("FILE")
-                .help("Sets a custom config file")
-                .required(true),
-        )
-        .arg(
-            Arg::new("total_nodes")
-                .short('n')
-                .long("total_nodes")
-                .value_name("NUM")
-                .help("Sets the total number of nodes")
-                .required(false),
-        )
-        .get_matches();
-    let mut args = ConfigArgs { config_file: "./crates/orchestrator/run-config.toml".to_string() };
-    if let Some(config_file_string) = matches.get_one::<String>("config_file"){
-        args = ConfigArgs { 
-            config_file: config_file_string.clone(),
-        };
-        error!("args: {:?}", args);
-    }
-    let mut config: NetworkConfig<
-        <TestTypes as NodeType>::SignatureKey,
-        <TestTypes as NodeType>::ElectionConfigType,
-    > = load_config_from_file::<TestTypes>(&args.config_file);
-
-    if let Some(total_nodes_string) = matches.get_one::<String>("total_nodes"){
-        config.config.total_nodes = total_nodes_string.parse::<NonZeroUsize>().unwrap();
-        config.config.known_nodes_with_stake =
-            vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
-        error!("config.config.total_nodes: {:?}", config.config.total_nodes);
-    }
-
-    config
-}
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::main)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::main)]
@@ -78,7 +29,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    let config = read_orchestrator_initialization_config();
+    let config = read_orchestrator_init_config::<TestTypes>();
 
     // spawn web servers
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
