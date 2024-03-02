@@ -109,7 +109,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
         .arg(
             Arg::new("da_committee_size")
                 .short('d')
-                .long("committee_nodes")
+                .long("da_committee_size")
                 .value_name("NUM")
                 .help("Sets the size of the data availability committee")
                 .required(false),
@@ -123,9 +123,9 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
                 .required(false),
         )
         .arg(
-            Arg::new("transaction_size_in_bytes")
+            Arg::new("transaction_size")
                 .short('s')
-                .long("transaction_size_in_bytes")
+                .long("transaction_size")
                 .value_name("NUM")
                 .help("Sets the size of each transaction in bytes")
                 .required(false),
@@ -157,7 +157,22 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
             vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
         error!("config.config.total_nodes: {:?}", config.config.total_nodes);
     }
-
+    if let Some(da_committee_size_string) = matches.get_one::<String>("da_committee_size") {
+        config.config.da_committee_size = da_committee_size_string.parse::<usize>().unwrap();
+        error!("config.config.da_committee_size: {:?}", config.config.da_committee_size);
+    }
+    if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round") {
+        config.transactions_per_round = transactions_per_round_string.parse::<usize>().unwrap();
+        error!("config.config.transactions_per_round: {:?}", config.transactions_per_round);
+    }
+    if let Some(transaction_size_string) = matches.get_one::<String>("transaction_size_in_bytes") {
+        config.transaction_size = transaction_size_string.parse::<usize>().unwrap();
+        error!("config.config.transaction_size_in_bytes: {:?}", config.transaction_size);
+    }
+    if let Some(rounds_string) = matches.get_one::<String>("rounds") {
+        config.rounds = rounds_string.parse::<usize>().unwrap();
+        error!("config.config.rounds: {:?}", config.rounds);
+    }
     config
 }
 
@@ -185,7 +200,8 @@ pub fn load_config_from_file<TYPES: NodeType>(
         config_toml.into();
 
     // my_own_validator_config would be best to load from file,
-    // but its type is too complex to load so we'll generate it from seed now
+    // but its type is too complex to load so we'll generate it from seed now.
+    // Also this function is only used for orchestrator initialization now, so this value doesn't matter
     config.config.my_own_validator_config =
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, 1);
     // initialize it with size for better assignment of peers' config
