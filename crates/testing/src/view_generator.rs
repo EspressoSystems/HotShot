@@ -3,21 +3,19 @@ use std::marker::PhantomData;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState},
+    state_types::TestInstanceState,
 };
 
-use crate::{task_helpers::{key_pair_for_id, da_payload_commitment, build_vid_proposal, build_da_certificate, build_cert}};
+use crate::task_helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 use commit::Committable;
 
-use hotshot::{
-    types::{BLSPubKey, SignatureKey, SystemContextHandle},
-};
+use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 use hotshot_types::{
-    data::{
-        Leaf, QuorumProposal, VidDisperse, ViewNumber,
-    },
-    message::{Proposal},
+    data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
+    message::Proposal,
     simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
@@ -26,17 +24,8 @@ use hotshot_types::{
     },
 };
 
-
-
-
 use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::simple_vote::QuorumVote;
-
-
-
-
-
-
 
 #[derive(Clone)]
 pub struct TestView {
@@ -263,7 +252,6 @@ impl TestView {
         .expect("Failed to generate a signature on QuorumVote")
     }
 }
-
 
 pub struct TestViewGenerator {
     pub current_view: Option<TestView>,

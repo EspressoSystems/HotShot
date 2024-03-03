@@ -1,4 +1,6 @@
-use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*};
+use hotshot_task_impls::{
+    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
+};
 use hotshot_types::traits::node_implementation::NodeType;
 
 use hotshot::types::SystemContextHandle;
@@ -62,15 +64,15 @@ pub fn consensus_predicate(
 }
 
 pub fn no_decided_upgrade_cert() -> Predicate<ConsensusTaskTestState> {
-  consensus_predicate(
-            Box::new(|state| state.decided_upgrade_cert.is_none()),
-            "expected decided_upgrade_cert to be None",
-        )
+    consensus_predicate(
+        Box::new(|state| state.decided_upgrade_cert.is_none()),
+        "expected decided_upgrade_cert to be None",
+    )
 }
 
 pub fn decided_upgrade_cert() -> Predicate<ConsensusTaskTestState> {
-  consensus_predicate(
-            Box::new(|state| state.decided_upgrade_cert.is_some()),
-            "expected decided_upgrade_cert to be Some(_)",
-        )
+    consensus_predicate(
+        Box::new(|state| state.decided_upgrade_cert.is_some()),
+        "expected decided_upgrade_cert to be Some(_)",
+    )
 }
