@@ -3,19 +3,20 @@ use std::{
     mem::size_of,
 };
 
+use crate::node_types::TestTypes;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{BlockError, VidCommitment, VidScheme, VidSchemeTrait},
+    data::{BlockError, Leaf},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, TestableBlock, Transaction},
+        node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
-
-use crate::state_types::TestValidatedState;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -170,16 +171,6 @@ impl BlockPayload for TestBlockPayload {
     }
 }
 
-/// Computes the (empty) genesis VID commitment
-/// The number of storage nodes does not do anything, unless in the future we add fake transactions
-/// to the genesis payload.
-///
-/// In that case, the payloads may mismatch and cause problems.
-#[must_use]
-pub fn genesis_vid_commitment() -> <VidScheme as VidSchemeTrait>::Commit {
-    vid_commitment(&vec![], 8)
-}
-
 /// A [`BlockHeader`] that commits to [`TestBlockPayload`].
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Deserialize, Serialize)]
 pub struct TestBlockHeader {
@@ -189,39 +180,29 @@ pub struct TestBlockHeader {
     pub payload_commitment: VidCommitment,
 }
 
-impl BlockHeader for TestBlockHeader {
-    type Payload = TestBlockPayload;
-    type State = TestValidatedState;
-
-    fn new(
-        _parent_state: &Self::State,
-        _instance_state: &<Self::State as ValidatedState>::Instance,
-        parent_header: &Self,
+impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> BlockHeader<TYPES> for TestBlockHeader {
+    async fn new(
+        _parent_state: &TYPES::ValidatedState,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
-            block_number: parent_header.block_number + 1,
+            block_number: parent_leaf.block_header.block_number() + 1,
             payload_commitment,
         }
     }
 
     fn genesis(
-        _instance_state: &<Self::State as ValidatedState>::Instance,
-    ) -> (
-        Self,
-        Self::Payload,
-        <Self::Payload as BlockPayload>::Metadata,
-    ) {
-        let (payload, metadata) = <Self::Payload as BlockPayload>::genesis();
-        (
-            Self {
-                block_number: 0,
-                payload_commitment: genesis_vid_commitment(),
-            },
-            payload,
-            metadata,
-        )
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        payload_commitment: VidCommitment,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    ) -> Self {
+        Self {
+            block_number: 0,
+            payload_commitment,
+        }
     }
 
     fn block_number(&self) -> u64 {
@@ -232,7 +213,7 @@ impl BlockHeader for TestBlockHeader {
         self.payload_commitment
     }
 
-    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata {
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
     }
 }
@@ -240,9 +221,16 @@ impl BlockHeader for TestBlockHeader {
 impl Committable for TestBlockHeader {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("Header Comm")
-            .u64_field("block number", self.block_number())
+            .u64_field(
+                "block number",
+                <TestBlockHeader as BlockHeader<TestTypes>>::block_number(self),
+            )
             .constant_str("payload commitment")
-            .fixed_size_bytes(self.payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(
+                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self)
+                    .as_ref()
+                    .as_ref(),
+            )
             .finalize()
     }
 

@@ -31,6 +31,7 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
+    vid::{vid_scheme, VidSchemeType},
     vote::HasViewNumber,
 };
 
@@ -65,7 +66,7 @@ pub async fn build_system_handle(
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TestTypes>::from_genesis(&TestInstanceState {}).unwrap();
+    let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {}).unwrap();
 
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
@@ -234,16 +235,17 @@ async fn build_quorum_proposal_and_signature(
         &block.encode().unwrap().collect(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
-    let mut parent_state = Arc::new(<TestValidatedState as ValidatedState>::from_header(
-        &parent_leaf.block_header,
-    ));
+    let mut parent_state = Arc::new(
+        <TestValidatedState as ValidatedState<TestTypes>>::from_header(&parent_leaf.block_header),
+    );
     let block_header = TestBlockHeader::new(
         &*parent_state,
         &TestInstanceState {},
-        &parent_leaf.block_header,
+        &parent_leaf,
         payload_commitment,
         (),
-    );
+    )
+    .await;
     // current leaf that can be re-assigned everytime when entering a new view
     let mut leaf = Leaf {
         view_number: ViewNumber::new(1),
@@ -269,7 +271,8 @@ async fn build_quorum_proposal_and_signature(
     for cur_view in 2..=view {
         let state_new_view = Arc::new(
             parent_state
-                .validate_and_apply_header(&TestInstanceState {}, &block_header, &block_header)
+                .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
+                .await
                 .unwrap(),
         );
         // save states for the previous view to pass all the qc checks
@@ -358,23 +361,14 @@ pub fn key_pair_for_id(node_id: u64) -> (<BLSPubKey as SignatureKey>::PrivateKey
 
 /// initialize VID
 /// # Panics
-/// if unable to create a [`VidScheme`]
+/// if unable to create a [`VidSchemeType`]
 #[must_use]
-pub fn vid_init<TYPES: NodeType>(
+pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
-) -> VidScheme {
-    let num_committee = membership.get_committee(view_number).len();
-
-    // calculate the last power of two
-    // TODO change after https://github.com/EspressoSystems/jellyfish/issues/339
-    // issue: https://github.com/EspressoSystems/HotShot/issues/2152
-    let chunk_size = 1 << num_committee.ilog2();
-
-    // TODO <https://github.com/EspressoSystems/HotShot/issues/1686>
-    let srs = hotshot_types::data::test_srs(num_committee);
-
-    VidScheme::new(chunk_size, num_committee, srs).unwrap()
+) -> VidSchemeType {
+    let num_storage_nodes = membership.get_committee(view_number).len();
+    vid_scheme(num_storage_nodes)
 }
 
 pub fn vid_payload_commitment(

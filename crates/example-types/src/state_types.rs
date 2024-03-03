@@ -2,8 +2,10 @@
 use commit::{Commitment, Committable};
 
 use hotshot_types::{
-    data::{fake_commitment, BlockError, ViewNumber},
+    data::{fake_commitment, BlockError, Leaf, ViewNumber},
     traits::{
+        block_contents::BlockHeader,
+        node_implementation::NodeType,
         states::{InstanceState, TestableState, ValidatedState},
         BlockPayload,
     },
@@ -12,12 +14,11 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-use crate::block_types::TestTransaction;
-use crate::block_types::{TestBlockHeader, TestBlockPayload};
+use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct TestInstanceState {}
 
 impl InstanceState for TestInstanceState {}
@@ -53,22 +54,18 @@ impl Default for TestValidatedState {
     }
 }
 
-impl ValidatedState for TestValidatedState {
+impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
     type Error = BlockError;
 
     type Instance = TestInstanceState;
 
-    type BlockHeader = TestBlockHeader;
-
-    type BlockPayload = TestBlockPayload;
-
     type Time = ViewNumber;
 
-    fn validate_and_apply_header(
+    async fn validate_and_apply_header(
         &self,
         _instance: &Self::Instance,
-        _parent_header: &Self::BlockHeader,
-        _proposed_header: &Self::BlockHeader,
+        _parent_leaf: &Leaf<TYPES>,
+        _proposed_header: &TYPES::BlockHeader,
     ) -> Result<Self, Self::Error> {
         Ok(TestValidatedState {
             block_height: self.block_height + 1,
@@ -76,22 +73,26 @@ impl ValidatedState for TestValidatedState {
         })
     }
 
-    fn from_header(block_header: &Self::BlockHeader) -> Self {
+    fn from_header(block_header: &TYPES::BlockHeader) -> Self {
         Self {
-            block_height: block_header.block_number,
+            block_height: block_header.block_number(),
             ..Default::default()
         }
     }
 
     fn on_commit(&self) {}
+
+    fn genesis(_instance: &Self::Instance) -> Self {
+        Self::default()
+    }
 }
 
-impl TestableState for TestValidatedState {
+impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> TestableState<TYPES> for TestValidatedState {
     fn create_random_transaction(
         _state: Option<&Self>,
         _rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <Self::BlockPayload as BlockPayload>::Transaction {
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
         TestTransaction(vec![
