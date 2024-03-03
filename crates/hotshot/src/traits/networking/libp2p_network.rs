@@ -55,7 +55,7 @@ use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 use futures::{
     channel::mpsc::{self, channel, Receiver, Sender},
     future::{join_all, Either},
-    FutureExt, SinkExt, StreamExt,
+    FutureExt, StreamExt,
 };
 use std::{
     collections::BTreeSet,
