@@ -612,10 +612,7 @@ impl NetworkNode {
                         }
                     }),
                     NetworkEventInternal::RequestResponseEvent(e) => {
-                        self.request_response_state
-                            .handle_request_response(e, send_to_client.clone())
-                            .await;
-                        None
+                        self.request_response_state.handle_request_response(e)
                     }
                 };
 
