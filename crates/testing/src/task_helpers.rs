@@ -17,9 +17,7 @@ use hotshot::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{
-        Leaf, QuorumProposal, VidDisperse, ViewNumber,
-    },
+    data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{DACertificate, QuorumCertificate},
     simple_vote::{DAData, DAVote, SimpleVote},
@@ -31,7 +29,7 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
-    vid::{vid_scheme, VidSchemeType, VidCommitment},
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::HasViewNumber,
 };
 

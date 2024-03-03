@@ -124,7 +124,8 @@ async fn test_upgrade_task() {
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle).await;
+    >::create_from(&handle)
+    .await;
 
     inject_consensus_polls(&consensus_state).await;
 
