@@ -31,8 +31,7 @@ impl RequestResponseState {
     pub async fn handle_request_response(
         &mut self,
         event: libp2p::request_response::Event<Request, Response>,
-        sender: UnboundedSender<NetworkEvent>,
-    ) {
+    ) -> Option<NetworkEvent> {
         match event {
             libp2p::request_response::Event::Message { peer: _, message } => match message {
                 Message::Request {
@@ -40,9 +39,7 @@ impl RequestResponseState {
                     request,
                     channel,
                 } => {
-                    let _ = sender
-                        .send(NetworkEvent::ResponseRequested(request, channel))
-                        .await;
+                    return Some(NetworkEvent::ResponseRequested(request, channel))
                 }
                 Message::Response {
                     request_id,
@@ -54,6 +51,7 @@ impl RequestResponseState {
                     if chan.send(Some(response)).is_err() {
                         tracing::warn!("Failed to send resonse to client, channel closed.");
                     }
+                    return None
                 }
             },
             libp2p::request_response::Event::OutboundFailure {
@@ -63,11 +61,12 @@ impl RequestResponseState {
             } => {
                 tracing::warn!("Error Sending Request {:?}", error);
                 let Some(chan) = self.request_map.remove(&request_id) else {
-                    return;
+                    return None;
                 };
                 if chan.send(None).is_err() {
                     tracing::warn!("Failed to send resonse to client, channel closed.");
                 }
+                return None
             }
             libp2p::request_response::Event::InboundFailure { .. }
             | libp2p::request_response::Event::ResponseSent { .. } => {}
