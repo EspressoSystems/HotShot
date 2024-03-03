@@ -203,7 +203,6 @@ pub fn build_assembled_sig<
 #[allow(clippy::too_many_lines)]
 async fn build_quorum_proposal_and_signature(
     handle: &SystemContextHandle<TestTypes, MemoryImpl>,
-    upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
     public_key: &BLSPubKey,
     view: u64,
@@ -315,20 +314,12 @@ async fn build_quorum_proposal_and_signature(
         let signature_new_view =
             <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
                 .expect("Failed to sign leaf commitment!");
-
-        // We only attach the upgrade_certificate on the requested view.
-        let upgrade_cert = if cur_view == view {
-            upgrade_certificate.clone()
-        } else {
-            None
-        };
-
         let proposal_new_view = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
             timeout_certificate: None,
-            upgrade_certificate: upgrade_cert,
+            upgrade_certificate: None,
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
@@ -343,19 +334,12 @@ async fn build_quorum_proposal_and_signature(
 /// create a quorum proposal
 pub async fn build_quorum_proposal(
     handle: &SystemContextHandle<TestTypes, MemoryImpl>,
-    upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
     view: u64,
 ) -> Proposal<TestTypes, QuorumProposal<TestTypes>> {
     let public_key = &BLSPubKey::from_private(private_key);
-    let (proposal, signature) = build_quorum_proposal_and_signature(
-        handle,
-        upgrade_certificate,
-        private_key,
-        public_key,
-        view,
-    )
-    .await;
+    let (proposal, signature) =
+        build_quorum_proposal_and_signature(handle, private_key, public_key, view).await;
     Proposal {
         data: proposal,
         signature,
