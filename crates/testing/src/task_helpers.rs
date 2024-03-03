@@ -21,7 +21,7 @@ use hotshot_types::{
         Leaf, QuorumProposal, VidCommitment, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber,
     },
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{DACertificate, QuorumCertificate},
     simple_vote::{DAData, DAVote, SimpleVote},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},

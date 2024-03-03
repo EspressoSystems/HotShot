@@ -58,7 +58,7 @@ async fn test_network_task() {
         signature: da_signature,
         _pd: PhantomData,
     };
-    let quorum_proposal = build_quorum_proposal(&handle, None, priv_key, 2).await;
+    let quorum_proposal = build_quorum_proposal(&handle, priv_key, 2).await;
 
     let vid_disperse_inner = VidDisperse::from_membership(
         da_proposal.data.view_number,

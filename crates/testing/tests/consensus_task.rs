@@ -34,7 +34,7 @@ async fn test_consensus_task() {
 
     // Trigger a proposal to send by creating a new QC.  Then recieve that proposal and update view based on the valid QC in the proposal
     let qc = QuorumCertificate::<TestTypes>::genesis();
-    let proposal = build_quorum_proposal(&handle, None, &private_key, 1).await;
+    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
 
     input.push(HotShotEvent::QCFormed(either::Left(qc.clone())));
     input.push(HotShotEvent::QuorumProposalRecv(
@@ -88,7 +88,7 @@ async fn test_consensus_vote() {
     let mut input = Vec::new();
     let mut output = HashMap::new();
 
-    let proposal = build_quorum_proposal(&handle, None, &private_key, 1).await;
+    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
 
     // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
     input.push(HotShotEvent::QuorumProposalRecv(
@@ -190,7 +190,7 @@ async fn test_consensus_with_vid() {
 
     // For the test of vote logic with vid, starting view 2 we need vid share
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
-    let proposal_view2 = build_quorum_proposal(&handle, None, &private_key_view2, 2).await;
+    let proposal_view2 = build_quorum_proposal(&handle, &private_key_view2, 2).await;
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let da_payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
