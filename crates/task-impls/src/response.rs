@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
+use bincode::Options;
 use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_constants::VERSION_0_1;
@@ -17,8 +18,11 @@ use hotshot_types::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
+        signature_key::SignatureKey,
     },
 };
+use hotshot_utils::bincode::bincode_opts;
+use sha2::{Digest, Sha256};
 
 use crate::events::HotShotEvent;
 
@@ -80,12 +84,16 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     /// Handle an incoming message.  First validates the sender, then handles the contained request.
     /// Sends the response via `chan`
     async fn handle_message(&self, req: Message<TYPES>, chan: ResponseChannel<Message<TYPES>>) {
-        if !self.valid_sender(&req.sender) {
-            let _ = chan.0.send(self.make_msg(ResponseMessage::NotFound));
+        let sender = req.sender.clone();
+        if !self.valid_sender(&sender) {
             return;
         }
+
         match req.kind {
             MessageKind::Data(DataMessage::RequestData(req)) => {
+                if !valid_signature(&req, &sender) {
+                    return;
+                }
                 let response = self.handle_request(req).await;
                 let _ = chan.0.send(response);
             }
@@ -143,6 +151,17 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     fn valid_sender(&self, sender: &TYPES::SignatureKey) -> bool {
         self.quorum.has_stake(sender)
     }
+}
+
+/// Check the signature
+fn valid_signature<TYPES: NodeType>(
+    req: &DataRequest<TYPES>,
+    sender: &TYPES::SignatureKey,
+) -> bool {
+    let Ok(data) = bincode_opts().serialize(&req.request) else {
+        return false;
+    };
+    sender.validate(&req.signature, &Sha256::digest(data))
 }
 
 /// Spawn the network request task to handle incoming request for data
