@@ -116,7 +116,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
                 };
                 self.handle_vid(shares.clone(), pub_key)
             }
-            // TODO impl for DA Proposal
+            // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
             RequestKind::DAProposal(_view) => self.make_msg(ResponseMessage::NotFound),
         }
     }
