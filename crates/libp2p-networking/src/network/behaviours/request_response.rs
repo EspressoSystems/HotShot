@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use async_compatibility_layer::channel::UnboundedSender;
 use futures::channel::oneshot::Sender;
 use libp2p::request_response::{Message, OutboundRequestId};
 use serde::{Deserialize, Serialize};
@@ -28,7 +27,7 @@ pub(crate) struct RequestResponseState {
 
 impl RequestResponseState {
     /// Handles messages from the `request_response` behaviour by sending them to the application
-    pub async fn handle_request_response(
+    pub fn handle_request_response(
         &mut self,
         event: libp2p::request_response::Event<Request, Response>,
     ) -> Option<NetworkEvent> {
@@ -38,20 +37,18 @@ impl RequestResponseState {
                     request_id: _,
                     request,
                     channel,
-                } => {
-                    return Some(NetworkEvent::ResponseRequested(request, channel))
-                }
+                } => Some(NetworkEvent::ResponseRequested(request, channel)),
                 Message::Response {
                     request_id,
                     response,
                 } => {
                     let Some(chan) = self.request_map.remove(&request_id) else {
-                        return;
+                        return None;
                     };
                     if chan.send(Some(response)).is_err() {
                         tracing::warn!("Failed to send resonse to client, channel closed.");
                     }
-                    return None
+                    None
                 }
             },
             libp2p::request_response::Event::OutboundFailure {
@@ -66,10 +63,10 @@ impl RequestResponseState {
                 if chan.send(None).is_err() {
                     tracing::warn!("Failed to send resonse to client, channel closed.");
                 }
-                return None
+                None
             }
             libp2p::request_response::Event::InboundFailure { .. }
-            | libp2p::request_response::Event::ResponseSent { .. } => {}
+            | libp2p::request_response::Event::ResponseSent { .. } => None,
         }
     }
     /// Add a requests return channel to the map of pending requests

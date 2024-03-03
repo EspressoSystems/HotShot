@@ -612,9 +612,7 @@ impl NetworkNode {
                         }
                     }),
                     NetworkEventInternal::RequestResponseEvent(e) => {
-                        self.request_response_state
-                            .handle_request_response(e)
-                            .await
+                        self.request_response_state.handle_request_response(e)
                     }
                 };
 
