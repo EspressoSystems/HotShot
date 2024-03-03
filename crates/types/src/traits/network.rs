@@ -250,6 +250,9 @@ pub struct DataRequest<TYPES: NodeType> {
     pub request: RequestKind<TYPES>,
     /// View this message is for
     pub view: TYPES::Time,
+    /// signature of the Sha256 hash of the data so outsiders can't use know
+    /// public keys with stake.
+    pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
 }
 
 /// Underlying data request

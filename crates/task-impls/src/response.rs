@@ -59,6 +59,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     }
 
     /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
+    /// Or the stream is closed.
     async fn run_loop(mut self, shutdown: EventDependency<HotShotEvent<TYPES>>) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         loop {
