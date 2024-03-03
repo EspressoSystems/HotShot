@@ -18,7 +18,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{
-        Leaf, QuorumProposal, VidCommitment, VidDisperse, VidScheme, VidSchemeTrait, ViewNumber,
+        Leaf, QuorumProposal, VidDisperse, ViewNumber,
     },
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{DACertificate, QuorumCertificate},
@@ -31,7 +31,7 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
-    vid::{vid_scheme, VidSchemeType},
+    vid::{vid_scheme, VidSchemeType, VidCommitment},
     vote::HasViewNumber,
 };
 
@@ -44,6 +44,8 @@ use hotshot_types::utils::View;
 use hotshot_types::utils::ViewInner;
 use hotshot_types::vote::Certificate;
 use hotshot_types::vote::Vote;
+
+use jf_primitives::vid::VidScheme;
 
 use serde::Serialize;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
@@ -376,7 +378,7 @@ pub fn vid_payload_commitment(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let vid = vid_init::<TestTypes>(quorum_membership, view_number);
+    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -398,7 +400,7 @@ pub fn build_vid_proposal(
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
-    let vid = vid_init::<TestTypes>(quorum_membership, view_number);
+    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
