@@ -12,7 +12,7 @@ use std::{
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
-use tracing::warn;
+use tracing::{warn, error};
 
 use async_trait::async_trait;
 
@@ -32,8 +32,18 @@ use hotshot_types::{
     BoxSyncFuture,
 };
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
+use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use std::hash::Hash;
+use std::time::Duration;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_std::task::JoinHandle;
+use either::Either;
+use futures::future::err;
+use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
+use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 
 /// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
 /// from multiple networks
@@ -115,6 +125,8 @@ pub struct CombinedNetworks<TYPES: NodeType> {
 
     /// If the primary network is down (0) or not, and for how many messages
     primary_down: Arc<AtomicU64>,
+
+    delayed_tasks: Arc<RwLock<BTreeMap<u64, JoinHandle<Result<(), NetworkError>>>>>,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -125,6 +137,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
             primary_down: Arc::new(AtomicU64::new(0)),
+            delayed_tasks: Arc::default(),
         }
     }
 
@@ -138,6 +151,23 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     #[must_use]
     pub fn secondary(&self) -> &Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         &self.networks.1
+    }
+
+    fn should_delay(&self, message: &Message<TYPES>) -> bool {
+        match &message.kind {
+            MessageKind::Consensus(consensus_message) => {
+                match &consensus_message.0 {
+                    Either::Left(general_consensus_message) => {
+                        match general_consensus_message {
+                            GeneralConsensusMessage::Vote(_) => true,
+                            _ => false,
+                        }
+                    }
+                    Either::Right(_) => true,
+                }
+            }
+            MessageKind::Data(_) => false,
+        }
     }
 }
 
@@ -197,11 +227,13 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 networks: Arc::new(quorum_networks),
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
+                delayed_tasks: Arc::default(),
             };
             let da_net = Self {
                 networks: Arc::new(da_networks),
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
+                delayed_tasks: Arc::default(),
             };
             (quorum_net.into(), da_net.into())
         })
@@ -256,6 +288,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
+        let mut primary_failed = false;
         if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
         {
@@ -271,13 +304,35 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
                 Err(e) => {
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
+                    primary_failed = true;
                 }
             };
         }
 
-        self.secondary()
-            .broadcast_message(message, recipients)
-            .await
+        if !primary_failed && self.should_delay(&message) {
+            error!("lrzasik: broadcast with a delay");
+            error!("lrzasik: delay for view: {:?}", message.kind.get_view_number().get_u64());
+            let secondary = self.secondary().clone();
+            self.delayed_tasks
+                .write()
+                .await
+                .insert(message.kind.get_view_number().get_u64(),
+                        async_spawn(async move {
+                            error!("lrzasik: sleep for view: {:?}", message.kind.get_view_number().get_u64());
+                            async_sleep(Duration::from_millis(1))
+                                .await;
+                            error!("lrzasik: wake up and send for view: {:?}", message.kind.get_view_number().get_u64());
+                            secondary
+                                .broadcast_message(message, recipients)
+                                .await
+                        }));
+            Ok(())
+        } else {
+            // error!("lrzasik: broadcast without delay");
+            self.secondary()
+                .broadcast_message(message, recipients)
+                .await
+        }
     }
 
     async fn da_broadcast_message(
@@ -295,6 +350,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), NetworkError> {
         // DM optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
+        let mut primary_failed = false;
         if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
         {
@@ -310,11 +366,35 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
                 Err(e) => {
                     warn!("Error on primary network: {}", e);
                     self.primary_down.fetch_add(1, Ordering::Relaxed);
+                    primary_failed = true;
                 }
             };
         }
 
-        self.secondary().direct_message(message, recipient).await
+        if !primary_failed && self.should_delay(&message) {
+            error!("lrzasik: direct with a delay");
+            error!("lrzasik: delay for view: {:?}", message.kind.get_view_number().get_u64());
+            let secondary = self.secondary().clone();
+            self.delayed_tasks
+                .write()
+                .await
+                .insert(message.kind.get_view_number().get_u64(),
+                        async_spawn(async move {
+                            error!("lrzasik: sleep for view: {:?}", message.kind.get_view_number().get_u64());
+                            async_sleep(Duration::from_millis(1))
+                                .await;
+                            error!("lrzasik: wake up and send for view: {:?}", message.kind.get_view_number().get_u64());
+                            secondary
+                                .direct_message(message, recipient)
+                                .await
+                        }));
+            Ok(())
+        } else {
+            // error!("lrzasik: broadcast without delay");
+            self.secondary()
+                .direct_message(message, recipient)
+                .await
+        }
     }
 
     fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
@@ -371,6 +451,29 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.secondary(), event).await;
     }
+
+    async fn update_view(&self, view: &u64) {
+        error!("lrzasik: view update: current view: {:?}", view);
+        error!("lrzasik: view update: tasks before: {:?}", self.delayed_tasks);
+        loop {
+            if let Some((key, _value)) = self.delayed_tasks.read().await.first_key_value() {
+                if key < view {
+                    match self.delayed_tasks.write().await.pop_first() {
+                        Some((_key, value)) => {
+                            error!("lrzasik: dropping task for view: {:?}", view);
+                            value.cancel().await; }
+                        None => {}
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        error!("lrzasik: view update: tasks after: {:?}", self.delayed_tasks);
+    }
+
 }
 
 #[cfg(test)]

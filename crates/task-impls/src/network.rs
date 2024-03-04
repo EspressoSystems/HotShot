@@ -22,6 +22,7 @@ use hotshot_types::{
 };
 use tracing::error;
 use tracing::instrument;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
@@ -353,7 +354,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.channel.update_view::<TYPES>(self.view);
+                self.channel.update_view(&self.view.get_u64()).await;
                 return None;
             }
             HotShotEvent::Shutdown => {

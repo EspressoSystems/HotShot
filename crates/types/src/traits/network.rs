@@ -303,7 +303,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// handles view update
     #[instrument(name = "ConnectedNetwork::update_view", skip(self))]
-    fn update_view<TYPES: NodeType>(&self, view: TYPES::Time) {
+    async fn update_view(&self, _view: &u64) {
         info!("Entered update_view");
     }
 }
