@@ -970,7 +970,7 @@ pub async fn main_entry_point<
         hotshot,
         &mut transactions,
         transactions_to_send_per_round as u64,
-        (transaction_size + 8) as u64,
+        (transaction_size + 8) as u64, // extra 8 bytes for transaction base, see `create_random_transaction`.
     )
     .await;
 }
