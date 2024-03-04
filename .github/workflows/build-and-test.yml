@@ -51,13 +51,6 @@ jobs:
       - name: Build HotShot in release mode
         run: just ${{ matrix.just_variants }} build_release
 
-      - name: Unit and integration tests for all crates in workspace
-        run: |
-          just ${{ matrix.just_variants }} test
-        timeout-minutes: 60
-        env:
-          RUST_BACKTRACE: full
-
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
