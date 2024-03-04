@@ -174,9 +174,6 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -186,8 +183,7 @@
 <span class="kw">use </span>futures::Stream;
 
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::election::Membership;
+<span class="kw">use </span>hotshot_types::traits::election::Membership;
 
 <span class="kw">use </span>hotshot_task::task::TaskRegistry;
 <span class="kw">use </span>hotshot_types::{boxed_sync, BoxSyncFuture};
@@ -332,11 +328,8 @@
         <span class="self">self</span>.hotshot.get_next_view_timeout()
     }
 
-    <span class="comment">// Below is for testing only:
-
-    </span><span class="doccomment">/// Wrapper for `HotShotConsensusApi`'s `get_leader` function
+    <span class="doccomment">/// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
-    </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot
             .memberships
@@ -344,7 +337,8 @@
             .get_leader(view_number)
     }
 
-    <span class="doccomment">/// Wrapper to get this node's public key
+    <span class="comment">// Below is for testing only:
+    </span><span class="doccomment">/// Wrapper to get this node's public key
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot.public_key.clone()
