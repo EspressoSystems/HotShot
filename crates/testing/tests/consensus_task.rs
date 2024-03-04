@@ -48,7 +48,10 @@ async fn test_consensus_task() {
         HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
         1,
     );
-    output.insert(HotShotEvent::QuorumProposalValidated(proposal.data.clone()), 1);
+    output.insert(
+        HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+        1,
+    );
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
@@ -158,7 +161,6 @@ async fn test_consensus_with_vid() {
     let (private_key_view2, public_key_view2) = key_pair_for_id(2);
 
     // For the test of vote logic with vid
-    let pub_key = *handle.public_key();
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let transactions = vec![TestTransaction(vec![0])];
@@ -211,7 +213,7 @@ async fn test_consensus_with_vid() {
             &private_key_view2,
         );
     input.push(HotShotEvent::DACRecv(created_dac_view2.clone()));
-    input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
+    input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone()));
 
     // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
     input.push(HotShotEvent::QuorumProposalRecv(

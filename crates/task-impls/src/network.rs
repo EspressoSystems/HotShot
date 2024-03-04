@@ -157,7 +157,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::DACRecv(cert)
                             }
                             CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
-                                HotShotEvent::VidDisperseRecv(proposal, sender)
+                                HotShotEvent::VidDisperseRecv(proposal)
                             }
                         },
                     };
