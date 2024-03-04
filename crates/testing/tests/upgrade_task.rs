@@ -17,8 +17,6 @@ async fn test_upgrade_task() {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
-    std::env::set_var("RUST_LOG", "debug");
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -95,7 +93,7 @@ async fn test_upgrade_task() {
             leaf_decided(),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
-        asserts: vec![decided_upgrade_cert()],
+        asserts: vec![no_decided_upgrade_cert()],
     };
 
     let view_4 = TestScriptStage {
@@ -109,7 +107,7 @@ async fn test_upgrade_task() {
             leaf_decided(),
             exact(QuorumVoteSend(votes[3].clone())),
         ],
-        asserts: vec![decided_upgrade_cert()],
+        asserts: vec![no_decided_upgrade_cert()],
     };
 
     let view_5 = TestScriptStage {
