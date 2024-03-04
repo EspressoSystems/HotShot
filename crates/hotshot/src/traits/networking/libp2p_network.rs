@@ -447,6 +447,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let node_type = self.inner.handle.config().node_type;
         let metrics_connected_peers = self.inner.clone();
         let is_da = self.inner.is_da;
+
         async_spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {

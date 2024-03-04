@@ -307,7 +307,16 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         recipients: BTreeSet<TYPES::SignatureKey>,
         bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients, bind_version)
+        if self
+            .primary()
+            .da_broadcast_message(message.clone(), recipients.clone(), bind_version)
+            .await
+            .is_err()
+        {
+            warn!("Failed broadcasting DA on primary");
+        }
+        self.secondary()
+            .da_broadcast_message(message, recipients, bind_version)
             .await
     }
 

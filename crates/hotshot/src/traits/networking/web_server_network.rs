@@ -764,11 +764,11 @@ impl<
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message<const MAJ: u16, const MIN: u16>(
+    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        _: StaticVersion<MAJ, MIN>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -787,11 +787,11 @@ impl<
 
     /// broadcast a message only to a DA committee
     /// blocking
-    async fn da_broadcast_message<const MAJ: u16, const MIN: u16>(
+    async fn da_broadcast_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJ, MIN>,
+        bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, recipients, bind_version)
             .await
@@ -799,11 +799,11 @@ impl<
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message<const MAJ: u16, const MIN: u16>(
+    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
         &self,
         message: Message<TYPES>,
         _recipient: TYPES::SignatureKey,
-        _: StaticVersion<MAJ, MIN>,
+        _: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
