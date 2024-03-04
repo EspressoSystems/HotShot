@@ -41,6 +41,7 @@ async fn test_consensus_task() {
         proposal.clone(),
         public_key,
     ));
+    input.push(HotShotEvent::QuorumProposalValidated(proposal.data.clone()));
 
     input.push(HotShotEvent::Shutdown);
 
@@ -96,6 +97,7 @@ async fn test_consensus_vote() {
         proposal.clone(),
         public_key,
     ));
+    input.push(HotShotEvent::QuorumProposalValidated(proposal.data.clone()));
 
     let proposal = proposal.data;
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
