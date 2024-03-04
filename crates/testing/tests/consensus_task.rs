@@ -48,7 +48,10 @@ async fn test_consensus_task() {
         HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
         1,
     );
-    output.insert(HotShotEvent::QuorumProposalValidated(proposal.data.clone()), 1);
+    output.insert(
+        HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+        1,
+    );
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
