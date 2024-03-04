@@ -6,10 +6,10 @@
 import json
 import copy
 import subprocess
-from typing import Final
+from typing import Final, List, Dict, Any
 
 
-def get_launch_json_examples(input: str, crate: str) -> list[dict]:
+def get_launch_json_examples(input: str, crate: str) -> List[Dict[str, Any]]:
     test_names = [a_line.replace("\"", "") for a_line in input.splitlines()]
 
     json_lists = []
