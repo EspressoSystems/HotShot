@@ -75,7 +75,7 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_json = { version = "1.0.114" }
 sha2 = "0.10"
 snafu = "0.7.5"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.7" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
 time = "0.3.34"
