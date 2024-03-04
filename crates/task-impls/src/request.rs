@@ -7,9 +7,7 @@ use hotshot_types::{
     consensus::Consensus,
     event,
     traits::{
-        election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        election::Membership, network::RequestKind, node_implementation::{NodeImplementation, NodeType}, signature_key::SignatureKey
     },
     vote::HasViewNumber,
 };
@@ -41,7 +39,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRespons
                 let state = task.state();
                 let prop_view = proposal.get_view_number();
                 if prop_view >= state.view {
-                    state.spawn_delayed(prop_view, task.clone_sender());
+                    state.spawn_requests(prop_view, task.clone_sender());
                 }
                 None
             }
@@ -70,20 +68,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRespons
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkResponseState<TYPES, I> {
-    fn spawn_delayed(&self, view: TYPES::Time, sender: Sender<HotShotEvent<TYPES>>) {
+    fn spawn_requests(&self, view: TYPES::Time, sender: Sender<HotShotEvent<TYPES>>) {
         /// Cloning Arcs
         let net = self.network.clone();
         let state = self.state.clone();
 
-        let pub_key = self.public_key.clone();
-        let priv_key = self.private_key.clone();
-
+        let membership = self.da_membership.clone();
         let delay = self.delay;
 
+        let requests = self.build_requests(view).await;
+
+    }
+
+    async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
+        let reqs = Vec::new();
+        if !self.state.read().await.(view) {
+
+        }
+        reqs
+    }
+    fn run_delay(request: RequestKind<TYPES>, delay: Duration) {
+        // async_compatibility_layer::art::async_spawn()
+    }
+}
+
+struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    network: I::QuorumNetwork
+    state: Arc<RwLock<Consensus<TYPES>>>,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
+    async fn run(self) {
 
     }
 }
 
-// struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
-// }
