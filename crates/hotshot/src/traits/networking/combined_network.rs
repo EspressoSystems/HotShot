@@ -12,7 +12,7 @@ use std::{
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
-use tracing::{warn, error};
+use tracing::warn;
 
 use async_trait::async_trait;
 
@@ -40,7 +40,6 @@ use std::time::Duration;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_std::task::JoinHandle;
 use either::Either;
-use futures::future::err;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::ConsensusTime;
@@ -169,6 +168,87 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             MessageKind::Data(_) => false,
         }
     }
+
+    async fn send_both_networks(
+        &self,
+        message: Message<TYPES>,
+        recipients: BTreeSet<TYPES::SignatureKey>,
+        message_type: MessageType,
+    ) -> Result<(), NetworkError> {
+        // send optimistically on both networks, but if the primary network is down, skip it
+        let primary_down = self.primary_down.load(Ordering::Relaxed);
+        let mut primary_failed = false;
+        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
+        {
+            // send on the primary network as it is not down, or we are checking if it is back up
+            let result = match message_type {
+                MessageType::Broadcast => self
+                    .primary()
+                    .broadcast_message(message.clone(), recipients.clone())
+                    .await,
+                MessageType::DM => self
+                    .primary()
+                    .direct_message(message.clone(), recipients.first().unwrap().clone())
+                    .await,
+                MessageType::DABroadcast => self
+                    .primary()
+                    .da_broadcast_message(message.clone(), recipients.clone())
+                    .await,
+            };
+            match result
+            {
+                Ok(()) => {
+                    self.primary_down.store(0, Ordering::Relaxed);
+                }
+                Err(e) => {
+                    warn!("Error on primary network: {}", e);
+                    self.primary_down.fetch_add(1, Ordering::Relaxed);
+                    primary_failed = true;
+                }
+            };
+        }
+
+        if !primary_failed && self.should_delay(&message) {
+            let secondary = self.secondary().clone();
+            let cloned_recipient = recipients.first().unwrap().clone();
+            self.delayed_tasks
+                .write()
+                .await
+                .insert(message.kind.get_view_number().get_u64(),
+                        async_spawn(async move {
+                            async_sleep(Duration::from_millis(1))
+                                .await;
+                            match message_type {
+                                MessageType::Broadcast => secondary
+                                    .broadcast_message(message, recipients)
+                                    .await,
+                                MessageType::DM => secondary
+                                    .direct_message(message, cloned_recipient)
+                                    .await,
+                                MessageType::DABroadcast => secondary
+                                    .da_broadcast_message(message, recipients)
+                                    .await,
+                            }
+                        }));
+            Ok(())
+        } else {
+            match message_type {
+                MessageType::Broadcast => self
+                    .secondary()
+                    .broadcast_message(message, recipients)
+                    .await,
+                MessageType::DM => self
+                    .secondary()
+                    .direct_message(message, recipients.first().unwrap().clone())
+                    .await,
+                MessageType::DABroadcast => self
+                    .secondary()
+                    .da_broadcast_message(message, recipients)
+                    .await,
+            }
+        }
+    }
 }
 
 /// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
@@ -286,53 +366,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        // broadcast optimistically on both networks, but if the primary network is down, skip it
-        let primary_down = self.primary_down.load(Ordering::Relaxed);
-        let mut primary_failed = false;
-        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
-        {
-            // broadcast on the primary network as it is not down, or we are checking if it is back up
-            match self
-                .primary()
-                .broadcast_message(message.clone(), recipients.clone())
-                .await
-            {
-                Ok(()) => {
-                    self.primary_down.store(0, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    warn!("Error on primary network: {}", e);
-                    self.primary_down.fetch_add(1, Ordering::Relaxed);
-                    primary_failed = true;
-                }
-            };
-        }
-
-        if !primary_failed && self.should_delay(&message) {
-            error!("lrzasik: broadcast with a delay");
-            error!("lrzasik: delay for view: {:?}", message.kind.get_view_number().get_u64());
-            let secondary = self.secondary().clone();
-            self.delayed_tasks
-                .write()
-                .await
-                .insert(message.kind.get_view_number().get_u64(),
-                        async_spawn(async move {
-                            error!("lrzasik: sleep for view: {:?}", message.kind.get_view_number().get_u64());
-                            async_sleep(Duration::from_millis(1))
-                                .await;
-                            error!("lrzasik: wake up and send for view: {:?}", message.kind.get_view_number().get_u64());
-                            secondary
-                                .broadcast_message(message, recipients)
-                                .await
-                        }));
-            Ok(())
-        } else {
-            // error!("lrzasik: broadcast without delay");
-            self.secondary()
-                .broadcast_message(message, recipients)
-                .await
-        }
+        self.send_both_networks(message, recipients, MessageType::Broadcast).await
     }
 
     async fn da_broadcast_message(
@@ -340,7 +374,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients).await
+        self.send_both_networks(message, recipients, MessageType::DABroadcast).await
     }
 
     async fn direct_message(
@@ -348,53 +382,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        // DM optimistically on both networks, but if the primary network is down, skip it
-        let primary_down = self.primary_down.load(Ordering::Relaxed);
-        let mut primary_failed = false;
-        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
-        {
-            // message on the primary network as it is not down, or we are checking if it is back up
-            match self
-                .primary()
-                .direct_message(message.clone(), recipient.clone())
-                .await
-            {
-                Ok(()) => {
-                    self.primary_down.store(0, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    warn!("Error on primary network: {}", e);
-                    self.primary_down.fetch_add(1, Ordering::Relaxed);
-                    primary_failed = true;
-                }
-            };
-        }
-
-        if !primary_failed && self.should_delay(&message) {
-            error!("lrzasik: direct with a delay");
-            error!("lrzasik: delay for view: {:?}", message.kind.get_view_number().get_u64());
-            let secondary = self.secondary().clone();
-            self.delayed_tasks
-                .write()
-                .await
-                .insert(message.kind.get_view_number().get_u64(),
-                        async_spawn(async move {
-                            error!("lrzasik: sleep for view: {:?}", message.kind.get_view_number().get_u64());
-                            async_sleep(Duration::from_millis(1))
-                                .await;
-                            error!("lrzasik: wake up and send for view: {:?}", message.kind.get_view_number().get_u64());
-                            secondary
-                                .direct_message(message, recipient)
-                                .await
-                        }));
-            Ok(())
-        } else {
-            // error!("lrzasik: broadcast without delay");
-            self.secondary()
-                .direct_message(message, recipient)
-                .await
-        }
+        self.send_both_networks(message, BTreeSet::from([recipient]), MessageType::DM).await
     }
 
     fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
@@ -453,27 +441,30 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     async fn update_view(&self, view: &u64) {
-        error!("lrzasik: view update: current view: {:?}", view);
-        error!("lrzasik: view update: tasks before: {:?}", self.delayed_tasks);
+        let mut map_lock = self.delayed_tasks.write().await;
         loop {
-            if let Some((key, _value)) = self.delayed_tasks.read().await.first_key_value() {
-                if key < view {
-                    match self.delayed_tasks.write().await.pop_first() {
-                        Some((_key, value)) => {
-                            error!("lrzasik: dropping task for view: {:?}", view);
-                            value.cancel().await; }
-                        None => {}
-                    }
-                } else {
-                    break;
+            match map_lock.first_key_value() {
+                Some((first_view, _task)) => {
+                    if first_view < view {
+                        match map_lock.pop_first() {
+                            Some((_view, task)) => {
+                                task.cancel().await;
+                            }
+                            None => { break; }
+                        }
+                    } else { break; }
                 }
-            } else {
-                break;
+                None => { break; }
             }
         }
-        error!("lrzasik: view update: tasks after: {:?}", self.delayed_tasks);
     }
 
+}
+
+enum MessageType {
+    Broadcast,
+    DM,
+    DABroadcast,
 }
 
 #[cfg(test)]
