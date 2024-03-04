@@ -664,6 +664,7 @@
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -900,6 +901,7 @@
             saved_leaves,
             saved_payloads,
             saved_da_certs: HashMap::new(),
+            saved_upgrade_certs: HashMap::new(),
             <span class="comment">// TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>locked_view: anchored_leaf.get_view_number(),
