@@ -287,7 +287,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), NetworkError> {
         if self
             .primary()
-            .broadcast_message(message.clone(), recipients.clone())
+            .da_broadcast_message(message.clone(), recipients.clone())
             .await
             .is_err()
         {
