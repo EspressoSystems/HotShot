@@ -5,8 +5,9 @@ RUN apt-get update \
     &&  rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-COPY ./target/$TARGETARCH/debug/examples/webserver /usr/local/bin/webserver
+COPY ./target/${TARGETARCH}/${ASYNC_EXECUTOR}/debug/examples/webserver /usr/local/bin/webserver
 
 # logging
 ENV RUST_LOG="warn"

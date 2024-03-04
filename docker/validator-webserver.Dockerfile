@@ -5,8 +5,9 @@ RUN apt-get update \
     &&  rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-COPY ./target/$TARGETARCH/debug/examples/validator-webserver /usr/local/bin/validator-webserver
+COPY ./target/${TARGETARCH}/${ASYNC_EXECUTOR}/debug/examples/validator-webserver /usr/local/bin/validator-webserver
 
 # logging
 ENV RUST_LOG="warn"

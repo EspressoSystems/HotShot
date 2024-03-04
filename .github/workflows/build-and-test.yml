@@ -190,6 +190,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.orchestrator-libp2p.outputs.tags }}
           labels: ${{ steps.orchestrator-libp2p.outputs.labels }}
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-libp2p docker
         uses: docker/build-push-action@v5
@@ -200,6 +202,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-libp2p.outputs.tags }}
           labels: ${{ steps.validator-libp2p.outputs.labels }}
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push webserver docker
         uses: docker/build-push-action@v5
@@ -210,6 +214,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.webserver.outputs.tags }}
           labels: ${{ steps.webserver.outputs.labels }}
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push orchestrator-webserver docker
         uses: docker/build-push-action@v5
@@ -220,6 +226,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.orchestrator-webserver.outputs.tags }}
           labels: ${{ steps.orchestrator-webserver.outputs.labels }}
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-webserver docker
         uses: docker/build-push-action@v5
@@ -230,6 +238,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-webserver.outputs.tags }}
           labels: ${{ steps.validator-webserver.outputs.labels }}
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
   test-crypto:
     strategy:

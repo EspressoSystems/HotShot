@@ -5,8 +5,9 @@ RUN apt-get update \
     &&  rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-COPY ./target/$TARGETARCH/debug/examples/orchestrator-libp2p /usr/local/bin/orchestrator-libp2p
+COPY ./target/${TARGETARCH}/${ASYNC_EXECUTOR}/debug/examples/orchestrator-libp2p /usr/local/bin/orchestrator-libp2p
 
 # logging
 ENV RUST_LOG="warn"
