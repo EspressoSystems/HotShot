@@ -332,6 +332,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// # Errors
     /// Does not error
     async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        // recv on both networks because nodes may be accessible only on either. discard duplicates
+        // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
         let mut primary_msgs = self.primary().recv_msgs().await?;
         let mut secondary_msgs = self.secondary().recv_msgs().await?;
 
