@@ -36,13 +36,17 @@ use std::fmt::Debug;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+#[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use either::Either;
+use hotshot_task_impls::helpers::cancel_task;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use std::hash::Hash;
 use std::time::Duration;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 /// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
 /// from multiple networks
@@ -463,7 +467,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         while let Some((first_view, _task)) = map_lock.first_key_value() {
             if first_view < view {
                 if let Some((_view, task)) = map_lock.pop_first() {
-                    task.cancel().await;
+                    cancel_task(task).await;
                 } else {
                     break;
                 }
