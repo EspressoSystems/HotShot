@@ -128,6 +128,8 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -173,6 +175,8 @@
     </span>QuorumProposalSend(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     </span>QuorumVoteSend(QuorumVote&lt;TYPES&gt;),
+    <span class="doccomment">/// A proposal was validated. This means it comes from the correct leader and has a correct QC.
+    </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DAProposalSend(Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal

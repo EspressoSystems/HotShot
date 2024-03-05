@@ -1408,6 +1408,12 @@
 <a href="#1407" id="1407">1407</a>
 <a href="#1408" id="1408">1408</a>
 <a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -2108,6 +2114,12 @@
                         },
                     })
                     .<span class="kw">await</span>;
+                <span class="comment">// Notify other tasks
+                </span>broadcast_event(
+                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                    <span class="kw-2">&amp;</span>event_stream,
+                )
+                .<span class="kw">await</span>;
 
                 <span class="kw">let </span><span class="kw-2">mut </span>new_anchor_view = consensus.last_decided_view;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_locked_view = consensus.locked_view;
