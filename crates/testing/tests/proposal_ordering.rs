@@ -5,7 +5,7 @@ use hotshot_testing::{
     predicates::exact, task_helpers::vid_scheme_from_view_number, view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{VidDisperse, ViewNumber},
+    data::ViewNumber,
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
 };
 use jf_primitives::vid::VidScheme;
@@ -85,7 +85,13 @@ async fn test_proposal_ordering() {
         asserts: vec![],
     };
 
-    let script = vec![view_1, view_2];
+    let view_3 = TestScriptStage {
+        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
+        asserts: vec![],
+    };
+
+    let script = vec![view_1, view_2, view_3];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
