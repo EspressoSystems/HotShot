@@ -3,13 +3,10 @@ use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::{exact, quorum_proposal_send},
-    task_helpers::{build_cert, vid_scheme_from_view_number},
+    task_helpers::vid_scheme_from_view_number,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
-};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use jf_primitives::vid::VidScheme;
 
 /// Runs the test specified in this file with a boolean flag that determines whether or not to make
@@ -18,7 +15,6 @@ use jf_primitives::vid::VidScheme;
 async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::simple_certificate::QuorumCertificate;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -26,8 +22,6 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let public_key = handle.get_public_key();
-    let private_key = handle.private_key();
 
     let vid =
         vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(node_id));
@@ -43,7 +37,6 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     let mut leaders = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
-    let qc = QuorumCertificate::<TestTypes>::genesis();
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
