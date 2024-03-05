@@ -6,7 +6,10 @@ use hotshot_testing::{
     task_helpers::vid_scheme_from_view_number,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::ViewNumber,
+    traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
+};
 use jf_primitives::vid::VidScheme;
 
 fn permute<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
@@ -33,6 +36,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let public_key = handle.get_public_key();
+    let private_key = handle.private_key();
 
     let vid =
         vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(node_id));
@@ -107,13 +112,13 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![SendPayloadCommitmentAndMetadata(
             payload_commitment,
             (),
-            ViewNumber::new(2),
+            ViewNumber::new(3),
         )],
         outputs: vec![/* There should be nothing emitted here */],
         asserts: vec![],
     };
 
-    let script = vec![view_0, view_1, fail_view];
+    let script = vec![view_0, view_1, view_2, fail_view];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
