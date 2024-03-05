@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG TARGETARCH
 
-COPY ./target/$TARGETARCH/debug/examples/validator-webserver /usr/local/bin/validator-webserver
+COPY ./target/release-lto/examples/validator-webserver /usr/local/bin/validator-webserver
 
 # logging
 ENV RUST_LOG="warn"
@@ -14,5 +14,4 @@ ENV RUST_LOG="warn"
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
 
-ENTRYPOINT ["tini", "--"]
-CMD ["validator-webserver"]
+ENTRYPOINT "validator-webserver"

@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG TARGETARCH
 
-COPY ./target/$TARGETARCH/release/examples/validator-pushcdn /usr/local/bin/validator-pushcdn
+COPY ./target/release-lto/examples/validator-pushcdn /usr/local/bin/validator-pushcdn
 
 # logging
 ENV RUST_LOG="warn"
@@ -14,5 +14,4 @@ ENV RUST_LOG="warn"
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
 
-ENTRYPOINT ["tini", "--"]
-CMD ["validator-pushcdn"]
+ENTRYPOINT "validator-pushcdn"
