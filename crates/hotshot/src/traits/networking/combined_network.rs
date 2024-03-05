@@ -178,16 +178,12 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     }
 
     /// a helper function to send messages through both networks (possibly delayed)
-    async fn send_both_networks<F1, F2>(
+    async fn send_both_networks(
         &self,
         message: Message<TYPES>,
-        primary_future: F1,
-        secondary_future: F2,
-    ) -> Result<(), NetworkError>
-    where
-        F1: Future<Output = Result<(), NetworkError>> + Send + 'static,
-        F2: Future<Output = Result<(), NetworkError>> + Send + 'static,
-    {
+        primary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
+        secondary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
+    ) -> Result<(), NetworkError> {
         // send optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
         let mut primary_failed = false;
