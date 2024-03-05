@@ -74,7 +74,6 @@ Get whether the node should start the run, returns a boolean
 # POST the run results
 [route.postresults]
 PATH = ["results"]
-":run_results" = "TaggedBase64"
 METHOD = "POST"
 DOC = """
 Post run results.

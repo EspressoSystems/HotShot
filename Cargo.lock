@@ -2880,6 +2880,7 @@ dependencies = [
  "clap",
  "futures",
  "hotshot-types",
+ "hotshot-utils",
  "libp2p",
  "serde",
  "serde-inline-default",

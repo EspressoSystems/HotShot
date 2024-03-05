@@ -6,6 +6,7 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
+use client::BenchResults;
 use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
@@ -16,7 +17,7 @@ use std::{
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
-use tide_disco::{Api, App};
+use tide_disco::{Api, App, RequestError};
 
 use surf_disco::Url;
 use tide_disco::{
@@ -66,6 +67,8 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
+    /// The results of the benchmarks
+    pub bench_results: BenchResults,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -82,6 +85,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             pub_posted: HashSet::new(),
             nodes_connected: 0,
             start: false,
+            bench_results: BenchResults::default(),
         }
     }
 }
@@ -123,14 +127,14 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// # Errors
     /// if unable to serve
     fn get_start(&self) -> Result<bool, ServerError>;
+    /// post endpoint for the results of the run
+    /// # Errors
+    /// if unable to serve
+    fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError>;
     /// post endpoint for whether or not all nodes are ready
     /// # Errors
     /// if unable to serve
     fn post_ready(&mut self) -> Result<(), ServerError>;
-    /// post endpoint for the results of the run
-    /// # Errors
-    /// if unable to serve
-    fn post_run_results(&mut self) -> Result<(), ServerError>;
 }
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
@@ -142,7 +146,6 @@ where
         let node_index = self.latest_index;
         self.latest_index += 1;
 
-        // TODO https://github.com/EspressoSystems/HotShot/issues/850
         if usize::from(node_index) >= self.config.config.total_nodes.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -278,7 +281,18 @@ where
         Ok(())
     }
 
-    fn post_run_results(&mut self) -> Result<(), ServerError> {
+    // Aggregates results of the run from all nodes
+    fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
+        if metrics.total_transactions_committed != 0 {
+            // Deal with the bench results, now we assume nodes with committed transactions will get same benchmark results
+            if self.bench_results.total_transactions_committed == 0 {
+                println!("Benchmark results are {metrics:?}");
+            } else {
+                // Sishan TODO: deal with different cases
+                assert_eq!(self.bench_results, metrics);
+            }
+            self.bench_results = metrics;
+        }
         Ok(())
     }
 }
@@ -342,8 +356,12 @@ where
     .get("getstart", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
-    .post("postresults", |_req, state| {
-        async move { state.post_run_results() }.boxed()
+    .post("postresults", |req, state| {
+        async move {
+            let metrics: Result<BenchResults, RequestError> = req.body_json();
+            state.post_run_results(metrics.unwrap())
+        }
+        .boxed()
     })?;
     Ok(api)
 }

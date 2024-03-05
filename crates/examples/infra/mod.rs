@@ -23,7 +23,7 @@ use hotshot_example_types::{
 use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
-    client::{OrchestratorClient, ValidatorArgs},
+    client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
@@ -479,7 +479,7 @@ pub trait RunDA<
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
-    ) {
+    ) -> BenchResults {
         let NetworkConfig {
             rounds,
             node_index,
@@ -613,6 +613,21 @@ pub trait RunDA<
             let throughput = total_transactions_committed * (transaction_size_in_bytes + 8)
                 / total_time_elapsed.as_secs();
             error!("[{node_index}]: Avg latency: {:?} sec, Minimum latency: {minimum_latency} sec, Maximum latency: {maximum_latency} sec, Throughput: {throughput} bytes/sec", total_latency / num_latency);
+            BenchResults {
+                avg_latency_in_sec: total_latency / num_latency,
+                minimum_latency_in_sec: minimum_latency,
+                maximum_latency_in_sec: maximum_latency,
+                throughput_bytes_per_sec: throughput,
+                total_transactions_committed,
+                transaction_size_in_bytes: transaction_size_in_bytes + 8, // extra 8 bytes for timestamp
+                total_time_elapsed_in_sec: total_time_elapsed.as_secs(),
+                total_num_views,
+                failed_num_views,
+            }
+        } else {
+            error!("[{node_index}]: No transactions committed");
+            // all values with zero
+            BenchResults::default()
         }
     }
 
@@ -966,13 +981,15 @@ pub async fn main_entry_point<
     }
 
     error!("Starting HotShot");
-    run.run_hotshot(
-        hotshot,
-        &mut transactions,
-        transactions_to_send_per_round as u64,
-        (transaction_size + 8) as u64, // extra 8 bytes for transaction base, see `create_random_transaction`.
-    )
-    .await;
+    let bench_results = run
+        .run_hotshot(
+            hotshot,
+            &mut transactions,
+            transactions_to_send_per_round as u64,
+            (transaction_size + 8) as u64, // extra 8 bytes for transaction base, see `create_random_transaction`.
+        )
+        .await;
+    orchestrator_client.post_bench_results(bench_results).await;
 }
 
 /// generate a libp2p identity based on a seed and idx

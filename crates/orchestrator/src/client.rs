@@ -19,6 +19,30 @@ pub struct OrchestratorClient {
     pub identity: String,
 }
 
+// Sishan TODO: add function printout() to this struct
+/// Struct describing a benchmark result
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct BenchResults {
+    /// The average latency of the transactions
+    pub avg_latency_in_sec: i64,
+    /// The minimum latency of the transactions
+    pub minimum_latency_in_sec: i64,
+    /// The maximum latency of the transactions
+    pub maximum_latency_in_sec: i64,
+    /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
+    pub throughput_bytes_per_sec: u64,
+    /// The number of transactions committed during benchmarking
+    pub total_transactions_committed: u64,
+    /// The size of each transaction in bytes
+    pub transaction_size_in_bytes: u64,
+    /// The total time elapsed for benchmarking
+    pub total_time_elapsed_in_sec: u64,
+    /// The total number of views during benchmarking
+    pub total_num_views: usize,
+    /// The number of failed views during benchmarking
+    pub failed_num_views: usize,
+}
+
 // VALIDATOR
 
 #[derive(Parser, Debug, Clone)]
@@ -218,6 +242,19 @@ impl OrchestratorClient {
         };
         self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
             .await
+    }
+
+    /// Sends the benchmark metrics to the orchestrator
+    /// # Panics
+    /// Panics if unable to post
+    pub async fn post_bench_results(&self, bench_results: BenchResults) {
+        let _send_metrics_f: Result<(), ClientError> = self
+            .client
+            .post("api/results")
+            .body_json(&bench_results)
+            .unwrap()
+            .send()
+            .await;
     }
 
     /// Generic function that waits for the orchestrator to return a non-error
