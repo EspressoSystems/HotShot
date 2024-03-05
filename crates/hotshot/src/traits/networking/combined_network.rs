@@ -32,7 +32,6 @@ use hotshot_types::{
     BoxSyncFuture,
 };
 use std::collections::BTreeMap;
-use std::fmt::Debug;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -171,10 +170,6 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 Either::Left(general_consensus_message) => {
                     matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
-                //     match general_consensus_message {
-                //     GeneralConsensusMessage::Vote(_) => true,
-                //     _ => false,
-                // },
                 Either::Right(_) => true,
             },
             MessageKind::Data(_) => false,
