@@ -3,10 +3,13 @@ use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::{exact, quorum_proposal_send},
-    task_helpers::vid_scheme_from_view_number,
+    task_helpers::{build_cert, vid_scheme_from_view_number},
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::ViewNumber,
+    traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
+};
 use jf_primitives::vid::VidScheme;
 
 /// Runs the test specified in this file with a boolean flag that determines whether or not to make
@@ -20,9 +23,11 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let node_id = 1;
+    let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let public_key = handle.get_public_key();
+    let private_key = handle.private_key();
 
     let vid =
         vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(node_id));
@@ -59,20 +64,34 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
         asserts: vec![],
     };
 
-    let view_1_inputs = if qc_formed_first {
+    // Crank along straight to view 2.
+    let view_1 = TestScriptStage {
+        inputs: vec![ViewChange(ViewNumber::new(2))],
+        outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
+        asserts: vec![],
+    };
+
+    // let cert = build_cert(data, membership, view, &public_key, private_key);
+    let cert = proposals[1].data.justify_qc.clone();
+
+    let view_2_inputs = if qc_formed_first {
         vec![
-            QCFormed(either::Left(qc.clone())),
+            QCFormed(either::Left(cert)),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
         ]
     } else {
         vec![
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
-            QCFormed(either::Left(qc.clone())),
+            QCFormed(either::Left(cert)),
         ]
     };
 
-    let view_1 = TestScriptStage {
-        inputs: view_1_inputs.clone(),
+    // We have a special case for the genesis state where all the nodes get the QC for view 0, and
+    // then the leader of view 1 proposes. However, view 1 is also a special case (for now), and it
+    // doesn't require a DA or VIA share distribution, so the test needs to occur in view 2 to
+    // actually verify everything.
+    let view_2 = TestScriptStage {
+        inputs: view_2_inputs.clone(),
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };
@@ -82,13 +101,13 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
         inputs: vec![SendPayloadCommitmentAndMetadata(
             payload_commitment,
             (),
-            ViewNumber::new(2),
+            ViewNumber::new(3),
         )],
         outputs: vec![/* There should be nothing emitted here */],
         asserts: vec![],
     };
 
-    let script = vec![view_0, view_1, fail_view];
+    let script = vec![view_0, view_1, view_2, fail_view];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
