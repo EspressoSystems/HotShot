@@ -323,14 +323,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// blocking
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Receive one or many messages from the underlying network.
     ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b;
+    /// # Errors
+    /// If there is a network-related failure.
+    async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError>;
 
     /// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request
