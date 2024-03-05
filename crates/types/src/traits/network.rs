@@ -22,7 +22,6 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::{info, instrument};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -302,10 +301,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {}
 
     /// handles view update
-    #[instrument(name = "ConnectedNetwork::update_view", skip(self))]
-    async fn update_view(&self, _view: &u64) {
-        info!("Entered update_view");
-    }
+    async fn update_view(&self, _view: &u64) {}
 }
 
 /// Describes additional functionality needed by the test network implementation

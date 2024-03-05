@@ -39,6 +39,7 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use either::Either;
+use futures::future::join_all;
 use hotshot_task_impls::helpers::cancel_task;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
 use hotshot_types::traits::network::ViewMessage;
@@ -467,7 +468,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             while let Some((first_view, _task)) = map_lock.first_key_value() {
                 if first_view < view {
                     if let Some((_view, task)) = map_lock.pop_first() {
-                        cancel_tasks.push(task);
+                        cancel_tasks.push(cancel_task(task));
                     } else {
                         break;
                     }
@@ -476,9 +477,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
                 }
             }
         }
-        for task in cancel_tasks {
-            cancel_task(task).await;
-        }
+        join_all(cancel_tasks).await;
     }
 }
 
