@@ -72,12 +72,23 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     };
 
     let view_1 = TestScriptStage {
-        inputs: view_1_inputs,
+        inputs: view_1_inputs.clone(),
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };
 
-    let script = vec![view_0, view_1];
+    // Attempt to initiate a proposal when a different view is up.
+    let fail_view = TestScriptStage {
+        inputs: vec![SendPayloadCommitmentAndMetadata(
+            payload_commitment,
+            (),
+            ViewNumber::new(2),
+        )],
+        outputs: vec![/* There should be nothing emitted here */],
+        asserts: vec![],
+    };
+
+    let script = vec![view_0, view_1, fail_view];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
