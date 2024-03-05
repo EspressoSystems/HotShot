@@ -216,6 +216,12 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs associated with light client state
 
 </span><span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig <span class="kw">as </span>Config;
@@ -333,6 +339,12 @@
 }
 
 <span class="kw">impl </span>StateKeyPair {
+    <span class="doccomment">/// Generate key pairs from private signing keys
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>from_sign_key(sk: StateSignKey) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(schnorr::KeyPair::&lt;Config&gt;::from(sk))
+    }
+
     <span class="doccomment">/// Generate key pairs from `thread_rng()`
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generate() -&gt; StateKeyPair {
