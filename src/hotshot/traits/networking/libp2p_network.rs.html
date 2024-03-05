@@ -895,8 +895,6 @@
 <a href="#894" id="894">894</a>
 <a href="#895" id="895">895</a>
 <a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1743,23 +1741,21 @@
         }
     }
 
-    <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
-    <span class="kw">where
-        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
-        <span class="self">Self</span>: <span class="lifetime">'b</span>,
-    {
-        <span class="kw">let </span>closure = <span class="kw">async move </span>{
-            <span class="kw">let </span>result = <span class="self">self
-                </span>.inner
-                .receiver
-                .drain_at_least_one()
-                .<span class="kw">await
-                </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-            <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
-            <span class="prelude-val">Ok</span>(result)
-        };
-        boxed_sync(closure)
+    <span class="doccomment">/// Receive one or many messages from the underlying network.
+    ///
+    /// # Errors
+    /// If there is a network-related failure.
+    </span><span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+        <span class="kw">let </span>result = <span class="self">self
+            </span>.inner
+            .receiver
+            .drain_at_least_one()
+            .<span class="kw">await
+            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+        <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
+
+        <span class="prelude-val">Ok</span>(result)
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::queue_node_lookup"</span>, skip_all)]

@@ -599,9 +599,6 @@
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -881,14 +878,11 @@
     /// blocking
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
-    <span class="doccomment">/// Moves out the entire queue of received messages of 'transmit_type`
+    <span class="doccomment">/// Receive one or many messages from the underlying network.
     ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    </span><span class="kw">fn </span>recv_msgs&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;&gt;
-    <span class="kw">where
-        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
-        <span class="self">Self</span>: <span class="lifetime">'b</span>;
+    /// # Errors
+    /// If there is a network-related failure.
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;;
 
     <span class="doccomment">/// queues lookup of a node
     </span><span class="kw">async fn </span>queue_node_lookup(
