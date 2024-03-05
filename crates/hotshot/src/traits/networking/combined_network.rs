@@ -118,7 +118,7 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
 }
 
 /// thread-safe ref counted lock to a map of delayed tasks
-type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, JoinHandle<Result<(), NetworkError>>>>>;
+type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, Vec<JoinHandle<Result<(), NetworkError>>>>>>;
 
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
@@ -206,13 +206,15 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
-            self.delayed_tasks.write().await.insert(
-                message.kind.get_view_number().get_u64(),
-                async_spawn(async move {
+            self.delayed_tasks
+                .write()
+                .await
+                .entry(message.kind.get_view_number().get_u64())
+                .or_default()
+                .push(async_spawn(async move {
                     async_sleep(duration).await;
                     secondary_future.await
-                }),
-            );
+                }));
             Ok(())
         } else {
             secondary_future.await
@@ -465,10 +467,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         let mut cancel_tasks = Vec::new();
         {
             let mut map_lock = self.delayed_tasks.write().await;
-            while let Some((first_view, _task)) = map_lock.first_key_value() {
+            while let Some((first_view, _tasks)) = map_lock.first_key_value() {
                 if first_view < view {
-                    if let Some((_view, task)) = map_lock.pop_first() {
-                        cancel_tasks.push(cancel_task(task));
+                    if let Some((_view, tasks)) = map_lock.pop_first() {
+                        let mut ctasks = tasks.into_iter().map(cancel_task).collect();
+                        cancel_tasks.append(&mut ctasks);
                     } else {
                         break;
                     }
