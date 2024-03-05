@@ -3510,7 +3510,7 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 [[package]]
 name = "jf-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.0#214227e0608c231cb55234809727723c2a6740c2"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.1#64624aecb1374964c2ad515e9fbad027d16b4f58"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3539,7 +3539,7 @@ dependencies = [
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.0#214227e0608c231cb55234809727723c2a6740c2"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.1#64624aecb1374964c2ad515e9fbad027d16b4f58"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -3584,7 +3584,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.0#214227e0608c231cb55234809727723c2a6740c2"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.1#64624aecb1374964c2ad515e9fbad027d16b4f58"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3610,7 +3610,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.0#214227e0608c231cb55234809727723c2a6740c2"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.1#64624aecb1374964c2ad515e9fbad027d16b4f58"
 dependencies = [
  "ark-ec",
  "ark-ff",
