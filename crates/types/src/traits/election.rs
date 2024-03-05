@@ -38,13 +38,17 @@ pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + 'static
 {
     /// generate a default election configuration
-    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
+    fn default_election_config(
+        num_nodes: u64,
+        num_nodes_without_stake: u64,
+    ) -> TYPES::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
     fn create_election(
         entries: Vec<PeerConfig<TYPES::SignatureKey>>,
         config: TYPES::ElectionConfigType,
+        nodes_without_stake: Vec<TYPES::SignatureKey>,
     ) -> Self;
 
     /// Clone the public key and corresponding stake table for current elected committee

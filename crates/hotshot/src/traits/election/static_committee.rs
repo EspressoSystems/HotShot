@@ -22,6 +22,8 @@ pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
     nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// The nodes on the static committee and their stake
     committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+    /// builder nodes
+    nodes_without_stake: Vec<PUBKEY>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
 }
@@ -32,10 +34,15 @@ pub type StaticCommittee<T> = GeneralStaticCommittee<T, BLSPubKey>;
 impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(_nodes: &[PUBKEY], nodes_with_stake: Vec<PUBKEY::StakeTableEntry>) -> Self {
+    pub fn new(
+        _nodes: &[PUBKEY],
+        nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+        nodes_without_stake: Vec<PUBKEY>,
+    ) -> Self {
         Self {
             nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes_with_stake: nodes_with_stake,
+            nodes_without_stake: nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -46,6 +53,8 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
 pub struct StaticElectionConfig {
     /// Number of nodes on the committee
     num_nodes: u64,
+    /// Number of non staking nodes
+    num_nodes_without_stake: u64,
 }
 
 impl ElectionConfig for StaticElectionConfig {}
@@ -95,24 +104,37 @@ where
         }
     }
 
-    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
-        StaticElectionConfig { num_nodes }
+    fn default_election_config(
+        num_nodes: u64,
+        num_nodes_without_stake: u64,
+    ) -> TYPES::ElectionConfigType {
+        StaticElectionConfig {
+            num_nodes,
+            num_nodes_without_stake,
+        }
     }
 
     fn create_election(
         entries: Vec<PeerConfig<PUBKEY>>,
         config: TYPES::ElectionConfigType,
+        nodes_without_stake: Vec<PUBKEY>,
     ) -> Self {
+        // get nodes with stake from `known_nodes_with_stake`
         let nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = entries
             .iter()
             .map(|x| x.stake_table_entry.clone())
             .collect();
+        // make committee_nodes_with_stake to be nodes_with_stake
         let mut committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = nodes_with_stake.clone();
         debug!("Election Membership Size: {}", config.num_nodes);
+        // truncate committee_nodes_with_stake to only `num_nodes`
+        // since the `num_nodes_without_stake` are not part of the committee,
         committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
+
         Self {
             nodes_with_stake,
             committee_nodes_with_stake,
+            nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -145,5 +167,20 @@ where
                 )
             })
             .collect()
+    }
+}
+
+impl<TYPES, PUBKEY: SignatureKey + 'static> GeneralStaticCommittee<TYPES, PUBKEY>
+where
+    TYPES: NodeType<SignatureKey = PUBKEY, ElectionConfigType = StaticElectionConfig>,
+{
+    /// get the non-staked builder nodes
+    pub fn non_staked_nodes_count(&self) -> usize {
+        self.nodes_without_stake.len()
+    }
+
+    /// get all the non-staked nodes
+    pub fn get_non_staked_nodes(&self) -> Vec<PUBKEY> {
+        self.nodes_without_stake.clone()
     }
 }
