@@ -7,6 +7,7 @@
 #
 # Usage: `cat <file> | ./scripts/split_test_output.py`
 
+from io import TextIOWrapper
 import sys
 import re
 
@@ -15,7 +16,7 @@ id_regex = re.compile("id: (\\d+)")
 ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
 
 
-def split_input(input_stream):
+def split_input(input_stream: TextIOWrapper):
     files = []
     files.append(open("out.txt", "w"))
 
