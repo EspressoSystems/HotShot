@@ -59,7 +59,7 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     // Crank along straight to view 2.
     let view_1 = TestScriptStage {
-        inputs: vec![ViewChange(ViewNumber::new(2))],
+        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
         asserts: vec![],
     };
