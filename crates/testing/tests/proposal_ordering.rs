@@ -52,6 +52,7 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
         inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -59,8 +60,11 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     // Crank along straight to view 2.
     let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
-        outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
+        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+        ],
         asserts: vec![],
     };
 
