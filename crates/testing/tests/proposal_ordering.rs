@@ -35,8 +35,6 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     let mut proposals = Vec::new();
     let mut votes = Vec::new();
-    let mut dacs = Vec::new();
-    let mut vids = Vec::new();
     let mut leaders = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
@@ -45,8 +43,6 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_vote(&handle));
-        dacs.push(view.da_certificate.clone());
-        vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
     }
 
