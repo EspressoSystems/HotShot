@@ -102,7 +102,18 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         asserts: vec![is_at_view_number(2)],
     };
 
-    let script = vec![view_0, view_1];
+    // Attempt to initiate a proposal when a different view is up.
+    let fail_view = TestScriptStage {
+        inputs: vec![SendPayloadCommitmentAndMetadata(
+            payload_commitment,
+            (),
+            ViewNumber::new(2),
+        )],
+        outputs: vec![/* There should be nothing emitted here */],
+        asserts: vec![],
+    };
+
+    let script = vec![view_0, view_1, fail_view];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
