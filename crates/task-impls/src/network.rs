@@ -9,6 +9,7 @@ use hotshot_constants::VERSION_0_1;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
@@ -22,7 +23,6 @@ use hotshot_types::{
 };
 use tracing::error;
 use tracing::instrument;
-use hotshot_types::traits::node_implementation::ConsensusTime;
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {

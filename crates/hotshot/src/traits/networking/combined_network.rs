@@ -31,18 +31,18 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::{collections::hash_map::DefaultHasher, sync::Arc};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
-use std::hash::Hash;
-use std::time::Duration;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_std::task::JoinHandle;
 use either::Either;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::ConsensusTime;
+use std::hash::Hash;
+use std::time::Duration;
 
 /// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
 /// from multiple networks
@@ -112,6 +112,9 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
+/// thread-safe ref counted lock to a map of delayed tasks
+type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, JoinHandle<Result<(), NetworkError>>>>>;
+
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
@@ -125,7 +128,11 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     /// If the primary network is down (0) or not, and for how many messages
     primary_down: Arc<AtomicU64>,
 
-    delayed_tasks: Arc<RwLock<BTreeMap<u64, JoinHandle<Result<(), NetworkError>>>>>,
+    /// delayed, cancelable tasks for secondary network
+    delayed_tasks: DelayedTasksLockedMap,
+
+    /// how long to delay
+    delay_duration: Arc<RwLock<Duration>>,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -137,6 +144,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
             primary_down: Arc::new(AtomicU64::new(0)),
             delayed_tasks: Arc::default(),
+            delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
         }
     }
 
@@ -152,23 +160,24 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         &self.networks.1
     }
 
-    fn should_delay(&self, message: &Message<TYPES>) -> bool {
+    /// a helper function returning a bool whether a given message is of delayable type
+    fn should_delay(message: &Message<TYPES>) -> bool {
         match &message.kind {
-            MessageKind::Consensus(consensus_message) => {
-                match &consensus_message.0 {
-                    Either::Left(general_consensus_message) => {
-                        match general_consensus_message {
-                            GeneralConsensusMessage::Vote(_) => true,
-                            _ => false,
-                        }
-                    }
-                    Either::Right(_) => true,
+            MessageKind::Consensus(consensus_message) => match &consensus_message.0 {
+                Either::Left(general_consensus_message) => {
+                    matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
-            }
+                //     match general_consensus_message {
+                //     GeneralConsensusMessage::Vote(_) => true,
+                //     _ => false,
+                // },
+                Either::Right(_) => true,
+            },
             MessageKind::Data(_) => false,
         }
     }
 
+    /// a helper function to send messages through both networks (possibly delayed)
     async fn send_both_networks(
         &self,
         message: Message<TYPES>,
@@ -183,21 +192,23 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         {
             // send on the primary network as it is not down, or we are checking if it is back up
             let result = match message_type {
-                MessageType::Broadcast => self
-                    .primary()
-                    .broadcast_message(message.clone(), recipients.clone())
-                    .await,
-                MessageType::DM => self
-                    .primary()
-                    .direct_message(message.clone(), recipients.first().unwrap().clone())
-                    .await,
-                MessageType::DABroadcast => self
-                    .primary()
-                    .da_broadcast_message(message.clone(), recipients.clone())
-                    .await,
+                MessageType::Broadcast => {
+                    self.primary()
+                        .broadcast_message(message.clone(), recipients.clone())
+                        .await
+                }
+                MessageType::DM => {
+                    self.primary()
+                        .direct_message(message.clone(), recipients.first().unwrap().clone())
+                        .await
+                }
+                MessageType::DABroadcast => {
+                    self.primary()
+                        .da_broadcast_message(message.clone(), recipients.clone())
+                        .await
+                }
             };
-            match result
-            {
+            match result {
                 Ok(()) => {
                     self.primary_down.store(0, Ordering::Relaxed);
                 }
@@ -209,43 +220,45 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             };
         }
 
-        if !primary_failed && self.should_delay(&message) {
+        if !primary_failed && Self::should_delay(&message) {
             let secondary = self.secondary().clone();
             let cloned_recipient = recipients.first().unwrap().clone();
-            self.delayed_tasks
-                .write()
-                .await
-                .insert(message.kind.get_view_number().get_u64(),
-                        async_spawn(async move {
-                            async_sleep(Duration::from_millis(1))
-                                .await;
-                            match message_type {
-                                MessageType::Broadcast => secondary
-                                    .broadcast_message(message, recipients)
-                                    .await,
-                                MessageType::DM => secondary
-                                    .direct_message(message, cloned_recipient)
-                                    .await,
-                                MessageType::DABroadcast => secondary
-                                    .da_broadcast_message(message, recipients)
-                                    .await,
-                            }
-                        }));
+            let duration = *self.delay_duration.read().await;
+            self.delayed_tasks.write().await.insert(
+                message.kind.get_view_number().get_u64(),
+                async_spawn(async move {
+                    async_sleep(duration).await;
+                    match message_type {
+                        MessageType::Broadcast => {
+                            secondary.broadcast_message(message, recipients).await
+                        }
+                        MessageType::DM => {
+                            secondary.direct_message(message, cloned_recipient).await
+                        }
+                        MessageType::DABroadcast => {
+                            secondary.da_broadcast_message(message, recipients).await
+                        }
+                    }
+                }),
+            );
             Ok(())
         } else {
             match message_type {
-                MessageType::Broadcast => self
-                    .secondary()
-                    .broadcast_message(message, recipients)
-                    .await,
-                MessageType::DM => self
-                    .secondary()
-                    .direct_message(message, recipients.first().unwrap().clone())
-                    .await,
-                MessageType::DABroadcast => self
-                    .secondary()
-                    .da_broadcast_message(message, recipients)
-                    .await,
+                MessageType::Broadcast => {
+                    self.secondary()
+                        .broadcast_message(message, recipients)
+                        .await
+                }
+                MessageType::DM => {
+                    self.secondary()
+                        .direct_message(message, recipients.first().unwrap().clone())
+                        .await
+                }
+                MessageType::DABroadcast => {
+                    self.secondary()
+                        .da_broadcast_message(message, recipients)
+                        .await
+                }
             }
         }
     }
@@ -308,12 +321,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
                 delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
             };
             let da_net = Self {
                 networks: Arc::new(da_networks),
                 message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
                 primary_down: Arc::new(AtomicU64::new(0)),
                 delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
             };
             (quorum_net.into(), da_net.into())
         })
@@ -366,7 +381,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        self.send_both_networks(message, recipients, MessageType::Broadcast).await
+        self.send_both_networks(message, recipients, MessageType::Broadcast)
+            .await
     }
 
     async fn da_broadcast_message(
@@ -374,7 +390,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        self.send_both_networks(message, recipients, MessageType::DABroadcast).await
+        self.send_both_networks(message, recipients, MessageType::DABroadcast)
+            .await
     }
 
     async fn direct_message(
@@ -382,7 +399,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        self.send_both_networks(message, BTreeSet::from([recipient]), MessageType::DM).await
+        self.send_both_networks(message, BTreeSet::from([recipient]), MessageType::DM)
+            .await
     }
 
     fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
@@ -442,28 +460,27 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
 
     async fn update_view(&self, view: &u64) {
         let mut map_lock = self.delayed_tasks.write().await;
-        loop {
-            match map_lock.first_key_value() {
-                Some((first_view, _task)) => {
-                    if first_view < view {
-                        match map_lock.pop_first() {
-                            Some((_view, task)) => {
-                                task.cancel().await;
-                            }
-                            None => { break; }
-                        }
-                    } else { break; }
+        while let Some((first_view, _task)) = map_lock.first_key_value() {
+            if first_view < view {
+                if let Some((_view, task)) = map_lock.pop_first() {
+                    task.cancel().await;
+                } else {
+                    break;
                 }
-                None => { break; }
+            } else {
+                break;
             }
         }
     }
-
 }
 
+/// a helper enum to parametrise `send_both_networks` method
 enum MessageType {
+    /// broadcast message
     Broadcast,
+    /// direct message
     DM,
+    /// DA committee message
     DABroadcast,
 }
 
