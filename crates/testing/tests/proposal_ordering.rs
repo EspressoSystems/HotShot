@@ -5,7 +5,7 @@ use hotshot_testing::{
     predicates::exact, task_helpers::vid_scheme_from_view_number, view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{VidDisperse, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
 };
 use jf_primitives::vid::VidScheme;
@@ -37,7 +37,7 @@ async fn test_proposal_ordering() {
     // later calls.
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let _payload_commitment = vid_disperse.commit;
+    let payload_commitment = vid_disperse.commit;
 
     let mut proposals = Vec::new();
     let mut votes = Vec::new();
@@ -74,7 +74,18 @@ async fn test_proposal_ordering() {
         asserts: vec![],
     };
 
-    let script = vec![view_1];
+    let view_2 = TestScriptStage {
+        inputs: vec![SendPayloadCommitmentAndMetadata(
+            payload_commitment,
+            (),
+            ViewNumber::new(node_id),
+        )],
+        // We _should_ get the proposal publish event here
+        outputs: vec![exact(QuorumProposalSend(proposals[0].clone(), public_key))],
+        asserts: vec![],
+    };
+
+    let script = vec![view_1, view_2];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
