@@ -8,7 +8,7 @@ use hotshot_constants::{
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
 use std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     hash::Hasher,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -26,7 +26,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, Topic, TransmitType},
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -249,10 +249,10 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
+    async fn quorum_broadcast_message(
         &self,
         message: Message<TYPES>,
-        topic: Topic,
+        recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
         // broadcast optimistically on both networks, but if the primary network is down, skip it
         let primary_down = self.primary_down.load(Ordering::Relaxed);
@@ -262,7 +262,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             // broadcast on the primary network as it is not down, or we are checking if it is back up
             match self
                 .primary()
-                .broadcast_message(message.clone(), topic.clone())
+                .quorum_broadcast_message(message.clone(), recipients.clone())
                 .await
             {
                 Ok(()) => {
@@ -275,7 +275,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             };
         }
 
-        self.secondary().broadcast_message(message, topic).await
+        self.secondary()
+            .quorum_broadcast_message(message, recipients)
+            .await
     }
 
     async fn da_broadcast_message(
@@ -283,7 +285,17 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients).await
+        if self
+            .primary()
+            .da_broadcast_message(message.clone(), recipients.clone())
+            .await
+            .is_err()
+        {
+            warn!("Failed broadcasting DA on primary");
+        }
+        self.secondary()
+            .da_broadcast_message(message, recipients)
+            .await
     }
 
     async fn direct_message(
@@ -315,15 +327,12 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.secondary().direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
-        transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
 
-        let mut primary_msgs = self.primary().recv_msgs(transmit_type).await?;
-        let mut secondary_msgs = self.secondary().recv_msgs(transmit_type).await?;
+        let mut primary_msgs = self.primary().recv_msgs().await?;
+        let mut secondary_msgs = self.secondary().recv_msgs().await?;
 
         primary_msgs.append(secondary_msgs.as_mut());
 

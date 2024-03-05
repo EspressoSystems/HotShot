@@ -6,7 +6,7 @@ use displaydoc::Display;
 use crate::{
     data::Leaf,
     error::HotShotError,
-    simple_certificate::{DACertificate, QuorumCertificate},
+    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
@@ -39,7 +39,11 @@ pub struct Consensus<TYPES: NodeType> {
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
-    /// cur_view from pseudocode
+    /// All the upgrade certs we've received for current and future views.
+    /// view -> upgrade cert
+    pub saved_upgrade_certs: HashMap<TYPES::Time, UpgradeCertificate<TYPES>>,
+
+    /// View number that is currently on.
     pub cur_view: TYPES::Time,
 
     /// last view had a successful decide event
@@ -235,11 +239,9 @@ impl Default for ConsensusMetricsValue {
 }
 
 impl<TYPES: NodeType> Consensus<TYPES> {
-    /// increment the current view
-    /// NOTE may need to do gc here
-    pub fn increment_view(&mut self) -> TYPES::Time {
-        self.cur_view += 1;
-        self.cur_view
+    /// Update the current view.
+    pub fn update_view(&mut self, view_number: TYPES::Time) {
+        self.cur_view = view_number;
     }
 
     /// gather information from the parent chain of leafs
@@ -297,12 +299,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
-    #[allow(clippy::unused_async)] // async for API compatibility reasons
-    pub async fn collect_garbage(
-        &mut self,
-        old_anchor_view: TYPES::Time,
-        new_anchor_view: TYPES::Time,
-    ) {
+    pub fn collect_garbage(&mut self, old_anchor_view: TYPES::Time, new_anchor_view: TYPES::Time) {
         // state check
         let anchor_entry = self
             .validated_state_map
@@ -316,6 +313,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
         // perform gc
         self.saved_da_certs
+            .retain(|view_number, _| *view_number >= old_anchor_view);
+        self.saved_upgrade_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)

@@ -15,7 +15,7 @@ use hotshot_types::{
     },
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, TransmitType},
+        network::{ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::NodeType,
     },
     vote::{HasViewNumber, Vote},
@@ -369,13 +369,13 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             sender,
             kind: message_kind,
         };
-
-        let committee = membership.get_committee_topic();
+        let view = message.kind.get_view_number();
+        let committee = membership.get_committee(view);
         let net = self.channel.clone();
         async_spawn(async move {
             let transmit_result = match transmit_type {
                 TransmitType::Direct => net.direct_message(message, recipient.unwrap()).await,
-                TransmitType::Broadcast => net.broadcast_message(message, committee).await,
+                TransmitType::Broadcast => net.quorum_broadcast_message(message, committee).await,
                 TransmitType::DACommitteeBroadcast => {
                     net.da_broadcast_message(message, committee).await
                 }

@@ -5,6 +5,7 @@ pub mod types;
 use crate::infra::{load_config_from_file, run_orchestrator, ConfigArgs, OrchestratorArgs};
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
 use async_compatibility_layer::art::async_spawn;
+use broker::reexports::connection::protocols::{Quic, Tcp};
 use broker::reexports::crypto::signature::KeyPair;
 use broker::Broker;
 use clap::Parser;
@@ -69,7 +70,7 @@ async fn main() {
             broker::ConfigBuilder::default()
                 .discovery_endpoint(discovery_endpoint.clone())
                 .keypair(KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key.clone()),
+                    public_key: WrappedSignatureKey(broker_public_key),
                     private_key: broker_private_key.clone(),
                 })
                 .metrics_enabled(false)
@@ -85,6 +86,8 @@ async fn main() {
             let broker: Broker<
                 WrappedSignatureKey<<TestTypes as NodeType>::SignatureKey>,
                 WrappedSignatureKey<<TestTypes as NodeType>::SignatureKey>,
+                Tcp,
+                Quic,
             > = Broker::new(config).await.expect("broker failed to start");
 
             // Error if we stopped unexpectedly
@@ -107,7 +110,7 @@ async fn main() {
 
     // Spawn the marshal
     async_spawn(async move {
-        let marshal: Marshal<WrappedSignatureKey<<TestTypes as NodeType>::SignatureKey>> =
+        let marshal: Marshal<WrappedSignatureKey<<TestTypes as NodeType>::SignatureKey>, Quic> =
             Marshal::new(marshal_config)
                 .await
                 .expect("failed to spawn marshal");

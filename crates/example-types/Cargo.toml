@@ -29,6 +29,7 @@ snafu = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
+time = { workspace = true }
 async-lock = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
@@ -38,4 +39,3 @@ hotshot-task = { path = "../task" }
 tokio = { workspace = true }
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
-

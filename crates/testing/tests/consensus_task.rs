@@ -1,73 +1,14 @@
 #![allow(clippy::panic)]
-use commit::Committable;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
-use hotshot_types::simple_vote::QuorumVote;
-use hotshot_types::vote::Certificate;
+use hotshot_testing::task_helpers::{build_quorum_proposal, build_vote, key_pair_for_id};
+use hotshot_types::traits::{consensus_api::ConsensusApi, election::Membership};
 use hotshot_types::{
-    data::{Leaf, QuorumProposal, ViewNumber},
-    message::GeneralConsensusMessage,
-    traits::node_implementation::ConsensusTime,
+    data::ViewNumber, message::GeneralConsensusMessage, traits::node_implementation::ConsensusTime,
 };
-use hotshot_types::{
-    simple_vote::QuorumData,
-    traits::{consensus_api::ConsensusApi, election::Membership},
-};
-
+use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
-
-async fn build_vote(
-    handle: &SystemContextHandle<TestTypes, MemoryImpl>,
-    proposal: QuorumProposal<TestTypes>,
-) -> GeneralConsensusMessage<TestTypes> {
-    let consensus_lock = handle.get_consensus();
-    let consensus = consensus_lock.read().await;
-    let membership = handle.hotshot.memberships.quorum_membership.clone();
-
-    let justify_qc = proposal.justify_qc.clone();
-    let view = ViewNumber::new(*proposal.view_number);
-    let parent = if justify_qc.is_genesis {
-        let Some(genesis_view) = consensus.validated_state_map.get(&ViewNumber::new(0)) else {
-            panic!("Couldn't find genesis view in state map.");
-        };
-        let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            panic!("Genesis view points to a view without a leaf");
-        };
-        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-            panic!("Failed to find genesis leaf.");
-        };
-        leaf.clone()
-    } else {
-        consensus
-            .saved_leaves
-            .get(&justify_qc.get_data().leaf_commit)
-            .cloned()
-            .unwrap()
-    };
-
-    let parent_commitment = parent.commit();
-
-    let leaf: Leaf<_> = Leaf {
-        view_number: view,
-        justify_qc: proposal.justify_qc.clone(),
-        parent_commitment,
-        block_header: proposal.block_header,
-        block_payload: None,
-        proposer_id: membership.get_leader(view),
-    };
-    let vote = QuorumVote::<TestTypes>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(),
-        },
-        view,
-        handle.public_key(),
-        handle.private_key(),
-    )
-    .expect("Failed to create quorum vote");
-    GeneralConsensusMessage::<TestTypes>::Vote(vote)
-}
 
 #[cfg(test)]
 #[cfg_attr(
@@ -119,7 +60,8 @@ async fn test_consensus_task() {
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle);
+    >::create_from(&handle)
+    .await;
 
     inject_consensus_polls(&consensus_state).await;
 
@@ -169,7 +111,8 @@ async fn test_consensus_vote() {
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle);
+    >::create_from(&handle)
+    .await;
 
     inject_consensus_polls(&consensus_state).await;
 
@@ -194,8 +137,7 @@ async fn test_consensus_with_vid() {
     use hotshot_task_impls::{consensus::ConsensusTaskState, harness::run_harness};
     use hotshot_testing::task_helpers::build_cert;
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_testing::task_helpers::vid_init;
-    use hotshot_types::data::VidSchemeTrait;
+    use hotshot_testing::task_helpers::vid_scheme_from_view_number;
     use hotshot_types::simple_certificate::DACertificate;
     use hotshot_types::simple_vote::DAData;
     use hotshot_types::simple_vote::DAVote;
@@ -216,7 +158,7 @@ async fn test_consensus_with_vid() {
     // For the test of vote logic with vid
     let pub_key = *handle.public_key();
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let vid = vid_init::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
@@ -289,7 +231,8 @@ async fn test_consensus_with_vid() {
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle);
+    >::create_from(&handle)
+    .await;
 
     inject_consensus_polls(&consensus_state).await;
 

@@ -22,7 +22,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, fmt::Debug, sync::Arc, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
@@ -293,12 +293,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         'a: 'b,
         Self: 'b;
 
-    /// broadcast message to some subset of nodes
-    /// blocking
-    async fn broadcast_message(&self, message: M, topic: Topic) -> Result<(), NetworkError>;
+    /// Broadcast a message to all members in the quorum
+    async fn quorum_broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError>;
 
-    /// broadcast a message only to a DA committee
-    /// blocking
+    /// Broadcast a message to all members in the DA committee
     async fn da_broadcast_message(
         &self,
         message: M,
@@ -313,7 +315,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError>;
 
     /// queues lookup of a node
     async fn queue_node_lookup(

@@ -11,20 +11,20 @@ pub use self::{
     def::NetworkDef,
     error::NetworkError,
     node::{
-        network_node_handle_error, MeshParams, NetworkNode, NetworkNodeConfig,
+        network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
         NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
-        NetworkNodeHandleError,
+        NetworkNodeHandleError, NetworkNodeReceiver,
     },
 };
 
-use self::behaviours::{dht::DHTEvent, direct_message::DMEvent, gossip::GossipEvent};
+use self::behaviours::{dht::DHTEvent, direct_message::DMEvent};
 use bincode::Options;
 use futures::channel::oneshot::Sender;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
-    gossipsub::TopicHash,
+    gossipsub::Event as GossipEvent,
     identify::Event as IdentifyEvent,
     identity::Keypair,
     quic,
@@ -32,10 +32,9 @@ use libp2p::{
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
-use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
-use tracing::{info, instrument};
+use std::{collections::HashSet, fmt::Debug, str::FromStr};
+use tracing::instrument;
 
 #[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::async_std::Transport as DnsTransport;
@@ -164,7 +163,7 @@ pub enum ClientRequest {
 #[derive(Debug)]
 pub enum NetworkEvent {
     /// Recv-ed a broadcast
-    GossipMsg(Vec<u8>, TopicHash),
+    GossipMsg(Vec<u8>),
     /// Recv-ed a direct message from a node
     DirectRequest(Vec<u8>, PeerId, ResponseChannel<Vec<u8>>),
     /// Recv-ed a direct response from a node (that hopefully was initiated by this node)
@@ -183,7 +182,7 @@ pub enum NetworkEventInternal {
     /// to store it on the heap.
     IdentifyEvent(Box<IdentifyEvent>),
     /// a gossip  event
-    GossipEvent(GossipEvent),
+    GossipEvent(Box<GossipEvent>),
     /// a direct message event
     DMEvent(DMEvent),
 }
@@ -227,32 +226,4 @@ pub async fn gen_transport(identity: Keypair) -> Result<BoxedTransport, NetworkE
     Ok(dns_quic
         .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))
         .boxed())
-}
-
-/// a single node, connects them to each other
-/// and waits for connections to propagate to all nodes.
-#[instrument]
-pub async fn spin_up_swarm<S: Debug + Default>(
-    timeout_len: Duration,
-    known_nodes: Vec<(Option<PeerId>, Multiaddr)>,
-    config: NetworkNodeConfig,
-    idx: usize,
-    handle: &Arc<NetworkNodeHandle<S>>,
-) -> Result<(), NetworkNodeHandleError> {
-    info!("known_nodes{:?}", known_nodes);
-    handle.add_known_peers(known_nodes).await?;
-    handle.subscribe("global".to_string()).await?;
-
-    Ok(())
-}
-
-/// Given a slice of handles assumed to be larger than 0,
-/// chooses one
-/// # Panics
-/// panics if handles is of length 0
-pub fn get_random_handle<S>(
-    handles: &[Arc<NetworkNodeHandle<S>>],
-    rng: &mut dyn rand::RngCore,
-) -> Arc<NetworkNodeHandle<S>> {
-    handles.iter().choose(rng).unwrap().clone()
 }

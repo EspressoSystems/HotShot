@@ -2,7 +2,9 @@
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
 use bincode::Options;
-use broker::{Broker, Config, ConfigBuilder as BrokerConfigBuilder};
+use broker::{
+    reexports::connection::protocols::Tcp, Broker, Config, ConfigBuilder as BrokerConfigBuilder,
+};
 use client::{
     reexports::{
         connection::protocols::Quic,
@@ -27,13 +29,13 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, Topic, TransmitType},
+        network::{ConnectedNetwork, ConsensusIntentEvent, Topic},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
 };
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -109,6 +111,39 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
 
         Ok(Self(client))
     }
+
+    /// Broadcast a message to members of the particular topic. Does not retry.
+    ///
+    /// # Errors
+    /// - If we fail to serialize the message
+    /// - If we fail to send the broadcast message.
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES>,
+        topic: PushCdnTopic,
+    ) -> Result<(), NetworkError> {
+        // Bincode the message
+        let serialized_message = match bincode_opts().serialize(&message) {
+            Ok(serialized) => serialized,
+            Err(e) => {
+                warn!("Failed to serialize message: {}", e);
+                return Err(NetworkError::FailedToSerialize { source: e });
+            }
+        };
+
+        // Send the message
+        // TODO: check if we need to print this error
+        if self
+            .0
+            .send_broadcast_message(vec![topic], serialized_message)
+            .await
+            .is_err()
+        {
+            return Err(NetworkError::CouldNotDeliver);
+        };
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "hotshot-testing")]
@@ -131,6 +166,11 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
         // The broker (peer) discovery endpoint shall be a local SQLite file
         let discovery_endpoint = "test.sqlite".to_string();
+
+        // Try to delete the file at the discovery endpoint to maintain consistency between tests
+        if let Err(err) = std::fs::remove_file(discovery_endpoint.clone()) {
+            warn!("failed to delete pre-existing database: {err}");
+        };
 
         // 2 brokers
         for _ in 0..2 {
@@ -162,6 +202,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                 let broker: Broker<
                     WrappedSignatureKey<TYPES::SignatureKey>,
                     WrappedSignatureKey<TYPES::SignatureKey>,
+                    Tcp,
+                    Quic,
                 > = Broker::new(config).await.expect("broker failed to start");
 
                 // Error if we stopped unexpectedly
@@ -184,7 +226,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
         // Spawn the marshal
         async_spawn(async move {
-            let marshal: Marshal<WrappedSignatureKey<TYPES::SignatureKey>> =
+            let marshal: Marshal<WrappedSignatureKey<TYPES::SignatureKey>, Quic> =
                 Marshal::new(marshal_config)
                     .await
                     .expect("failed to spawn marshal");
@@ -269,37 +311,30 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         boxed_sync(async move {})
     }
 
-    /// Broadcast a message to members of the particular topic. Does not retry.
+    /// Broadcast a message to all members of the quorum.
     ///
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn broadcast_message(
+    async fn quorum_broadcast_message(
         &self,
         message: Message<TYPES>,
-        topic: Topic,
+        _recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        // Bincode the message
-        let serialized_message = match bincode_opts().serialize(&message) {
-            Ok(serialized) => serialized,
-            Err(e) => {
-                warn!("Failed to serialize message: {}", e);
-                return Err(NetworkError::FailedToSerialize { source: e });
-            }
-        };
+        self.broadcast_message(message, PushCdnTopic::Global).await
+    }
 
-        // Send the message
-        // TODO: check if we need to print this error
-        if self
-            .0
-            .send_broadcast_message(vec![topic.into()], serialized_message)
-            .await
-            .is_err()
-        {
-            return Err(NetworkError::CouldNotDeliver);
-        };
-
-        Ok(())
+    /// Broadcast a message to all members of the DA committee.
+    ///
+    /// # Errors
+    /// - If we fail to serialize the message
+    /// - If we fail to send the broadcast message.
+    async fn da_broadcast_message(
+        &self,
+        message: Message<TYPES>,
+        _recipients: BTreeSet<TYPES::SignatureKey>,
+    ) -> Result<(), NetworkError> {
+        self.broadcast_message(message, PushCdnTopic::DA).await
     }
 
     /// Send a direct message to a node with a particular key. Does not retry.
@@ -339,10 +374,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ///
     /// # Errors
     /// - If we fail to receive messages. Will trigger a retry automatically.
-    async fn recv_msgs(
-        &self,
-        _transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // Receive a message
         let message = self.0.receive_message().await;
 
