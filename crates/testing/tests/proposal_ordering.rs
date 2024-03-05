@@ -11,7 +11,7 @@ use jf_primitives::vid::VidScheme;
 
 /// Runs the test specified in this file with a boolean flag that determines whether or not to make
 /// the `QCFormed` event come first in the inputs, or last. Since there's only two possible cases
-/// to check, the code simply swaps the order of them in the input vector.
+/// to check, the code simply swaps their order in the input vector.
 async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
