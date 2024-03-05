@@ -43,7 +43,6 @@ async fn test_vid_task() {
     .expect("Failed to sign block payload!");
     let proposal: DAProposal<TestTypes> = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
-        metadata: (),
         view_number: ViewNumber::new(2),
     };
     let message = Proposal {
@@ -72,7 +71,6 @@ async fn test_vid_task() {
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::TransactionsSequenced(
         encoded_transactions.clone(),
-        (),
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::BlockReady(
@@ -89,7 +87,7 @@ async fn test_vid_task() {
     );
 
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, ViewNumber::new(2)),
         1,
     );
     output.insert(

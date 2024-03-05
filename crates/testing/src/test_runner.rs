@@ -432,6 +432,7 @@ where
             network_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            0,
         )
         .await
         .expect("Could not init hotshot")

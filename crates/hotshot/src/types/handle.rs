@@ -38,6 +38,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
 
+    /// Transaction size
+    pub transaction_size: usize,
+
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }

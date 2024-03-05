@@ -120,6 +120,7 @@ pub async fn build_system_handle(
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        0,
     )
     .await
     .expect("Could not init hotshot")
@@ -244,7 +245,6 @@ async fn build_quorum_proposal_and_signature(
         &TestInstanceState {},
         &parent_leaf,
         payload_commitment,
-        (),
     )
     .await;
     // current leaf that can be re-assigned everytime when entering a new view

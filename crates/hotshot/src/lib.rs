@@ -138,6 +138,8 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// the metrics that the implementor is using.
     _metrics: Arc<ConsensusMetricsValue>,
 
+    transaction_size: usize,
+
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 
@@ -172,6 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        transaction_size: usize,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
@@ -262,6 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
+            transaction_size,
         });
 
         Ok(inner)
@@ -407,6 +411,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        transaction_size: usize,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -426,6 +431,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             networks,
             initializer,
             metrics,
+            transaction_size,
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
@@ -473,6 +479,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: self.storage.clone(),
+            transaction_size: self.transaction_size,
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;

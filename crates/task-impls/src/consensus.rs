@@ -50,11 +50,9 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
 
 /// Alias for the block payload commitment and the associated metadata.
-pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
+pub struct CommitmentAndMetadata {
     /// Vid Commitment
     pub commitment: VidCommitment,
-    /// Metadata for the block payload
-    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
     /// Flag for if this data represents the genesis block
     pub is_genesis: bool,
 }
@@ -81,7 +79,7 @@ pub struct ConsensusTaskState<
     pub cur_view: TYPES::Time,
 
     /// The commitment to the current block payload and its metadata submitted to DA.
-    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>>,
+    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata>,
 
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
@@ -1197,11 +1195,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, view) => {
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: payload_commitment,
-                    metadata,
                     is_genesis: false,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
@@ -1305,7 +1302,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 &consensus.instance_state,
                 &parent_leaf,
                 commit_and_metadata.commitment,
-                commit_and_metadata.metadata.clone(),
             )
             .await;
             let leaf = Leaf {

@@ -144,6 +144,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: handle.hotshot.get_consensus(),
             transactions: Arc::default(),
             seen_transactions: HashSet::new(),
+            transaction_size: handle.transaction_size,
             cur_view: handle.get_cur_view().await,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -163,7 +164,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     ) -> ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         let consensus = handle.hotshot.get_consensus();
 
-        let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
+        let (payload, _metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
         // Impossible for `unwrap` to fail on the genesis payload.
         let payload_commitment = vid_commitment(
             &payload.encode().unwrap().collect(),
@@ -175,7 +176,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             cur_view: handle.get_cur_view().await,
             payload_commitment_and_metadata: Some(CommitmentAndMetadata {
                 commitment: payload_commitment,
-                metadata,
                 is_genesis: true,
             }),
             api: handle.clone(),

@@ -53,7 +53,6 @@ async fn test_network_task() {
     let da_proposal = Proposal {
         data: DAProposal {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: (),
             view_number: ViewNumber::new(2),
         },
         signature: da_signature,
@@ -83,7 +82,6 @@ async fn test_network_task() {
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::TransactionsSequenced(
         encoded_transactions.clone(),
-        (),
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::BlockReady(
@@ -102,7 +100,7 @@ async fn test_network_task() {
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 2);
     output.insert(
-        HotShotEvent::TransactionsSequenced(encoded_transactions, (), ViewNumber::new(2)),
+        HotShotEvent::TransactionsSequenced(encoded_transactions, ViewNumber::new(2)),
         2, // 2 occurrences: 1 from `input`, 1 from the transactions task
     );
     output.insert(
@@ -128,7 +126,7 @@ async fn test_network_task() {
     );
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(2)), 2);
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, ViewNumber::new(2)),
         2, // 2 occurrences: both from the VID task
     );
     output.insert(

@@ -318,7 +318,10 @@ pub trait RunDA<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
+    async fn initialize_state_and_hotshot(
+        &self,
+        transaction_size: usize,
+    ) -> SystemContextHandle<TYPES, NODE> {
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
@@ -379,6 +382,7 @@ pub trait RunDA<
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            transaction_size,
         )
         .await
         .expect("Could not init hotshot")
@@ -389,8 +393,8 @@ pub trait RunDA<
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE>,
-        transactions: &mut Vec<TestTransaction>,
-        transactions_to_send_per_round: u64,
+        _transactions: &mut Vec<TestTransaction>,
+        _transactions_to_send_per_round: u64,
     ) {
         let NetworkConfig {
             rounds,
@@ -400,7 +404,6 @@ pub trait RunDA<
         } = self.get_config();
 
         let mut total_transactions_committed = 0;
-        let mut total_transactions_sent = 0;
 
         error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
@@ -440,12 +443,12 @@ pub trait RunDA<
                                 }
 
                                 // send transactions
-                                for _ in 0..transactions_to_send_per_round {
-                                    let tx = transactions.remove(0);
+                                // for _ in 0..transactions_to_send_per_round {
+                                //     let tx = transactions.remove(0);
 
-                                    () = context.submit_transaction(tx).await.unwrap();
-                                    total_transactions_sent += 1;
-                                }
+                                //     () = context.submit_transaction(tx).await.unwrap();
+                                //     total_transactions_sent += 1;
+                                // }
                             }
 
                             if let Some(size) = block_size {
@@ -476,7 +479,7 @@ pub trait RunDA<
 
         // Output run results
         let total_time_elapsed = start.elapsed();
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
     }
 
     /// Returns the da network for this run
@@ -871,7 +874,9 @@ pub async fn main_entry_point<
 
     error!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
-    let hotshot = run.initialize_state_and_hotshot().await;
+    let hotshot = run
+        .initialize_state_and_hotshot(run_config.transaction_size)
+        .await;
 
     // pre-generate transactions
     let NetworkConfig {

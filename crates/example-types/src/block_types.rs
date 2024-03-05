@@ -191,7 +191,6 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         let parent = &parent_leaf.block_header;
 

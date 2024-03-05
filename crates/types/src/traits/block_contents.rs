@@ -125,7 +125,6 @@ pub trait BlockHeader<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
