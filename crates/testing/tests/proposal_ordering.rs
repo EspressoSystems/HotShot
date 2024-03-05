@@ -59,12 +59,11 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     // Crank along straight to view 2.
     let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![exact(ViewChange(ViewNumber::new(2)))],
         asserts: vec![],
     };
 
-    // let cert = build_cert(data, membership, view, &public_key, private_key);
     let cert = proposals[1].data.justify_qc.clone();
 
     let view_2_inputs = if qc_formed_first {
