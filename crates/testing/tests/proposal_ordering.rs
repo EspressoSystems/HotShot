@@ -6,10 +6,7 @@ use hotshot_testing::{
     task_helpers::vid_scheme_from_view_number,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
-};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use jf_primitives::vid::VidScheme;
 
 fn permute<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
@@ -28,7 +25,6 @@ where
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
-    use hotshot_types::simple_certificate::QuorumCertificate;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -36,8 +32,6 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let public_key = handle.get_public_key();
-    let private_key = handle.private_key();
 
     let vid =
         vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(node_id));
