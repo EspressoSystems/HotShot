@@ -206,6 +206,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                         ResponseMessage::NotFound => {
                             info!("Peer Responded they did not have the data");
                         }
+                        ResponseMessage::Denied => {
+                            error!("Request for data was denied by the receiver");
+                        }
                     }
                 }
                 Ok(Err(e)) => {

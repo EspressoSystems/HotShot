@@ -42,7 +42,7 @@
 
 # Owner of updating dependencies
 # This owner is updated on a monthly basis
-*.lock @bfish713
-**/Cargo.toml @bfish713
-Cargo.toml @bfish713
-flake.nix @bfish713
+*.lock @lukaszrzasik
+**/Cargo.toml @lukaszrzasik
+Cargo.toml @lukaszrzasik
+flake.nix @lukaszrzasik
