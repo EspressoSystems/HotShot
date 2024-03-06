@@ -138,6 +138,14 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
                 .help("Sets the number of rounds to run")
                 .required(false),
         )
+        .arg(
+            Arg::new("commit_sha")
+                .short('m')
+                .long("commit_sha")
+                .value_name("SHA")
+                .help("Sets the commit sha")
+                .required(false),
+        )
         .get_matches();
     let mut args = ConfigArgs {
         config_file: "./crates/orchestrator/run-config.toml".to_string(),
