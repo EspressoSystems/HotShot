@@ -1,7 +1,7 @@
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
 };
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::{data::ViewNumber, traits::node_implementation::NodeType};
 
 use hotshot::types::SystemContextHandle;
 
