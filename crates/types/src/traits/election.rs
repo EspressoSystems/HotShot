@@ -40,7 +40,7 @@ pub trait Membership<TYPES: NodeType>:
     /// generate a default election configuration
     fn default_election_config(
         num_nodes: u64,
-        num_nodes_without_stake: u64,
+        num_nodes_without_stake: Option<u64>,
     ) -> TYPES::ElectionConfigType;
 
     /// create an election
@@ -48,7 +48,7 @@ pub trait Membership<TYPES: NodeType>:
     fn create_election(
         entries: Vec<PeerConfig<TYPES::SignatureKey>>,
         config: TYPES::ElectionConfigType,
-        nodes_without_stake: Vec<TYPES::SignatureKey>,
+        nodes_without_stake: Option<Vec<TYPES::SignatureKey>>,
     ) -> Self;
 
     /// Clone the public key and corresponding stake table for current elected committee
