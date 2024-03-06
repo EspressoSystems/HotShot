@@ -57,7 +57,7 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// The network configuration
     config: NetworkConfig<KEY, ELECTION>,
     /// The total nodes that have posted their public keys
-    pub nodes_with_pubkey: u64,
+    nodes_with_pubkey: u64,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
     peer_pub_ready: bool,
     /// The set of index for nodes that have posted their public keys/configs
@@ -66,9 +66,11 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
     /// The total nodes that have posted they are ready to start
-    pub nodes_connected: u64,
+    nodes_connected: u64,
     /// The results of the benchmarks
-    pub bench_results: BenchResults,
+    bench_results: BenchResults,
+    /// The number of nodes that have posted their results
+    nodes_post_results: u64,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -86,6 +88,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             nodes_connected: 0,
             start: false,
             bench_results: BenchResults::default(),
+            nodes_post_results: 0,
         }
     }
 }
@@ -284,14 +287,27 @@ where
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
         if metrics.total_transactions_committed != 0 {
-            // Deal with the bench results, now we assume nodes with committed transactions will get same benchmark results
+            // Deal with the bench results
             if self.bench_results.total_transactions_committed == 0 {
-                println!("Benchmark results are {metrics:?}");
+                self.bench_results = metrics;
             } else {
-                // Sishan TODO: deal with different cases
-                assert_eq!(self.bench_results, metrics);
+                // Deal with the bench results from different nodes
+                let cur_metrics = self.bench_results.clone();
+                self.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec * metrics.num_latency + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency) / (metrics.num_latency + cur_metrics.num_latency);
+                self.bench_results.num_latency += metrics.num_latency;
+                self.bench_results.minimum_latency_in_sec = metrics.minimum_latency_in_sec.min(cur_metrics.minimum_latency_in_sec);
+                self.bench_results.maximum_latency_in_sec = metrics.maximum_latency_in_sec.max(cur_metrics.maximum_latency_in_sec);
+                self.bench_results.throughput_bytes_per_sec = metrics.throughput_bytes_per_sec.max(cur_metrics.throughput_bytes_per_sec);
+                self.bench_results.total_transactions_committed = metrics.total_transactions_committed.max(cur_metrics.total_transactions_committed);
+                assert_eq!(metrics.transaction_size_in_bytes, cur_metrics.transaction_size_in_bytes);
+                self.bench_results.total_time_elapsed_in_sec = metrics.total_time_elapsed_in_sec.max(cur_metrics.total_time_elapsed_in_sec);
+                self.bench_results.total_num_views = metrics.total_num_views.min(cur_metrics.total_num_views);
+                self.bench_results.failed_num_views = metrics.failed_num_views.max(cur_metrics.failed_num_views);
             }
-            self.bench_results = metrics;
+        }
+        self.nodes_post_results += 1;
+        if self.nodes_post_results >= (self.config.config.total_nodes.get() as u64) {
+            self.bench_results.printout();
         }
         Ok(())
     }

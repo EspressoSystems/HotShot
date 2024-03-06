@@ -471,8 +471,6 @@ pub trait RunDA<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
-    // Sishan TODO: remove this clippy after posting stats to orchestrator
-    #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE>,
@@ -610,14 +608,14 @@ pub trait RunDA<
         error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         if total_transactions_committed != 0 {
             // extra 8 bytes for timestamp
-            let throughput = total_transactions_committed * (transaction_size_in_bytes + 8)
+            let throughput_bytes_per_sec = total_transactions_committed * (transaction_size_in_bytes + 8)
                 / total_time_elapsed.as_secs();
-            error!("[{node_index}]: Avg latency: {:?} sec, Minimum latency: {minimum_latency} sec, Maximum latency: {maximum_latency} sec, Throughput: {throughput} bytes/sec", total_latency / num_latency);
             BenchResults {
                 avg_latency_in_sec: total_latency / num_latency,
+                num_latency,
                 minimum_latency_in_sec: minimum_latency,
                 maximum_latency_in_sec: maximum_latency,
-                throughput_bytes_per_sec: throughput,
+                throughput_bytes_per_sec,
                 total_transactions_committed,
                 transaction_size_in_bytes: transaction_size_in_bytes + 8, // extra 8 bytes for timestamp
                 total_time_elapsed_in_sec: total_time_elapsed.as_secs(),
@@ -625,7 +623,6 @@ pub trait RunDA<
                 failed_num_views,
             }
         } else {
-            error!("[{node_index}]: No transactions committed");
             // all values with zero
             BenchResults::default()
         }

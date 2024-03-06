@@ -19,12 +19,13 @@ pub struct OrchestratorClient {
     pub identity: String,
 }
 
-// Sishan TODO: add function printout() to this struct
 /// Struct describing a benchmark result
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct BenchResults {
     /// The average latency of the transactions
     pub avg_latency_in_sec: i64,
+    /// The number of transactions that were latency measured
+    pub num_latency: i64,
     /// The minimum latency of the transactions
     pub minimum_latency_in_sec: i64,
     /// The maximum latency of the transactions
@@ -41,6 +42,23 @@ pub struct BenchResults {
     pub total_num_views: usize,
     /// The number of failed views during benchmarking
     pub failed_num_views: usize,
+}
+
+impl BenchResults {
+    /// printout the results of one example run
+    pub fn printout(&self) {
+        println!("=====================");
+        println!("Benchmark results:");
+        println!("Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds", self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec);
+        println!(
+            "Throughput: {} bytes/sec",
+            self.throughput_bytes_per_sec
+        );
+        println!("Total transactions committed: {}", self.total_transactions_committed);
+        println!("Total number of views: {}, Failed number of views: {}", self.total_num_views, self.failed_num_views);
+        println!("=====================");
+    }
+    
 }
 
 // VALIDATOR
