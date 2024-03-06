@@ -86,12 +86,14 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     async fn handle_message(&self, req: Message<TYPES>, chan: ResponseChannel<Message<TYPES>>) {
         let sender = req.sender.clone();
         if !self.valid_sender(&sender) {
+            let _ = chan.0.send(self.make_msg(ResponseMessage::Denied));
             return;
         }
 
         match req.kind {
             MessageKind::Data(DataMessage::RequestData(req)) => {
                 if !valid_signature(&req, &sender) {
+                    let _ = chan.0.send(self.make_msg(ResponseMessage::Denied));
                     return;
                 }
                 let response = self.handle_request(req).await;
@@ -131,9 +133,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
         let Some(share) = vid.data.shares.get(&key) else {
             return self.make_msg(ResponseMessage::NotFound);
         };
-        let mut single_share_map = BTreeMap::new();
-        single_share_map.insert(key, share.clone());
-        vid.data.shares = single_share_map;
+        vid.data.shares = BTreeMap::from([(key, share.clone())]);
         let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(vid)));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
