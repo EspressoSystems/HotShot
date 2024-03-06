@@ -1,7 +1,7 @@
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
 };
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::{data::ViewNumber, traits::node_implementation::NodeType};
 
 use hotshot::types::SystemContextHandle;
 
@@ -74,5 +74,12 @@ pub fn decided_upgrade_cert() -> Predicate<ConsensusTaskTestState> {
     consensus_predicate(
         Box::new(|state| state.decided_upgrade_cert.is_some()),
         "expected decided_upgrade_cert to be Some(_)",
+    )
+}
+
+pub fn is_at_view_number(n: u64) -> Predicate<ConsensusTaskTestState> {
+    consensus_predicate(
+        Box::new(move |state| *state.cur_view == n),
+        format!("expected cur view to be {}", n).as_str(),
     )
 }
