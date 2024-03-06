@@ -270,11 +270,10 @@ async fn test_upgrade_and_consensus_task() {
     };
 
  //   let scripts: Vec<TaskScript<TestTypes, impl TaskState<Event = HotShotEvent<TestTypes>> + 'static>> =
-//  let scripts = Vec::new() as Vec<TaskScript<TestTypes, impl TaskState<Event = HotShotEvent<TestTypes>> + 'static>>;
+  let scripts = Vec::new() as Vec<TaskScript<TestTypes, impl TaskState<Event = HotShotEvent<TestTypes>> + 'static>>
+ ;
 
-  let scripts = vec![Box::new(consensus_script), Box::new(upgrade_script)];
-
-    run_scripts(Vec::new(), scripts.into_iter().map(|i| *i).collect()).await;
+    run_scripts(Vec::new(), scripts).await;
 
     // run_test_script(script, consensus_state).await;
 }

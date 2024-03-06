@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use async_trait::async_trait;
 use crate::test_runner::HotShotTaskCompleted;
 use crate::test_runner::{LateStartNode, Node, TestRunner};
 use either::{Left, Right};
@@ -41,7 +40,6 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) last_decided_leaf: Leaf<TYPES>,
 }
 
-#[async_trait]
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for SpinningTask<TYPES, I> {
     type Event = GlobalTestEvent;
 
@@ -54,7 +52,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for Spinni
         None
     }
 
-    fn should_shutdown(&self, _event: &Self::Event) -> bool {
+    fn should_shutdown(_event: &Self::Event) -> bool {
         false
     }
 }

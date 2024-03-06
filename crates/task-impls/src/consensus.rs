@@ -14,7 +14,6 @@ use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::task::{Task, TaskState};
 
 use async_broadcast::Sender;
-use async_trait::async_trait;
 
 use hotshot_types::{
     consensus::{Consensus, View},
@@ -1375,12 +1374,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ConsensusTaskState<TYPES, I, A>
 {
     type Event = HotShotEvent<TYPES>;
-    type Output = HotShotTaskCompleted;
+    type Output = ();
     fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
         !matches!(
             event,
@@ -1396,7 +1394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::Shutdown,
         )
     }
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<HotShotTaskCompleted>
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
     where
         Self: Sized,
     {
@@ -1405,7 +1403,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         task.state_mut().handle(event, sender).await;
         None
     }
-    fn should_shutdown(&self, event: &Self::Event) -> bool {
+    fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }

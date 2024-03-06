@@ -1,6 +1,5 @@
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
 use async_broadcast::broadcast;
-use async_trait::async_trait;
 
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
@@ -15,7 +14,6 @@ pub struct TestHarnessState<TYPES: NodeType> {
     allow_extra_output: bool,
 }
 
-#[async_trait]
 impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
     type Event = HotShotEvent<TYPES>;
     type Output = HotShotTaskCompleted;
@@ -28,7 +26,7 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
         handle_event(event, task, extra)
     }
 
-    fn should_shutdown(&self, event: &Self::Event) -> bool {
+    fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }

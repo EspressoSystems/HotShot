@@ -8,7 +8,6 @@ use async_compatibility_layer::{
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use async_lock::RwLock;
-use async_trait::async_trait;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
 
@@ -297,7 +296,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-#[async_trait]
 /// task state implementation for Transactions Task
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for TransactionTaskState<TYPES, I, A>
@@ -324,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         task.state_mut().handle(event, sender).await
     }
 
-    fn should_shutdown(&self, event: &Self::Event) -> bool {
+    fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }
