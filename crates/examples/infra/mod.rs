@@ -471,6 +471,7 @@ pub trait RunDA<
     }
 
     /// Starts HotShot consensus, returns when consensus has finished
+    #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE>,
@@ -608,7 +609,8 @@ pub trait RunDA<
         error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         if total_transactions_committed != 0 {
             // extra 8 bytes for timestamp
-            let throughput_bytes_per_sec = total_transactions_committed * (transaction_size_in_bytes + 8)
+            let throughput_bytes_per_sec = total_transactions_committed
+                * (transaction_size_in_bytes + 8)
                 / total_time_elapsed.as_secs();
             BenchResults {
                 avg_latency_in_sec: total_latency / num_latency,

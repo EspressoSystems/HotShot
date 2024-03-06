@@ -293,16 +293,34 @@ where
             } else {
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
-                self.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec * metrics.num_latency + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency) / (metrics.num_latency + cur_metrics.num_latency);
+                self.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec
+                    * metrics.num_latency
+                    + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency)
+                    / (metrics.num_latency + cur_metrics.num_latency);
                 self.bench_results.num_latency += metrics.num_latency;
-                self.bench_results.minimum_latency_in_sec = metrics.minimum_latency_in_sec.min(cur_metrics.minimum_latency_in_sec);
-                self.bench_results.maximum_latency_in_sec = metrics.maximum_latency_in_sec.max(cur_metrics.maximum_latency_in_sec);
-                self.bench_results.throughput_bytes_per_sec = metrics.throughput_bytes_per_sec.max(cur_metrics.throughput_bytes_per_sec);
-                self.bench_results.total_transactions_committed = metrics.total_transactions_committed.max(cur_metrics.total_transactions_committed);
-                assert_eq!(metrics.transaction_size_in_bytes, cur_metrics.transaction_size_in_bytes);
-                self.bench_results.total_time_elapsed_in_sec = metrics.total_time_elapsed_in_sec.max(cur_metrics.total_time_elapsed_in_sec);
-                self.bench_results.total_num_views = metrics.total_num_views.min(cur_metrics.total_num_views);
-                self.bench_results.failed_num_views = metrics.failed_num_views.max(cur_metrics.failed_num_views);
+                self.bench_results.minimum_latency_in_sec = metrics
+                    .minimum_latency_in_sec
+                    .min(cur_metrics.minimum_latency_in_sec);
+                self.bench_results.maximum_latency_in_sec = metrics
+                    .maximum_latency_in_sec
+                    .max(cur_metrics.maximum_latency_in_sec);
+                self.bench_results.throughput_bytes_per_sec = metrics
+                    .throughput_bytes_per_sec
+                    .max(cur_metrics.throughput_bytes_per_sec);
+                self.bench_results.total_transactions_committed = metrics
+                    .total_transactions_committed
+                    .max(cur_metrics.total_transactions_committed);
+                assert_eq!(
+                    metrics.transaction_size_in_bytes,
+                    cur_metrics.transaction_size_in_bytes
+                );
+                self.bench_results.total_time_elapsed_in_sec = metrics
+                    .total_time_elapsed_in_sec
+                    .max(cur_metrics.total_time_elapsed_in_sec);
+                self.bench_results.total_num_views =
+                    metrics.total_num_views.min(cur_metrics.total_num_views);
+                self.bench_results.failed_num_views =
+                    metrics.failed_num_views.max(cur_metrics.failed_num_views);
             }
         }
         self.nodes_post_results += 1;

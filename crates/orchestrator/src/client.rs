@@ -49,16 +49,21 @@ impl BenchResults {
     pub fn printout(&self) {
         println!("=====================");
         println!("Benchmark results:");
-        println!("Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds", self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec);
         println!(
-            "Throughput: {} bytes/sec",
-            self.throughput_bytes_per_sec
+            "Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
+            self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec
         );
-        println!("Total transactions committed: {}", self.total_transactions_committed);
-        println!("Total number of views: {}, Failed number of views: {}", self.total_num_views, self.failed_num_views);
+        println!("Throughput: {} bytes/sec", self.throughput_bytes_per_sec);
+        println!(
+            "Total transactions committed: {}",
+            self.total_transactions_committed
+        );
+        println!(
+            "Total number of views: {}, Failed number of views: {}",
+            self.total_num_views, self.failed_num_views
+        );
         println!("=====================");
     }
-    
 }
 
 // VALIDATOR
