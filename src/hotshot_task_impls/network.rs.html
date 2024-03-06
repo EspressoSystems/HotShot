@@ -391,6 +391,8 @@
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -402,6 +404,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     message::{
         CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
@@ -746,6 +749,7 @@
             ),
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="self">self</span>.view = view;
+                <span class="self">self</span>.channel.update_view(<span class="kw-2">&amp;</span><span class="self">self</span>.view.get_u64()).<span class="kw">await</span>;
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::Shutdown =&gt; {

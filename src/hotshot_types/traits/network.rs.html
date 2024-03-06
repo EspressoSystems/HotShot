@@ -599,6 +599,9 @@
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -897,6 +900,9 @@
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
     </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;K&gt;) {}
+
+    <span class="doccomment">/// handles view update
+    </span><span class="kw">async fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: <span class="kw-2">&amp;</span>u64) {}
 }
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation
