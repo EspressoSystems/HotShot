@@ -57,19 +57,16 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     // Node 2 is the leader up next, so we form the QC for it.
     let cert = proposals[1].data.justify_qc.clone();
-    let view_1_inputs = if qc_formed_first {
-        vec![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            QCFormed(either::Left(cert)),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
-        ]
-    } else {
-        vec![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
-            QCFormed(either::Left(cert)),
-        ]
-    };
+    let mut view_1_inputs = vec![
+        QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+        QCFormed(either::Left(cert)),
+        SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
+    ];
+
+    // Swap QCFormed and SendPayloadCommitmentAndMetadata
+    if !qc_formed_first {
+        view_1_inputs.swap(1, 2);
+    }
 
     // This stage transitions from view 1 to view 2.
     let view_1 = TestScriptStage {
