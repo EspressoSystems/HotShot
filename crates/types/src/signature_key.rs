@@ -89,7 +89,7 @@ impl SignatureKey for BLSPubKey {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, PrimitivesError> {
-        Ok(ark_serialize::CanonicalDeserialize::deserialize_compressed(
+        Ok(ark_serialize::CanonicalDeserialize::deserialize_uncompressed(
             bytes,
         )?)
     }
