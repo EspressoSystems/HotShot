@@ -5,6 +5,8 @@ use hotshot_constants::VERSION_0_1;
 use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
+    request::NetworkRequestState,
+    response::NetworkResponseState,
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
@@ -33,6 +35,25 @@ where
 {
     /// Function to create the task state from a given `SystemContextHandle`.
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Self;
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for NetworkRequestState<TYPES, I>
+{
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
+        NetworkRequestState {
+            network: handle.hotshot.networks.quorum_network.clone(),
+            state: handle.hotshot.get_consensus(),
+            view: handle.get_cur_view().await,
+            // TODO add to config
+            delay: Duration::from_millis(1500),
+            da_membership: handle.hotshot.memberships.da_membership.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+        }
+    }
 }
 
 #[async_trait]

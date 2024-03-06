@@ -34,9 +34,9 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
 /// shares.  
-pub struct NetworkResponseState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
-    pub network: I::QuorumNetwork,
+    pub network: Arc<I::QuorumNetwork>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     pub state: Arc<RwLock<Consensus<TYPES>>>,
@@ -58,7 +58,7 @@ pub struct NetworkResponseState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkResponseState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequestState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     type Output = HotShotTaskCompleted;
@@ -100,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRespons
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkResponseState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(&self, view: TYPES::Time, sender: Sender<HotShotEvent<TYPES>>) {
         let requests = self.build_requests(view).await;
@@ -157,7 +157,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkResponseState<TYPES, 
 /// the view has moved beyond the view we are requesting, the task will completed.
 struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests
-    network: I::QuorumNetwork,
+    network: Arc<I::QuorumNetwork>,
     /// Shared state to check if the data go populated
     state: Arc<RwLock<Consensus<TYPES>>>,
     /// Channel to send the event when we receive a response

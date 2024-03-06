@@ -23,6 +23,7 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
+use tokio::task::JoinHandle;
 
 use crate::events::HotShotEvent;
 
@@ -30,12 +31,12 @@ use crate::events::HotShotEvent;
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
 /// Type alias for the channel that we receive requests from the network on.
-type ReqestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
+pub type ReqestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
 
 /// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
 /// parse the request, and try to find the data request in the consensus stores.
-pub struct NetworkRequestState<TYPES: NodeType> {
+pub struct NetworkResponseState<TYPES: NodeType> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
     /// Receiver for requests
@@ -46,7 +47,7 @@ pub struct NetworkRequestState<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
 }
 
-impl<TYPES: NodeType> NetworkRequestState<TYPES> {
+impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
@@ -167,13 +168,13 @@ fn valid_signature<TYPES: NodeType>(
 /// Spawn the network request task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-pub fn run_request_task<TYPES: NodeType>(
-    task_state: NetworkRequestState<TYPES>,
+pub fn run_response_task<TYPES: NodeType>(
+    task_state: NetworkResponseState<TYPES>,
     event_stream: Receiver<HotShotEvent<TYPES>>,
-) {
+) -> JoinHandle<()> {
     let dep = EventDependency::new(
         event_stream,
         Box::new(|e| matches!(e, HotShotEvent::Shutdown)),
     );
-    async_spawn(task_state.run_loop(dep));
+    async_spawn(task_state.run_loop(dep))
 }
