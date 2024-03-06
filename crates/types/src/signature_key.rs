@@ -83,7 +83,7 @@ impl SignatureKey for BLSPubKey {
 
     fn to_bytes(&self) -> Vec<u8> {
         let mut buf = vec![];
-        ark_serialize::CanonicalSerialize::serialize_compressed(self, &mut buf)
+        ark_serialize::CanonicalSerialize::serialize_uncompressed(self, &mut buf)
             .expect("Serialization should not fail.");
         buf
     }
