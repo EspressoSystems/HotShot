@@ -2,7 +2,7 @@ use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
-    predicates::{exact, quorum_proposal_send},
+    predicates::{exact, is_at_view_number, quorum_proposal_send},
     task_helpers::vid_scheme_from_view_number,
     view_generator::TestViewGenerator,
 };
@@ -38,16 +38,13 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(3) {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_vote(&handle));
         leaders.push(view.leader_public_key);
     }
 
-    // We need a couple of events to occur for the leader to propose:
-    // `SendPayloadCommitmentAndMetadata`, `QCFormed` (either QC or TC), and `QuorumProposalRecv`
-    // for the previous view if a QC was formed by us for it. So, we first receive the proposal and
-    // change the view to node 1, the node we are targeting as the leader.
+    // This stage transitions from the initial view to view 1
     let view_0 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
@@ -55,55 +52,38 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
             exact(QuorumProposalValidated(proposals[0].data.clone())),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![],
+        asserts: vec![is_at_view_number(1)],
     };
 
-    // Crank along straight to view 2.
-    let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-        ],
-        asserts: vec![],
-    };
-
+    // Node 2 is the leader up next, so we form the QC for it.
     let cert = proposals[1].data.justify_qc.clone();
-
-    let view_2_inputs = if qc_formed_first {
+    let view_1_inputs = if qc_formed_first {
         vec![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QCFormed(either::Left(cert)),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
         ]
     } else {
         vec![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
             QCFormed(either::Left(cert)),
         ]
     };
 
-    // We have a special case for the genesis state where all the nodes get the QC for view 0, and
-    // then the leader of view 1 proposes. However, view 1 is also a special case (for now), and it
-    // doesn't require a DA or VIA share distribution, so the test needs to occur in view 2 to
-    // actually verify everything.
-    let view_2 = TestScriptStage {
-        inputs: view_2_inputs.clone(),
-        outputs: vec![quorum_proposal_send()],
-        asserts: vec![],
+    // This stage transitions from view 1 to view 2.
+    let view_1 = TestScriptStage {
+        inputs: view_1_inputs,
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_send(),
+        ],
+        // We should end on view 2.
+        asserts: vec![is_at_view_number(2)],
     };
 
-    // Attempt to initiate a proposal when a different view is up.
-    let fail_view = TestScriptStage {
-        inputs: vec![SendPayloadCommitmentAndMetadata(
-            payload_commitment,
-            (),
-            ViewNumber::new(3),
-        )],
-        outputs: vec![/* There should be nothing emitted here */],
-        asserts: vec![],
-    };
-
-    let script = vec![view_0, view_1, view_2, fail_view];
+    let script = vec![view_0, view_1];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
