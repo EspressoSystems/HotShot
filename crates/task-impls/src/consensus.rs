@@ -1378,7 +1378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     for ConsensusTaskState<TYPES, I, A>
 {
     type Event = HotShotEvent<TYPES>;
-    type Output = ();
+    type Output = HotShotTaskCompleted;
     fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
         !matches!(
             event,
@@ -1394,7 +1394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::Shutdown,
         )
     }
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<HotShotTaskCompleted>
     where
         Self: Sized,
     {
