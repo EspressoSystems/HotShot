@@ -2,6 +2,7 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use std::collections::HashMap;
 
@@ -55,4 +56,36 @@ async fn test_view_sync_task() {
     >::create_from(&handle)
     .await;
     run_harness(input, output, view_sync_state, false).await;
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_propose_after_view_sync() {
+    use hotshot::tasks::inject_consensus_polls;
+    use hotshot_task_impls::harness::run_harness;
+    use hotshot_task_impls::view_sync::ViewSyncTaskState;
+    use hotshot_testing::script::{run_test_script, TestScriptStage};
+    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_types::simple_vote::ViewSyncPreCommitData;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+
+    let script = vec![];
+
+    let consensus_state = ConsensusTaskState::<
+        TestTypes,
+        MemoryImpl,
+        SystemContextHandle<TestTypes, MemoryImpl>,
+    >::create_from(&handle)
+    .await;
+
+    inject_consensus_polls(&consensus_state).await;
+    run_test_script(script, consensus_state).await;
 }
