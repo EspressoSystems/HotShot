@@ -4,6 +4,7 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
+use async_trait::async_trait;
 use either::Either::{self, Left, Right};
 use hotshot_constants::VERSION_0_1;
 use std::sync::Arc;
@@ -76,6 +77,7 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
     pub event_stream: Sender<HotShotEvent<TYPES>>,
 }
 
+#[async_trait]
 impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     type Event = Vec<Message<TYPES>>;
     type Output = ();
@@ -92,7 +94,7 @@ impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
         false
     }
 
-    fn should_shutdown(_event: &Self::Event) -> bool {
+    fn should_shutdown(&self, _event: &Self::Event) -> bool {
         false
     }
 }
@@ -198,6 +200,7 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&HotShotEvent<TYPES>) -> bool,
 }
 
+#[async_trait]
 impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>> TaskState
     for NetworkEventTaskState<TYPES, COMMCHANNEL>
 {
@@ -213,7 +216,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
         task.state_mut().handle_event(event, &membership).await
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(&self, event: &Self::Event) -> bool {
         if matches!(event, HotShotEvent::Shutdown) {
             error!("Network Task received Shutdown event");
             return true;

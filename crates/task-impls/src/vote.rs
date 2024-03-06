@@ -100,6 +100,7 @@ impl<
     }
 }
 
+#[async_trait]
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES>
@@ -125,7 +126,7 @@ where
         task.state_mut().handle_event(event, &sender).await
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(&self, event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }

@@ -1,6 +1,6 @@
 use crate::predicates::Predicate;
 use async_broadcast::broadcast;
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::events::{HotShotEvent, HotShotTaskCompleted};
 
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
@@ -57,9 +57,9 @@ pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TY
     pub asserts: Vec<Predicate<S>>,
 }
 
-pub struct TaskScript<TYPES: NodeType, S> {
-    pub state: S,
-    pub expectations: Vec<Expectations<TYPES, S>>,
+pub struct TaskScript<TYPES: NodeType> {
+    pub state: Box<dyn TaskState<Event = HotShotEvent<TYPES>, Output = HotShotTaskCompleted>>,
+    pub expectations: Vec<Expectations<TYPES, Box<dyn TaskState<Event = HotShotEvent<TYPES>, Output = HotShotTaskCompleted>>>>,
 }
 
 pub struct Expectations<TYPES: NodeType, S> {
@@ -67,10 +67,12 @@ pub struct Expectations<TYPES: NodeType, S> {
     pub task_state_asserts: Vec<Predicate<S>>,
 }
 
+// pub fn dummy<TYPES: NodeType>(dummy: Vec<TaskScript<TYPES, Box<dyn TaskState<Event = HotShotEvent<TYPES>, Output = ()>>>>) { todo!() }
+
 pub async fn run_scripts<TYPES>(
     inputs: Vec<Vec<HotShotEvent<TYPES>>>,
     task_expectations: Vec<
-        TaskScript<TYPES, impl TaskState<Event = HotShotEvent<TYPES>> + 'static>,
+        TaskScript<TYPES> //, Box<dyn TaskState<Event = HotShotEvent<TYPES>, Output = HotShotTaskCompleted> + 'static>>,
     >,
 ) where
     TYPES: NodeType,
@@ -85,93 +87,110 @@ pub async fn run_scripts<TYPES>(
 
     let mut loop_receiver = task_receiver.clone();
 
-    let mut tasks: Vec<_> = task_expectations
-        .into_iter()
-        .map(|expectation| {
-            (
-                Task::new(
-                    task_input.clone(),
-                    task_receiver.clone(),
-                    registry.clone(),
-                    expectation.state,
-                ),
-                expectation.expectations,
-                0,
-            )
-        })
-        .collect();
+    // let mut tasks: Vec<_> = task_expectations.into_iter().map(
+    // |e| { Task {
+    //   event_sender: task_input.clone(), 
+    //   event_receiver: task_receiver.clone(), registry: registry.clone(), state: (e.state) }}
 
-    for (stage_number, input_group) in inputs.into_iter().enumerate() {
-        for input in &input_group {
-            for (task, task_expectation, output_index) in &mut tasks {
-                if !task.state().filter(input) {
-                    tracing::debug!("Test sent: {:?}", input);
 
-                    if let Some(res) = task.handle_event(input.clone()).await {
-                        task.state().handle_result(&res).await;
-                    }
+    // ).collect();
+    //
+    let exp = task_expectations[0];
 
-                    while let Ok(received_output) = test_receiver.try_recv() {
-                        tracing::debug!("Test received: {:?}", received_output);
+    let task_c =
 
-                        let output_asserts = &task_expectation[stage_number].output_asserts;
+//     Task {
+//       event_sender: task_input.clone(), 
+//       event_receiver: task_receiver.clone(), registry: registry.clone(), state: Box::new(*(exp.state)) };
+     Task::new(task_input.clone(), task_receiver.clone(), registry.clone(), *(exp.state));
 
-                        if *output_index >= output_asserts.len() {
-                            panic_extra_output(stage_number, &received_output);
-                        };
 
-                        let assert = &output_asserts[*output_index];
+//        .into_iter()
+//        .map(|expectation| {
+//            (
+//                Task::new(
+//                    task_input.clone(),
+//                    task_receiver.clone(),
+//                    registry.clone(),
+//                    *(expectation.state),
+//                ),
+//                expectation.expectations,
+//                0,
+//            )
+//        })
+//        .collect();
 
-                        validate_output_or_panic(stage_number, &received_output, assert);
-
-                        *output_index += 1;
-                    }
-                }
-            }
-        }
-
-        while let Ok(input) = loop_receiver.try_recv() {
-            for (task, task_expectation, output_index) in &mut tasks {
-                if !task.state().filter(&input) {
-                    tracing::debug!("Test sent: {:?}", input);
-
-                    if let Some(res) = task.handle_event(input.clone()).await {
-                        task.state().handle_result(&res).await;
-                    }
-
-                    while let Ok(received_output) = test_receiver.try_recv() {
-                        tracing::debug!("Test received: {:?}", received_output);
-
-                        let output_asserts = &task_expectation[stage_number].output_asserts;
-
-                        if *output_index >= output_asserts.len() {
-                            panic_extra_output(stage_number, &received_output);
-                        };
-
-                        let assert = &output_asserts[*output_index];
-
-                        validate_output_or_panic(stage_number, &received_output, assert);
-
-                        *output_index += 1;
-                    }
-                }
-            }
-        }
-
-        for (task, task_expectation, output_index) in &mut tasks {
-            let output_asserts = &task_expectation[stage_number].output_asserts;
-
-            if *output_index < output_asserts.len() {
-                panic_missing_output(stage_number, &output_asserts[*output_index]);
-            }
-
-            let task_state_asserts = &task_expectation[stage_number].task_state_asserts;
-
-            for assert in task_state_asserts {
-                validate_task_state_or_panic(stage_number, task.state(), assert);
-            }
-        }
-    }
+//    for (stage_number, input_group) in inputs.into_iter().enumerate() {
+//        for input in &input_group {
+//            for (task, task_expectation, output_index) in &mut tasks {
+//                if !task.state().filter(input) {
+//                    tracing::debug!("Test sent: {:?}", input);
+//
+//                    if let Some(res) = task.handle_event(input.clone()).await {
+//                        task.state().handle_result(&res).await;
+//                    }
+//
+//                    while let Ok(received_output) = test_receiver.try_recv() {
+//                        tracing::debug!("Test received: {:?}", received_output);
+//
+//                        let output_asserts = &task_expectation[stage_number].output_asserts;
+//
+//                        if *output_index >= output_asserts.len() {
+//                            panic_extra_output(stage_number, &received_output);
+//                        };
+//
+//                        let assert = &output_asserts[*output_index];
+//
+//                        validate_output_or_panic(stage_number, &received_output, assert);
+//
+//                        *output_index += 1;
+//                    }
+//                }
+//            }
+//        }
+//
+//        while let Ok(input) = loop_receiver.try_recv() {
+//            for (task, task_expectation, output_index) in &mut tasks {
+//                if !task.state().filter(&input) {
+//                    tracing::debug!("Test sent: {:?}", input);
+//
+//                    if let Some(res) = task.handle_event(input.clone()).await {
+//                        task.state().handle_result(&res).await;
+//                    }
+//
+//                    while let Ok(received_output) = test_receiver.try_recv() {
+//                        tracing::debug!("Test received: {:?}", received_output);
+//
+//                        let output_asserts = &task_expectation[stage_number].output_asserts;
+//
+//                        if *output_index >= output_asserts.len() {
+//                            panic_extra_output(stage_number, &received_output);
+//                        };
+//
+//                        let assert = &output_asserts[*output_index];
+//
+//                        validate_output_or_panic(stage_number, &received_output, assert);
+//
+//                        *output_index += 1;
+//                    }
+//                }
+//            }
+//        }
+//
+//        for (task, task_expectation, output_index) in &mut tasks {
+//            let output_asserts = &task_expectation[stage_number].output_asserts;
+//
+//            if *output_index < output_asserts.len() {
+//                panic_missing_output(stage_number, &output_asserts[*output_index]);
+//            }
+//
+//            let task_state_asserts = &task_expectation[stage_number].task_state_asserts;
+//
+//            for assert in task_state_asserts {
+//                validate_task_state_or_panic(stage_number, task.state(), assert);
+//            }
+//        }
+//    }
 }
 
 pub struct ScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {

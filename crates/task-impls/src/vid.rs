@@ -2,6 +2,7 @@ use crate::events::{HotShotEvent, HotShotTaskCompleted};
 use crate::helpers::broadcast_event;
 use async_broadcast::Sender;
 use async_lock::RwLock;
+use async_trait::async_trait;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 
@@ -163,6 +164,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
+#[async_trait]
 /// task state implementation for VID Task
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for VIDTaskState<TYPES, I, A>
@@ -188,7 +190,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::ViewChange(_)
         )
     }
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(&self, event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }

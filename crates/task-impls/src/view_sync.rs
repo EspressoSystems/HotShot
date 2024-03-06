@@ -7,6 +7,7 @@ use crate::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_types::{
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -102,6 +103,7 @@ pub struct ViewSyncTaskState<
     pub last_garbage_collected_view: TYPES::Time,
 }
 
+#[async_trait]
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
@@ -134,7 +136,7 @@ impl<
         )
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(&self, event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }
@@ -174,6 +176,7 @@ pub struct ViewSyncReplicaTaskState<
     pub api: A,
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ViewSyncReplicaTaskState<TYPES, I, A>
 {
@@ -202,7 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         )
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
+    fn should_shutdown(&self, event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
     }
 }

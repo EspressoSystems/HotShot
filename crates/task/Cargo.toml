@@ -10,6 +10,7 @@ edition = "2021"
 
 futures = "0.3.30"
 async-broadcast = "0.7.0"
+async-trait = { workspace = true }
 tracing = { workspace = true }
 async-compatibility-layer = { workspace = true }
 

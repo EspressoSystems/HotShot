@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
+
 use async_broadcast::{Receiver, SendError, Sender};
 use async_compatibility_layer::art::async_timeout;
 #[cfg(async_executor_impl = "async-std")]
@@ -29,19 +31,15 @@ use crate::{
 };
 
 /// Type for mutable task state that can be used as the state for a `Task`
-pub trait TaskState: Send {
+#[async_trait]
+pub trait TaskState: Send + Sync {
     /// Type of event sent and received by the task
     type Event: Clone + Send + Sync + 'static;
     /// The result returned when this task compeltes
     type Output: Send;
     /// Handle event and update state.  Return true if the task is finished
     /// false otherwise.  The handler can access the state through `Task::state_mut`
-    fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> impl Future<Output = Option<Self::Output>> + Send
-    where
-        Self: Sized;
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Output>;
 
     /// Return true if the event should be filtered
     fn filter(&self, _event: &Self::Event) -> bool {
@@ -49,16 +47,37 @@ pub trait TaskState: Send {
         false
     }
     /// Do something with the result of the task before it shuts down
-    fn handle_result(&self, _res: &Self::Output) -> impl std::future::Future<Output = ()> + Send {
-        async {}
-    }
+    async fn handle_result(&self, _res: &Self::Output) -> () {}
     /// Return true if the event should shut the task down
-    fn should_shutdown(event: &Self::Event) -> bool;
+    fn should_shutdown(&self, event: &Self::Event) -> bool;
     /// Handle anything before the task is completely shutdown
-    fn shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send {
-        async {}
-    }
+    async fn shutdown(&mut self) -> () {}
 }
+
+#[async_trait]
+impl<S> TaskState for Box<S>
+where
+  S: TaskState + Send + Sync,
+  S::Output: Send + Sync
+  { type Event = S::Event;
+
+  type Output = S::Output;
+
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<Self::Output>
+        { todo!() // S::handle_event(event, &mut Task { event_sender: task.event_sender, event_receiver: task.event_receiver, registry: task.registry, state: *(task.state) } ).await
+
+        }
+
+
+    async fn handle_result(&self, res: &Self::Output) -> () {
+      (*self).handle_result(res);
+  }
+
+  fn should_shutdown(&self, event: &Self::Event) -> bool {
+    (*self).should_shutdown(event)
+  }
+    async fn shutdown(&mut self) -> () { (*self).shutdown(); }
+  }
 
 /// Task state for a test.  Similar to `TaskState` but it handles
 /// messages as well as events.  Messages are events that are
@@ -87,20 +106,24 @@ pub trait TestTaskState: Send {
 /// It sends events to other `Task`s through `event_sender`
 /// This should be used as the primary building block for long running
 /// or medium running tasks (i.e. anything that can't be described as a dependency task)
-pub struct Task<S: TaskState> {
+pub struct Task<S: TaskState + ?Sized> {
     /// Sends events all tasks including itself
-    event_sender: Sender<S::Event>,
+    pub event_sender: Sender<S::Event>,
     /// Receives events that are broadcast from any task, including itself
-    event_receiver: Receiver<S::Event>,
+    pub event_receiver: Receiver<S::Event>,
     /// Contains this task, used to register any spawned tasks
-    registry: Arc<TaskRegistry>,
+    pub registry: Arc<TaskRegistry>,
     /// The state of the task.  It is fed events from `event_sender`
     /// and mutates it state ocordingly.  Also it signals the task
     /// if it is complete/should shutdown
-    state: S,
+    pub state: Box<S>,
 }
 
-impl<S: TaskState + Send + 'static> Task<S> {
+impl<S> Task<S>
+where
+    Option<S::Output>: Send,
+    S: TaskState + Send + 'static,
+{
     /// Create a new task
     pub fn new(
         tx: Sender<S::Event>,
@@ -112,29 +135,29 @@ impl<S: TaskState + Send + 'static> Task<S> {
             event_sender: tx,
             event_receiver: rx,
             registry,
-            state,
+            state: Box::new(state),
         }
     }
 
     /// The Task analog of `TaskState::handle_event`.
-    pub fn handle_event(
-        &mut self,
-        event: S::Event,
-    ) -> impl Future<Output = Option<S::Output>> + Send + '_
+    pub async fn handle_event(&mut self, event: S::Event) -> Option<S::Output>
     where
         Self: Sized,
     {
-        S::handle_event(event, self)
+        S::handle_event(event, self).await
     }
 
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> JoinHandle<()> {
+    pub fn run(mut self) -> JoinHandle<()>
+    where
+        Option<<S as TaskState>::Output>: Send,
+    {
         spawn(async move {
             loop {
                 match self.event_receiver.recv_direct().await {
                     Ok(event) => {
-                        if S::should_shutdown(&event) {
+                        if self.state.should_shutdown(&event) {
                             self.state.shutdown().await;
                             break;
                         }
@@ -190,7 +213,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
             event_sender: self.clone_sender(),
             event_receiver: self.subscribe(),
             registry: self.registry.clone(),
-            state,
+            state: Box::new(state),
         };
         // Note: await here is only awaiting the task to be added to the
         // registry, not for the task to run.
@@ -229,7 +252,7 @@ impl<
                 let mut futs = vec![];
 
                 if let Ok(event) = self.task.event_receiver.try_recv() {
-                    if S::should_shutdown(&event) {
+                    if self.task.state.should_shutdown(&event) {
                         self.task.state.shutdown().await;
                         tracing::error!("Shutting down test task TODO!");
                         todo!();
@@ -350,6 +373,7 @@ mod tests {
     }
 
     #[allow(clippy::panic)]
+    #[async_trait]
     impl TaskState for DummyHandle {
         type Event = usize;
         type Output = ();
@@ -367,7 +391,7 @@ mod tests {
             }
             None
         }
-        fn should_shutdown(event: &usize) -> bool {
+        fn should_shutdown(&self, event: &usize) -> bool {
             *event >= 98
         }
         async fn shutdown(&mut self) {
@@ -406,14 +430,14 @@ mod tests {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
             registry: reg.clone(),
-            state: DummyHandle::default(),
+            state: Box::new(DummyHandle::default()),
         };
         tx.broadcast(1).await.unwrap();
         let task2 = Task::<DummyHandle> {
             event_sender: tx.clone(),
             event_receiver: rx,
             registry: reg,
-            state: DummyHandle::default(),
+            state: Box::new(DummyHandle::default()),
         };
         let handle = task2.run();
         let _res = task1.run().await;
@@ -435,14 +459,14 @@ mod tests {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
             registry: reg.clone(),
-            state: DummyHandle::default(),
+            state: Box::new(DummyHandle::default()),
         };
         tx.broadcast(1).await.unwrap();
         let task2 = Task::<DummyHandle> {
             event_sender: tx.clone(),
             event_receiver: rx,
             registry: reg,
-            state: DummyHandle::default(),
+            state: Box::new(DummyHandle::default()),
         };
         let test1 = TestTask::<_, DummyHandle> {
             task: task1,

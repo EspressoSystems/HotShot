@@ -1,5 +1,6 @@
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 
+use async_trait::async_trait;
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
     data::{Leaf, VidDisperse},
@@ -73,6 +74,7 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub properties: OverallSafetyPropertiesDescription,
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
     for OverallSafetyTask<TYPES, I>
 {
@@ -119,7 +121,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState
         }
     }
 
-    fn should_shutdown(_event: &Self::Event) -> bool {
+    fn should_shutdown(&self, _event: &Self::Event) -> bool {
         false
     }
 }

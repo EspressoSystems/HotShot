@@ -4,6 +4,7 @@ use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplement
 use snafu::Snafu;
 use std::{collections::HashSet, marker::PhantomData};
 
+use async_trait::async_trait;
 use crate::{test_runner::HotShotTaskCompleted, GlobalTestEvent};
 
 /// `ViewSync` Task error
@@ -23,6 +24,7 @@ pub struct ViewSyncTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) _pd: PhantomData<(TYPES, I)>,
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSyncTask<TYPES, I> {
     type Event = GlobalTestEvent;
 
@@ -46,7 +48,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for ViewSy
         }
     }
 
-    fn should_shutdown(_event: &Self::Event) -> bool {
+    fn should_shutdown(&self, _event: &Self::Event) -> bool {
         false
     }
 }
