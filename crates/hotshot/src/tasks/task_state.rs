@@ -6,7 +6,6 @@ use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
     request::NetworkRequestState,
-    response::NetworkResponseState,
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
@@ -46,8 +45,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             network: handle.hotshot.networks.quorum_network.clone(),
             state: handle.hotshot.get_consensus(),
             view: handle.get_cur_view().await,
-            // TODO add to config
-            delay: Duration::from_millis(1500),
+            delay: handle.hotshot.config.data_request_delay,
             da_membership: handle.hotshot.memberships.da_membership.clone(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
             public_key: handle.public_key().clone(),

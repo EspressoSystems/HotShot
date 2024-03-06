@@ -34,7 +34,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use std::{os::linux::raw::stat, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tracing::error;
 
 /// event for global event stream
@@ -59,9 +59,10 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
     task_reg.run_task(task).await;
 }
 
+/// Add a task which responds to requests on the network.
 pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
+    hs_rx: Receiver<HotShotEvent<TYPES>>,
     rx: ReqestReceiver<TYPES>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
@@ -71,7 +72,7 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.hotshot.memberships.quorum_membership.clone(),
         handle.public_key().clone(),
     );
-    task_reg.register(run_response_task(state, tx));
+    task_reg.register(run_response_task(state, hs_rx)).await;
 }
 /// Add the network task to handle messages and publish events.
 pub async fn add_network_message_task<
