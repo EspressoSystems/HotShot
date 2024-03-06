@@ -7,11 +7,10 @@ use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, ValidatedState},
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 use commit::{Commitment, Committable};
-use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
+use sha2::{Digest, Sha256};
 
 use std::{
     error::Error,
@@ -100,12 +99,8 @@ pub trait TestableBlock: BlockPayload + Debug {
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
-pub fn vid_commitment(
-    encoded_transactions: &Vec<u8>,
-    num_storage_nodes: usize,
-) -> <VidSchemeType as VidScheme>::Commit {
-    #[allow(clippy::panic)]
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+pub fn vid_commitment(encoded_transactions: &Vec<u8>, _num_storage_nodes: usize) -> Vec<u8> {
+    Sha256::digest(encoded_transactions).to_vec()
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.
@@ -124,13 +119,13 @@ pub trait BlockHeader<TYPES: NodeType>:
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
-        payload_commitment: VidCommitment,
+        payload_commitment: Vec<u8>,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
-        payload_commitment: VidCommitment,
+        payload_commitment: Vec<u8>,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self;
 
@@ -138,7 +133,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn block_number(&self) -> u64;
 
     /// Get the payload commitment.
-    fn payload_commitment(&self) -> VidCommitment;
+    fn payload_commitment(&self) -> Vec<u8>;
 
     /// Get the metadata.
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;

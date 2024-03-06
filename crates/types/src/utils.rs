@@ -1,6 +1,6 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use crate::{data::Leaf, traits::node_implementation::NodeType, vid::VidCommitment};
+use crate::{data::Leaf, traits::node_implementation::NodeType};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use commit::Commitment;
 use digest::OutputSizeUser;
@@ -19,7 +19,7 @@ pub enum ViewInner<TYPES: NodeType> {
     /// leaders repeatedly request availability for blocks that they never propose.
     DA {
         /// Payload commitment to the available block.
-        payload_commitment: VidCommitment,
+        payload_commitment: Vec<u8>,
     },
     /// Undecided view
     Leaf {
@@ -68,9 +68,9 @@ impl<TYPES: NodeType> ViewInner<TYPES> {
 
     /// return the underlying block paylod commitment if it exists
     #[must_use]
-    pub fn get_payload_commitment(&self) -> Option<VidCommitment> {
+    pub fn get_payload_commitment(&self) -> Option<Vec<u8>> {
         if let Self::DA { payload_commitment } = self {
-            Some(*payload_commitment)
+            Some(payload_commitment.to_vec())
         } else {
             None
         }

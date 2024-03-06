@@ -25,6 +25,7 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -196,11 +197,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 let encoded_transactions = vec![0; self.transaction_size];
+                let encoded_transactions_hash = Sha256::digest(&encoded_transactions).to_vec();
 
                 // send the sequenced transactions to VID and DA tasks
                 let block_view = if make_block { view } else { view + 1 };
                 broadcast_event(
                     HotShotEvent::TransactionsSequenced(encoded_transactions, block_view),
+                    &event_stream,
+                )
+                .await;
+
+                broadcast_event(
+                    HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        encoded_transactions_hash,
+                        block_view,
+                    ),
                     &event_stream,
                 )
                 .await;

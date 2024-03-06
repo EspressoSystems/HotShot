@@ -13,7 +13,6 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::node_implementation::NodeType,
-    vid::VidCommitment,
 };
 
 /// Marker that the task completed
@@ -95,7 +94,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
-    SendPayloadCommitmentAndMetadata(VidCommitment, TYPES::Time),
+    SendPayloadCommitmentAndMetadata(Vec<u8>, TYPES::Time),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     TransactionsSequenced(Vec<u8>, TYPES::Time),
     /// Event when the transactions task has a block formed

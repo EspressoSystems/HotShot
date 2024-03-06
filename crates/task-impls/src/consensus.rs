@@ -33,7 +33,6 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
@@ -52,7 +51,7 @@ use tracing::{debug, error, info, instrument};
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata {
     /// Vid Commitment
-    pub commitment: VidCommitment,
+    pub commitment: Vec<u8>,
     /// Flag for if this data represents the genesis block
     pub is_genesis: bool,
 }
@@ -226,14 +225,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = self.vid_shares.get(&proposal.view_number) {
-            } else {
-                debug!(
-                    "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-                    proposal.view_number
-                );
-                return false;
-            }
+            // if let Some(_vid_share) = self.vid_shares.get(&proposal.view_number) {
+            // } else {
+            //     debug!(
+            //         "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
+            //         proposal.view_number
+            //     );
+            //     return false;
+            // }
 
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
@@ -1307,7 +1306,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 state,
                 &consensus.instance_state,
                 &parent_leaf,
-                commit_and_metadata.commitment,
+                commit_and_metadata.commitment.clone(),
             )
             .await;
             let leaf = Leaf {

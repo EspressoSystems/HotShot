@@ -283,8 +283,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         )),
         bs_len,
         config.node_index as usize,
-        None,
-        da_keys.contains(&pub_key),
+        da_keys.contains(&pub_key)
     )
     .await
     .unwrap()

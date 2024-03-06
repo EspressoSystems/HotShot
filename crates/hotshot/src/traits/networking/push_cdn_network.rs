@@ -2,9 +2,6 @@
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
 use bincode::Options;
-use broker::{
-    reexports::connection::protocols::Tcp, Broker, Config, ConfigBuilder as BrokerConfigBuilder,
-};
 use client::{
     reexports::{
         connection::protocols::Quic,
@@ -15,10 +12,8 @@ use client::{
     Client, ConfigBuilder as ClientConfigBuilder,
 };
 use hotshot_utils::bincode::bincode_opts;
-use marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
-use tracing::{error, warn};
+use tracing::warn;
 
-use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
 use async_trait::async_trait;
 
 use async_compatibility_layer::channel::UnboundedSendError;
@@ -35,7 +30,7 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, time::Duration};
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -382,7 +377,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         let message = match message {
             Ok(message) => message,
             Err(error) => {
-                async_sleep(Duration::from_millis(100)).await;
+                async_compatibility_layer::art::async_sleep(Duration::from_millis(100)).await;
                 return Err(NetworkError::PushCdn { source: error });
             }
         };

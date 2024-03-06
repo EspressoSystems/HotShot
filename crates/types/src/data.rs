@@ -381,7 +381,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 
     /// A commitment to the block payload contained in this leaf.
-    pub fn get_payload_commitment(&self) -> VidCommitment {
+    pub fn get_payload_commitment(&self) -> Vec<u8> {
         self.get_block_header().payload_commitment()
     }
 
@@ -473,7 +473,7 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
             .u64_field("block number", self.get_height())
             .field("parent Leaf commitment", self.parent_commitment)
             .constant_str("block payload commitment")
-            .fixed_size_bytes(self.get_payload_commitment().as_ref().as_ref())
+            .var_size_bytes(&self.get_payload_commitment())
             .constant_str("justify_qc view number")
             .u64(*self.justify_qc.view_number)
             .field(

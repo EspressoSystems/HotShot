@@ -58,7 +58,7 @@ use futures::{
     FutureExt,
 };
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashSet},
     fmt::Debug,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -318,7 +318,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
-        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");

@@ -7,7 +7,6 @@ use hotshot_task_impls::{
     da::DATaskState,
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
-    vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::election::Membership;
@@ -49,27 +48,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
             should_vote: |_upgrade_proposal| false,
             vote_collector: None.into(),
-            public_key: handle.public_key().clone(),
-            private_key: handle.private_key().clone(),
-            id: handle.hotshot.id,
-        }
-    }
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for VIDTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
-{
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> VIDTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
-        VIDTaskState {
-            api: handle.clone(),
-            consensus: handle.hotshot.get_consensus(),
-            cur_view: handle.get_cur_view().await,
-            vote_collector: None,
-            network: handle.hotshot.networks.quorum_network.clone(),
-            membership: handle.hotshot.memberships.vid_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,

@@ -150,7 +150,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Generate and send vote
                 let Ok(vote) = DAVote::create_signed_vote(
                     DAData {
-                        payload_commit: payload_commitment,
+                        payload_commit: payload_commitment.clone(),
                     },
                     view,
                     &self.public_key,

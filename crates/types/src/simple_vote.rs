@@ -26,7 +26,7 @@ pub struct QuorumData<TYPES: NodeType> {
 /// Data used for a DA vote.
 pub struct DAData {
     /// Commitment to a block payload
-    pub payload_commit: VidCommitment,
+    pub payload_commit: Vec<u8>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.

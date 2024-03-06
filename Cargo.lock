@@ -3215,67 +3215,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-testing"
-version = "0.1.0"
-dependencies = [
- "async-broadcast",
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "bincode",
- "bitvec",
- "commit",
- "either",
- "ethereum-types",
- "futures",
- "hotshot",
- "hotshot-constants",
- "hotshot-example-types",
- "hotshot-orchestrator",
- "hotshot-task",
- "hotshot-task-impls",
- "hotshot-types",
- "hotshot-utils",
- "jf-primitives",
- "rand 0.8.5",
- "serde",
- "sha2 0.10.8",
- "sha3",
- "snafu",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hotshot-testing-macros"
-version = "0.1.0"
-dependencies = [
- "ark-bls12-381",
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "blake3",
- "commit",
- "derive_builder",
- "either",
- "futures",
- "hotshot",
- "hotshot-example-types",
- "hotshot-testing",
- "hotshot-types",
- "jf-primitives",
- "proc-macro2",
- "quote",
- "rand 0.8.5",
- "serde",
- "snafu",
- "syn 2.0.52",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
