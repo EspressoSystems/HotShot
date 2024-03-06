@@ -7,7 +7,7 @@ use crate::{
     data::{Leaf, VidDisperse},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::{DACertificate, QuorumCertificate},
+    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
@@ -45,6 +45,10 @@ pub struct Consensus<TYPES: NodeType> {
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+
+    /// All the upgrade certs we've received for current and future views.
+    /// view -> upgrade cert
+    pub saved_upgrade_certs: HashMap<TYPES::Time, UpgradeCertificate<TYPES>>,
 
     /// View number that is currently on.
     pub cur_view: TYPES::Time,
@@ -316,6 +320,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
         // perform gc
         self.saved_da_certs
+            .retain(|view_number, _| *view_number >= old_anchor_view);
+        self.saved_upgrade_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
