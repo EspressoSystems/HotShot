@@ -843,7 +843,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         }
     }
 
-    /// Moves out the entire queue of received messages
+    /// Receive one or many messages from the underlying network.
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
@@ -853,7 +853,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
             .drain(..)
             .collect::<Vec<_>>()
             .iter()
-            .map(|x| x.get_message().unwrap())
+            .map(|x| x.get_message().expect("failed to clone message"))
             .collect())
     }
 

@@ -836,6 +836,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
+    /// Receive one or many messages from the underlying network.
+    ///
+    /// # Errors
+    /// If there is a network-related failure.
     #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
     async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError> {
         let result = self
@@ -845,6 +849,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .await
             .map_err(|_x| NetworkError::ShutDown)?;
         self.inner.metrics.incoming_message_count.add(result.len());
+        
         Ok(result)
     }
 

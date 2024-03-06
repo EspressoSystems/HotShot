@@ -353,6 +353,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         }
     }
 
+    /// Receive one or many messages from the underlying network.
+    ///
+    /// # Errors
+    /// If the other side of the channel is closed
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
     async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError> {
         let ret = self
