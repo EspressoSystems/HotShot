@@ -123,7 +123,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
             MessageKind::Data(DataMessage::RequestData(msg)) => msg.view,
             MessageKind::Data(DataMessage::DataResponse(msg)) => match msg {
                 ResponseMessage::Found(m) => m.view_number(),
-                ResponseMessage::NotFound => TYPES::Time::new(1),
+                ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::Time::new(1),
             },
         }
     }

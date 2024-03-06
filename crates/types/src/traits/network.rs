@@ -273,6 +273,8 @@ pub enum ResponseMessage<TYPES: NodeType> {
     Found(SequencingMessage<TYPES>),
     /// Peer failed to get us data
     NotFound,
+    /// The request was denied
+    Denied,
 }
 
 /// represents a networking implmentration
