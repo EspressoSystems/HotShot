@@ -151,7 +151,7 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     // Earlier it was total_nodes
     pub num_nodes_with_stake: NonZeroUsize,
     /// Number of nodes without stake
-    pub num_nodes_without_stake: Option<usize>,
+    pub num_nodes_without_stake: usize,
     /// Minimum transactions per block
     pub min_transactions: usize,
     /// Maximum transactions per block
