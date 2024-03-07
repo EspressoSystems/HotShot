@@ -196,7 +196,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let encoded_transactions = vec![0; self.transaction_size];
+                let mut encoded_transactions = Vec::new();
+                let txn = vec![0; self.transaction_size];
+                let size = u32::try_from(self.transaction_size).unwrap();
+
+                encoded_transactions.extend(size.to_le_bytes());
+                encoded_transactions.extend(txn);
+
                 let encoded_transactions_hash = Sha256::digest(&encoded_transactions).to_vec();
 
                 // send the sequenced transactions to VID and DA tasks
