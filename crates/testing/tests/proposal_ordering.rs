@@ -45,7 +45,7 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     }
 
     // This stage transitions from the initial view to view 1
-    let view_0 = TestScriptStage {
+    let view_1 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -69,7 +69,7 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
     }
 
     // This stage transitions from view 1 to view 2.
-    let view_1 = TestScriptStage {
+    let view_2 = TestScriptStage {
         inputs: view_1_inputs,
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -80,7 +80,7 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
         asserts: vec![is_at_view_number(2)],
     };
 
-    let script = vec![view_0, view_1];
+    let script = vec![view_1, view_2];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
