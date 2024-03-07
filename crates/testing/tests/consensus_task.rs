@@ -240,30 +240,32 @@ async fn test_consensus_vote_old() {
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle(2).await.0;
-    // We assign node's key pair rather than read from config file since it's a test
-    let (private_key, public_key) = key_pair_for_id(1);
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let mut input = Vec::new();
-    let mut output = HashMap::new();
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
-
-    // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
-    input.push(HotShotEvent::QuorumProposalRecv(
-        proposal.clone(),
-        public_key,
-    ));
-
-    let proposal = proposal.data;
-    output.insert(HotShotEvent::QuorumProposalValidated(proposal.clone()), 1);
-    if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
-        output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
-        input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    let mut votes = Vec::new();
+    for view in (&mut generator).take(2) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_vote(&handle));
     }
 
-    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-
-    input.push(HotShotEvent::Shutdown);
+    // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
+    let view_1 = TestScriptStage {
+        inputs: vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumVoteRecv(votes[0].clone()),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
+        ],
+        asserts: vec![],
+    };
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -273,8 +275,7 @@ async fn test_consensus_vote_old() {
     .await;
 
     inject_consensus_polls(&consensus_state).await;
-
-    run_harness(input, output, consensus_state, false).await;
+    run_test_script(vec![view_1], consensus_state).await;
 }
 
 #[cfg(test)]
