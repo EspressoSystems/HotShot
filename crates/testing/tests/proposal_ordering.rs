@@ -9,48 +9,20 @@ use hotshot_testing::{
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use jf_primitives::vid::VidScheme;
 
-fn permute<T>(mut input: Vec<T>, permutation: Vec<usize>) -> Vec<T> {
-    let mut outputs: Vec<T> = Vec::with_capacity(input.len());
-    let mut taken = vec![false; input.len()]; // Track taken elements
-
-    for &index in &permutation {
-        // SAFETY: This is safe because we ensure that each index is accessed exactly once
-        // and `taken[index]` is set to `true` to prevent double access. This is to get around
-        // the predicate function type not being copyable below.
-        if !taken[index] {
-            unsafe {
-                let ptr = &mut input[index] as *mut T;
-                outputs.push(std::ptr::read(ptr));
-                taken[index] = true;
-            }
-        }
+fn permute<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
+where
+    T: Clone,
+{
+    let mut ordered_inputs = Vec::with_capacity(inputs.len());
+    for &index in &order {
+        ordered_inputs.push(inputs[index].clone());
     }
-
-    // Prevent a double free. Rust's borrow checker will eventually drop `input` since it is
-    // consumed by this call. However, since we pulled the memory out from underneath the data
-    // structure, we will get an error if we don't explicitly blow the memory away before it goes
-    // out of scope. This ensures that the borrow checker won't get mad at us when it finds out how
-    // we've left the place.
-    unsafe {
-        input.set_len(0);
-    }
-
-    // Make sure all elements were indeed taken
-    assert!(
-        taken.into_iter().all(|t| t),
-        "Not all elements were taken as expected"
-    );
-
-    outputs
+    ordered_inputs
 }
 
 /// Runs a basic test where a qualified proposal occurs (i.e. not initiated by the genesis view or node 1).
-/// This proposal should happen no matter how the `input_permutation` is specified, and also allows the
-/// inclusion of an optional `output_permutation` as well that gives the ability to re-order the outputs.
-async fn test_ordering_with_specific_order(
-    input_permutation: Vec<usize>,
-    output_permutation: Option<Vec<usize>>,
-) {
+/// This proposal should happen no matter how the `input_permutation` is specified.
+async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -100,17 +72,21 @@ async fn test_ordering_with_specific_order(
         QCFormed(either::Left(cert)),
         SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
     ];
-    let outputs = vec![
-        exact(ViewChange(ViewNumber::new(2))),
-        exact(QuorumProposalValidated(proposals[1].data.clone())),
-        quorum_proposal_send(),
-    ];
+    let view_1_outputs = if input_permutation[2] == 0 {
+        vec![
+            quorum_proposal_send(),
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+        ]
+    } else {
+        vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_send(),
+        ]
+    };
 
     let view_1_inputs = permute(inputs, input_permutation);
-    let view_1_outputs = match output_permutation {
-        Some(p) => permute(outputs, p),
-        None => outputs,
-    };
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
@@ -142,11 +118,10 @@ async fn test_ordering_with_specific_order(
 /// trigger the proposal event regardless. This is to catch a regression in which
 /// `SendPayloadCommitmentAndMetadata`, when received last, resulted in no proposal occurring.
 async fn test_proposal_ordering() {
-    test_ordering_with_specific_order(vec![0, 1, 2], None).await;
-    test_ordering_with_specific_order(vec![0, 2, 1], None).await;
-    test_ordering_with_specific_order(vec![1, 0, 2], None).await;
-    test_ordering_with_specific_order(vec![2, 0, 1], None).await;
-
-    test_ordering_with_specific_order(vec![1, 2, 0], Some(vec![2, 0, 1])).await;
-    test_ordering_with_specific_order(vec![2, 1, 0], Some(vec![2, 0, 1])).await;
+    test_ordering_with_specific_order(vec![0, 1, 2]).await;
+    test_ordering_with_specific_order(vec![0, 2, 1]).await;
+    test_ordering_with_specific_order(vec![1, 0, 2]).await;
+    test_ordering_with_specific_order(vec![2, 0, 1]).await;
+    test_ordering_with_specific_order(vec![1, 2, 0]).await;
+    test_ordering_with_specific_order(vec![2, 1, 0]).await;
 }
