@@ -1,8 +1,11 @@
 //! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
-/// the task which implements the main parts of consensus
+/// the task which implements the main parts of consensus except the voting logic.
 pub mod consensus;
+
+/// The task which handles the logic for the quorum vote.
+pub mod quorum_vote;
 
 /// The task which implements the main parts of data availability.
 pub mod da;
@@ -26,7 +29,7 @@ pub mod view_sync;
 pub mod vid;
 
 /// Generic task for collecting votes
-pub mod vote;
+pub mod vote_collection;
 
 /// Task for handling upgrades
 pub mod upgrade;
