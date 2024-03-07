@@ -9,10 +9,44 @@ use hotshot_testing::{
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use jf_primitives::vid::VidScheme;
 
+fn permute<T>(mut input: Vec<T>, permutation: Vec<usize>) -> Vec<T> {
+    let mut outputs: Vec<T> = Vec::with_capacity(input.len());
+    let mut taken = vec![false; input.len()]; // Track taken elements
+
+    for &index in &permutation {
+        // SAFETY: This is safe because we ensure that each index is accessed exactly once
+        // and `taken[index]` is set to `true` to prevent double access. This is to get around
+        // the predicate function type not being copyable below.
+        if !taken[index] {
+            unsafe {
+                let ptr = &mut input[index] as *mut T;
+                outputs.push(std::ptr::read(ptr));
+                taken[index] = true;
+            }
+        }
+    }
+
+    // Prevent a double free
+    unsafe {
+        input.set_len(0);
+    }
+
+    // Make sure all elements were indeed taken
+    assert!(
+        taken.into_iter().all(|t| t),
+        "Not all elements were taken as expected"
+    );
+
+    outputs
+}
+
 /// Runs the test specified in this file with a boolean flag that determines whether or not to make
 /// the `QCFormed` event come first in the inputs, or last. Since there's only two possible cases
 /// to check, the code simply swaps their order in the input vector.
-async fn test_ordering_with_specific_order(qc_formed_first: bool) {
+async fn test_ordering_with_specific_order(
+    input_permutation: Vec<usize>,
+    output_permutation: Option<Vec<usize>>,
+) {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -57,25 +91,27 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 
     // Node 2 is the leader up next, so we form the QC for it.
     let cert = proposals[1].data.justify_qc.clone();
-    let mut view_1_inputs = vec![
+    let inputs = vec![
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
         QCFormed(either::Left(cert)),
         SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
     ];
+    let outputs = vec![
+        exact(ViewChange(ViewNumber::new(2))),
+        exact(QuorumProposalValidated(proposals[1].data.clone())),
+        quorum_proposal_send(),
+    ];
 
-    // Swap QCFormed and SendPayloadCommitmentAndMetadata
-    if !qc_formed_first {
-        view_1_inputs.swap(1, 2);
-    }
+    let view_1_inputs = permute(inputs, input_permutation);
+    let view_1_outputs = match output_permutation {
+        Some(p) => permute(outputs, p),
+        None => outputs,
+    };
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
         inputs: view_1_inputs,
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            quorum_proposal_send(),
-        ],
+        outputs: view_1_outputs,
         // We should end on view 2.
         asserts: vec![is_at_view_number(2)],
     };
@@ -102,6 +138,11 @@ async fn test_ordering_with_specific_order(qc_formed_first: bool) {
 /// trigger the proposal event regardless. This is to catch a regression in which
 /// `SendPayloadCommitmentAndMetadata`, when received last, resulted in no proposal occurring.
 async fn test_proposal_ordering() {
-    test_ordering_with_specific_order(true /* qc_formed_first */).await;
-    test_ordering_with_specific_order(false /* qc_formed_first */).await;
+    test_ordering_with_specific_order(vec![0, 1, 2], None).await;
+    test_ordering_with_specific_order(vec![0, 2, 1], None).await;
+    test_ordering_with_specific_order(vec![1, 0, 2], None).await;
+    test_ordering_with_specific_order(vec![2, 0, 1], None).await;
+
+    test_ordering_with_specific_order(vec![1, 2, 0], Some(vec![2, 0, 1])).await;
+    test_ordering_with_specific_order(vec![2, 1, 0], Some(vec![2, 0, 1])).await;
 }
