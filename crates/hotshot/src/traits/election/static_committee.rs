@@ -128,10 +128,10 @@ where
         let mut committee_nodes_without_stake: Vec<PUBKEY> = Vec::new();
         // filter out the committee nodes with non-zero state and zero stake
         for node in &nodes_with_stake {
-            if node.get_stake() != U256::from(0) {
-                committee_nodes_with_stake.push(node.clone());
+            if node.get_stake() == U256::from(0) {
+                committee_nodes_without_stake.push(PUBKEY::get_public_key(node));
             } else {
-                committee_nodes_without_stake.push(PUBKEY::get_public_key(&node));
+                committee_nodes_with_stake.push(node.clone());
             }
         }
         debug!("Election Membership Size: {}", config.num_nodes_with_stake);
@@ -182,11 +182,12 @@ impl<TYPES, PUBKEY: SignatureKey + 'static> GeneralStaticCommittee<TYPES, PUBKEY
 where
     TYPES: NodeType<SignatureKey = PUBKEY, ElectionConfigType = StaticElectionConfig>,
 {
+    #[allow(clippy::must_use_candidate)]
     /// get the non-staked builder nodes
     pub fn non_staked_nodes_count(&self) -> usize {
         self.committee_nodes_without_stake.len()
     }
-
+    #[allow(clippy::must_use_candidate)]
     /// get all the non-staked nodes
     pub fn get_non_staked_nodes(&self) -> Vec<PUBKEY> {
         self.committee_nodes_without_stake.clone()

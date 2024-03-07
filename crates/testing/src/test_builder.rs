@@ -88,6 +88,7 @@ impl Default for TimingData {
 impl TestMetadata {
     /// the default metadata for a stress test
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_stress() -> Self {
         let num_nodes_with_stake = 100;
         let num_nodes_without_stake = 0;
@@ -119,6 +120,7 @@ impl TestMetadata {
 
     /// the default metadata for multiple rounds
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_multiple_rounds() -> TestMetadata {
         let num_nodes_with_stake = 10;
         let num_nodes_without_stake = 0;
@@ -149,6 +151,7 @@ impl TestMetadata {
 
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_more_nodes() -> TestMetadata {
         let num_nodes_with_stake = 20;
         let num_nodes_without_stake = 0;
@@ -184,6 +187,7 @@ impl TestMetadata {
 
 impl Default for TestMetadata {
     /// by default, just a single round
+    #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
         let num_nodes_with_stake = 6;
         let num_nodes_without_stake = 0;
