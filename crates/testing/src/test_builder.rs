@@ -39,8 +39,10 @@ pub struct TimingData {
 /// metadata describing a test
 #[derive(Clone, Debug)]
 pub struct TestMetadata {
-    /// Total number of nodes in the test
-    pub total_nodes: usize,
+    /// Total number of staked nodes in the test
+    pub num_nodes_with_stake: usize,
+    /// Total number of non-staked nodes in the test
+    pub num_nodes_without_stake: usize,
     /// nodes available at start
     pub start_nodes: usize,
     /// Whether to skip initializing nodes that will start late, which will catch up later with
@@ -85,11 +87,14 @@ impl TestMetadata {
     /// the default metadata for a stress test
     #[must_use]
     pub fn default_stress() -> Self {
-        let num_nodes = 100;
+        let num_nodes_with_stake = 100;
+        let num_nodes_without_stake = 0;
+
         TestMetadata {
-            num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 50,
                 check_leaf: true,
@@ -105,7 +110,7 @@ impl TestMetadata {
                 round_start_delay: 25,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
@@ -113,13 +118,15 @@ impl TestMetadata {
     /// the default metadata for multiple rounds
     #[must_use]
     pub fn default_multiple_rounds() -> TestMetadata {
-        let num_nodes = 10;
+        let num_nodes_with_stake = 10;
+        let num_nodes_without_stake = 0;
         TestMetadata {
             // TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
-            num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
                 check_leaf: true,
@@ -133,7 +140,7 @@ impl TestMetadata {
                 round_start_delay: 25,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
@@ -141,11 +148,13 @@ impl TestMetadata {
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
     pub fn default_more_nodes() -> TestMetadata {
-        let num_nodes = 20;
+        let num_nodes_with_stake = 20;
+        let num_nodes_without_stake = 0;
         TestMetadata {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            num_bootstrap_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
+            num_bootstrap_nodes: num_nodes_with_stake,
             // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
@@ -165,7 +174,7 @@ impl TestMetadata {
                 next_view_timeout: 5000,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
@@ -174,15 +183,17 @@ impl TestMetadata {
 impl Default for TestMetadata {
     /// by default, just a single round
     fn default() -> Self {
-        let num_nodes = 6;
+        let num_nodes_with_stake = 6;
+        let num_nodes_without_stake = 0;
         Self {
             timing_data: TimingData::default(),
             min_transactions: 0,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             skip_late: false,
-            num_bootstrap_nodes: num_nodes,
-            da_committee_size: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            da_committee_size: num_nodes_with_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
             },
@@ -196,7 +207,7 @@ impl Default for TestMetadata {
                 },
             ),
             unreliable_network: None,
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
         }
     }
 }
@@ -218,7 +229,7 @@ impl TestMetadata {
         I: NodeImplementation<TYPES>,
     {
         let TestMetadata {
-            total_nodes,
+            num_nodes_with_stake,
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
@@ -248,11 +259,14 @@ impl TestMetadata {
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(total_nodes).unwrap(),
+            // Currently making this zero for simplicity
+            num_nodes_without_stake: 0,
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes_with_stake,
+            known_nodes_without_stake: vec![],
             my_own_validator_config,
             da_committee_size,
             next_view_timeout: 500,
@@ -265,6 +279,7 @@ impl TestMetadata {
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 total_nodes as u64,
+                0,
             )),
         };
         let TimingData {
