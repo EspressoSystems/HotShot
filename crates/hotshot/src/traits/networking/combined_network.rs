@@ -143,13 +143,13 @@ pub struct CombinedNetworks<TYPES: NodeType> {
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     /// Constructor
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>) -> Self {
+    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>, delay_duration: Duration) -> Self {
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
             primary_down: Arc::new(AtomicU64::new(0)),
             delayed_tasks: Arc::default(),
-            delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
+            delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
     }
 

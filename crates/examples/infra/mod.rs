@@ -22,7 +22,7 @@ use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
-    config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{CombinedConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -685,6 +685,9 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
+        let CombinedConfig { delay_duration }: CombinedConfig =
+            config.clone().combined_config.unwrap();
+
         // create and wait for underlying webserver network
         let web_quorum_network =
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
@@ -695,14 +698,20 @@ where
 
         // combine the two communication channel
 
-        let da_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_da_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
-        let quorum_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_quorum_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
+        let da_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_da_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
+        let quorum_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_quorum_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
 
         CombinedDARun {
             config,

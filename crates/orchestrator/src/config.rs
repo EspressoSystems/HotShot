@@ -97,6 +97,13 @@ pub struct WebServerConfig {
     pub wait_between_polls: Duration,
 }
 
+/// configuration for combined network
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct CombinedConfig {
+    /// delay duration before sending a message through the secondary network
+    pub delay_duration: Duration,
+}
+
 /// a network configuration error
 #[derive(Error, Debug)]
 pub enum NetworkConfigError {
@@ -153,6 +160,8 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
     pub da_web_server_config: Option<WebServerConfig>,
+    /// combined network config
+    pub combined_config: Option<CombinedConfig>,
 }
 
 /// the source of the network config
@@ -385,6 +394,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             election_config_type_name: std::any::type_name::<E>().to_string(),
             web_server_config: None,
             da_web_server_config: None,
+            combined_config: None,
             next_view_timeout: 10,
             num_bootrap: 5,
             propose_min_round_time: Duration::from_secs(0),
@@ -428,6 +438,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// the data availability web server config
     #[serde(default)]
     pub da_web_server_config: Option<WebServerConfig>,
+    /// combined network config
+    #[serde(default)]
+    pub combined_config: Option<CombinedConfig>,
 }
 
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
@@ -469,6 +482,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
+            combined_config: val.combined_config,
         }
     }
 }
