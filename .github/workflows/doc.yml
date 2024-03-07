@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' && github.run_number) || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -37,11 +37,11 @@ jobs:
 
       - name: Test Docs
         run: |
-          just async_std doc_test
+          just async-std doc_test
 
       - name: Build Docs
         run: |
-          just async_std doc
+          just async-std doc
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}

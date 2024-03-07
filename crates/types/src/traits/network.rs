@@ -285,14 +285,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         bind_version: StaticVersion<MAJOR, MINOR>,
     ) -> Result<(), NetworkError>;
 
-    /// Moves out the entire queue of received messages of 'transmit_type`
+    /// Receive one or many messages from the underlying network.
     ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b;
+    /// # Errors
+    /// If there is a network-related failure.
+    async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError>;
 
     /// queues lookup of a node
     async fn queue_node_lookup(
@@ -307,6 +304,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
     async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {}
+
+    /// handles view update
+    async fn update_view(&self, _view: &u64) {}
 }
 
 /// Describes additional functionality needed by the test network implementation
