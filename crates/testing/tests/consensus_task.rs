@@ -155,30 +155,27 @@ async fn test_consensus_vote() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task_old() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-    use hotshot_task_impls::{
-        consensus::ConsensusTaskState, events::HotShotEvent::*, harness::run_harness,
-    };
+    use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::{exact, is_at_view_number},
+        predicates::{exact, is_at_view_number, quorum_proposal_send},
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        task_helpers::{build_system_handle, vid_scheme_from_view_number},
         view_generator::TestViewGenerator,
     };
-    use hotshot_types::simple_certificate::QuorumCertificate;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    // We assign node's key pair rather than read from config file since it's a test
-    let (private_key, public_key) = key_pair_for_id(2);
 
-    // let mut input = Vec::new();
-    // let mut output = HashMap::new();
+    // Make some empty encoded transactions, we just care about having a commitment handy for the
+    // later calls. We need the VID commitment to be able to propose later.
+    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let encoded_transactions = Vec::new();
+    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let payload_commitment = vid_disperse.commit;
 
-    // Trigger a proposal to send by creating a new QC.  Then recieve that proposal and update view based on the valid QC in the proposal
-    let qc = QuorumCertificate::<TestTypes>::genesis();
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
     let mut proposals = Vec::new();
@@ -206,46 +203,18 @@ async fn test_consensus_task_old() {
     // Run view 2 and propose.
     let view_2 = TestScriptStage {
         inputs: vec![
-            QCFormed(either::Left(cert)),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QCFormed(either::Left(cert)),
+            // We must have a payload commitment and metadata to propose.
+            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             exact(QuorumProposalValidated(proposals[1].data.clone())),
-            exact(QuorumProposalSend(proposals[1].clone(), leaders[1])),
+            quorum_proposal_send(),
         ],
         asserts: vec![is_at_view_number(2)],
     };
-
-    // input.push(HotShotEvent::QCFormed(either::Left(qc.clone())));
-    // input.push(HotShotEvent::QuorumProposalRecv(
-    //     proposal.clone(),
-    //     public_key,
-    // ));
-
-    // input.push(HotShotEvent::Shutdown);
-
-    // output.insert(
-    //     HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
-    //     1,
-    // );
-    // output.insert(
-    //     HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
-    //     1,
-    // );
-
-    // output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
-
-    // if let GeneralConsensusMessage::Vote(vote) =
-    //     build_vote(&handle, proposals[0].data.clone()).await
-    // {
-    //     view_1
-    //         .outputs
-    //         .push(exact(HotShotEvent::QuorumVoteSend(vote.clone())));
-    //     view_1
-    //         .inputs
-    //         .push(HotShotEvent::QuorumVoteRecv(vote.clone()));
-    // }
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -256,7 +225,6 @@ async fn test_consensus_task_old() {
 
     inject_consensus_polls(&consensus_state).await;
 
-    // run_harness(input, output, consensus_state, false).await;
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
