@@ -260,7 +260,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
     for i in 0..config.config.num_nodes_with_stake.get() as u64 {
         let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
         let pub_key = TYPES::SignatureKey::from_private(&privkey);
-        if i < config.config.da_committee_size as u64 {
+        if i < config.config.da_staked_committee_size as u64 {
             da_keys.insert(pub_key.clone());
         }
         all_keys.insert(pub_key);
@@ -342,7 +342,7 @@ pub trait RunDA<
         });
 
         let committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap(),
+            config.config.da_staked_committee_size.try_into().unwrap(),
             config.config.num_nodes_without_stake as u64,
         );
         let networks_bundle = Networks {
