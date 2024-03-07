@@ -72,6 +72,11 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         QCFormed(either::Left(cert)),
         SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
     ];
+
+    // The consensus task does not like it when the proposal received is the last thing to happen,
+    // at least not while keeping an arbitrary ordering. The testing framework does not allow us to
+    // check events out of order, so we instead just give the test what it wants, but this should
+    // still be okay.
     let view_1_outputs = if input_permutation[2] == 0 {
         vec![
             quorum_proposal_send(),
