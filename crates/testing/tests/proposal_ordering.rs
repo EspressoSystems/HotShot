@@ -26,7 +26,11 @@ fn permute<T>(mut input: Vec<T>, permutation: Vec<usize>) -> Vec<T> {
         }
     }
 
-    // Prevent a double free
+    // Prevent a double free. Rust's borrow checker will eventually drop `input` since it is
+    // consumed by this call. However, since we pulled the memory out from underneath the data
+    // structure, we will get an error if we don't explicitly blow the memory away before it goes
+    // out of scope. This ensures that the borrow checker won't get mad at us when it finds out how
+    // we've left the place.
     unsafe {
         input.set_len(0);
     }
