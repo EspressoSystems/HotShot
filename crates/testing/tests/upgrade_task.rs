@@ -52,7 +52,7 @@ async fn test_upgrade_task() {
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -62,7 +62,7 @@ async fn test_upgrade_task() {
 
     for view in generator.take(4) {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -153,8 +153,10 @@ async fn test_upgrade_and_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(1).await.0;
+    let handle = build_system_handle(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    let other_handles = futures::future::join_all((0..=9).map(|i| build_system_handle(i))).await;
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -172,26 +174,33 @@ async fn test_upgrade_and_consensus_task() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
+    let mut views = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
+        views.push(view.clone());
     }
 
-    generator.add_upgrade(upgrade_data);
+    generator.add_upgrade(upgrade_data.clone());
 
     for view in generator.take(4) {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
+        views.push(view.clone());
     }
+
+    let upgrade_votes = other_handles
+        .iter()
+        .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -218,7 +227,19 @@ async fn test_upgrade_and_consensus_task() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![exact(ViewChange(ViewNumber::new(2))),],
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![exact(ViewChange(ViewNumber::new(2)))],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![exact(ViewChange(ViewNumber::new(3))), leaf_decided()],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![exact(ViewChange(ViewNumber::new(4))), leaf_decided()],
                 task_state_asserts: vec![],
             },
         ],
@@ -235,10 +256,36 @@ async fn test_upgrade_and_consensus_task() {
                 output_asserts: vec![],
                 task_state_asserts: vec![],
             },
+            Expectations {
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
         ],
     };
 
-    let inputs = vec![vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])], vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])]];
+    let upgrade_vote_inputs: Vec<_> = upgrade_votes.map(|v| UpgradeVoteRecv(v)).collect();
+
+    let inputs = vec![
+        vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        upgrade_vote_inputs,
+        vec![{
+            QuorumProposalRecv(proposals[1].clone(), leaders[1])
+        }],
+        vec![{
+            QuorumProposalRecv(proposals[2].clone(), leaders[2])
+        }],
+        vec![{
+            QuorumProposalRecv(proposals[3].clone(), leaders[3])
+        }],
+    ];
 
     test_scripts![inputs, consensus_script, upgrade_script];
 }

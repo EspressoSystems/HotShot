@@ -50,6 +50,19 @@ where
     }
 }
 
+pub fn view_change<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "ViewChange".to_string();
+    let function = |e: &_| matches!(e, ViewChange(_));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
 type ConsensusTaskTestState =
     ConsensusTaskState<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>;
 
