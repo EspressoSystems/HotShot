@@ -488,7 +488,7 @@ mod test {
     /// cache eviction test
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     #[instrument]

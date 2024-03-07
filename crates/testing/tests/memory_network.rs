@@ -121,7 +121,7 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
 // Spawning a single MemoryNetwork should produce no errors
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -135,7 +135,7 @@ async fn memory_network_spawn_single() {
 // // Spawning a two MemoryNetworks and connecting them should produce no errors
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -150,7 +150,7 @@ async fn memory_network_spawn_double() {
 // Check to make sure direct queue works
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -218,7 +218,7 @@ async fn memory_network_direct_queue() {
 // Check to make sure direct queue works
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -287,7 +287,7 @@ async fn memory_network_broadcast_queue() {
 
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]

@@ -13,7 +13,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
@@ -75,7 +75,7 @@ async fn test_consensus_task() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
@@ -127,7 +127,7 @@ async fn test_consensus_vote() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 // TODO: re-enable this when HotShot/the sequencer needs the shares for something

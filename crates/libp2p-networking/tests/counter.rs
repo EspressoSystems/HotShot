@@ -474,7 +474,7 @@ async fn run_request_response_increment_all(
 /// simple case of direct message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -492,7 +492,7 @@ async fn test_coverage_request_response_one_round() {
 /// stress test of direct messsage
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -510,7 +510,7 @@ async fn test_coverage_request_response_many_rounds() {
 /// stress test of broadcast + direct message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -528,7 +528,7 @@ async fn test_coverage_intersperse_many_rounds() {
 /// stress teset that we can broadcast a message out and get counter increments
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -546,7 +546,7 @@ async fn test_coverage_gossip_many_rounds() {
 /// simple case of broadcast message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -564,7 +564,7 @@ async fn test_coverage_gossip_one_round() {
 /// simple case of direct message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -583,7 +583,7 @@ async fn test_stress_request_response_one_round() {
 /// stress test of direct messsage
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -602,7 +602,7 @@ async fn test_stress_request_response_many_rounds() {
 /// stress test of broadcast + direct message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -621,7 +621,7 @@ async fn test_stress_intersperse_many_rounds() {
 /// stress teset that we can broadcast a message out and get counter increments
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -640,7 +640,7 @@ async fn test_stress_gossip_many_rounds() {
 /// simple case of broadcast message
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -659,7 +659,7 @@ async fn test_stress_gossip_one_round() {
 /// simple case of one dht publish event
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -678,7 +678,7 @@ async fn test_stress_dht_one_round() {
 /// many dht publishing events
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -697,7 +697,7 @@ async fn test_stress_dht_many_rounds() {
 /// simple case of one dht publish event
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
@@ -715,7 +715,7 @@ async fn test_coverage_dht_one_round() {
 /// many dht publishing events
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]

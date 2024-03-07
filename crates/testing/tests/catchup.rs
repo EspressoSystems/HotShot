@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup() {
@@ -62,7 +62,7 @@ async fn test_catchup() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_web() {
@@ -119,7 +119,7 @@ async fn test_catchup_web() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_one_node() {
@@ -177,7 +177,7 @@ async fn test_catchup_one_node() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_in_view_sync() {
@@ -242,7 +242,7 @@ async fn test_catchup_in_view_sync() {
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
+    tokio::test(flavor = "multi_thread")
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_reload() {

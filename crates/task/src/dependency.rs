@@ -169,7 +169,7 @@ mod tests {
 
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     async fn it_works() {
@@ -188,7 +188,7 @@ mod tests {
     }
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     async fn or_dep() {
@@ -206,7 +206,7 @@ mod tests {
 
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     async fn and_or_dep() {
@@ -227,7 +227,7 @@ mod tests {
 
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     async fn or_and_dep() {
@@ -248,7 +248,7 @@ mod tests {
 
     #[cfg_attr(
         async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        tokio::test(flavor = "multi_thread")
     )]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     async fn many_and_dep() {
