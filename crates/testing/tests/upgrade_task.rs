@@ -1,6 +1,7 @@
 use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
 use hotshot::types::SystemContextHandle;
 use hotshot_constants::Version;
+use hotshot_macros::test_scripts;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState, events::HotShotEvent
@@ -140,7 +141,7 @@ async fn test_upgrade_task() {
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_and_consensus_task() {
-    use hotshot_testing::script::{run_scripts, run_test_script, TestScriptStage};
+    use hotshot_testing::script::{panic_extra_output, panic_missing_output, validate_task_state_or_panic, validate_output_or_panic, run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -269,11 +270,7 @@ async fn test_upgrade_and_consensus_task() {
         expectations: Vec::new(),
     };
 
- //   let scripts: Vec<TaskScript<TestTypes, impl TaskState<Event = HotShotEvent<TestTypes>> + 'static>> =
-  let scripts = Vec::new() as Vec<TaskScript<TestTypes, impl TaskState<Event = HotShotEvent<TestTypes>> + 'static>>
- ;
+    let inputs: Vec<Vec<HotShotEvent<TestTypes>>> = Vec::new();
 
-    run_scripts(Vec::new(), scripts).await;
-
-    // run_test_script(script, consensus_state).await;
+    test_scripts![inputs, consensus_script, upgrade_script];
 }

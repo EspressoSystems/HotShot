@@ -9,7 +9,7 @@ use std::sync::Arc;
 /// A `TestScript` is a sequence of triples (input sequence, output sequence, assertions).
 type TestScript<TYPES, S> = Vec<TestScriptStage<TYPES, S>>;
 
-fn panic_extra_output<S>(stage_number: usize, output: &S)
+pub fn panic_extra_output<S>(stage_number: usize, output: &S)
 where
     S: std::fmt::Debug,
 {
@@ -21,7 +21,7 @@ where
     panic!("{}", extra_output_error);
 }
 
-fn panic_missing_output<S>(stage_number: usize, output: &S)
+pub fn panic_missing_output<S>(stage_number: usize, output: &S)
 where
     S: std::fmt::Debug,
 {
@@ -33,7 +33,7 @@ where
     panic!("{}", output_missing_error);
 }
 
-fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &Predicate<S>) {
+pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &Predicate<S>) {
     assert!(
         (assert.function)(state),
         "Stage {} | Task state failed to satisfy: {:?}",
@@ -42,7 +42,7 @@ fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &Pred
     );
 }
 
-fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>) {
+pub fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>) {
     assert!(
         (assert.function)(output),
         "Stage {} | Output failed to satisfy: {:?}",
