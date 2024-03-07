@@ -101,9 +101,9 @@ async fn test_consensus_vote() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::{exact, is_at_view_number, quorum_proposal_send},
+        predicates::exact,
         script::{run_test_script, TestScriptStage},
-        task_helpers::{build_system_handle, vid_scheme_from_view_number},
+        task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 
