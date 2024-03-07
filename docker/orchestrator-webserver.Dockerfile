@@ -5,8 +5,9 @@ RUN apt-get update \
     &&  rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-COPY ./target/$TARGETARCH/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
+COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
 
 # logging
 ENV RUST_LOG="warn"

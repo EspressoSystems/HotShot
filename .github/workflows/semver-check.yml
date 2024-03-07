@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         async_runtimes:
-          - async_std
+          - async-std
           - tokio
     steps:
       - uses: actions/checkout@v4
