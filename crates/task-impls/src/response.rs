@@ -3,6 +3,8 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use bincode::Options;
 use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
@@ -25,8 +27,6 @@ use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 
 use crate::events::HotShotEvent;
 
