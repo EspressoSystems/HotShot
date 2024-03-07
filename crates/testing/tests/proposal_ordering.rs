@@ -44,9 +44,9 @@ fn permute<T>(mut input: Vec<T>, permutation: Vec<usize>) -> Vec<T> {
     outputs
 }
 
-/// Runs the test specified in this file with a boolean flag that determines whether or not to make
-/// the `QCFormed` event come first in the inputs, or last. Since there's only two possible cases
-/// to check, the code simply swaps their order in the input vector.
+/// Runs a basic test where a qualified proposal occurs (i.e. not initiated by the genesis view or node 1).
+/// This proposal should happen no matter how the `input_permutation` is specified, and also allows the
+/// inclusion of an optional `output_permutation` as well that gives the ability to re-order the outputs.
 async fn test_ordering_with_specific_order(
     input_permutation: Vec<usize>,
     output_permutation: Option<Vec<usize>>,
