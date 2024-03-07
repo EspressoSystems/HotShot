@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ESTABLISHED_LIMIT","ESTABLISHED_LIMIT_UNWR","MAX_GOSSIP_MSG_SIZE","_DERIVE_core_fmt_Debug_FOR_NetworkNode"],"mod":["config","handle"],"struct":["NetworkNode"]};

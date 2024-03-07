@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["CrossTestDataBuilderError","TestDataBuilderError"],"fn":["cross_tests_internal"],"macro":["cross_tests"],"mod":["keywords"],"struct":["CrossTestData","CrossTestDataBuilder","TestData","TestDataBuilder"],"trait":["ToLowerSnakeStr"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["consensus","da","events","harness","helpers","network","transactions","upgrade","vid","view_sync","vote"]};

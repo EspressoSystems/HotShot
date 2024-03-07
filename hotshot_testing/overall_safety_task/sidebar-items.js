@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["OverallSafetyTaskErr","ViewStatus"],"struct":["InconsistentBlocksSnafu","InconsistentStatesSnafu","InconsistentTxnsNumSnafu","MismatchedLeafSnafu","NotEnoughDecidesSnafu","OverallSafetyPropertiesDescription","OverallSafetyTask","RoundCtx","RoundResult","TooManyFailuresSnafu"],"type":["StateAndBlock"]};

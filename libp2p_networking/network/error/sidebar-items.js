@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DHTError","GetRecordWrapperError","NetworkError"],"struct":["CancelledRequestSnafu","DialSnafu","DisagreementSnafu","GetRecordSnafu","GossipsubBuildSnafu","GossipsubConfigSnafu","NoKnownPeersSnafu","NotFoundSnafu","PublishSnafu","PutRecordSnafu","StreamClosedSnafu","TransportLaunchSnafu","TransportSnafu"]};

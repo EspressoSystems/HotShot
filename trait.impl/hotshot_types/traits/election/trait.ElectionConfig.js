@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"hotshot":[["impl <a class=\"trait\" href=\"hotshot_types/traits/election/trait.ElectionConfig.html\" title=\"trait hotshot_types::traits::election::ElectionConfig\">ElectionConfig</a> for <a class=\"struct\" href=\"hotshot/traits/election/static_committee/struct.StaticElectionConfig.html\" title=\"struct hotshot::traits::election::static_committee::StaticElectionConfig\">StaticElectionConfig</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
