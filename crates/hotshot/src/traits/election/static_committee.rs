@@ -179,7 +179,7 @@ where
 {
     /// get the non-staked builder nodes
     pub fn non_staked_nodes_count(&self) -> usize {
-        self.committee_nodes_without_stake.as_ref().unwrap().len()
+        self.committee_nodes_without_stake.len()
     }
 
     /// get all the non-staked nodes
