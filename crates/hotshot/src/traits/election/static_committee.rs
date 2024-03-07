@@ -23,7 +23,7 @@ pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
     /// The nodes on the static committee and their stake
     committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// builder nodes
-    nodes_without_stake: Option<Vec<PUBKEY>>,
+    committee_nodes_without_stake: Vec<PUBKEY>,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
 }
@@ -42,7 +42,7 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
         Self {
             nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes_with_stake: nodes_with_stake,
-            nodes_without_stake: nodes_without_stake,
+            committee_nodes_without_stake: nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -52,9 +52,9 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct StaticElectionConfig {
     /// Number of nodes on the committee
-    num_nodes: u64,
+    num_nodes_with_stake: u64,
     /// Number of non staking nodes
-    num_nodes_without_stake: Option<u64>,
+    num_nodes_without_stake: u64,
 }
 
 impl ElectionConfig for StaticElectionConfig {}
@@ -105,11 +105,11 @@ where
     }
 
     fn default_election_config(
-        num_nodes: u64,
+        num_nodes_with_stake: u64,
         num_nodes_without_stake: Option<u64>,
     ) -> TYPES::ElectionConfigType {
         StaticElectionConfig {
-            num_nodes,
+            num_nodes_with_stake,
             num_nodes_without_stake,
         }
     }
@@ -117,7 +117,6 @@ where
     fn create_election(
         entries: Vec<PeerConfig<PUBKEY>>,
         config: TYPES::ElectionConfigType,
-        nodes_without_stake: Option<Vec<PUBKEY>>,
     ) -> Self {
         // get nodes with stake from `known_nodes_with_stake`
         let nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = entries
@@ -129,12 +128,16 @@ where
         debug!("Election Membership Size: {}", config.num_nodes);
         // truncate committee_nodes_with_stake to only `num_nodes`
         // since the `num_nodes_without_stake` are not part of the committee,
-        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
+        committee_nodes_with_stake.truncate(config.num_nodes_with_stake.try_into().unwrap());
+
+        // get the non-staked pub keys from the config's `known_nodes_without_stake`
+        // it is not option anymore
+        committee_nodes_without_stake = config.known_nodes_without_stake.clone();
 
         Self {
             nodes_with_stake,
             committee_nodes_with_stake,
-            nodes_without_stake,
+            committee_nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -176,11 +179,11 @@ where
 {
     /// get the non-staked builder nodes
     pub fn non_staked_nodes_count(&self) -> usize {
-        self.nodes_without_stake.as_ref().unwrap().len()
+        self.committee_nodes_without_stake.as_ref().unwrap().len()
     }
 
     /// get all the non-staked nodes
     pub fn get_non_staked_nodes(&self) -> Vec<PUBKEY> {
-        self.nodes_without_stake.as_ref().unwrap().clone()
+        self.committee_nodes_without_stake.clone()
     }
 }
