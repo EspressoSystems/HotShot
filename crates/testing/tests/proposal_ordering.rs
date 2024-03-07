@@ -77,7 +77,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     // at least not while keeping an arbitrary ordering. The testing framework does not allow us to
     // check events out of order, so we instead just give the test what it wants, but this should
     // still be okay.
-    let view_1_outputs = if input_permutation[2] == 0 {
+    let view_2_outputs = if input_permutation[2] == 0 {
         vec![
             quorum_proposal_send(),
             exact(ViewChange(ViewNumber::new(2))),
@@ -91,12 +91,12 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         ]
     };
 
-    let view_1_inputs = permute(inputs, input_permutation);
+    let view_2_inputs = permute(inputs, input_permutation);
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
-        inputs: view_1_inputs,
-        outputs: view_1_outputs,
+        inputs: view_2_inputs,
+        outputs: view_2_outputs,
         // We should end on view 2.
         asserts: vec![is_at_view_number(2)],
     };
