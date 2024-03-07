@@ -345,7 +345,7 @@ where
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     committee_election_config(
-                        config.da_committee_size as u64,
+                        config.da_staked_committee_size as u64,
                         config.num_nodes_without_stake as u64,
                     ),
                 ),

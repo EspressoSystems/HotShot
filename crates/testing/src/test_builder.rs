@@ -50,8 +50,10 @@ pub struct TestMetadata {
     pub skip_late: bool,
     /// number of bootstrap nodes (libp2p usage only)
     pub num_bootstrap_nodes: usize,
-    /// Size of the DA committee for the test
-    pub da_committee_size: usize,
+    /// Size of the staked DA committee for the test
+    pub da_staked_committee_size: usize,
+    /// Size of the non-staked DA committee for the test
+    pub da_non_staked_committee_size: usize,
     /// overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
     /// spinning properties
@@ -160,7 +162,7 @@ impl TestMetadata {
             // following issue.
             // TODO: Update message broadcasting to avoid hanging
             // <https://github.com/EspressoSystems/HotShot/issues/1567>
-            da_committee_size: 14,
+            da_staked_committee_size: 14,
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // Increase the duration to get the expected number of successful views.
@@ -193,7 +195,8 @@ impl Default for TestMetadata {
             start_nodes: num_nodes_with_stake,
             skip_late: false,
             num_bootstrap_nodes: num_nodes_with_stake,
-            da_committee_size: num_nodes_with_stake,
+            da_staked_committee_size: num_nodes_with_stake,
+            da_non_staked_committee_size: num_nodes_without_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
             },
@@ -233,8 +236,8 @@ impl TestMetadata {
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
-            da_committee_size,
-
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             unreliable_network,
             ..
         } = self.clone();
@@ -268,7 +271,8 @@ impl TestMetadata {
             known_nodes_with_stake,
             known_nodes_without_stake: vec![],
             my_own_validator_config,
-            da_committee_size,
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -306,7 +310,7 @@ impl TestMetadata {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
                     num_nodes_with_stake,
                     num_bootstrap_nodes,
-                    da_committee_size,
+                    da_staked_committee_size,
                     unreliable_network,
                 ),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),

@@ -491,8 +491,10 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     #[serde(skip)]
     /// The known non-staking nodes'
     pub known_nodes_without_stake: Vec<KEY>,
-    /// Number of committee nodes
-    pub committee_nodes: usize,
+    /// Number of staking committee nodes
+    pub staked_committee_nodes: usize,
+    /// Number of non-staking committee nodes
+    pub non_staked_committee_nodes: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -576,7 +578,8 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             known_nodes_with_stake: val.known_nodes_with_stake,
             known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
-            da_committee_size: val.committee_nodes,
+            da_staked_committee_size: val.staked_committee_nodes,
+            da_non_staked_committee_size: val.non_staked_committee_nodes,
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,
@@ -626,7 +629,8 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             known_nodes_without_stake: vec![],
-            committee_nodes: 5,
+            staked_committee_nodes: 5,
+            non_staked_committee_nodes: 0,
             max_transactions: NonZeroUsize::new(100).unwrap(),
             min_transactions: 1,
             next_view_timeout: 10000,
