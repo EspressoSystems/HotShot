@@ -59,7 +59,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 
     /// Generates a committee-specific election
     fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64, Option<u64>) -> Self::CommitteeElectionConfig + 'static>;
+    ) -> Box<dyn Fn(u64, u64) -> Self::CommitteeElectionConfig + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -115,10 +115,10 @@ where
     type CommitteeElectionConfig = TYPES::ElectionConfigType;
 
     fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64, Option<u64>) -> Self::CommitteeElectionConfig + 'static> {
-        Box::new(|num_nodes, num_nodes_without_stake| {
+    ) -> Box<dyn Fn(u64, u64) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|num_nodes_with_stake, num_nodes_without_stake| {
             <TYPES as NodeType>::Membership::default_election_config(
-                num_nodes,
+                num_nodes_with_stake,
                 num_nodes_without_stake,
             )
         })

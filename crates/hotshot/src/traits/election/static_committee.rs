@@ -106,7 +106,7 @@ where
 
     fn default_election_config(
         num_nodes_with_stake: u64,
-        num_nodes_without_stake: Option<u64>,
+        num_nodes_without_stake: u64,
     ) -> TYPES::ElectionConfigType {
         StaticElectionConfig {
             num_nodes_with_stake,
