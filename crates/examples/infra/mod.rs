@@ -172,7 +172,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
     {
         config.transactions_per_round = transactions_per_round_string.parse::<usize>().unwrap();
     }
-    if let Some(transaction_size_string) = matches.get_one::<String>("transaction_size_in_bytes") {
+    if let Some(transaction_size_string) = matches.get_one::<String>("transaction_size") {
         config.transaction_size = transaction_size_string.parse::<usize>().unwrap();
     }
     if let Some(rounds_string) = matches.get_one::<String>("rounds") {

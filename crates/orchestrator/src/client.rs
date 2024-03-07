@@ -79,7 +79,7 @@ pub struct BenchResultsDownloadConfig {
     /// Number of transactions submitted per round
     pub transactions_per_round: usize,
     /// The size of each transaction in bytes
-    pub transaction_size: usize,
+    pub transaction_size: u64,
     /// The number of rounds
     pub rounds: usize,
     /// The type of leader election used

@@ -100,7 +100,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             total_nodes: self.config.config.total_nodes.into(),
             da_committee_size: self.config.config.da_committee_size,
             transactions_per_round: self.config.transactions_per_round,
-            transaction_size: self.config.transaction_size,
+            transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,
             leader_election_type: self.config.election_config_type_name.clone(),
             avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
