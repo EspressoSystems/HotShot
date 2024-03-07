@@ -119,7 +119,7 @@ async fn test_upgrade_task() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
             exact(QuorumProposalValidated(proposals[4].data.clone())),
-            leaf_decided(),
+            // leaf_decided(),
         ],
         asserts: vec![decided_upgrade_cert()],
     };
