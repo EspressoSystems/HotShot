@@ -92,11 +92,11 @@ dashmap = "5.5.1"
 either = { workspace = true }
 embed-doc-image = "0.1.4"
 futures = { workspace = true }
-hotshot-web-server = { version = "0.5.21", path = "../web_server", default-features = false }
-hotshot-orchestrator = { version = "0.5.21", path = "../orchestrator", default-features = false }
-hotshot-types = { path = "../types", version = "0.5.21", default-features = false }
+hotshot-web-server = { version = "0.5.22", path = "../web_server", default-features = false }
+hotshot-orchestrator = { version = "0.5.22", path = "../orchestrator", default-features = false }
+hotshot-types = { path = "../types", version = "0.5.22", default-features = false }
 hotshot-utils = { path = "../utils" }
-hotshot-task-impls = { path = "../task-impls", version = "0.5.21", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.22", default-features = false }
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
