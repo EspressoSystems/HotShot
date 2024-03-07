@@ -21,24 +21,31 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
     let test_inputs = &inputs[0];
 
+    let test_inputs_name = quote::quote!(#test_inputs).to_string();
+
     let scripts = &inputs[1..];
 
     let output_index_names: Vec<_> = scripts
         .clone()
         .into_iter()
-        .map(|i| format_ident!("{}_output_index", quote::quote!(#i).to_string())).collect();
+        .map(|i| format_ident!("{}_output_index", quote::quote!(#i).to_string()))
+        .collect();
 
     let task_names: Vec<_> = scripts
         .clone()
         .into_iter()
-        .map(|i| format_ident!("{}_task", quote::quote!(#i).to_string())).collect();
+        .map(|i| format_ident!("{}_task", quote::quote!(#i).to_string()))
+        .collect();
 
     let task_expectations: Vec<_> = scripts
         .clone()
         .into_iter()
-        .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string())).collect();
+        .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string()))
+        .collect();
 
-    let expanded = quote! {
+    let script_names: Vec<_> = scripts.clone().into_iter().map(|i| quote::quote!(#i).to_string()).collect();
+
+    let expanded = quote! { {
 
     use hotshot_testing::predicates::Predicate;
     use async_broadcast::broadcast;
@@ -62,9 +69,12 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
     #(let mut #task_expectations = #scripts.expectations;)*
 
-    #(let mut #output_index_names = 0;)*
+    #(assert!(#task_expectations.len() == #test_inputs.len(), "Number of stages in {} does not match the number of stages in {}", #script_names, #test_inputs_name);)*
 
     for (stage_number, input_group) in #test_inputs.into_iter().enumerate() {
+
+    #(let mut #output_index_names = 0;)*
+
         for input in &input_group {
             #(
                 if !#task_names.state().filter(input) {
@@ -134,10 +144,10 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                 validate_task_state_or_panic(stage_number, #task_names.state(), assert);
             }
         )*
-    }
+    } }
 
     };
-    println!("{expanded}");
+    // println!("{expanded}");
 
     expanded.into()
 }

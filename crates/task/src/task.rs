@@ -49,13 +49,14 @@ pub trait TaskState: Send {
         false
     }
     /// Do something with the result of the task before it shuts down
-    fn handle_result(&self, _res: &Self::Output) -> impl std::future::Future<Output = ()> + Send {
+    fn handle_result(&self, _res: &Self::Output) -> impl std::future::Future<Output = ()> + Send 
+    where Self:Sized {
         async {}
     }
     /// Return true if the event should shut the task down
-    fn should_shutdown(event: &Self::Event) -> bool;
+    fn should_shutdown(event: &Self::Event) -> bool where Self: Sized;
     /// Handle anything before the task is completely shutdown
-    fn shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send {
+    fn shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send where Self: Sized {
         async {}
     }
 }

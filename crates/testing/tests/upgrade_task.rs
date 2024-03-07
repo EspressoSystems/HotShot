@@ -1,16 +1,20 @@
 use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
 use hotshot::types::SystemContextHandle;
 use hotshot_constants::Version;
-use hotshot_macros::test_scripts;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState, events::HotShotEvent
+    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
+    upgrade::UpgradeTaskState,
 };
-use hotshot_testing::{predicates::*, script::TaskScript, view_generator::TestViewGenerator};
+use hotshot_testing::{
+    predicates::*,
+    script::{Expectations, TaskScript},
+    view_generator::TestViewGenerator,
+};
 use hotshot_types::{
     data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
 };
-use hotshot_task::task::TaskState;
 
 #[cfg_attr(
     async_executor_impl = "tokio",
@@ -134,14 +138,16 @@ async fn test_upgrade_task() {
     run_test_script(script, consensus_state).await;
 }
 
-
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_and_consensus_task() {
-    use hotshot_testing::script::{panic_extra_output, panic_missing_output, validate_task_state_or_panic, validate_output_or_panic, run_test_script, TestScriptStage};
+    use hotshot_testing::script::{
+        panic_extra_output, panic_missing_output, validate_output_or_panic,
+        validate_task_state_or_panic,
+    };
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -169,7 +175,7 @@ async fn test_upgrade_and_consensus_task() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -187,90 +193,52 @@ async fn test_upgrade_and_consensus_task() {
         leaders.push(view.leader_public_key);
     }
 
-    let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    let view_2 = TestScriptStage {
-        inputs: vec![
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            DACRecv(dacs[1].clone()),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumVoteSend(votes[1].clone())),
-        ],
-        asserts: vec![no_decided_upgrade_cert()],
-    };
-
-    let view_3 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            DACRecv(dacs[2].clone()),
-            VidDisperseRecv(vids[2].0.clone(), vids[2].1),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            leaf_decided(),
-            exact(QuorumVoteSend(votes[2].clone())),
-        ],
-        asserts: vec![no_decided_upgrade_cert()],
-    };
-
-    let view_4 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[3].clone(), leaders[3]),
-            DACRecv(dacs[3].clone()),
-            VidDisperseRecv(vids[3].0.clone(), vids[3].1),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(4))),
-            leaf_decided(),
-            exact(QuorumVoteSend(votes[3].clone())),
-        ],
-        asserts: vec![no_decided_upgrade_cert()],
-    };
-
-    let view_5 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
-        outputs: vec![exact(ViewChange(ViewNumber::new(5))), leaf_decided()],
-        asserts: vec![decided_upgrade_cert()],
-    };
-
-    let script = vec![view_1, view_2, view_3, view_4, view_5];
-
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
-    let upgrade_state = UpgradeTaskState::<
+    let mut upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
+    upgrade_state.should_vote = |_| true;
+
     inject_consensus_polls(&consensus_state).await;
 
     let consensus_script = TaskScript {
         state: consensus_state,
-        expectations: Vec::new(),
+        expectations: vec![
+            Expectations {
+                output_asserts: vec![exact(ViewChange(ViewNumber::new(1))), quorum_vote_send()],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![exact(ViewChange(ViewNumber::new(2))),],
+                task_state_asserts: vec![],
+            },
+        ],
     };
 
     let upgrade_script = TaskScript {
         state: upgrade_state,
-        expectations: Vec::new(),
+        expectations: vec![
+            Expectations {
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![],
+                task_state_asserts: vec![],
+            },
+        ],
     };
 
-    let inputs: Vec<Vec<HotShotEvent<TestTypes>>> = Vec::new();
+    let inputs = vec![vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])], vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])]];
 
     test_scripts![inputs, consensus_script, upgrade_script];
 }
