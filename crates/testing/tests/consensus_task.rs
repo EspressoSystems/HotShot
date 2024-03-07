@@ -1,79 +1,17 @@
 #![allow(clippy::panic)]
-use commit::Committable;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_testing::task_helpers::{build_quorum_proposal, key_pair_for_id};
-use hotshot_types::simple_vote::QuorumVote;
-use hotshot_types::vote::Certificate;
+use hotshot_testing::task_helpers::{build_quorum_proposal, build_vote, key_pair_for_id};
+use hotshot_types::traits::{consensus_api::ConsensusApi, election::Membership};
 use hotshot_types::{
-    data::{Leaf, QuorumProposal, ViewNumber},
-    message::GeneralConsensusMessage,
-    traits::node_implementation::ConsensusTime,
-};
-use hotshot_types::{
-    simple_vote::QuorumData,
-    traits::{consensus_api::ConsensusApi, election::Membership},
+    data::ViewNumber, message::GeneralConsensusMessage, traits::node_implementation::ConsensusTime,
 };
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
 
-async fn build_vote(
-    handle: &SystemContextHandle<TestTypes, MemoryImpl>,
-    proposal: QuorumProposal<TestTypes>,
-) -> GeneralConsensusMessage<TestTypes> {
-    let consensus_lock = handle.get_consensus();
-    let consensus = consensus_lock.read().await;
-    let membership = handle.hotshot.memberships.quorum_membership.clone();
-
-    let justify_qc = proposal.justify_qc.clone();
-    let view = ViewNumber::new(*proposal.view_number);
-    let parent = if justify_qc.is_genesis {
-        let Some(genesis_view) = consensus.validated_state_map.get(&ViewNumber::new(0)) else {
-            panic!("Couldn't find genesis view in state map.");
-        };
-        let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            panic!("Genesis view points to a view without a leaf");
-        };
-        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-            panic!("Failed to find genesis leaf.");
-        };
-        leaf.clone()
-    } else {
-        consensus
-            .saved_leaves
-            .get(&justify_qc.get_data().leaf_commit)
-            .cloned()
-            .unwrap()
-    };
-
-    let parent_commitment = parent.commit();
-
-    let leaf: Leaf<_> = Leaf {
-        view_number: view,
-        justify_qc: proposal.justify_qc.clone(),
-        parent_commitment,
-        block_header: proposal.block_header,
-        block_payload: None,
-        proposer_id: membership.get_leader(view),
-    };
-    let vote = QuorumVote::<TestTypes>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(),
-        },
-        view,
-        handle.public_key(),
-        handle.private_key(),
-    )
-    .expect("Failed to create quorum vote");
-    GeneralConsensusMessage::<TestTypes>::Vote(vote)
-}
-
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
@@ -107,6 +45,10 @@ async fn test_consensus_task() {
         HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
         1,
     );
+    output.insert(
+        HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+        1,
+    );
 
     output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
 
@@ -128,10 +70,7 @@ async fn test_consensus_task() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
@@ -157,6 +96,7 @@ async fn test_consensus_vote() {
     ));
 
     let proposal = proposal.data;
+    output.insert(HotShotEvent::QuorumProposalValidated(proposal.clone()), 1);
     if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
         output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
         input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
@@ -179,10 +119,7 @@ async fn test_consensus_vote() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 // TODO: re-enable this when HotShot/the sequencer needs the shares for something
 // issue: https://github.com/EspressoSystems/HotShot/issues/2236
