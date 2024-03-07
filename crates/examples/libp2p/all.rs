@@ -56,7 +56,7 @@ async fn main() {
         <TestTypes as NodeType>::ElectionConfigType,
     > = load_config_from_file::<TestTypes>(&args.config_file);
     let mut nodes = Vec::new();
-    for _ in 0..config.config.total_nodes.into() {
+    for _ in 0..config.config.num_nodes_with_stake.into() {
         let orchestrator_url = orchestrator_url.clone();
         let node = async_spawn(async move {
             infra::main_entry_point::<TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun>(
