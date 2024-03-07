@@ -23,7 +23,10 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 
 use crate::events::HotShotEvent;
 
