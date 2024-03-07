@@ -6,7 +6,7 @@ pub mod client;
 pub mod config;
 
 use async_lock::RwLock;
-use client::BenchResults;
+use client::{BenchResults, BenchResultsDownloadConfig};
 use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
@@ -30,6 +30,7 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
+use csv::Writer;
 use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
@@ -91,6 +92,32 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             nodes_post_results: 0,
         }
     }
+
+    /// Output the results to a csv file according to orchestrator state
+    pub fn output_to_csv(&self) {
+        let output_csv = BenchResultsDownloadConfig {
+            commit_sha: self.config.commit_sha.clone(),
+            total_nodes: self.config.config.total_nodes.into(),
+            da_committee_size: self.config.config.da_committee_size,
+            transactions_per_round: self.config.transactions_per_round,
+            transaction_size: self.config.transaction_size,
+            rounds: self.config.rounds,
+            leader_election_type: self.config.election_config_type_name.clone(),
+            avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
+            minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
+            maximum_latency_in_sec: self.bench_results.maximum_latency_in_sec,
+            throughput_bytes_per_sec: self.bench_results.throughput_bytes_per_sec,
+            total_transactions_committed: self.bench_results.total_transactions_committed,
+            total_time_elapsed_in_sec: self.bench_results.total_time_elapsed_in_sec,
+            total_num_views: self.bench_results.total_num_views,
+            failed_num_views: self.bench_results.failed_num_views,
+        };
+        // Open a file for writing
+        let mut wtr = Writer::from_path("scripts/benchmarks_results/results.csv").unwrap();
+        let _ = wtr.serialize(output_csv);
+        let _ = wtr.flush();
+        println!("Results successfully saved in scripts/benchmarks_results/results.csv");
+    }
 }
 
 /// An api exposed by the orchestrator
@@ -142,8 +169,8 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
 where
-    KEY: serde::Serialize + Clone + SignatureKey,
-    ELECTION: serde::Serialize + Clone + Send + ElectionConfig,
+    KEY: serde::Serialize + Clone + SignatureKey + 'static,
+    ELECTION: serde::Serialize + Clone + Send + ElectionConfig + 'static,
 {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError> {
         let node_index = self.latest_index;
@@ -326,6 +353,7 @@ where
         self.nodes_post_results += 1;
         if self.nodes_post_results >= (self.config.config.total_nodes.get() as u64) {
             self.bench_results.printout();
+            self.output_to_csv();
         }
         Ok(())
     }

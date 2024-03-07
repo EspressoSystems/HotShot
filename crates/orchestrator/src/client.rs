@@ -66,6 +66,44 @@ impl BenchResults {
     }
 }
 
+/// Struct describing a benchmark result needed for download, also include the config
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct BenchResultsDownloadConfig {
+    // Config starting here
+    /// The commit this benchmark was run on
+    pub commit_sha: String,
+    /// Total number of nodes
+    pub total_nodes: usize,
+    /// The size of the da committee
+    pub da_committee_size: usize,
+    /// Number of transactions submitted per round
+    pub transactions_per_round: usize,
+    /// The size of each transaction in bytes
+    pub transaction_size: usize,
+    /// The number of rounds
+    pub rounds: usize,
+    /// The type of leader election used
+    pub leader_election_type: String,
+
+    // Results starting here
+    /// The average latency of the transactions
+    pub avg_latency_in_sec: i64,
+    /// The minimum latency of the transactions
+    pub minimum_latency_in_sec: i64,
+    /// The maximum latency of the transactions
+    pub maximum_latency_in_sec: i64,
+    /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
+    pub throughput_bytes_per_sec: u64,
+    /// The number of transactions committed during benchmarking
+    pub total_transactions_committed: u64,
+    /// The total time elapsed for benchmarking
+    pub total_time_elapsed_in_sec: u64,
+    /// The total number of views during benchmarking
+    pub total_num_views: usize,
+    /// The number of failed views during benchmarking
+    pub failed_num_views: usize,
+}
+
 // VALIDATOR
 
 #[derive(Parser, Debug, Clone)]

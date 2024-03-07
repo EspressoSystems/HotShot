@@ -95,7 +95,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
                 .short('c')
                 .long("config_file")
                 .value_name("FILE")
-                .help("Sets a custom config file")
+                .help("Sets a custom config file with default values, some might be changed if they are set manually in the command line")
                 .required(true),
         )
         .arg(
@@ -143,7 +143,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
                 .short('m')
                 .long("commit_sha")
                 .value_name("SHA")
-                .help("Sets the commit sha")
+                .help("Sets the commit sha to output in the results")
                 .required(false),
         )
         .get_matches();
@@ -177,6 +177,9 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
     }
     if let Some(rounds_string) = matches.get_one::<String>("rounds") {
         config.rounds = rounds_string.parse::<usize>().unwrap();
+    }
+    if let Some(commit_sha_string) = matches.get_one::<String>("commit_sha") {
+        config.commit_sha = commit_sha_string.to_string();
     }
     config
 }
