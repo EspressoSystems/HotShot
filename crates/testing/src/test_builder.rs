@@ -240,7 +240,7 @@ impl TestMetadata {
         } = self.clone();
 
         // We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
-        let known_nodes_with_stake = (0..total_nodes)
+        let known_nodes_with_stake = (0..num_nodes_with_stake)
             .map(|node_id_| {
                 let cur_validator_config: ValidatorConfig<TYPES::SignatureKey> =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id_ as u64, 1);
@@ -259,7 +259,7 @@ impl TestMetadata {
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
-            num_nodes_with_stake: NonZeroUsize::new(total_nodes).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             // Currently making this zero for simplicity
             num_nodes_without_stake: 0,
             num_bootstrap: num_bootstrap_nodes,
@@ -278,7 +278,7 @@ impl TestMetadata {
             propose_max_round_time: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
-                total_nodes as u64,
+                num_nodes_with_stake as u64,
                 0,
             )),
         };
@@ -304,7 +304,7 @@ impl TestMetadata {
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
-                    total_nodes,
+                    num_nodes_with_stake,
                     num_bootstrap_nodes,
                     da_committee_size,
                     unreliable_network,

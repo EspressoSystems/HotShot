@@ -564,7 +564,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for SystemContextHandle<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
-        self.hotshot.config.total_nodes
+        self.hotshot.config.num_nodes_with_stake
     }
 
     fn propose_min_round_time(&self) -> Duration {

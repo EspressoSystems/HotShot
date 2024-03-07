@@ -70,19 +70,19 @@ pub async fn build_system_handle(
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key;
 
-    let known_nodes_without_stake = config.known_nodes_without_stake.clone();
+    let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
 
     let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
         <TestTypes as NodeType>::Membership::default_election_config(
             config.num_nodes_with_stake.get() as u64,
-            config.num_nodes_without_stake.get() as u64,
+            config.num_nodes_without_stake as u64,
         )
     });
 
     let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
         <TestTypes as NodeType>::Membership::default_election_config(
             config.num_nodes_with_stake.get() as u64,
-            config.num_nodes_without_stake.get() as u64,
+            config.num_nodes_without_stake as u64,
         )
     });
     let networks_bundle = Networks {

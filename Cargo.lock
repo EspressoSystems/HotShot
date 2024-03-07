@@ -2764,6 +2764,7 @@ dependencies = [
  "derive_more",
  "either",
  "embed-doc-image",
+ "ethereum-types",
  "futures",
  "hotshot-constants",
  "hotshot-orchestrator",

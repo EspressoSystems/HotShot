@@ -1,18 +1,18 @@
 // use ark_bls12_381::Parameters as Param381;
+use ethereum_types::U256;
 use hotshot_types::signature_key::BLSPubKey;
 use hotshot_types::traits::{
     election::{ElectionConfig, Membership},
     node_implementation::NodeType,
-    signature_key::SignatureKey,
+    signature_key::{SignatureKey, StakeTableEntryType},
 };
 use hotshot_types::PeerConfig;
+#[cfg(feature = "randomized-leader-election")]
+use rand::{rngs::StdRng, Rng};
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, num::NonZeroU64};
 use tracing::debug;
-
-#[cfg(feature = "randomized-leader-election")]
-use rand::{rngs::StdRng, Rng};
 
 /// Dummy implementation of [`Membership`]
 
@@ -37,7 +37,7 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
     pub fn new(
         _nodes: &[PUBKEY],
         nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
-        nodes_without_stake: Option<Vec<PUBKEY>>,
+        nodes_without_stake: Vec<PUBKEY>,
     ) -> Self {
         Self {
             nodes_with_stake: nodes_with_stake.clone(),
@@ -118,22 +118,27 @@ where
         entries: Vec<PeerConfig<PUBKEY>>,
         config: TYPES::ElectionConfigType,
     ) -> Self {
-        // get nodes with stake from `known_nodes_with_stake`
         let nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = entries
             .iter()
             .map(|x| x.stake_table_entry.clone())
             .collect();
-        // make committee_nodes_with_stake to be nodes_with_stake
-        let mut committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = nodes_with_stake.clone();
-        debug!("Election Membership Size: {}", config.num_nodes);
+
+        let mut committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry> = Vec::new();
+
+        let mut committee_nodes_without_stake: Vec<PUBKEY> = Vec::new();
+        // filter out the committee nodes with non-zero state and zero stake
+        for node in &nodes_with_stake {
+            if node.get_stake() != U256::from(0) {
+                committee_nodes_with_stake.push(node.clone());
+            } else {
+                committee_nodes_without_stake.push(PUBKEY::get_public_key(&node));
+            }
+        }
+        debug!("Election Membership Size: {}", config.num_nodes_with_stake);
         // truncate committee_nodes_with_stake to only `num_nodes`
         // since the `num_nodes_without_stake` are not part of the committee,
         committee_nodes_with_stake.truncate(config.num_nodes_with_stake.try_into().unwrap());
-
-        // get the non-staked pub keys from the config's `known_nodes_without_stake`
-        // it is not option anymore
-        committee_nodes_without_stake = config.known_nodes_without_stake.clone();
-
+        committee_nodes_without_stake.truncate(config.num_nodes_without_stake.try_into().unwrap());
         Self {
             nodes_with_stake,
             committee_nodes_with_stake,

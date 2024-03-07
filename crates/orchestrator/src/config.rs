@@ -9,6 +9,7 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
     time::Duration,
+    vec,
 };
 use std::{fs, path::Path};
 use surf_disco::Url;
@@ -477,14 +478,19 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfigFile<KEY: SignatureKey> {
-    /// Total number of nodes in the network
-    pub total_nodes: NonZeroUsize,
+    /// Total number of staked nodes in the network
+    pub num_nodes_with_stake: NonZeroUsize,
+    /// Total number of non-staked nodes in the network
+    pub num_nodes_without_stake: usize,
     #[serde(skip)]
     /// My own public key, secret key, stake value
     pub my_own_validator_config: ValidatorConfig<KEY>,
     #[serde(skip)]
     /// The known nodes' public key and stake value
     pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
+    #[serde(skip)]
+    /// The known non-staking nodes'
+    pub known_nodes_without_stake: Vec<KEY>,
     /// Number of committee nodes
     pub committee_nodes: usize,
     /// Maximum transactions per block
@@ -563,10 +569,12 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
     fn from(val: HotShotConfigFile<KEY>) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
-            total_nodes: val.total_nodes,
+            num_nodes_with_stake: val.num_nodes_with_stake,
+            num_nodes_without_stake: val.num_nodes_without_stake,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes_with_stake: val.known_nodes_with_stake,
+            known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
             da_committee_size: val.committee_nodes,
             next_view_timeout: val.next_view_timeout,
@@ -613,9 +621,11 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             })
             .collect();
         Self {
-            total_nodes: NonZeroUsize::new(10).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(10).unwrap(),
+            num_nodes_without_stake: 0,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
+            known_nodes_without_stake: vec![],
             committee_nodes: 5,
             max_transactions: NonZeroUsize::new(100).unwrap(),
             min_transactions: 1,

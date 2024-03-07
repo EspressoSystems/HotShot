@@ -143,7 +143,7 @@ where
         self.latest_index += 1;
 
         // TODO https://github.com/EspressoSystems/HotShot/issues/850
-        if usize::from(node_index) >= self.config.config.total_nodes.get() {
+        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Network has reached capacity".to_string(),
@@ -196,7 +196,7 @@ where
         let tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
-        if usize::from(tmp_node_index) >= self.config.config.total_nodes.get() {
+        if usize::from(tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Node index getter for key pair generation has reached capacity"
@@ -230,7 +230,7 @@ where
             "Node {:?} posted public key, now total num posted public key: {:?}",
             node_index, self.nodes_with_pubkey
         );
-        if self.nodes_with_pubkey >= (self.config.config.total_nodes.get() as u64) {
+        if self.nodes_with_pubkey >= (self.config.config.num_nodes_with_stake.get() as u64) {
             self.peer_pub_ready = true;
         }
         Ok(())
@@ -272,7 +272,7 @@ where
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
-        if self.nodes_connected >= (self.config.config.total_nodes.get() as u64) {
+        if self.nodes_connected >= (self.config.config.num_nodes_with_stake.get() as u64) {
             self.start = true;
         }
         Ok(())
