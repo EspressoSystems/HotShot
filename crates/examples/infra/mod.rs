@@ -22,7 +22,7 @@ use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{OrchestratorClient, ValidatorArgs},
-    config::{CombinedConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -685,8 +685,8 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
-        let CombinedConfig { delay_duration }: CombinedConfig =
-            config.clone().combined_config.unwrap();
+        let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
+            config.clone().combined_network_config.unwrap();
 
         // create and wait for underlying webserver network
         let web_quorum_network =
