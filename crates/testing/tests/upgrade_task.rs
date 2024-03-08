@@ -142,6 +142,7 @@ async fn test_upgrade_task() {
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+/// Test that we correctly form and include an `UpgradeCertificate` when receiving votes.
 async fn test_upgrade_and_consensus_task() {
     use hotshot_testing::task_helpers::build_system_handle;
 

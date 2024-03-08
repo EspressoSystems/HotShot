@@ -6,70 +6,21 @@ use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
 
+pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
+    pub inputs: Vec<HotShotEvent<TYPES>>,
+    pub outputs: Vec<Predicate<HotShotEvent<TYPES>>>,
+    pub asserts: Vec<Predicate<S>>,
+}
+
 /// A `TestScript` is a sequence of triples (input sequence, output sequence, assertions).
 type TestScript<TYPES, S> = Vec<TestScriptStage<TYPES, S>>;
-
-pub fn panic_extra_output_in_script<S>(stage_number: usize, script_name: String, output: &S)
-where
-    S: std::fmt::Debug,
-{
-    let extra_output_error = format!(
-        "Stage {} | Received unexpected additional output in {}:\n\n{:?}",
-        stage_number, script_name, output
-    );
-
-    panic!("{}", extra_output_error);
-}
-
-pub fn panic_missing_output_in_script<S>(stage_number: usize, script_name: String, predicate: &S)
-where
-    S: std::fmt::Debug,
-{
-    let output_missing_error = format!(
-        "Stage {} | Failed to receive output for predicate in {}: {:?}",
-        stage_number, script_name, predicate
-    );
-
-    panic!("{}", output_missing_error);
-}
-
-pub fn validate_task_state_or_panic_in_script<S>(
-    stage_number: usize,
-    script_name: String,
-    state: &S,
-    assert: &Predicate<S>,
-) {
-    assert!(
-        (assert.function)(state),
-        "Stage {} | Task state in {} failed to satisfy: {:?}",
-        stage_number,
-        script_name,
-        assert
-    );
-}
-
-pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
-    stage_number: usize,
-    script_name: String,
-    output: &S,
-    assert: &Predicate<S>,
-) {
-    assert!(
-        (assert.function)(output),
-        "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-        stage_number,
-        script_name,
-        assert,
-        output
-    );
-}
 
 pub fn panic_extra_output<S>(stage_number: usize, output: &S)
 where
     S: std::fmt::Debug,
 {
     let extra_output_error = format!(
-        "Stage {} | Received unexpected additional output: {:?}",
+        "Stage {} | Received unexpected additional output:\n\n{:?}",
         stage_number, output
     );
 
@@ -100,32 +51,11 @@ pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &
 pub fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>) {
     assert!(
         (assert.function)(output),
-        "Stage {} | Output failed to satisfy: {:?}",
+        "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
         stage_number,
-        assert
+        assert,
+        output
     );
-}
-
-pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
-    pub inputs: Vec<HotShotEvent<TYPES>>,
-    pub outputs: Vec<Predicate<HotShotEvent<TYPES>>>,
-    pub asserts: Vec<Predicate<S>>,
-}
-
-pub struct TaskScript<TYPES: NodeType, S> {
-    pub state: S,
-    pub expectations: Vec<Expectations<TYPES, S>>,
-}
-
-pub struct Expectations<TYPES: NodeType, S> {
-    pub output_asserts: Vec<Predicate<HotShotEvent<TYPES>>>,
-    pub task_state_asserts: Vec<Predicate<S>>,
-}
-
-impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.info)
-    }
 }
 
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
@@ -190,4 +120,69 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
             panic_extra_output(stage_number, &received_output);
         }
     }
+}
+
+pub struct TaskScript<TYPES: NodeType, S> {
+    pub state: S,
+    pub expectations: Vec<Expectations<TYPES, S>>,
+}
+
+pub struct Expectations<TYPES: NodeType, S> {
+    pub output_asserts: Vec<Predicate<HotShotEvent<TYPES>>>,
+    pub task_state_asserts: Vec<Predicate<S>>,
+}
+
+pub fn panic_extra_output_in_script<S>(stage_number: usize, script_name: String, output: &S)
+where
+    S: std::fmt::Debug,
+{
+    let extra_output_error = format!(
+        "Stage {} | Received unexpected additional output in {}:\n\n{:?}",
+        stage_number, script_name, output
+    );
+
+    panic!("{}", extra_output_error);
+}
+
+pub fn panic_missing_output_in_script<S>(stage_number: usize, script_name: String, predicate: &S)
+where
+    S: std::fmt::Debug,
+{
+    let output_missing_error = format!(
+        "Stage {} | Failed to receive output for predicate in {}: {:?}",
+        stage_number, script_name, predicate
+    );
+
+    panic!("{}", output_missing_error);
+}
+
+pub fn validate_task_state_or_panic_in_script<S>(
+    stage_number: usize,
+    script_name: String,
+    state: &S,
+    assert: &Predicate<S>,
+) {
+    assert!(
+        (assert.function)(state),
+        "Stage {} | Task state in {} failed to satisfy: {:?}",
+        stage_number,
+        script_name,
+        assert
+    );
+}
+
+pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
+    stage_number: usize,
+    script_name: String,
+    output: &S,
+    assert: &Predicate<S>,
+) {
+    assert!(
+        (assert.function)(output),
+        "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
+        stage_number,
+        script_name,
+        assert,
+        output
+    );
 }

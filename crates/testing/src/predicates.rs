@@ -12,6 +12,12 @@ pub struct Predicate<INPUT> {
     pub info: String,
 }
 
+impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.info)
+    }
+}
+
 pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Predicate<HotShotEvent<TYPES>>
 where
     TYPES: NodeType,
