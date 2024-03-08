@@ -214,6 +214,23 @@ async fn test_upgrade_and_consensus_task() {
 
     inject_consensus_polls(&consensus_state).await;
 
+    let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
+
+    let inputs = vec![
+        vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        upgrade_vote_recvs,
+        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        vec![
+            DACRecv(dacs[1].clone()),
+            SendPayloadCommitmentAndMetadata(
+                vids[2].0.data.payload_commitment,
+                (),
+                ViewNumber::new(2),
+            ),
+            QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
+        ],
+    ];
+
     let consensus_script = TaskScript {
         state: consensus_state,
         expectations: vec![
@@ -257,23 +274,6 @@ async fn test_upgrade_and_consensus_task() {
             },
         ],
     };
-
-    let upgrade_vote_inputs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
-
-    let inputs = vec![
-        vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
-        upgrade_vote_inputs,
-        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        vec![
-            DACRecv(dacs[1].clone()),
-            SendPayloadCommitmentAndMetadata(
-                vids[2].0.data.payload_commitment,
-                (),
-                ViewNumber::new(2),
-            ),
-            QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
-        ],
-    ];
 
     test_scripts![inputs, consensus_script, upgrade_script];
 }
