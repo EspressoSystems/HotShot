@@ -48,7 +48,10 @@ pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &
     );
 }
 
-pub fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>) {
+pub fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>)
+where
+    S: std::fmt::Debug,
+{
     assert!(
         (assert.function)(output),
         "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
