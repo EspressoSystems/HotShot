@@ -15,10 +15,7 @@ use hotshot_types::{
     data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
 };
 
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_task() {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
@@ -71,6 +68,7 @@ async fn test_upgrade_task() {
         inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -84,6 +82,7 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
             exact(QuorumVoteSend(votes[1].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
@@ -97,6 +96,7 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
+            exact(QuorumProposalValidated(proposals[2].data.clone())),
             leaf_decided(),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
@@ -111,6 +111,7 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
+            exact(QuorumProposalValidated(proposals[3].data.clone())),
             leaf_decided(),
             exact(QuorumVoteSend(votes[3].clone())),
         ],
@@ -119,7 +120,11 @@ async fn test_upgrade_task() {
 
     let view_5 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
-        outputs: vec![exact(ViewChange(ViewNumber::new(5))), leaf_decided()],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(5))),
+            exact(QuorumProposalValidated(proposals[4].data.clone())),
+            leaf_decided(),
+        ],
         asserts: vec![decided_upgrade_cert()],
     };
 
