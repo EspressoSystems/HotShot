@@ -162,6 +162,8 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub da_web_server_config: Option<WebServerConfig>,
     /// combined network config
     pub combined_network_config: Option<CombinedNetworkConfig>,
+    /// the commit this run is based on
+    pub commit_sha: String,
 }
 
 /// the source of the network config
@@ -282,7 +284,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
             .await;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        error!("Retrieved config; our node index is {node_index}");
+        error!("Retrieved config; our node index is {node_index}.");
         (run_config, source)
     }
 
@@ -399,6 +401,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             num_bootrap: 5,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
+            commit_sha: String::new(),
         }
     }
 }
@@ -483,6 +486,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
             combined_network_config: val.combined_network_config,
+            commit_sha: String::new(),
         }
     }
 }
