@@ -10,6 +10,17 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
 
+fn permute<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
+where
+    T: Clone,
+{
+    let mut ordered_inputs = Vec::with_capacity(inputs.len());
+    for &index in &order {
+        ordered_inputs.push(inputs[index].clone());
+    }
+    ordered_inputs
+}
+
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -146,7 +157,12 @@ async fn test_consensus_vote() {
     run_test_script(vec![view_1], consensus_state).await;
 }
 
-async fn test_vote_with_specific_order(dac_first: bool, force_panic: bool) {
+/// Tests the voting behavior by allowing the input to be permuted in any order desired. This
+/// assures that, no matter what, a vote is indeed sent no matter what order the precipitating
+/// events occur. The permutation is specified as `input_permutation` and is a vector of indices.
+/// The function optionally will panic if `force_panic` is set to `true`, which removes a valid
+/// output from the test to verify that in its absence, the test does indeed fail.
+async fn test_vote_with_specific_order(input_permutation: Vec<usize>, force_panic: bool) {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
@@ -188,15 +204,13 @@ async fn test_vote_with_specific_order(dac_first: bool, force_panic: bool) {
         asserts: vec![is_at_view_number(1)],
     };
 
-    let mut view_2_inputs = vec![
+    let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
         VidDisperseRecv(vids[1].0.clone(), vids[1].1),
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
-    if !dac_first {
-        view_2_inputs.swap(1, 2);
-    }
+    let view_2_inputs = permute(inputs, input_permutation);
 
     let mut view_2_outputs = vec![
         exact(ViewChange(ViewNumber::new(2))),
@@ -231,14 +245,15 @@ async fn test_vote_with_specific_order(dac_first: bool, force_panic: bool) {
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote_with_permuted_dac() {
-    // Both of these tests verify that a vote is indeed sent no matter when it receives a DACRecv
+    // These tests verify that a vote is indeed sent no matter when it receives a DACRecv
     // event. In particular, we want to verify that receiving events in an unexpected (but still
     // valid) order allows the system to proceed as it normally would.
-    // Test the vote send where a `DACRecv` event comes first.
-    test_vote_with_specific_order(true /* dac_first */, false /* force_panic */).await;
-
-    // Test the vote send where a `DACRecv` event comes second.
-    test_vote_with_specific_order(false /* dac_first */, false /* force_panic */).await;
+    test_vote_with_specific_order(vec![0, 1, 2], false /* force_panic */).await;
+    test_vote_with_specific_order(vec![0, 2, 1], false /* force_panic */).await;
+    test_vote_with_specific_order(vec![1, 0, 2], false /* force_panic */).await;
+    test_vote_with_specific_order(vec![2, 0, 1], false /* force_panic */).await;
+    test_vote_with_specific_order(vec![1, 2, 0], false /* force_panic */).await;
+    test_vote_with_specific_order(vec![2, 1, 0], false /* force_panic */).await;
 }
 
 #[cfg(test)]
@@ -249,14 +264,16 @@ async fn test_consensus_vote_with_permuted_dac() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[should_panic]
 async fn test_consensus_vote_with_permuted_dac_should_panic() {
-    // Both of these tests verify that a vote is indeed sent no matter when it receives a DACRecv
+    // These tests verify that a vote is indeed sent no matter when it receives a DACRecv
     // event. In particular, we want to verify that receiving events in an unexpected (but still
-    // valid) order allows the system to proceed as it normally would.
-    // Test the vote send where a `DACRecv` event comes first.
-    test_vote_with_specific_order(true /* dac_first */, true /* force_panic */).await;
-
-    // Test the vote send where a `DACRecv` event comes second.
-    test_vote_with_specific_order(false /* dac_first */, true /* force_panic */).await;
+    // valid) order allows the system to proceed as it normally would. We force the panic here by
+    // intentionally removing the vote send event from the output.
+    test_vote_with_specific_order(vec![0, 1, 2], true /* force_panic */).await;
+    test_vote_with_specific_order(vec![0, 2, 1], true /* force_panic */).await;
+    test_vote_with_specific_order(vec![1, 0, 2], true /* force_panic */).await;
+    test_vote_with_specific_order(vec![2, 0, 1], true /* force_panic */).await;
+    test_vote_with_specific_order(vec![1, 2, 0], true /* force_panic */).await;
+    test_vote_with_specific_order(vec![2, 1, 0], true /* force_panic */).await;
 }
 
 /// TODO (jparr721): Nuke these old tests. Tracking: https://github.com/EspressoSystems/HotShot/issues/2727
