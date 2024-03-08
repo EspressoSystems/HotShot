@@ -14,7 +14,6 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use std::net::{IpAddr, Ipv4Addr};
-use surf_disco::Url;
 use tracing::instrument;
 
 /// general infra used for this example
