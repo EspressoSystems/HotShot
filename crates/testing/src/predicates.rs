@@ -63,6 +63,35 @@ where
     }
 }
 
+pub fn upgrade_certificate_formed<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "UpgradeCertificateFormed".to_string();
+    let function = |e: &_| matches!(e, UpgradeCertificateFormed(_));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
+pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "QuorumProposalSend with UpgradeCertificate attached".to_string();
+    let function = |e: &_| match e {
+        QuorumProposalSend(proposal, _) => proposal.data.upgrade_certificate.is_some(),
+        _ => false,
+    };
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
 type ConsensusTaskTestState =
     ConsensusTaskState<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>;
 

@@ -144,16 +144,12 @@ async fn test_upgrade_task() {
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_and_consensus_task() {
-    use hotshot_testing::script::{
-        panic_extra_output, panic_missing_output, validate_output_or_panic,
-        validate_task_state_or_panic,
-    };
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(3).await.0;
+    let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let other_handles = futures::future::join_all((0..=9).map(|i| build_system_handle(i))).await;
@@ -200,7 +196,7 @@ async fn test_upgrade_and_consensus_task() {
 
     let upgrade_votes = other_handles
         .iter()
-        .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
+        .map(|h| views[1].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -235,11 +231,7 @@ async fn test_upgrade_and_consensus_task() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![exact(ViewChange(ViewNumber::new(3))), leaf_decided()],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![exact(ViewChange(ViewNumber::new(4))), leaf_decided()],
+                output_asserts: vec![quorum_proposal_send_with_upgrade_certificate()],
                 task_state_asserts: vec![],
             },
         ],
@@ -253,11 +245,7 @@ async fn test_upgrade_and_consensus_task() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![],
+                output_asserts: vec![upgrade_certificate_formed()],
                 task_state_asserts: vec![],
             },
             Expectations {
@@ -276,15 +264,12 @@ async fn test_upgrade_and_consensus_task() {
     let inputs = vec![
         vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         upgrade_vote_inputs,
-        vec![{
-            QuorumProposalRecv(proposals[1].clone(), leaders[1])
-        }],
-        vec![{
-            QuorumProposalRecv(proposals[2].clone(), leaders[2])
-        }],
-        vec![{
-            QuorumProposalRecv(proposals[3].clone(), leaders[3])
-        }],
+        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        vec![
+            DACRecv(dacs[1].clone()),
+            SendPayloadCommitmentAndMetadata(vids[2].0.data.payload_commitment,(),ViewNumber::new(2)),
+            QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
+        ],
     ];
 
     test_scripts![inputs, consensus_script, upgrade_script];

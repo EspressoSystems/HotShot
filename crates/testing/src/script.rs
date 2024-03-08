@@ -9,6 +9,50 @@ use std::sync::Arc;
 /// A `TestScript` is a sequence of triples (input sequence, output sequence, assertions).
 type TestScript<TYPES, S> = Vec<TestScriptStage<TYPES, S>>;
 
+pub fn panic_extra_output_in_script<S>(stage_number: usize, script_name: String, output: &S)
+where
+    S: std::fmt::Debug,
+{
+    let extra_output_error = format!(
+        "Stage {} | Received unexpected additional output in {}:\n\n{:?}",
+        stage_number, script_name, output
+    );
+
+    panic!("{}", extra_output_error);
+}
+
+pub fn panic_missing_output_in_script<S>(stage_number: usize, script_name: String, predicate: &S)
+where
+    S: std::fmt::Debug,
+{
+    let output_missing_error = format!(
+        "Stage {} | Failed to receive output for predicate in {}: {:?}",
+        stage_number, script_name, predicate
+    );
+
+    panic!("{}", output_missing_error);
+}
+
+pub fn validate_task_state_or_panic_in_script<S>(stage_number: usize, script_name: String, state: &S, assert: &Predicate<S>) {
+    assert!(
+        (assert.function)(state),
+        "Stage {} | Task state in {} failed to satisfy: {:?}",
+        stage_number,
+        script_name,
+        assert
+    );
+}
+
+pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(stage_number: usize, script_name: String, output: &S, assert: &Predicate<S>) {
+    assert!(
+        (assert.function)(output),
+        "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
+        stage_number, script_name,
+        assert, output
+    );
+}
+
+
 pub fn panic_extra_output<S>(stage_number: usize, output: &S)
 where
     S: std::fmt::Debug,
