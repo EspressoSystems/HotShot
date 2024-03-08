@@ -1,0 +1,39 @@
+name: Test (self-hosted)
+
+on:
+  push:
+    branches:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' && github.run_number) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          #- tokio
+    runs-on: [self-hosted]
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+        name: Install Rust
+        with:
+          components: "clippy, rustfmt"
+
+      - uses: actions/checkout@v4
+        name: Checkout repository
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust caching
+        with:
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
