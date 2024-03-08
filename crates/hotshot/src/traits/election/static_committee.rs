@@ -179,15 +179,9 @@ where
 
     fn get_non_staked_committee(
         &self,
-        view_number: <TYPES as NodeType>::Time,
+        _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
-        (0..self.committee_nodes_without_stake.len())
-            .map(|node_id| {
-                <TYPES as NodeType>::SignatureKey::get_public_key(
-                    &self.committee_nodes_without_stake[node_id],
-                )
-            })
-            .collect()
+        self.committee_nodes_without_stake.iter().cloned().collect()
     }
 
     fn get_whole_committee(
