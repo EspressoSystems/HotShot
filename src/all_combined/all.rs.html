@@ -105,9 +105,6 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -137,10 +134,7 @@
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
 </span><span class="kw">pub mod </span>infra;
 
-<span class="attr">#[cfg_attr(
-    async_executor_impl = <span class="string">"tokio"</span>,
-    tokio::main(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-)]
+<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main(flavor = <span class="string">"multi_thread"</span>))]
 #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
 #[instrument]
 </span><span class="kw">async fn </span>main() {

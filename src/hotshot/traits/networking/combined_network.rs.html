@@ -508,9 +508,6 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -999,10 +996,7 @@
     <span class="kw">use </span>tracing::instrument;
 
     <span class="doccomment">/// cache eviction test
-    </span><span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    </span><span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     #[instrument]
     </span><span class="kw">async fn </span>test_cache_eviction() {

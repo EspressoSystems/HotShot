@@ -254,21 +254,6 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_broadcast::{Receiver, RecvError};
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>futures::stream::FuturesUnordered;
@@ -438,10 +423,7 @@
         }
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>it_works() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">10</span>);
@@ -457,10 +439,7 @@
         <span class="kw">let </span>result = and.completed().<span class="kw">await</span>;
         <span class="macro">assert_eq!</span>(result, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">5</span>; <span class="number">5</span>]));
     }
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>or_dep() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">10</span>);
@@ -475,10 +454,7 @@
         <span class="macro">assert_eq!</span>(result, <span class="prelude-val">Some</span>(<span class="number">5</span>));
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>and_or_dep() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">10</span>);
@@ -496,10 +472,7 @@
         <span class="macro">assert_eq!</span>(result, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">6</span>, <span class="number">5</span>]));
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>or_and_dep() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">10</span>);
@@ -517,10 +490,7 @@
         <span class="macro">assert_eq!</span>(result, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]));
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>many_and_dep() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">10</span>);

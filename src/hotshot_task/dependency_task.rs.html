@@ -133,12 +133,6 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -229,10 +223,7 @@
         }
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="comment">// allow unused for tokio because it's a test
     </span><span class="attr">#[allow(unused_must_use)]
@@ -248,10 +239,7 @@
         join_handle.<span class="kw">await</span>;
     }
 
-    <span class="attr">#[cfg_attr(
-        async_executor_impl = <span class="string">"tokio"</span>,
-        tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
-    )]
+    <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::test(flavor = <span class="string">"multi_thread"</span>))]
     #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
     </span><span class="kw">async fn </span>many_works() {
         <span class="kw">let </span>(tx, rx) = broadcast(<span class="number">20</span>);

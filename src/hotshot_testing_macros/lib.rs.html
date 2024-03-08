@@ -369,7 +369,7 @@
             </span>#slow_attribute
             <span class="attr">#[cfg_attr(
                 async_executor_impl = <span class="string">"tokio"</span>,
-                tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)
+                tokio::test(flavor = <span class="string">"multi_thread"</span>)
             )]
             #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::test)]
             #[tracing::instrument]
