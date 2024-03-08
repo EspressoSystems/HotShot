@@ -1,13 +1,18 @@
-//! Macros for testing over all network implementations and nodetype implementations
+//! Macros for use in testing.
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::parse::Result;
-use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token,
-};
 
+/// Macro to test multiple `TaskState` scripts at once.
+///
+/// Usage:
+///
+/// `test_scripts[inputs, script1, script2, ...]`
+///
+/// # Panics
+///
+/// The macro panics if the input stream cannot be parsed.
+/// The test will panic if the any of the scripts has a different number of stages from the input.
 #[proc_macro]
 pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     // Parse the input as an iter of Expr
@@ -26,26 +31,22 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     let scripts = &inputs[1..];
 
     let output_index_names: Vec<_> = scripts
-        .clone()
-        .into_iter()
+        .iter()
         .map(|i| format_ident!("{}_output_index", quote::quote!(#i).to_string()))
         .collect();
 
     let task_names: Vec<_> = scripts
-        .clone()
-        .into_iter()
+        .iter()
         .map(|i| format_ident!("{}_task", quote::quote!(#i).to_string()))
         .collect();
 
     let task_expectations: Vec<_> = scripts
-        .clone()
-        .into_iter()
+        .iter()
         .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string()))
         .collect();
 
     let script_names: Vec<_> = scripts
-        .clone()
-        .into_iter()
+        .iter()
         .map(|i| quote::quote!(#i).to_string())
         .collect();
 

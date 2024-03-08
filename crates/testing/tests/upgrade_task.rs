@@ -4,8 +4,7 @@ use hotshot_constants::Version;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
-    upgrade::UpgradeTaskState,
+    consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
     predicates::*,
@@ -152,7 +151,7 @@ async fn test_upgrade_and_consensus_task() {
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let other_handles = futures::future::join_all((0..=9).map(|i| build_system_handle(i))).await;
+    let other_handles = futures::future::join_all((0..=9).map(build_system_handle)).await;
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -259,7 +258,7 @@ async fn test_upgrade_and_consensus_task() {
         ],
     };
 
-    let upgrade_vote_inputs: Vec<_> = upgrade_votes.map(|v| UpgradeVoteRecv(v)).collect();
+    let upgrade_vote_inputs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
     let inputs = vec![
         vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
@@ -267,7 +266,11 @@ async fn test_upgrade_and_consensus_task() {
         vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         vec![
             DACRecv(dacs[1].clone()),
-            SendPayloadCommitmentAndMetadata(vids[2].0.data.payload_commitment,(),ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(
+                vids[2].0.data.payload_commitment,
+                (),
+                ViewNumber::new(2),
+            ),
             QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
         ],
     ];

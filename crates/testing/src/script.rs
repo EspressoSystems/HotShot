@@ -33,7 +33,12 @@ where
     panic!("{}", output_missing_error);
 }
 
-pub fn validate_task_state_or_panic_in_script<S>(stage_number: usize, script_name: String, state: &S, assert: &Predicate<S>) {
+pub fn validate_task_state_or_panic_in_script<S>(
+    stage_number: usize,
+    script_name: String,
+    state: &S,
+    assert: &Predicate<S>,
+) {
     assert!(
         (assert.function)(state),
         "Stage {} | Task state in {} failed to satisfy: {:?}",
@@ -43,15 +48,21 @@ pub fn validate_task_state_or_panic_in_script<S>(stage_number: usize, script_nam
     );
 }
 
-pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(stage_number: usize, script_name: String, output: &S, assert: &Predicate<S>) {
+pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
+    stage_number: usize,
+    script_name: String,
+    output: &S,
+    assert: &Predicate<S>,
+) {
     assert!(
         (assert.function)(output),
         "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-        stage_number, script_name,
-        assert, output
+        stage_number,
+        script_name,
+        assert,
+        output
     );
 }
-
 
 pub fn panic_extra_output<S>(stage_number: usize, output: &S)
 where
