@@ -210,6 +210,9 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
     } else {
         0
     };
+
+    // Acquire local IP address
+    let local_ip = local_ip_address::local_ip().expect("failed to acquire local IP");
     let bound_addr: Multiaddr = format!(
         "/{}/{}/udp/{}/quic-v1",
         if libp2p_config.public_ip.is_ipv4() {
@@ -217,7 +220,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         } else {
             "ip6"
         },
-        libp2p_config.public_ip,
+        local_ip.to_string(),
         libp2p_config.base_port as u64 + port_index
     )
     .parse()

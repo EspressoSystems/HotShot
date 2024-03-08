@@ -123,6 +123,7 @@ hotshot-example-types = { path = "../example-types" }
 client = { path = "../../../cdn/client" }
 broker = { path = "../../../cdn/broker", features = ["local_discovery"]}
 marshal = { path = "../../../cdn/marshal", features = ["local_discovery"]}
+local-ip-address = "0.6.1"
 
 tracing = { workspace = true }
 
@@ -135,7 +136,6 @@ async-std = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
 toml = { workspace = true }
 blake3 = { workspace = true }
-local-ip-address = "0.6.1"
 
 [lints]
 workspace = true
