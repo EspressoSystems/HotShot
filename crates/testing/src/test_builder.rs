@@ -34,6 +34,8 @@ pub struct TimingData {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
+    /// Delay before sending through the secondary network in CombinedNetworks
+    pub secondary_network_delay: Duration,
 }
 
 /// metadata describing a test
@@ -77,6 +79,7 @@ impl Default for TimingData {
             start_delay: 100,
             propose_min_round_time: Duration::new(0, 0),
             propose_max_round_time: Duration::from_millis(100),
+            secondary_network_delay: Duration::from_millis(1000),
         }
     }
 }
@@ -262,6 +265,7 @@ impl TestMetadata {
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
+            secondary_network_delay: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 total_nodes as u64,
@@ -274,6 +278,7 @@ impl TestMetadata {
             start_delay,
             propose_min_round_time,
             propose_max_round_time,
+            secondary_network_delay,
         } = timing_data;
         let mod_config =
             // TODO this should really be using the timing config struct
@@ -284,6 +289,7 @@ impl TestMetadata {
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;
+                a.secondary_network_delay = secondary_network_delay;
             };
 
         TestLauncher {

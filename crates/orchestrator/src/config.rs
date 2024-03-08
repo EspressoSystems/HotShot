@@ -519,6 +519,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
+    /// Delay before sending through the secondary network in CombinedNetworks
+    pub secondary_network_delay: Duration,
 }
 
 /// Holds configuration for a validator node
@@ -590,6 +592,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             num_bootstrap: val.num_bootstrap,
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
+            secondary_network_delay: val.secondary_network_delay,
             election_config: None,
         }
     }
@@ -639,6 +642,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             start_delay: 1,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
+            secondary_network_delay: Duration::from_millis(1000),
             num_bootstrap: 5,
         }
     }
