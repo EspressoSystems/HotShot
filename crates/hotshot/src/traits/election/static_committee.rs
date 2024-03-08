@@ -163,7 +163,7 @@ where
         NonZeroU64::new(((self.committee_nodes_with_stake.len() as u64 * 9) / 10) + 1).unwrap()
     }
 
-    fn get_committee(
+    fn get_staked_committee(
         &self,
         _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
@@ -175,6 +175,28 @@ where
                 )
             })
             .collect()
+    }
+
+    fn get_non_staked_committee(
+        &self,
+        view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        (0..self.committee_nodes_without_stake.len())
+            .map(|node_id| {
+                <TYPES as NodeType>::SignatureKey::get_public_key(
+                    &self.committee_nodes_without_stake[node_id],
+                )
+            })
+            .collect()
+    }
+
+    fn get_whole_committee(
+        &self,
+        view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        let mut committee = self.get_staked_committee(view_number);
+        committee.extend(self.get_non_staked_committee(view_number));
+        committee
     }
 }
 
