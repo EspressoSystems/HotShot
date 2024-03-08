@@ -8,10 +8,7 @@ use hotshot_types::{
 };
 use versioned_binary_serialization::version::Version;
 
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_task() {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
