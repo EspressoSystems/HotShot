@@ -3,23 +3,13 @@ use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::task_helpers::{build_quorum_proposal, build_vote, key_pair_for_id};
+use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_types::traits::{consensus_api::ConsensusApi, election::Membership};
 use hotshot_types::{
     data::ViewNumber, message::GeneralConsensusMessage, traits::node_implementation::ConsensusTime,
 };
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
-
-fn permute<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
-where
-    T: Clone,
-{
-    let mut ordered_inputs = Vec::with_capacity(inputs.len());
-    for &index in &order {
-        ordered_inputs.push(inputs[index].clone());
-    }
-    ordered_inputs
-}
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -210,7 +200,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>, force_pani
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
-    let view_2_inputs = permute(inputs, input_permutation);
+    let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
     let mut view_2_outputs = vec![
         exact(ViewChange(ViewNumber::new(2))),
