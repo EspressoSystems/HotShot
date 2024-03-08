@@ -368,6 +368,6 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.get_committee(view_number).len();
+    let num_storage_nodes = membership.get_staked_committee(view_number).len();
     vid_scheme(num_storage_nodes)
 }
