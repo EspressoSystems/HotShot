@@ -101,7 +101,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         asserts: vec![is_at_view_number(2)],
     };
 
-    let script = vec![view_0, view_1];
+    let script = vec![view_1, view_2];
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
