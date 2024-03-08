@@ -32,8 +32,7 @@ async fn main() {
     setup_backtrace();
 
     // use configfile args
-    let config = read_orchestrator_init_config::<TestTypes>();
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+    let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
 
     // orchestrator
     async_spawn(run_orchestrator::<

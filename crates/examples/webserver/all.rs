@@ -29,8 +29,8 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    let config = read_orchestrator_init_config::<TestTypes>();
-
+    let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
+    
     // spawn web servers
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();
@@ -62,7 +62,6 @@ async fn main() {
         }
     });
 
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
     // web server orchestrator
     async_spawn(run_orchestrator::<
         TestTypes,

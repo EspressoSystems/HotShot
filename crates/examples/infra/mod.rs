@@ -88,7 +88,10 @@ pub struct ConfigArgs {
 /// # Panics
 /// If unable to read the config file from the command line
 pub fn read_orchestrator_init_config<TYPES: NodeType>(
-) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+) -> (NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, Url) {
+    // default url setting, you can also do this by "--orchestrator_url http://localhost:4444"
+    let mut orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+
     let matches = Command::new("orchestrator")
         .arg(
             Arg::new("config_file")
@@ -146,6 +149,14 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
                 .help("Sets the commit sha to output in the results")
                 .required(false),
         )
+        .arg(
+            Arg::new("orchestrator_url")
+                .short('u')
+                .long("orchestrator_url")
+                .value_name("URL")
+                .help("Sets the url of the orchestrator")
+                .required(false),
+        )
         .get_matches();
     let mut args = ConfigArgs {
         config_file: "./crates/orchestrator/run-config.toml".to_string(),
@@ -181,7 +192,10 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
     if let Some(commit_sha_string) = matches.get_one::<String>("commit_sha") {
         config.commit_sha = commit_sha_string.to_string();
     }
-    config
+    if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
+        orchestrator_url = Url::parse(&orchestrator_url_string).unwrap();
+    }
+    (config, orchestrator_url)
 }
 
 /// Reads a network configuration from a given filepath

@@ -1,2 +1,2 @@
 commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size,rounds,leader_election_type,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
-,20,5,10,1040,10,hotshot::traits::election::static_committee::StaticElectionConfig,2,1,5,8320,32,5,10,0
+,10,5,10,1765,10,hotshot::traits::election::static_committee::StaticElectionConfig,2,1,4,10148,23,4,10,0

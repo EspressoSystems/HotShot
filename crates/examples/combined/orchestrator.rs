@@ -24,8 +24,7 @@ pub mod infra;
 async fn main() {
     setup_logging();
     setup_backtrace();
-    let config = read_orchestrator_init_config::<TestTypes>();
-    let orchestrator_url = Url::parse("http://localhost:4444").unwrap();
+    let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
     run_orchestrator::<TestTypes, DANetwork, QuorumNetwork, NodeImpl>(OrchestratorArgs::<
         TestTypes,
     > {

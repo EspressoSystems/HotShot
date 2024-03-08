@@ -275,10 +275,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
             .await;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        error!(
-            "Retrieved config; our node index is {node_index}. Leader election is {:?}",
-            std::any::type_name::<E>()
-        );
+        error!("Retrieved config; our node index is {node_index}.");
         (run_config, source)
     }
 
