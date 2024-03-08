@@ -241,7 +241,11 @@ async fn test_upgrade_and_consensus_task() {
         state: consensus_state,
         expectations: vec![
             Expectations {
-                output_asserts: vec![exact(ViewChange(ViewNumber::new(1))), quorum_vote_send()],
+                output_asserts: vec![
+                    exact(ViewChange(ViewNumber::new(1))),
+                    quorum_proposal_validated(),
+                    quorum_vote_send(),
+                ],
                 task_state_asserts: vec![],
             },
             Expectations {
@@ -249,7 +253,10 @@ async fn test_upgrade_and_consensus_task() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![exact(ViewChange(ViewNumber::new(2)))],
+                output_asserts: vec![
+                    exact(ViewChange(ViewNumber::new(2))),
+                    quorum_proposal_validated(),
+                ],
                 task_state_asserts: vec![],
             },
             Expectations {

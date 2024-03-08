@@ -98,6 +98,19 @@ where
     }
 }
 
+pub fn quorum_proposal_validated<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "QuorumProposalValidated".to_string();
+    let function = |e: &_| matches!(e, QuorumProposalValidated(_));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
 pub fn quorum_proposal_send<TYPES>() -> Predicate<HotShotEvent<TYPES>>
 where
     TYPES: NodeType,
