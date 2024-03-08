@@ -84,6 +84,14 @@ pub struct ConfigArgs {
     pub config_file: String,
 }
 
+impl Default for ConfigArgs {
+    fn default() -> Self {
+        Self {
+            config_file: "./crates/orchestrator/run-config.toml".to_string(),
+        }
+    }
+}
+
 /// Reads the orchestrator initialization config from the command line
 /// # Panics
 /// If unable to read the config file from the command line
@@ -93,7 +101,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
 ) {
     // default url setting, you can also do this by "--orchestrator_url http://localhost:4444"
     let mut orchestrator_url = Url::parse("http://localhost:4444").unwrap();
-
+    let mut args = ConfigArgs::default();
     let matches = Command::new("orchestrator")
         .arg(
             Arg::new("config_file")
@@ -160,14 +168,14 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .required(false),
         )
         .get_matches();
-    let mut args = ConfigArgs {
-        config_file: "./crates/orchestrator/run-config.toml".to_string(),
-    };
+    
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
         args = ConfigArgs {
             config_file: config_file_string.clone(),
         };
         error!("args: {:?}", args);
+    } else {
+        error!("No config file provided, we'll use the default one.");
     }
     let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         load_config_from_file::<TYPES>(&args.config_file);
