@@ -5,7 +5,7 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate,
-    traits::node_implementation::NodeType,
+    traits::{node_implementation::NodeType, ValidatedState},
 };
 
 use std::sync::Arc;
@@ -50,6 +50,10 @@ pub enum EventType<TYPES: NodeType> {
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
         qc: Arc<QuorumCertificate<TYPES>>,
+        /// Validated state after applying the leaf chain.
+        validated_state: TYPES::ValidatedState,
+        /// Application-specific state delta.
+        state_delta: <TYPES::ValidatedState as ValidatedState<TYPES>>::Delta,
         /// Optional information of the number of transactions in the block, for logging purposes.
         block_size: Option<u64>,
     },

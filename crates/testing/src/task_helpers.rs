@@ -273,7 +273,8 @@ async fn build_quorum_proposal_and_signature(
             parent_state
                 .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
                 .await
-                .unwrap(),
+                .unwrap()
+                .0,
         );
         // save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state

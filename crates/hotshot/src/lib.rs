@@ -634,7 +634,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
-        let validated_state = Some(Arc::new(TYPES::ValidatedState::genesis(&instance_state)));
+        let validated_state = Some(Arc::new(TYPES::ValidatedState::genesis(&instance_state).0));
         Ok(Self {
             inner: Leaf::genesis(&instance_state),
             instance_state,

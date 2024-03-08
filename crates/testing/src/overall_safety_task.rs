@@ -157,6 +157,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             EventType::Decide {
                 leaf_chain,
                 qc,
+                validated_state: _,
+                state_delta: _,
                 block_size: maybe_block_size,
             } => {
                 // Skip the genesis leaf.

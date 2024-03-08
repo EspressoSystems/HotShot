@@ -519,19 +519,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let parent = if justify_qc.is_genesis {
                     // Send the `Decide` event for the genesis block if the justify QC is genesis.
                     let leaf = Leaf::genesis(&consensus.instance_state);
+                    let (validated_state, state_delta) =
+                        TYPES::ValidatedState::genesis(&consensus.instance_state);
                     broadcast_event(
                         Event {
                             view_number: TYPES::Time::genesis(),
                             event: EventType::Decide {
                                 leaf_chain: Arc::new(vec![(leaf.clone(), None)]),
                                 qc: Arc::new(justify_qc.clone()),
+                                validated_state: validated_state.clone(),
+                                state_delta,
                                 block_size: None,
                             },
                         },
                         &self.output_event_stream,
                     )
                     .await;
-                    let state = Arc::new(TYPES::ValidatedState::genesis(&consensus.instance_state));
+                    let state = Arc::new(validated_state);
                     Some((leaf, state))
                 } else {
                     match consensus
@@ -624,7 +628,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                let Ok(state) = parent_state
+                let Ok((validated_state, state_delta)) = parent_state
                     .validate_and_apply_header(
                         &consensus.instance_state,
                         &parent_leaf,
@@ -635,7 +639,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
-                let state = Arc::new(state);
+                let state = Arc::new(validated_state.clone());
                 let parent_commitment = parent_leaf.commit();
                 let leaf: Leaf<_> = Leaf {
                     view_number: view,
@@ -827,6 +831,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             event: EventType::Decide {
                                 leaf_chain: Arc::new(leaf_views),
                                 qc: Arc::new(new_decide_qc.unwrap()),
+                                validated_state,
+                                state_delta,
                                 block_size: Some(included_txns_set.len().try_into().unwrap()),
                             },
                         },

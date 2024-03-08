@@ -425,6 +425,8 @@ pub trait RunDA<
                         EventType::Decide {
                             leaf_chain,
                             qc: _,
+                            validated_state: _,
+                            state_delta: _,
                             block_size,
                         } => {
                             // this might be a obob
