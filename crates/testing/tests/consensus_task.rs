@@ -210,7 +210,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>, force_pani
         view_2_outputs.push(exact(QuorumVoteSend(votes[1].clone())));
     }
 
-    // Now, for view 2, receive a DAC before the quorum proposal.
+    // Use the permuted inputs for view 2 depending on the provided index ordering.
     let view_2 = TestScriptStage {
         inputs: view_2_inputs,
         outputs: view_2_outputs,
