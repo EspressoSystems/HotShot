@@ -1,6 +1,7 @@
 //! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
+use anyhow::anyhow;
 use bincode::Options;
 use client::{
     reexports::{
@@ -16,7 +17,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -101,8 +102,23 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
             .keypair(keypair)
             .build()?;
 
-        // Create the client, performing the initial connection
-        let client = Client::new(config).await?;
+        // Create the client, performing the initial connection. Retry a few times on failure
+        let num_retries = 3;
+        let mut i = 0;
+        let client = {
+            loop {
+                if let Ok(client) = Client::new(config.clone()).await {
+                    break client;
+                };
+
+                if i >= num_retries {
+                    return Err(anyhow!("failed initial connection"));
+                }
+
+                i += 1;
+                async_sleep(Duration::from_secs(1)).await;
+            }
+        };
 
         Ok(Self(client))
     }

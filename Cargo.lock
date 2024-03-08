@@ -5791,6 +5791,7 @@ dependencies = [
  "async-trait",
  "capnp",
  "capnpc",
+ "derivative",
  "jf-primitives",
  "kanal",
  "lazy_static",
