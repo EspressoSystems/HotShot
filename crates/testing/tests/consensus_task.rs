@@ -149,6 +149,121 @@ async fn test_consensus_vote() {
     run_test_script(vec![view_1], consensus_state).await;
 }
 
+/// TODO (jparr721): Nuke these old tests. Tracking: https://github.com/EspressoSystems/HotShot/issues/2727
+#[cfg(test)]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_consensus_task_old() {
+    use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+    use hotshot_task_impls::{consensus::ConsensusTaskState, harness::run_harness};
+    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_types::simple_certificate::QuorumCertificate;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(1).await.0;
+    // We assign node's key pair rather than read from config file since it's a test
+    let (private_key, public_key) = key_pair_for_id(1);
+
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    // Trigger a proposal to send by creating a new QC.  Then recieve that proposal and update view based on the valid QC in the proposal
+    let qc = QuorumCertificate::<TestTypes>::genesis();
+    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
+
+    input.push(HotShotEvent::QCFormed(either::Left(qc.clone())));
+    input.push(HotShotEvent::QuorumProposalRecv(
+        proposal.clone(),
+        public_key,
+    ));
+
+    input.push(HotShotEvent::Shutdown);
+
+    output.insert(
+        HotShotEvent::QuorumProposalSend(proposal.clone(), public_key),
+        1,
+    );
+    output.insert(
+        HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+        1,
+    );
+
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+
+    if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal.data).await {
+        output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
+        input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
+    }
+
+    let consensus_state = ConsensusTaskState::<
+        TestTypes,
+        MemoryImpl,
+        SystemContextHandle<TestTypes, MemoryImpl>,
+    >::create_from(&handle)
+    .await;
+
+    inject_consensus_polls(&consensus_state).await;
+
+    run_harness(input, output, consensus_state, false).await;
+}
+
+#[cfg(test)]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_consensus_vote_old() {
+    use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+    use hotshot_task_impls::{consensus::ConsensusTaskState, harness::run_harness};
+    use hotshot_testing::task_helpers::build_system_handle;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+    // We assign node's key pair rather than read from config file since it's a test
+    let (private_key, public_key) = key_pair_for_id(1);
+
+    let mut input = Vec::new();
+    let mut output = HashMap::new();
+
+    let proposal = build_quorum_proposal(&handle, &private_key, 1).await;
+
+    // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
+    input.push(HotShotEvent::QuorumProposalRecv(
+        proposal.clone(),
+        public_key,
+    ));
+
+    let proposal = proposal.data;
+    output.insert(HotShotEvent::QuorumProposalValidated(proposal.clone()), 1);
+    if let GeneralConsensusMessage::Vote(vote) = build_vote(&handle, proposal).await {
+        output.insert(HotShotEvent::QuorumVoteSend(vote.clone()), 1);
+        input.push(HotShotEvent::QuorumVoteRecv(vote.clone()));
+    }
+
+    output.insert(HotShotEvent::ViewChange(ViewNumber::new(1)), 1);
+
+    input.push(HotShotEvent::Shutdown);
+
+    let consensus_state = ConsensusTaskState::<
+        TestTypes,
+        MemoryImpl,
+        SystemContextHandle<TestTypes, MemoryImpl>,
+    >::create_from(&handle)
+    .await;
+
+    inject_consensus_polls(&consensus_state).await;
+
+    run_harness(input, output, consensus_state, false).await;
+}
+
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
@@ -158,7 +273,7 @@ async fn test_consensus_vote() {
 // TODO: re-enable this when HotShot/the sequencer needs the shares for something
 // issue: https://github.com/EspressoSystems/HotShot/issues/2236
 #[ignore]
-async fn test_consensus_with_vid() {
+async fn test_consensus_with_vid_old() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot::traits::BlockPayload;
     use hotshot::types::SignatureKey;
