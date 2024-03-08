@@ -4,7 +4,6 @@ pub mod types;
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot_example_types::state_types::TestTypes;
-use surf_disco::Url;
 use tracing::instrument;
 
 use crate::infra::read_orchestrator_init_config;

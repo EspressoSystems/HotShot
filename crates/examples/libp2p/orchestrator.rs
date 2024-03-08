@@ -9,7 +9,6 @@ use crate::infra::OrchestratorArgs;
 use crate::types::{DANetwork, NodeImpl, QuorumNetwork};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot_example_types::state_types::TestTypes;
-use surf_disco::Url;
 use tracing::instrument;
 
 /// general infra used for this example

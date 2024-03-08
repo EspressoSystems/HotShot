@@ -87,8 +87,10 @@ pub struct ConfigArgs {
 /// Reads the orchestrator initialization config from the command line
 /// # Panics
 /// If unable to read the config file from the command line
-pub fn read_orchestrator_init_config<TYPES: NodeType>(
-) -> (NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, Url) {
+pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
+    NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    Url,
+) {
     // default url setting, you can also do this by "--orchestrator_url http://localhost:4444"
     let mut orchestrator_url = Url::parse("http://localhost:4444").unwrap();
 
@@ -193,7 +195,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>(
         config.commit_sha = commit_sha_string.to_string();
     }
     if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
-        orchestrator_url = Url::parse(&orchestrator_url_string).unwrap();
+        orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
     }
     (config, orchestrator_url)
 }

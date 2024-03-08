@@ -30,7 +30,7 @@ async fn main() {
     setup_backtrace();
 
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
-    
+
     // spawn web servers
     let (server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     let (server_shutdown_sender_da, server_shutdown_da) = oneshot();

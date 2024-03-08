@@ -236,7 +236,7 @@ impl OrchestratorClient {
         let cur_node_index = |client: Client<ClientError>| {
             async move {
                 let cur_node_index: Result<u16, ClientError> =
-                    client.post("api/tmp_node_index").send().await;
+                    client.post("api/get_tmp_node_index").send().await;
                 cur_node_index
             }
             .boxed()
@@ -272,7 +272,7 @@ impl OrchestratorClient {
 
         // get the newest updated config
         self.client
-            .get("api/config_after_peer_collected")
+            .get("api/get_config_after_peer_collected")
             .send()
             .await
             .expect("Unable to get the updated config")

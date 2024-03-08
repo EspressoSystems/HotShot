@@ -374,7 +374,7 @@ where
     )))
     .expect("API file is not valid toml");
     let mut api = Api::<State, ServerError>::new(api_toml)?;
-    api.post("postidentity", |req, state| {
+    api.post("post_identity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();
             if identity.is_err() {
@@ -394,10 +394,10 @@ where
         }
         .boxed()
     })?
-    .post("tmp_node_index", |_req, state| {
+    .post("get_tmp_node_index", |_req, state| {
         async move { state.get_tmp_node_index() }.boxed()
     })?
-    .post("postpubkey", |req, state| {
+    .post("post_pubkey", |req, state| {
         async move {
             let node_index = req.integer_param("node_index")?;
             let mut pubkey = req.body_bytes();
@@ -408,17 +408,17 @@ where
     .get("peer_pubconfig_ready", |_req, state| {
         async move { state.peer_pub_ready() }.boxed()
     })?
-    .get("config_after_peer_collected", |_req, state| {
+    .get("get_config_after_peer_collected", |_req, state| {
         async move { state.get_config_after_peer_collected() }.boxed()
     })?
     .post(
-        "postready",
+        "post_ready",
         |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
     )?
-    .get("getstart", |_req, state| {
+    .get("get_start", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
-    .post("postresults", |req, state| {
+    .post("post_results", |req, state| {
         async move {
             let metrics: Result<BenchResults, RequestError> = req.body_json();
             state.post_run_results(metrics.unwrap())
