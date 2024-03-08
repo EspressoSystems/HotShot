@@ -619,10 +619,6 @@ pub trait RunDA<
                             failed_num_views += 1;
                             warn!("Timed out as a replicas in view {:?}", view_number);
                         }
-                        EventType::NextLeaderViewTimeout { view_number } => {
-                            failed_num_views += 1;
-                            warn!("Timed out as the next leader in view {:?}", view_number);
-                        }
                         EventType::ViewTimeout { view_number } => {
                             failed_num_views += 1;
                             warn!("Timed out in view {:?}", view_number);
