@@ -51,9 +51,9 @@ pub enum EventType<TYPES: NodeType> {
         /// before it using
         qc: Arc<QuorumCertificate<TYPES>>,
         /// Validated state after applying the leaf chain.
-        validated_state: TYPES::ValidatedState,
+        validated_state: Arc<TYPES::ValidatedState>,
         /// Application-specific state delta.
-        state_delta: <TYPES::ValidatedState as ValidatedState<TYPES>>::Delta,
+        state_delta: Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>,
         /// Optional information of the number of transactions in the block, for logging purposes.
         block_size: Option<u64>,
     },
