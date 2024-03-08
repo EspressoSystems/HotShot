@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["consensus_predicate","decided_upgrade_cert","exact","leaf_decided","no_decided_upgrade_cert","quorum_vote_send"],"struct":["Predicate"],"type":["ConsensusTaskTestState"]};
+window.SIDEBAR_ITEMS = {"fn":["consensus_predicate","decided_upgrade_cert","exact","is_at_view_number","leaf_decided","no_decided_upgrade_cert","quorum_proposal_send","quorum_vote_send"],"struct":["Predicate"],"type":["ConsensusTaskTestState"]};

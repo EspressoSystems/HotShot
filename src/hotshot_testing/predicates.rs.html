@@ -77,6 +77,26 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::<span class="kw-2">*</span>,
 };
@@ -129,6 +149,19 @@
     }
 }
 
+<span class="kw">pub fn </span>quorum_proposal_send&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+{
+    <span class="kw">let </span>info = <span class="string">"QuorumProposalSend"</span>.to_string();
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
 <span class="kw">type </span>ConsensusTaskTestState =
     ConsensusTaskState&lt;TestTypes, MemoryImpl, SystemContextHandle&lt;TestTypes, MemoryImpl&gt;&gt;;
 
@@ -153,6 +186,13 @@
     consensus_predicate(
         Box::new(|state| state.decided_upgrade_cert.is_some()),
         <span class="string">"expected decided_upgrade_cert to be Some(_)"</span>,
+    )
+}
+
+<span class="kw">pub fn </span>is_at_view_number(n: u64) -&gt; Predicate&lt;ConsensusTaskTestState&gt; {
+    consensus_predicate(
+        Box::new(<span class="kw">move </span>|state| <span class="kw-2">*</span>state.cur_view == n),
+        <span class="macro">format!</span>(<span class="string">"expected cur view to be {}"</span>, n).as_str(),
     )
 }
 </code></pre></div></section></main></body></html>
