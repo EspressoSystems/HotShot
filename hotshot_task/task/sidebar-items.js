@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Task","TaskRegistry","TestTask"],"trait":["TaskState","TestTaskState"]};

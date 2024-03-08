@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hotshot":[["impl&lt;TYPES: NodeType, I: <a class=\"trait\" href=\"hotshot/traits/trait.NodeImplementation.html\" title=\"trait hotshot::traits::NodeImplementation\">NodeImplementation</a>&lt;TYPES&gt;&gt; ConsensusApi&lt;TYPES, I&gt; for <a class=\"struct\" href=\"hotshot/types/handle/struct.SystemContextHandle.html\" title=\"struct hotshot::types::handle::SystemContextHandle\">SystemContextHandle</a>&lt;TYPES, I&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
