@@ -92,21 +92,12 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the web server
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::load_config_from_file;
-<span class="kw">use </span><span class="kw">crate</span>::infra::{ConfigArgs, OrchestratorArgs};
+<span class="kw">use </span><span class="kw">crate</span>::infra::read_orchestrator_init_config;
+<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
 <span class="kw">use </span><span class="kw">crate</span>::types::ThisRun;
 <span class="kw">use crate</span>::{
     infra::run_orchestrator,
@@ -120,11 +111,8 @@
 </span><span class="kw">pub mod </span>infra;
 
 <span class="kw">use </span>async_compatibility_layer::{art::async_spawn, channel::oneshot};
-<span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
-<span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
 
@@ -135,8 +123,8 @@
     setup_logging();
     setup_backtrace();
 
-    <span class="comment">// use configfile args
-    </span><span class="kw">let </span>args = ConfigArgs::parse();
+    <span class="kw">let </span>(config, orchestrator_url) = read_orchestrator_init_config::&lt;TestTypes&gt;();
+
     <span class="comment">// spawn web servers
     </span><span class="kw">let </span>(server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
     <span class="kw">let </span>(server_shutdown_sender_da, server_shutdown_da) = oneshot();
@@ -168,25 +156,19 @@
         }
     });
 
-    <span class="kw">let </span>orchestrator_url = Url::parse(<span class="string">"http://localhost:4444"</span>).unwrap();
-
     <span class="comment">// web server orchestrator
     </span>async_spawn(run_orchestrator::&lt;
         TestTypes,
         DANetwork,
         QuorumNetwork,
         NodeImpl,
-    &gt;(OrchestratorArgs {
+    &gt;(OrchestratorArgs::&lt;TestTypes&gt; {
         url: orchestrator_url.clone(),
-        config_file: args.config_file.clone(),
+        config: config.clone(),
     }));
 
     <span class="comment">// multi validator run
-    </span><span class="kw">let </span>config: NetworkConfig&lt;
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
-    &gt; = load_config_from_file::&lt;TestTypes&gt;(<span class="kw-2">&amp;</span>args.config_file);
-    <span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
+    </span><span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
     <span class="kw">for _ in </span><span class="number">0</span>..(config.config.total_nodes.get()) {
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{

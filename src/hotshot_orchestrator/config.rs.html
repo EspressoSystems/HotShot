@@ -630,6 +630,10 @@
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
 <a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -785,6 +789,8 @@
     </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
     <span class="doccomment">/// the data availability web server config
     </span><span class="kw">pub </span>da_web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
+    <span class="doccomment">/// the commit this run is based on
+    </span><span class="kw">pub </span>commit_sha: String,
 }
 
 <span class="doccomment">/// the source of the network config
@@ -905,7 +911,7 @@
             .<span class="kw">await</span>;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}"</span>);
+        <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}."</span>);
         (run_config, source)
     }
 
@@ -1021,6 +1027,7 @@
             num_bootrap: <span class="number">5</span>,
             propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
             propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
+            commit_sha: String::new(),
         }
     }
 }
@@ -1101,6 +1108,7 @@
             start_delay_seconds: val.start_delay_seconds,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
+            commit_sha: String::new(),
         }
     }
 }

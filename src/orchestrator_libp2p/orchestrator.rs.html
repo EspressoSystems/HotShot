@@ -27,19 +27,22 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! An orchestrator using libp2p
 
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-<span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
-<span class="kw">use </span>tracing::instrument;
-
+<span class="kw">use </span><span class="kw">crate</span>::infra::read_orchestrator_init_config;
 <span class="kw">use </span><span class="kw">crate</span>::infra::run_orchestrator;
 <span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork};
+<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+<span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>tracing::instrument;
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
@@ -51,8 +54,13 @@
 </span><span class="kw">async fn </span>main() {
     setup_logging();
     setup_backtrace();
-    <span class="kw">let </span>args = OrchestratorArgs::parse();
-
-    run_orchestrator::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl&gt;(args).<span class="kw">await</span>;
+    <span class="kw">let </span>(config, orchestrator_url) = read_orchestrator_init_config::&lt;TestTypes&gt;();
+    run_orchestrator::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl&gt;(OrchestratorArgs::&lt;
+        TestTypes,
+    &gt; {
+        url: orchestrator_url.clone(),
+        config: config.clone(),
+    })
+    .<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

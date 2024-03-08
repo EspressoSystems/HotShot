@@ -254,6 +254,10 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -425,6 +429,10 @@
             digest.update(<span class="kw-2">&amp;</span>txn.<span class="number">0</span>);
         }
         BuilderCommitment::from_raw_digest(digest.finalize())
+    }
+
+    <span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::Transaction&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.transactions
     }
 }
 

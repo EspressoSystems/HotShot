@@ -374,6 +374,86 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -382,6 +462,7 @@
 </span><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>client::{BenchResults, BenchResultsDownloadConfig};
 <span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
@@ -392,7 +473,7 @@
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
-<span class="kw">use </span>tide_disco::{Api, App};
+<span class="kw">use </span>tide_disco::{Api, App, RequestError};
 
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tide_disco::{
@@ -405,6 +486,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
 
+<span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>libp2p::identity::{
     ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
     Keypair,
@@ -432,7 +514,7 @@
     <span class="doccomment">/// The network configuration
     </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
     <span class="doccomment">/// The total nodes that have posted their public keys
-    </span><span class="kw">pub </span>nodes_with_pubkey: u64,
+    </span>nodes_with_pubkey: u64,
     <span class="doccomment">/// Whether the network configuration has been updated with all the peer's public keys/configs
     </span>peer_pub_ready: bool,
     <span class="doccomment">/// The set of index for nodes that have posted their public keys/configs
@@ -441,7 +523,11 @@
     /// Will be set to true once all nodes post they are ready to start
     </span>start: bool,
     <span class="doccomment">/// The total nodes that have posted they are ready to start
-    </span><span class="kw">pub </span>nodes_connected: u64,
+    </span>nodes_connected: u64,
+    <span class="doccomment">/// The results of the benchmarks
+    </span>bench_results: BenchResults,
+    <span class="doccomment">/// The number of nodes that have posted their results
+    </span>nodes_post_results: u64,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>, ELECTION: ElectionConfig + <span class="lifetime">'static</span>&gt;
@@ -458,7 +544,35 @@
             pub_posted: HashSet::new(),
             nodes_connected: <span class="number">0</span>,
             start: <span class="bool-val">false</span>,
+            bench_results: BenchResults::default(),
+            nodes_post_results: <span class="number">0</span>,
         }
+    }
+
+    <span class="doccomment">/// Output the results to a csv file according to orchestrator state
+    </span><span class="kw">pub fn </span>output_to_csv(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span>output_csv = BenchResultsDownloadConfig {
+            commit_sha: <span class="self">self</span>.config.commit_sha.clone(),
+            total_nodes: <span class="self">self</span>.config.config.total_nodes.into(),
+            da_committee_size: <span class="self">self</span>.config.config.da_committee_size,
+            transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
+            transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
+            rounds: <span class="self">self</span>.config.rounds,
+            leader_election_type: <span class="self">self</span>.config.election_config_type_name.clone(),
+            avg_latency_in_sec: <span class="self">self</span>.bench_results.avg_latency_in_sec,
+            minimum_latency_in_sec: <span class="self">self</span>.bench_results.minimum_latency_in_sec,
+            maximum_latency_in_sec: <span class="self">self</span>.bench_results.maximum_latency_in_sec,
+            throughput_bytes_per_sec: <span class="self">self</span>.bench_results.throughput_bytes_per_sec,
+            total_transactions_committed: <span class="self">self</span>.bench_results.total_transactions_committed,
+            total_time_elapsed_in_sec: <span class="self">self</span>.bench_results.total_time_elapsed_in_sec,
+            total_num_views: <span class="self">self</span>.bench_results.total_num_views,
+            failed_num_views: <span class="self">self</span>.bench_results.failed_num_views,
+        };
+        <span class="comment">// Open a file for writing
+        </span><span class="kw">let </span><span class="kw-2">mut </span>wtr = Writer::from_path(<span class="string">"scripts/benchmarks_results/results.csv"</span>).unwrap();
+        <span class="kw">let _ </span>= wtr.serialize(output_csv);
+        <span class="kw">let _ </span>= wtr.flush();
+        <span class="macro">println!</span>(<span class="string">"Results successfully saved in scripts/benchmarks_results/results.csv"</span>);
     }
 }
 
@@ -499,27 +613,26 @@
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>get_start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt;;
+    <span class="doccomment">/// post endpoint for the results of the run
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metrics: BenchResults) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
     <span class="doccomment">/// post endpoint for whether or not all nodes are ready
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
-    <span class="doccomment">/// post endpoint for the results of the run
-    /// # Errors
-    /// if unable to serve
-    </span><span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
 }
 
 <span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
 <span class="kw">where
-    </span>KEY: serde::Serialize + Clone + SignatureKey,
-    ELECTION: serde::Serialize + Clone + Send + ElectionConfig,
+    </span>KEY: serde::Serialize + Clone + SignatureKey + <span class="lifetime">'static</span>,
+    ELECTION: serde::Serialize + Clone + Send + ElectionConfig + <span class="lifetime">'static</span>,
 {
     <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt; {
         <span class="kw">let </span>node_index = <span class="self">self</span>.latest_index;
         <span class="self">self</span>.latest_index += <span class="number">1</span>;
 
-        <span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/850
-        </span><span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
+        <span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: <span class="string">"Network has reached capacity"</span>.to_string(),
@@ -596,7 +709,7 @@
         }
         <span class="self">self</span>.pub_posted.insert(node_index);
 
-        <span class="comment">// The guess is extra 8 starting bytes are from orchestrator serialization
+        <span class="comment">// The guess is the first extra 8 bytes are from orchestrator serialization
         </span>pubkey.drain(..<span class="number">8</span>);
         <span class="kw">let </span>register_pub_key_with_stake = PeerConfig::&lt;KEY&gt;::from_bytes(pubkey).unwrap();
         <span class="self">self</span>.config.config.known_nodes_with_stake[node_index <span class="kw">as </span>usize] =
@@ -654,7 +767,50 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
+    <span class="comment">// Aggregates results of the run from all nodes
+    </span><span class="kw">fn </span>post_run_results(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metrics: BenchResults) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
+        <span class="kw">if </span>metrics.total_transactions_committed != <span class="number">0 </span>{
+            <span class="comment">// Deal with the bench results
+            </span><span class="kw">if </span><span class="self">self</span>.bench_results.total_transactions_committed == <span class="number">0 </span>{
+                <span class="self">self</span>.bench_results = metrics;
+            } <span class="kw">else </span>{
+                <span class="comment">// Deal with the bench results from different nodes
+                </span><span class="kw">let </span>cur_metrics = <span class="self">self</span>.bench_results.clone();
+                <span class="self">self</span>.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec
+                    * metrics.num_latency
+                    + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency)
+                    / (metrics.num_latency + cur_metrics.num_latency);
+                <span class="self">self</span>.bench_results.num_latency += metrics.num_latency;
+                <span class="self">self</span>.bench_results.minimum_latency_in_sec = metrics
+                    .minimum_latency_in_sec
+                    .min(cur_metrics.minimum_latency_in_sec);
+                <span class="self">self</span>.bench_results.maximum_latency_in_sec = metrics
+                    .maximum_latency_in_sec
+                    .max(cur_metrics.maximum_latency_in_sec);
+                <span class="self">self</span>.bench_results.throughput_bytes_per_sec = metrics
+                    .throughput_bytes_per_sec
+                    .max(cur_metrics.throughput_bytes_per_sec);
+                <span class="self">self</span>.bench_results.total_transactions_committed = metrics
+                    .total_transactions_committed
+                    .max(cur_metrics.total_transactions_committed);
+                <span class="macro">assert_eq!</span>(
+                    metrics.transaction_size_in_bytes,
+                    cur_metrics.transaction_size_in_bytes
+                );
+                <span class="self">self</span>.bench_results.total_time_elapsed_in_sec = metrics
+                    .total_time_elapsed_in_sec
+                    .max(cur_metrics.total_time_elapsed_in_sec);
+                <span class="self">self</span>.bench_results.total_num_views =
+                    metrics.total_num_views.min(cur_metrics.total_num_views);
+                <span class="self">self</span>.bench_results.failed_num_views =
+                    metrics.failed_num_views.max(cur_metrics.failed_num_views);
+            }
+        }
+        <span class="self">self</span>.nodes_post_results += <span class="number">1</span>;
+        <span class="kw">if </span><span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
+            <span class="self">self</span>.bench_results.printout();
+            <span class="self">self</span>.output_to_csv();
+        }
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -674,7 +830,7 @@
     </span>)))
     .expect(<span class="string">"API file is not valid toml"</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>api = Api::&lt;State, ServerError&gt;::new(api_toml)<span class="question-mark">?</span>;
-    api.post(<span class="string">"postidentity"</span>, |req, state| {
+    api.post(<span class="string">"post_identity"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>identity = req.string_param(<span class="string">"identity"</span>)<span class="question-mark">?</span>.parse::&lt;IpAddr&gt;();
             <span class="kw">if </span>identity.is_err() {
@@ -694,10 +850,10 @@
         }
         .boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">"tmp_node_index"</span>, |_req, state| {
+    </span>.post(<span class="string">"get_tmp_node_index"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_tmp_node_index() }.boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">"postpubkey"</span>, |req, state| {
+    </span>.post(<span class="string">"post_pubkey"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>node_index = req.integer_param(<span class="string">"node_index"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>pubkey = req.body_bytes();
@@ -708,18 +864,22 @@
     </span>.get(<span class="string">"peer_pubconfig_ready"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.peer_pub_ready() }.boxed()
     })<span class="question-mark">?
-    </span>.get(<span class="string">"config_after_peer_collected"</span>, |_req, state| {
+    </span>.get(<span class="string">"get_config_after_peer_collected"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_config_after_peer_collected() }.boxed()
     })<span class="question-mark">?
     </span>.post(
-        <span class="string">"postready"</span>,
+        <span class="string">"post_ready"</span>,
         |_req, state: <span class="kw-2">&amp;mut </span>&lt;State <span class="kw">as </span>ReadState&gt;::State| <span class="kw">async move </span>{ state.post_ready() }.boxed(),
     )<span class="question-mark">?
-    </span>.get(<span class="string">"getstart"</span>, |_req, state| {
+    </span>.get(<span class="string">"get_start"</span>, |_req, state| {
         <span class="kw">async move </span>{ state.get_start() }.boxed()
     })<span class="question-mark">?
-    </span>.post(<span class="string">"postresults"</span>, |_req, state| {
-        <span class="kw">async move </span>{ state.post_run_results() }.boxed()
+    </span>.post(<span class="string">"post_results"</span>, |req, state| {
+        <span class="kw">async move </span>{
+            <span class="kw">let </span>metrics: <span class="prelude-ty">Result</span>&lt;BenchResults, RequestError&gt; = req.body_json();
+            state.post_run_results(metrics.unwrap())
+        }
+        .boxed()
     })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(api)
 }

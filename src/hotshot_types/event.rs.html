@@ -100,6 +100,11 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
 </span><span class="kw">use crate</span>::{
@@ -168,6 +173,11 @@
     <span class="doccomment">/// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     </span>ViewFinished {
         <span class="doccomment">/// The view number that has just finished
+        </span>view_number: TYPES::Time,
+    },
+    <span class="doccomment">/// The view timed out
+    </span>ViewTimeout {
+        <span class="doccomment">/// The view that timed out
         </span>view_number: TYPES::Time,
     },
     <span class="doccomment">/// New transactions were received from the network
