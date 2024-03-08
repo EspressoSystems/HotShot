@@ -16,7 +16,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 
-use futures::join;
+use futures::{join, select, FutureExt};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -415,13 +415,16 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        let mut primary_msgs = self.primary().recv_msgs().await?;
-        let mut secondary_msgs = self.secondary().recv_msgs().await?;
+        let mut primary_fut = self.primary().recv_msgs().fuse();
+        let mut secondary_fut = self.secondary().recv_msgs().fuse();
 
-        primary_msgs.append(secondary_msgs.as_mut());
+        let msgs = select! {
+            p = primary_fut => p?,
+            s = secondary_fut => s?,
+        };
 
-        let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
-        for msg in primary_msgs {
+        let mut filtered_msgs = Vec::with_capacity(msgs.len());
+        for msg in msgs {
             // see if we've already seen this message
             if !self
                 .message_cache
