@@ -18,6 +18,7 @@ use std::{
     net::{IpAddr, SocketAddr},
 };
 use tide_disco::{Api, App, RequestError};
+use tracing::debug;
 
 use surf_disco::Url;
 use tide_disco::{
@@ -259,7 +260,7 @@ where
         self.config.config.known_nodes_with_stake[node_index as usize] =
             register_pub_key_with_stake;
         self.nodes_with_pubkey += 1;
-        println!(
+        debug!(
             "Node {:?} posted public key, now total num posted public key: {:?}",
             node_index, self.nodes_with_pubkey
         );
@@ -450,6 +451,6 @@ where
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", web_api.unwrap())
         .expect("Error registering api");
-    tracing::error!("listening on {:?}", url);
+    tracing::debug!("listening on {:?}", url);
     app.serve(url).await
 }

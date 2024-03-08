@@ -62,7 +62,7 @@ use chrono::Utc;
 use libp2p_identity::PeerId;
 use std::fmt::Debug;
 use std::{fs, time::Instant};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -252,7 +252,7 @@ pub async fn run_orchestrator<
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
-    error!("Starting orchestrator",);
+    println!("Starting orchestrator",);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -528,10 +528,10 @@ pub trait RunDA<
         let mut total_latency = 0;
         let mut num_latency = 0;
 
-        error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+        debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        error!("Starting HotShot example!");
+        debug!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -632,12 +632,11 @@ pub trait RunDA<
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
-        error!("Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
         // +2 is for uncommitted views
         assert!(total_num_views <= (failed_num_views + num_successful_commits + 2));
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        println!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         if total_transactions_committed != 0 {
             // extra 8 bytes for timestamp
             let throughput_bytes_per_sec = total_transactions_committed
@@ -938,7 +937,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    error!("Starting validator");
+    debug!("Starting validator");
 
     // see what our public identity will be
     let public_ip = match args.public_ip {
@@ -968,7 +967,7 @@ pub async fn main_entry_point<
         )
         .await;
 
-    error!("Initializing networking");
+    debug!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
@@ -1004,13 +1003,13 @@ pub async fn main_entry_point<
     }
 
     if let NetworkConfigSource::Orchestrator = source {
-        error!("Waiting for the start command from orchestrator");
+        debug!("Waiting for the start command from orchestrator");
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .await;
     }
 
-    error!("Starting HotShot");
+    debug!("Starting HotShot");
     let bench_results = run
         .run_hotshot(
             hotshot,
