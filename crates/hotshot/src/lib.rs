@@ -309,7 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
         async_spawn(async move {
-            let da_membership = &api.memberships.da_membership.clone();
+            let membership = &api.memberships.quorum_membership.clone();
             join! {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
@@ -324,7 +324,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(view_number),
+                        membership.get_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {

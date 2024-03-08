@@ -16,7 +16,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 
-use futures::join;
+use futures::{join, select, FutureExt};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -24,7 +24,7 @@ use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImple
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
-    message::Message,
+    message::{self, Message},
     traits::{
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::NodeType,
@@ -149,7 +149,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
             primary_down: Arc::new(AtomicU64::new(0)),
             delayed_tasks: Arc::default(),
-            delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
+            delay_duration: Arc::new(RwLock::new(Duration::from_millis(5000))),
         }
     }
 
@@ -339,25 +339,26 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        let primary = self.primary().clone();
-        let secondary = self.secondary().clone();
-        let primary_message = message.clone();
-        let secondary_message = message.clone();
-        let primary_recipients = recipients.clone();
-        self.send_both_networks(
-            message,
-            async move {
-                primary
-                    .broadcast_message(primary_message, primary_recipients)
-                    .await
-            },
-            async move {
-                secondary
-                    .broadcast_message(secondary_message, recipients)
-                    .await
-            },
-        )
-        .await
+        // let primary = self.primary().clone();
+        // let secondary = self.secondary().clone();
+        // let primary_message = message.clone();
+        // let secondary_message = message.clone();
+        // let primary_recipients = recipients.clone();
+        // self.send_both_networks(
+        //     message,
+        //     async move {
+        //         primary
+        //             .broadcast_message(primary_message, primary_recipients)
+        //             .await
+        //     },
+        //     async move {
+        //         secondary
+        //             .broadcast_message(secondary_message, recipients)
+        //             .await
+        //     },
+        // )
+        // .await
+        self.secondary().broadcast_message(message, recipients).await
     }
 
     async fn da_broadcast_message(
@@ -365,25 +366,26 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        let primary = self.primary().clone();
-        let secondary = self.secondary().clone();
-        let primary_message = message.clone();
-        let secondary_message = message.clone();
-        let primary_recipients = recipients.clone();
-        self.send_both_networks(
-            message,
-            async move {
-                primary
-                    .da_broadcast_message(primary_message, primary_recipients)
-                    .await
-            },
-            async move {
-                secondary
-                    .da_broadcast_message(secondary_message, recipients)
-                    .await
-            },
-        )
-        .await
+        // let primary = self.primary().clone();
+        // let secondary = self.secondary().clone();
+        // let primary_message = message.clone();
+        // let secondary_message = message.clone();
+        // let primary_recipients = recipients.clone();
+        // self.send_both_networks(
+        //     message,
+        //     async move {
+        //         primary
+        //             .da_broadcast_message(primary_message, primary_recipients)
+        //             .await
+        //     },
+        //     async move {
+        //         secondary
+        //             .da_broadcast_message(secondary_message, recipients)
+        //             .await
+        //     },
+        // )
+        // .await
+        self.secondary().da_broadcast_message(message, recipients).await
     }
 
     async fn direct_message(
@@ -391,21 +393,23 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        let primary = self.primary().clone();
-        let secondary = self.secondary().clone();
-        let primary_message = message.clone();
-        let secondary_message = message.clone();
-        let primary_recipient = recipient.clone();
-        self.send_both_networks(
-            message,
-            async move {
-                primary
-                    .direct_message(primary_message, primary_recipient)
-                    .await
-            },
-            async move { secondary.direct_message(secondary_message, recipient).await },
-        )
-        .await
+        // let primary = self.primary().clone();
+        // let secondary = self.secondary().clone();
+        // let primary_message = message.clone();
+        // let secondary_message = message.clone();
+        // let primary_recipient = recipient.clone();
+        // self.send_both_networks(
+        //     message,
+        //     async move {
+        //         primary
+        //             .direct_message(primary_message, primary_recipient)
+        //             .await
+        //     },
+        //     async move { secondary.direct_message(secondary_message, recipient).await },
+        // )
+        // .await
+        self.secondary().direct_message(message, recipient).await
+        // self.secondary().direct_message(message.clone(), recipient.clone()).await
     }
 
     /// Receive one or many messages from the underlying network.
@@ -415,13 +419,17 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        let mut primary_msgs = self.primary().recv_msgs().await?;
-        let mut secondary_msgs = self.secondary().recv_msgs().await?;
+        let mut prim = self.primary().recv_msgs().fuse();
+        let mut sec = self.secondary().recv_msgs().fuse();
+        let messages = select! {
+            p = prim => p?,
+            b = sec => b? 
+        };
 
-        primary_msgs.append(secondary_msgs.as_mut());
+        // primary_msgs.append(secondary_msgs.as_mut());
 
-        let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
-        for msg in primary_msgs {
+        let mut filtered_msgs = Vec::with_capacity(messages.len());
+        for msg in messages {
             // see if we've already seen this message
             if !self
                 .message_cache
@@ -459,25 +467,25 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             inject_consensus_info(self.secondary(), event).await;
     }
 
-    async fn update_view(&self, view: &u64) {
-        let mut cancel_tasks = Vec::new();
-        {
-            let mut map_lock = self.delayed_tasks.write().await;
-            while let Some((first_view, _tasks)) = map_lock.first_key_value() {
-                if first_view < view {
-                    if let Some((_view, tasks)) = map_lock.pop_first() {
-                        let mut ctasks = tasks.into_iter().map(cancel_task).collect();
-                        cancel_tasks.append(&mut ctasks);
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-        join_all(cancel_tasks).await;
-    }
+    // async fn update_view(&self, view: u64) {
+    //     let mut cancel_tasks = Vec::new();
+    //     {
+    //         let mut map_lock = self.delayed_tasks.write().await;
+    //         while let Some((first_view, _tasks)) = map_lock.first_key_value() {
+    //             if *first_view < view {
+    //                 if let Some((_view, tasks)) = map_lock.pop_first() {
+    //                     cancel_tasks = tasks.into_iter().map(cancel_task).collect();
+    //                 } else {
+    //                     break;
+    //                 }
+    //             } else {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     // tracing::error!("cancelling {} for view {}", cancel_tasks.len(), view);
+    //     join_all(cancel_tasks).await;
+    // }
 }
 
 #[cfg(test)]

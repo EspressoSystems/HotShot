@@ -354,7 +354,9 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.channel.update_view(&self.view.get_u64()).await;
+                // let view_int = self.view.get_u64();
+                // let net = self.channel.clone();
+                // async_spawn(async move {net.update_view(view_int).await});
                 return None;
             }
             HotShotEvent::Shutdown => {
