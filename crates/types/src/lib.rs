@@ -173,8 +173,6 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
-    /// Delay before sending through the secondary network in CombinedNetworks
-    pub secondary_network_delay: Duration,
     /// the election configuration
     pub election_config: Option<ELECTIONCONFIG>,
 }

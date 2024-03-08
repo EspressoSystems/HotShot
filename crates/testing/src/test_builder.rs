@@ -265,7 +265,6 @@ impl TestMetadata {
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
-            secondary_network_delay: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 total_nodes as u64,
@@ -289,7 +288,6 @@ impl TestMetadata {
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;
-                a.secondary_network_delay = secondary_network_delay;
             };
 
         TestLauncher {
@@ -299,6 +297,7 @@ impl TestMetadata {
                     num_bootstrap_nodes,
                     da_committee_size,
                     unreliable_network,
+                    secondary_network_delay,
                 ),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
