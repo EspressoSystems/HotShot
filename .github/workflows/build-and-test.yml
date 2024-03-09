@@ -58,6 +58,12 @@ jobs:
         env:
           RUST_BACKTRACE: full
 
+      - name: Benchmark runs
+        run: just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
+        # Sishan TODO: change to running the script for benchmarking, and record results for all of them
+        # Sishan TODO: add commit_sha
+        # Sishan TODO: add notes field
+
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
