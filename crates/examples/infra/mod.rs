@@ -425,12 +425,10 @@ pub trait RunDA<
                         EventType::Decide {
                             leaf_chain,
                             qc: _,
-                            validated_state: _,
-                            state_delta: _,
                             block_size,
                         } => {
                             // this might be a obob
-                            if let Some((leaf, _)) = leaf_chain.first() {
+                            if let Some((leaf, _, _, _)) = leaf_chain.first() {
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 let new_anchor = leaf.view_number;

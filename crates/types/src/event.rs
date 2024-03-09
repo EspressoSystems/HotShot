@@ -22,7 +22,12 @@ pub struct Event<TYPES: NodeType> {
 }
 
 /// The chain of leafs decided on with corresponding VID info if we have it
-pub type LeafChain<TYPES> = Vec<(Leaf<TYPES>, Option<VidDisperse<TYPES>>)>;
+pub type LeafChain<TYPES> = Vec<(
+    Leaf<TYPES>,
+    Arc<<TYPES as NodeType>::ValidatedState>,
+    Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+    Option<VidDisperse<TYPES>>,
+)>;
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///
 /// This enum does not include metadata shared among all variants, such as the stage and view
@@ -50,10 +55,6 @@ pub enum EventType<TYPES: NodeType> {
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
         qc: Arc<QuorumCertificate<TYPES>>,
-        /// Validated state after applying the leaf chain.
-        validated_state: Arc<TYPES::ValidatedState>,
-        /// Application-specific state delta.
-        state_delta: Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>,
         /// Optional information of the number of transactions in the block, for logging purposes.
         block_size: Option<u64>,
     },

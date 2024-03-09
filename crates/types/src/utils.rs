@@ -1,6 +1,10 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use crate::{data::Leaf, traits::node_implementation::NodeType, vid::VidCommitment};
+use crate::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    vid::VidCommitment,
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use commit::Commitment;
 use digest::OutputSizeUser;
@@ -27,19 +31,29 @@ pub enum ViewInner<TYPES: NodeType> {
         leaf: LeafCommitment<TYPES>,
         /// Validated state.
         state: Arc<TYPES::ValidatedState>,
+        /// Optional state delta.
+        delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
     },
     /// Leaf has failed
     Failed,
 }
 
 /// The hash of a leaf.
-pub type LeafCommitment<TYPES> = Commitment<Leaf<TYPES>>;
+type LeafCommitment<TYPES> = Commitment<Leaf<TYPES>>;
+
+/// Optional validated state and state delta.
+pub type StateAndDelta<TYPES> = (
+    Option<Arc<<TYPES as NodeType>::ValidatedState>>,
+    Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+);
 
 impl<TYPES: NodeType> ViewInner<TYPES> {
-    /// Return the underlying undecide leaf view if it exists.
+    /// Return the underlying undecide leaf commitment and validated state if they exist.
     #[must_use]
-    pub fn get_leaf(&self) -> Option<(LeafCommitment<TYPES>, &Arc<TYPES::ValidatedState>)> {
-        if let Self::Leaf { leaf, state } = self {
+    pub fn get_leaf_and_state(
+        &self,
+    ) -> Option<(LeafCommitment<TYPES>, &Arc<TYPES::ValidatedState>)> {
+        if let Self::Leaf { leaf, state, .. } = self {
             Some((*leaf, state))
         } else {
             None
@@ -63,6 +77,16 @@ impl<TYPES: NodeType> ViewInner<TYPES> {
             Some(state)
         } else {
             None
+        }
+    }
+
+    /// Return the underlying validated state and state delta if they exist.
+    #[must_use]
+    pub fn get_state_and_delta(&self) -> StateAndDelta<TYPES> {
+        if let Self::Leaf { state, delta, .. } = self {
+            (Some(state.clone()), delta.clone())
+        } else {
+            (None, None)
         }
     }
 

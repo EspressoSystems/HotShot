@@ -2,7 +2,7 @@ use hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
-    data::{Leaf, VidDisperse},
+    data::Leaf,
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
@@ -157,8 +157,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             EventType::Decide {
                 leaf_chain,
                 qc,
-                validated_state: _,
-                state_delta: _,
                 block_size: maybe_block_size,
             } => {
                 // Skip the genesis leaf.
@@ -207,7 +205,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             view.update_status(
                 threshold,
                 len,
-                &key.0,
+                &key,
                 check_leaf,
                 check_block,
                 transaction_threshold,
@@ -360,11 +358,11 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         idx: usize,
         result: (LeafChain<TYPES>, QuorumCertificate<TYPES>),
         maybe_block_size: Option<u64>,
-    ) -> Option<(Leaf<TYPES>, Option<VidDisperse<TYPES>>)> {
+    ) -> Option<Leaf<TYPES>> {
         self.success_nodes.insert(idx as u64, result.clone());
 
-        let maybe_leaf: Option<(Leaf<TYPES>, _)> = result.0.into_iter().last();
-        if let Some((leaf, _)) = maybe_leaf.clone() {
+        let maybe_leaf = result.0.into_iter().last();
+        if let Some((leaf, _, _, _)) = maybe_leaf.clone() {
             match self.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
                     *o.get_mut() += 1;
@@ -395,8 +393,9 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                     }
                 }
             }
+            return Some(leaf);
         }
-        maybe_leaf
+        None
     }
 
     /// check if the test failed due to not enough nodes getting through enough views
@@ -476,7 +475,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
 
         for (leaf_vec, _) in self.success_nodes.values() {
             let most_recent_leaf = leaf_vec.iter().last();
-            if let Some((leaf, _)) = most_recent_leaf {
+            if let Some((leaf, _, _, _)) = most_recent_leaf {
                 match leaves.entry(leaf.clone()) {
                     std::collections::hash_map::Entry::Occupied(mut o) => {
                         *o.get_mut() += 1;

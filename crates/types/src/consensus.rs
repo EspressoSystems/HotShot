@@ -10,8 +10,9 @@ use crate::{
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
+        ValidatedState,
     },
-    utils::Terminator,
+    utils::{StateAndDelta, Terminator},
 };
 use commit::Commitment;
 
@@ -255,7 +256,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         mut f: F,
     ) -> Result<(), HotShotError<TYPES>>
     where
-        F: FnMut(&Leaf<TYPES>) -> bool,
+        F: FnMut(
+            &Leaf<TYPES>,
+            Arc<<TYPES as NodeType>::ValidatedState>,
+            Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+        ) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.validated_state_map.get(&start_from) {
             view.get_leaf_commitment()
@@ -271,25 +276,32 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
-            if let Terminator::Exclusive(stop_before) = terminator {
-                if stop_before == leaf.get_view_number() {
-                    if ok_when_finished {
-                        return Ok(());
+            let view = leaf.get_view_number();
+            if let (Some(state), delta) = self.get_state_and_delta(view) {
+                if let Terminator::Exclusive(stop_before) = terminator {
+                    if stop_before == view {
+                        if ok_when_finished {
+                            return Ok(());
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
-            next_leaf = leaf.get_parent_commitment();
-            if !f(leaf) {
-                return Ok(());
-            }
-            if let Terminator::Inclusive(stop_after) = terminator {
-                if stop_after == leaf.get_view_number() {
-                    if ok_when_finished {
-                        return Ok(());
+                next_leaf = leaf.get_parent_commitment();
+                if !f(leaf, state, delta) {
+                    return Ok(());
+                }
+                if let Terminator::Inclusive(stop_after) = terminator {
+                    if stop_after == view {
+                        if ok_when_finished {
+                            return Ok(());
+                        }
+                        break;
                     }
-                    break;
                 }
+            } else {
+                return Err(HotShotError::InvalidState {
+                    context: format!("View {view:?} state does not exist in state map "),
+                });
             }
         }
         Err(HotShotError::LeafNotFound {})
@@ -350,15 +362,25 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
     }
 
+    /// Gets the validated state and state delta with the given view number, if in the state map.
+    #[must_use]
+    pub fn get_state_and_delta(&self, view_number: TYPES::Time) -> StateAndDelta<TYPES> {
+        match self.validated_state_map.get(&view_number) {
+            Some(view) => view.get_state_and_delta(),
+            None => (None, None),
+        }
+    }
+
     /// Gets the last decided validated state.
     ///
     /// # Panics
     /// If the last decided view's state does not exist in the state map, which should never
     /// happen.
     #[must_use]
-    pub fn get_decided_state(&self) -> &Arc<TYPES::ValidatedState> {
+    pub fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
         let decided_view_num = self.last_decided_view;
-        self.get_state(decided_view_num)
+        self.get_state_and_delta(decided_view_num)
+            .0
             .expect("Decided state not found! Consensus internally inconsistent")
     }
 }

@@ -19,7 +19,7 @@ use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 pub trait InstanceState: Clone + Debug + Send + Sync {}
 
 /// Application-specific state delta, which will be used to store a list of merkle tree entries.
-pub trait StateDelta: Clone + Debug + Send + Sync {}
+pub trait StateDelta: Debug + Send + Sync {}
 
 /// Abstraction over the state that blocks modify
 ///
@@ -31,7 +31,7 @@ pub trait StateDelta: Clone + Debug + Send + Sync {}
 /// produce a new state, with the modifications from the block applied
 /// ([`validate_and_apply_header`](`ValidatedState::validate_and_apply_header))
 pub trait ValidatedState<TYPES: NodeType>:
-    Clone + Serialize + DeserializeOwned + Debug + Default + Hash + PartialEq + Eq + Send + Sync
+    Serialize + DeserializeOwned + Debug + Default + Hash + PartialEq + Eq + Send + Sync
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
