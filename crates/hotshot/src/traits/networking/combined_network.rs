@@ -462,24 +462,27 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             inject_consensus_info(self.secondary(), event).await;
     }
 
-    async fn update_view(&self, view: &u64) {
-        let mut cancel_tasks = Vec::new();
-        {
-            let mut map_lock = self.delayed_tasks.write().await;
-            while let Some((first_view, _tasks)) = map_lock.first_key_value() {
-                if first_view < view {
-                    if let Some((_view, tasks)) = map_lock.pop_first() {
-                        let mut ctasks = tasks.into_iter().map(cancel_task).collect();
-                        cancel_tasks.append(&mut ctasks);
+    fn update_view(&self, view: u64) {
+        let delayed_map = self.delayed_tasks.clone();
+        async_spawn(async move {
+            let mut cancel_tasks = Vec::new();
+            {
+                let mut map_lock = delayed_map.write().await;
+                while let Some((first_view, _tasks)) = map_lock.first_key_value() {
+                    if *first_view < view {
+                        if let Some((_view, tasks)) = map_lock.pop_first() {
+                            let mut ctasks = tasks.into_iter().map(cancel_task).collect();
+                            cancel_tasks.append(&mut ctasks);
+                        } else {
+                            break;
+                        }
                     } else {
                         break;
                     }
-                } else {
-                    break;
                 }
             }
-        }
-        join_all(cancel_tasks).await;
+            join_all(cancel_tasks).await;
+        });
     }
 }
 
