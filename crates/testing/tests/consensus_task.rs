@@ -324,7 +324,8 @@ async fn test_view_sync_finalize_propose() {
     };
 
     let cert = proposals[2].data.view_sync_certificate.clone().unwrap();
-    // Move to view 2 and obtain a ViewSyncFinalizeCertificate2Recv and propose.
+
+    // Move to view 3 and obtain a ViewSyncFinalizeCertificate2Recv and propose for view 4.
     let view_3 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
