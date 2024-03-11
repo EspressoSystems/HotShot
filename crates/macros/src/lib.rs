@@ -164,7 +164,6 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     } }
 
     };
-    // println!("{expanded}");
 
     expanded.into()
 }
