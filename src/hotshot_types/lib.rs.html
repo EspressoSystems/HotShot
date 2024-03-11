@@ -177,6 +177,13 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>displaydoc::Display;
@@ -327,17 +334,24 @@
     <span class="doccomment">/// Whether to run one view or continuous views
     </span><span class="kw">pub </span>execution_type: ExecutionType,
     <span class="doccomment">/// Total number of nodes in the network
-    </span><span class="kw">pub </span>total_nodes: NonZeroUsize,
+    </span><span class="comment">// Earlier it was total_nodes
+    </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
+    <span class="doccomment">/// Number of nodes without stake
+    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="doccomment">/// Minimum transactions per block
     </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// Maximum transactions per block
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
     <span class="doccomment">/// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
+    <span class="doccomment">/// List of known non-staking nodes' public keys
+    </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
     <span class="doccomment">/// My own validator config, including my public key, private key, stake value, serving as private parameter
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
-    <span class="doccomment">/// List of DA committee nodes for static DA committe
-    </span><span class="kw">pub </span>da_committee_size: usize,
+    <span class="doccomment">/// List of DA committee (staking)nodes for static DA committe
+    </span><span class="kw">pub </span>da_staked_committee_size: usize,
+    <span class="doccomment">/// List of DA committee nodes (non-staking)nodes for static DA committe
+    </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
     </span><span class="kw">pub </span>next_view_timeout: u64,
     <span class="doccomment">/// The exponential backoff ration for the next-view timeout

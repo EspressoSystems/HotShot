@@ -148,21 +148,83 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
-</span><span class="kw">use </span>hotshot_types::signature_key::BLSPubKey;
+</span><span class="kw">use </span>ethereum_types::U256;
+<span class="kw">use </span>hotshot_types::signature_key::BLSPubKey;
 <span class="kw">use </span>hotshot_types::traits::{
     election::{ElectionConfig, Membership},
     node_implementation::NodeType,
-    signature_key::SignatureKey,
+    signature_key::{SignatureKey, StakeTableEntryType},
 };
 <span class="kw">use </span>hotshot_types::PeerConfig;
+<span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
+</span><span class="kw">use </span>rand::{rngs::StdRng, Rng};
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
 <span class="kw">use </span>tracing::debug;
-
-<span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
-</span><span class="kw">use </span>rand::{rngs::StdRng, Rng};
 
 <span class="doccomment">/// Dummy implementation of [`Membership`]
 
@@ -172,6 +234,8 @@
     </span>nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
     <span class="doccomment">/// The nodes on the static committee and their stake
     </span>committee_nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
+    <span class="doccomment">/// builder nodes
+    </span>committee_nodes_without_stake: Vec&lt;PUBKEY&gt;,
     <span class="doccomment">/// Node type phantom
     </span>_type_phantom: PhantomData&lt;T&gt;,
 }
@@ -182,10 +246,15 @@
 <span class="kw">impl</span>&lt;T, PUBKEY: SignatureKey&gt; GeneralStaticCommittee&lt;T, PUBKEY&gt; {
     <span class="doccomment">/// Creates a new dummy elector
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(_nodes: <span class="kw-2">&amp;</span>[PUBKEY], nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(
+        _nodes: <span class="kw-2">&amp;</span>[PUBKEY],
+        nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt;,
+        nodes_without_stake: Vec&lt;PUBKEY&gt;,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes_with_stake: nodes_with_stake,
+            committee_nodes_without_stake: nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -195,7 +264,9 @@
 </span><span class="attr">#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 </span><span class="kw">pub struct </span>StaticElectionConfig {
     <span class="doccomment">/// Number of nodes on the committee
-    </span>num_nodes: u64,
+    </span>num_nodes_with_stake: u64,
+    <span class="doccomment">/// Number of non staking nodes
+    </span>num_nodes_without_stake: u64,
 }
 
 <span class="kw">impl </span>ElectionConfig <span class="kw">for </span>StaticElectionConfig {}
@@ -245,8 +316,14 @@
         </span>}
     }
 
-    <span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; TYPES::ElectionConfigType {
-        StaticElectionConfig { num_nodes }
+    <span class="kw">fn </span>default_election_config(
+        num_nodes_with_stake: u64,
+        num_nodes_without_stake: u64,
+    ) -&gt; TYPES::ElectionConfigType {
+        StaticElectionConfig {
+            num_nodes_with_stake,
+            num_nodes_without_stake,
+        }
     }
 
     <span class="kw">fn </span>create_election(
@@ -257,12 +334,27 @@
             .iter()
             .map(|x| x.stake_table_entry.clone())
             .collect();
-        <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt; = nodes_with_stake.clone();
-        <span class="macro">debug!</span>(<span class="string">"Election Membership Size: {}"</span>, config.num_nodes);
-        committee_nodes_with_stake.truncate(config.num_nodes.try_into().unwrap());
+
+        <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes_with_stake: Vec&lt;PUBKEY::StakeTableEntry&gt; = Vec::new();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>committee_nodes_without_stake: Vec&lt;PUBKEY&gt; = Vec::new();
+        <span class="comment">// filter out the committee nodes with non-zero state and zero stake
+        </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>nodes_with_stake {
+            <span class="kw">if </span>node.get_stake() == U256::from(<span class="number">0</span>) {
+                committee_nodes_without_stake.push(PUBKEY::get_public_key(node));
+            } <span class="kw">else </span>{
+                committee_nodes_with_stake.push(node.clone());
+            }
+        }
+        <span class="macro">debug!</span>(<span class="string">"Election Membership Size: {}"</span>, config.num_nodes_with_stake);
+        <span class="comment">// truncate committee_nodes_with_stake to only `num_nodes`
+        // since the `num_nodes_without_stake` are not part of the committee,
+        </span>committee_nodes_with_stake.truncate(config.num_nodes_with_stake.try_into().unwrap());
+        committee_nodes_without_stake.truncate(config.num_nodes_without_stake.try_into().unwrap());
         <span class="self">Self </span>{
             nodes_with_stake,
             committee_nodes_with_stake,
+            committee_nodes_without_stake,
             _type_phantom: PhantomData,
         }
     }
@@ -283,7 +375,7 @@
         NonZeroU64::new(((<span class="self">self</span>.committee_nodes_with_stake.len() <span class="kw">as </span>u64 * <span class="number">9</span>) / <span class="number">10</span>) + <span class="number">1</span>).unwrap()
     }
 
-    <span class="kw">fn </span>get_committee(
+    <span class="kw">fn </span>get_staked_committee(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
@@ -295,6 +387,38 @@
                 )
             })
             .collect()
+    }
+
+    <span class="kw">fn </span>get_non_staked_committee(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
+        <span class="self">self</span>.committee_nodes_without_stake.iter().cloned().collect()
+    }
+
+    <span class="kw">fn </span>get_whole_committee(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>committee = <span class="self">self</span>.get_staked_committee(view_number);
+        committee.extend(<span class="self">self</span>.get_non_staked_committee(view_number));
+        committee
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES, PUBKEY: SignatureKey + <span class="lifetime">'static</span>&gt; GeneralStaticCommittee&lt;TYPES, PUBKEY&gt;
+<span class="kw">where
+    </span>TYPES: NodeType&lt;SignatureKey = PUBKEY, ElectionConfigType = StaticElectionConfig&gt;,
+{
+    <span class="attr">#[allow(clippy::must_use_candidate)]
+    </span><span class="doccomment">/// get the non-staked builder nodes
+    </span><span class="kw">pub fn </span>non_staked_nodes_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.committee_nodes_without_stake.len()
+    }
+    <span class="attr">#[allow(clippy::must_use_candidate)]
+    </span><span class="doccomment">/// get all the non-staked nodes
+    </span><span class="kw">pub fn </span>get_non_staked_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY&gt; {
+        <span class="self">self</span>.committee_nodes_without_stake.clone()
     }
 }
 </code></pre></div></section></main></body></html>

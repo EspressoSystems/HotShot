@@ -775,7 +775,7 @@
             kind: message_kind,
         };
         <span class="kw">let </span>view = message.kind.get_view_number();
-        <span class="kw">let </span>committee = membership.get_committee(view);
+        <span class="kw">let </span>committee = membership.get_whole_committee(view);
         <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {

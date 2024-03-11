@@ -303,6 +303,29 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -344,8 +367,10 @@
 <span class="doccomment">/// metadata describing a test
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>TestMetadata {
-    <span class="doccomment">/// Total number of nodes in the test
-    </span><span class="kw">pub </span>total_nodes: usize,
+    <span class="doccomment">/// Total number of staked nodes in the test
+    </span><span class="kw">pub </span>num_nodes_with_stake: usize,
+    <span class="doccomment">/// Total number of non-staked nodes in the test
+    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="doccomment">/// nodes available at start
     </span><span class="kw">pub </span>start_nodes: usize,
     <span class="doccomment">/// Whether to skip initializing nodes that will start late, which will catch up later with
@@ -353,8 +378,10 @@
     </span><span class="kw">pub </span>skip_late: bool,
     <span class="doccomment">/// number of bootstrap nodes (libp2p usage only)
     </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
-    <span class="doccomment">/// Size of the DA committee for the test
-    </span><span class="kw">pub </span>da_committee_size: usize,
+    <span class="doccomment">/// Size of the staked DA committee for the test
+    </span><span class="kw">pub </span>da_staked_committee_size: usize,
+    <span class="doccomment">/// Size of the non-staked DA committee for the test
+    </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
     <span class="doccomment">/// overall safety property description
     </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription,
     <span class="doccomment">/// spinning properties
@@ -389,12 +416,16 @@
 <span class="kw">impl </span>TestMetadata {
     <span class="doccomment">/// the default metadata for a stress test
     </span><span class="attr">#[must_use]
+    #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>num_nodes = <span class="number">100</span>;
+        <span class="kw">let </span>num_nodes_with_stake = <span class="number">100</span>;
+        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
+
         TestMetadata {
-            num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">50</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -410,21 +441,24 @@
                 round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
 
     <span class="doccomment">/// the default metadata for multiple rounds
     </span><span class="attr">#[must_use]
+    #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
-        <span class="kw">let </span>num_nodes = <span class="number">10</span>;
+        <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
+        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         TestMetadata {
             <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
-            </span>num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            </span>num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">20</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -438,25 +472,28 @@
                 round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
 
     <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
     </span><span class="attr">#[must_use]
+    #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestMetadata {
-        <span class="kw">let </span>num_nodes = <span class="number">20</span>;
+        <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
+        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         TestMetadata {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            num_bootstrap_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
+            num_bootstrap_nodes: num_nodes_with_stake,
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
             // TODO: Update message broadcasting to avoid hanging
             // &lt;https://github.com/EspressoSystems/HotShot/issues/1567&gt;
-            </span>da_committee_size: <span class="number">14</span>,
+            </span>da_staked_committee_size: <span class="number">14</span>,
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     <span class="comment">// Increase the duration to get the expected number of successful views.
@@ -470,7 +507,7 @@
                 next_view_timeout: <span class="number">5000</span>,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
@@ -478,16 +515,20 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>TestMetadata {
     <span class="doccomment">/// by default, just a single round
+    </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>num_nodes = <span class="number">6</span>;
+        <span class="kw">let </span>num_nodes_with_stake = <span class="number">6</span>;
+        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         <span class="self">Self </span>{
             timing_data: TimingData::default(),
             min_transactions: <span class="number">0</span>,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             skip_late: <span class="bool-val">false</span>,
-            num_bootstrap_nodes: num_nodes,
-            da_committee_size: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            da_staked_committee_size: num_nodes_with_stake,
+            da_non_staked_committee_size: num_nodes_without_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: <span class="macro">vec!</span>[],
             },
@@ -501,7 +542,7 @@
                 },
             ),
             unreliable_network: <span class="prelude-val">None</span>,
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
         }
     }
 }
@@ -523,18 +564,18 @@
         </span>I: NodeImplementation&lt;TYPES&gt;,
     {
         <span class="kw">let </span>TestMetadata {
-            total_nodes,
+            num_nodes_with_stake,
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
-            da_committee_size,
-
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             unreliable_network,
             ..
         } = <span class="self">self</span>.clone();
 
         <span class="comment">// We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
-        </span><span class="kw">let </span>known_nodes_with_stake = (<span class="number">0</span>..total_nodes)
+        </span><span class="kw">let </span>known_nodes_with_stake = (<span class="number">0</span>..num_nodes_with_stake)
             .map(|node_id_| {
                 <span class="kw">let </span>cur_validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
                     ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id_ <span class="kw">as </span>u64, <span class="number">1</span>);
@@ -553,13 +594,17 @@
         </span><span class="kw">let </span>config = HotShotConfig {
             <span class="comment">// TODO this doesn't exist anymore
             </span>execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
+            <span class="comment">// Currently making this zero for simplicity
+            </span>num_nodes_without_stake: <span class="number">0</span>,
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
             max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
             known_nodes_with_stake,
+            known_nodes_without_stake: <span class="macro">vec!</span>[],
             my_own_validator_config,
-            da_committee_size,
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             next_view_timeout: <span class="number">500</span>,
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">1</span>,
@@ -569,7 +614,8 @@
             propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
             <span class="comment">// TODO what's the difference between this and the second config?
             </span>election_config: <span class="prelude-val">Some</span>(TYPES::Membership::default_election_config(
-                total_nodes <span class="kw">as </span>u64,
+                num_nodes_with_stake <span class="kw">as </span>u64,
+                <span class="number">0</span>,
             )),
         };
         <span class="kw">let </span>TimingData {
@@ -594,9 +640,9 @@
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: &lt;I <span class="kw">as </span>TestableNodeImplementation&lt;TYPES&gt;&gt;::gen_networks(
-                    total_nodes,
+                    num_nodes_with_stake,
                     num_bootstrap_nodes,
-                    da_committee_size,
+                    da_staked_committee_size,
                     unreliable_network,
                 ),
                 storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),

@@ -991,7 +991,7 @@
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(view_number),
+                        da_membership.get_whole_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
@@ -1232,7 +1232,7 @@
     <span class="kw">for </span>SystemContextHandle&lt;TYPES, I&gt;
 {
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
-        <span class="self">self</span>.hotshot.config.total_nodes
+        <span class="self">self</span>.hotshot.config.num_nodes_with_stake
     }
 
     <span class="kw">fn </span>propose_min_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {

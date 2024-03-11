@@ -349,7 +349,7 @@
     // With the Push CDN, we are _always_ polling for latest anyway.
     </span><span class="kw">let </span>is_da = consensus_state
         .committee_membership
-        .get_committee(&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(<span class="number">0</span>))
+        .get_whole_committee(&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(<span class="number">0</span>))
         .contains(<span class="kw-2">&amp;</span>consensus_state.public_key);
 
     <span class="comment">// If we are, poll for latest DA proposal.

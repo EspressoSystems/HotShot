@@ -553,8 +553,8 @@
     </span><span class="kw">pub fn </span>output_to_csv(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>output_csv = BenchResultsDownloadConfig {
             commit_sha: <span class="self">self</span>.config.commit_sha.clone(),
-            total_nodes: <span class="self">self</span>.config.config.total_nodes.into(),
-            da_committee_size: <span class="self">self</span>.config.config.da_committee_size,
+            total_nodes: <span class="self">self</span>.config.config.num_nodes_with_stake.into(),
+            da_committee_size: <span class="self">self</span>.config.config.da_staked_committee_size,
             transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
             transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
             rounds: <span class="self">self</span>.config.rounds,
@@ -632,7 +632,7 @@
         <span class="kw">let </span>node_index = <span class="self">self</span>.latest_index;
         <span class="self">self</span>.latest_index += <span class="number">1</span>;
 
-        <span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
+        <span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.num_nodes_with_stake.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: <span class="string">"Network has reached capacity"</span>.to_string(),
@@ -685,7 +685,7 @@
         <span class="kw">let </span>tmp_node_index = <span class="self">self</span>.tmp_latest_index;
         <span class="self">self</span>.tmp_latest_index += <span class="number">1</span>;
 
-        <span class="kw">if </span>usize::from(tmp_node_index) &gt;= <span class="self">self</span>.config.config.total_nodes.get() {
+        <span class="kw">if </span>usize::from(tmp_node_index) &gt;= <span class="self">self</span>.config.config.num_nodes_with_stake.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: <span class="string">"Node index getter for key pair generation has reached capacity"
@@ -719,7 +719,7 @@
             <span class="string">"Node {:?} posted public key, now total num posted public key: {:?}"</span>,
             node_index, <span class="self">self</span>.nodes_with_pubkey
         );
-        <span class="kw">if </span><span class="self">self</span>.nodes_with_pubkey &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
+        <span class="kw">if </span><span class="self">self</span>.nodes_with_pubkey &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64) {
             <span class="self">self</span>.peer_pub_ready = <span class="bool-val">true</span>;
         }
         <span class="prelude-val">Ok</span>(())
@@ -761,7 +761,7 @@
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
         <span class="macro">println!</span>(<span class="string">"Nodes connected: {}"</span>, <span class="self">self</span>.nodes_connected);
-        <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
+        <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64) {
             <span class="self">self</span>.start = <span class="bool-val">true</span>;
         }
         <span class="prelude-val">Ok</span>(())
@@ -807,7 +807,7 @@
             }
         }
         <span class="self">self</span>.nodes_post_results += <span class="number">1</span>;
-        <span class="kw">if </span><span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.total_nodes.get() <span class="kw">as </span>u64) {
+        <span class="kw">if </span><span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64) {
             <span class="self">self</span>.bench_results.printout();
             <span class="self">self</span>.output_to_csv();
         }

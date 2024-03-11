@@ -105,7 +105,7 @@
 
     <span class="comment">// nodes
     </span><span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
-    <span class="kw">for _ in </span><span class="number">0</span>..config.config.total_nodes.into() {
+    <span class="kw">for _ in </span><span class="number">0</span>..config.config.num_nodes_with_stake.into() {
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
             infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(

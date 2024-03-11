@@ -634,6 +634,20 @@
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
 <a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -645,6 +659,7 @@
     num::NonZeroUsize,
     path::PathBuf,
     time::Duration,
+    vec,
 };
 <span class="kw">use </span>std::{fs, path::Path};
 <span class="kw">use </span>surf_disco::Url;
@@ -1117,16 +1132,23 @@
 </span><span class="attr">#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>HotShotConfigFile&lt;KEY: SignatureKey&gt; {
-    <span class="doccomment">/// Total number of nodes in the network
-    </span><span class="kw">pub </span>total_nodes: NonZeroUsize,
+    <span class="doccomment">/// Total number of staked nodes in the network
+    </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
+    <span class="doccomment">/// Total number of non-staked nodes in the network
+    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// My own public key, secret key, stake value
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known nodes' public key and stake value
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
-    <span class="doccomment">/// Number of committee nodes
-    </span><span class="kw">pub </span>committee_nodes: usize,
+    <span class="attr">#[serde(skip)]
+    </span><span class="doccomment">/// The known non-staking nodes'
+    </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
+    <span class="doccomment">/// Number of staking committee nodes
+    </span><span class="kw">pub </span>staked_committee_nodes: usize,
+    <span class="doccomment">/// Number of non-staking committee nodes
+    </span><span class="kw">pub </span>non_staked_committee_nodes: usize,
     <span class="doccomment">/// Maximum transactions per block
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
     <span class="doccomment">/// Minimum transactions per block
@@ -1203,12 +1225,15 @@
     <span class="kw">fn </span>from(val: HotShotConfigFile&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
-            total_nodes: val.total_nodes,
+            num_nodes_with_stake: val.num_nodes_with_stake,
+            num_nodes_without_stake: val.num_nodes_without_stake,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes_with_stake: val.known_nodes_with_stake,
+            known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
-            da_committee_size: val.committee_nodes,
+            da_staked_committee_size: val.staked_committee_nodes,
+            da_non_staked_committee_size: val.non_staked_committee_nodes,
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,
@@ -1253,10 +1278,13 @@
             })
             .collect();
         <span class="self">Self </span>{
-            total_nodes: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
+            num_nodes_without_stake: <span class="number">0</span>,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
-            committee_nodes: <span class="number">5</span>,
+            known_nodes_without_stake: <span class="macro">vec!</span>[],
+            staked_committee_nodes: <span class="number">5</span>,
+            non_staked_committee_nodes: <span class="number">0</span>,
             max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
             min_transactions: <span class="number">1</span>,
             next_view_timeout: <span class="number">10000</span>,

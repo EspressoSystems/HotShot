@@ -245,6 +245,11 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -306,7 +311,7 @@
 
     <span class="doccomment">/// Generates a committee-specific election
     </span><span class="kw">fn </span>committee_election_config_generator(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self</span>::CommitteeElectionConfig + <span class="lifetime">'static</span>&gt;;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64, u64) -&gt; <span class="self">Self</span>::CommitteeElectionConfig + <span class="lifetime">'static</span>&gt;;
 
     <span class="doccomment">/// Creates random transaction if possible
     /// otherwise panics
@@ -362,8 +367,13 @@
     <span class="kw">type </span>CommitteeElectionConfig = TYPES::ElectionConfigType;
 
     <span class="kw">fn </span>committee_election_config_generator(
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self</span>::CommitteeElectionConfig + <span class="lifetime">'static</span>&gt; {
-        Box::new(|num_nodes| &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(num_nodes))
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64, u64) -&gt; <span class="self">Self</span>::CommitteeElectionConfig + <span class="lifetime">'static</span>&gt; {
+        Box::new(|num_nodes_with_stake, num_nodes_without_stake| {
+            &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(
+                num_nodes_with_stake,
+                num_nodes_without_stake,
+            )
+        })
     }
 
     <span class="kw">fn </span>state_create_random_transaction(

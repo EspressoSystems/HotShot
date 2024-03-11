@@ -1030,6 +1030,19 @@
 <a href="#1029" id="1029">1029</a>
 <a href="#1030" id="1030">1030</a>
 <a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1213,13 +1226,16 @@
         load_config_from_file::&lt;TYPES&gt;(<span class="kw-2">&amp;</span>args.config_file);
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(total_nodes_string) = matches.get_one::&lt;String&gt;(<span class="string">"total_nodes"</span>) {
-        config.config.total_nodes = total_nodes_string.parse::&lt;NonZeroUsize&gt;().unwrap();
+        config.config.num_nodes_with_stake = total_nodes_string.parse::&lt;NonZeroUsize&gt;().unwrap();
         config.config.known_nodes_with_stake =
-            <span class="macro">vec!</span>[PeerConfig::default(); config.config.total_nodes.get() <span class="kw">as </span>usize];
-        <span class="macro">error!</span>(<span class="string">"config.config.total_nodes: {:?}"</span>, config.config.total_nodes);
+            <span class="macro">vec!</span>[PeerConfig::default(); config.config.num_nodes_with_stake.get() <span class="kw">as </span>usize];
+        <span class="macro">error!</span>(
+            <span class="string">"config.config.total_nodes: {:?}"</span>,
+            config.config.num_nodes_with_stake
+        );
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(da_committee_size_string) = matches.get_one::&lt;String&gt;(<span class="string">"da_committee_size"</span>) {
-        config.config.da_committee_size = da_committee_size_string.parse::&lt;usize&gt;().unwrap();
+        config.config.da_staked_committee_size = da_committee_size_string.parse::&lt;usize&gt;().unwrap();
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(transactions_per_round_string) = matches.get_one::&lt;String&gt;(<span class="string">"transactions_per_round"</span>)
     {
@@ -1270,7 +1286,7 @@
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>);
     <span class="comment">// initialize it with size for better assignment of peers' config
     </span>config.config.known_nodes_with_stake =
-        <span class="macro">vec!</span>[PeerConfig::default(); config.config.total_nodes.get() <span class="kw">as </span>usize];
+        <span class="macro">vec!</span>[PeerConfig::default(); config.config.num_nodes_with_stake.get() <span class="kw">as </span>usize];
 
     config
 }
@@ -1377,8 +1393,8 @@
 
     <span class="comment">// generate network
     </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
-    <span class="macro">assert!</span>(config.config.total_nodes.get() &gt; <span class="number">2</span>);
-    <span class="kw">let </span>replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - <span class="number">2</span>).unwrap();
+    <span class="macro">assert!</span>(config.config.num_nodes_with_stake.get() &gt; <span class="number">2</span>);
+    <span class="kw">let </span>replicated_nodes = NonZeroUsize::new(config.config.num_nodes_with_stake.get() - <span class="number">2</span>).unwrap();
     config_builder.replication_factor(replicated_nodes);
     config_builder.identity(identity.clone());
 
@@ -1412,10 +1428,10 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
     <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
-    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.total_nodes.get() <span class="kw">as </span>u64 {
+    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64 {
         <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], i).<span class="number">1</span>;
         <span class="kw">let </span>pub_key = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-        <span class="kw">if </span>i &lt; config.config.da_committee_size <span class="kw">as </span>u64 {
+        <span class="kw">if </span>i &lt; config.config.da_staked_committee_size <span class="kw">as </span>u64 {
             da_keys.insert(pub_key.clone());
         }
         all_keys.insert(pub_key);
@@ -1490,11 +1506,15 @@
 
         <span class="comment">// Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         </span><span class="kw">let </span>quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.config.total_nodes.get() <span class="kw">as </span>u64)
+            TYPES::Membership::default_election_config(
+                config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
+                config.config.num_nodes_without_stake <span class="kw">as </span>u64,
+            )
         });
 
         <span class="kw">let </span>committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap(),
+            config.config.da_staked_committee_size.try_into().unwrap(),
+            config.config.num_nodes_without_stake <span class="kw">as </span>u64,
         );
         <span class="kw">let </span>networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
@@ -2005,13 +2025,19 @@
         rounds,
         transactions_per_round,
         node_index,
-        config: HotShotConfig { total_nodes, .. },
+        config: HotShotConfig {
+            num_nodes_with_stake,
+            ..
+        },
         ..
     } = run_config;
 
     <span class="kw">let </span><span class="kw-2">mut </span>txn_rng = StdRng::seed_from_u64(node_index);
-    <span class="kw">let </span>transactions_to_send_per_round =
-        calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
+    <span class="kw">let </span>transactions_to_send_per_round = calculate_num_tx_per_round(
+        node_index,
+        num_nodes_with_stake.get(),
+        transactions_per_round,
+    );
     <span class="kw">let </span><span class="kw-2">mut </span>transactions = Vec::new();
 
     <span class="kw">for </span>round <span class="kw">in </span><span class="number">0</span>..rounds {

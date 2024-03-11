@@ -435,6 +435,15 @@
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -582,8 +591,11 @@
             }
         }
 
-        <span class="self">self</span>.add_nodes(<span class="self">self</span>.launcher.metadata.total_nodes, <span class="kw-2">&amp;</span>late_start_nodes)
-            .<span class="kw">await</span>;
+        <span class="self">self</span>.add_nodes(
+            <span class="self">self</span>.launcher.metadata.num_nodes_with_stake,
+            <span class="kw-2">&amp;</span>late_start_nodes,
+        )
+        .<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>event_rxs = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>internal_event_rxs = <span class="macro">vec!</span>[];
 
@@ -765,7 +777,10 @@
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
             <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
             <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-                TYPES::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
+                TYPES::Membership::default_election_config(
+                    config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
+                    config.num_nodes_without_stake <span class="kw">as </span>u64,
+                )
             });
             <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
             <span class="kw">let </span>memberships = Memberships {
@@ -775,7 +790,10 @@
                 ),
                 da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    committee_election_config(config.da_committee_size <span class="kw">as </span>u64),
+                    committee_election_config(
+                        config.da_staked_committee_size <span class="kw">as </span>u64,
+                        config.num_nodes_without_stake <span class="kw">as </span>u64,
+                    ),
                 ),
                 vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),

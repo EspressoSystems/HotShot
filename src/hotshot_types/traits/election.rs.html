@@ -81,6 +81,15 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="comment">// Needed to avoid the non-binding `let` warning.
@@ -121,7 +130,10 @@
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + <span class="lifetime">'static
 </span>{
     <span class="doccomment">/// generate a default election configuration
-    </span><span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; TYPES::ElectionConfigType;
+    </span><span class="kw">fn </span>default_election_config(
+        num_nodes_with_stake: u64,
+        num_nodes_without_stake: u64,
+    ) -&gt; TYPES::ElectionConfigType;
 
     <span class="doccomment">/// create an election
     /// TODO may want to move this to a testableelection trait
@@ -138,8 +150,14 @@
     <span class="doccomment">/// The leader of the committee for view `view_number`.
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
 
-    <span class="doccomment">/// The members of the committee for view `view_number`.
-    </span><span class="kw">fn </span>get_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    <span class="doccomment">/// The staked members of the committee for view `view_number`.
+    </span><span class="kw">fn </span>get_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+
+    <span class="doccomment">/// The non-staked members of the committee for view `view_number`.
+    </span><span class="kw">fn </span>get_non_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+
+    <span class="doccomment">/// Get whole (staked + non-staked) committee for view `view_number`.
+    </span><span class="kw">fn </span>get_whole_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Check if a key has stake
     </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool;

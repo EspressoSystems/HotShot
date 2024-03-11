@@ -590,7 +590,7 @@
                 <span class="comment">// Inject view info into network
                 </span><span class="kw">let </span>is_da = <span class="self">self
                     </span>.da_membership
-                    .get_committee(<span class="self">self</span>.cur_view + <span class="number">1</span>)
+                    .get_whole_committee(<span class="self">self</span>.cur_view + <span class="number">1</span>)
                     .contains(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key);
 
                 <span class="kw">if </span>is_da {

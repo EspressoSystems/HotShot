@@ -496,6 +496,9 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -569,19 +572,22 @@
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
     <span class="kw">let </span>public_key = config.my_own_validator_config.public_key;
-    <span class="kw">let </span>quorum_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(
-                config.total_nodes.get() <span class="kw">as </span>u64
-            )
-        });
 
-    <span class="kw">let </span>committee_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(
-                config.total_nodes.get() <span class="kw">as </span>u64
-            )
-        });
+    <span class="kw">let </span>_known_nodes_without_stake = config.known_nodes_without_stake.clone();
+
+    <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(
+            config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
+            config.num_nodes_without_stake <span class="kw">as </span>u64,
+        )
+    });
+
+    <span class="kw">let </span>committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::default_election_config(
+            config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
+            config.num_nodes_without_stake <span class="kw">as </span>u64,
+        )
+    });
     <span class="kw">let </span>networks_bundle = Networks {
         quorum_network: networks.<span class="number">0</span>.clone(),
         da_network: networks.<span class="number">1</span>.clone(),
@@ -865,7 +871,7 @@
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view_number: TYPES::Time,
 ) -&gt; VidSchemeType {
-    <span class="kw">let </span>num_storage_nodes = membership.get_committee(view_number).len();
+    <span class="kw">let </span>num_storage_nodes = membership.get_staked_committee(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 
