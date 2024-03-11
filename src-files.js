@@ -14,7 +14,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["hotshot_types",["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","states.rs","storage.rs"]]],["consensus.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","qc.rs","signature_key.rs","simple_certificate.rs","simple_vote.rs","stake_table.rs","traits.rs","utils.rs","vid.rs","vote.rs"]]],\
 ["hotshot_utils",["",[],["bincode.rs","lib.rs","version.rs"]]],\
 ["hotshot_web_server",["",[],["config.rs","lib.rs"]]],\
-["libp2p_networking",["",[["network",[["behaviours",[["dht",[],["mod.rs"]]],["direct_message.rs","exponential_backoff.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs"]]],\
+["libp2p_networking",["",[["network",[["behaviours",[["dht",[],["mod.rs"]]],["direct_message.rs","exponential_backoff.rs","mod.rs","request_response.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs"]]],\
 ["multi_validator_combined",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["multi_validator_libp2p",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["multi_validator_webserver",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\

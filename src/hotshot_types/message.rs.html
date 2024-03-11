@@ -312,6 +312,14 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -326,14 +334,15 @@
     DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
     ViewSyncPreCommitVote,
 };
+<span class="kw">use </span><span class="kw">crate</span>::traits::network::ResponseMessage;
 <span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
 <span class="kw">use </span><span class="kw">crate</span>::vote::HasViewNumber;
 <span class="kw">use crate</span>::{
     data::{DAProposal, VidDisperse},
     simple_vote::QuorumVote,
     traits::{
-        network::{NetworkMsg, ViewMessage},
-        node_implementation::NodeType,
+        network::{DataRequest, NetworkMsg, ViewMessage},
+        node_implementation::{ConsensusTime, NodeType},
     },
 };
 
@@ -433,15 +442,18 @@
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             MessageKind::Consensus(message) =&gt; message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(<span class="kw">_</span>, v)) =&gt; <span class="kw-2">*</span>v,
+            MessageKind::Data(DataMessage::RequestData(msg)) =&gt; msg.view,
+            MessageKind::Data(DataMessage::DataResponse(msg)) =&gt; <span class="kw">match </span>msg {
+                ResponseMessage::Found(m) =&gt; m.view_number(),
+                ResponseMessage::NotFound =&gt; TYPES::Time::new(<span class="number">1</span>),
+            },
         }
     }
 
     <span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             MessageKind::Consensus(message) =&gt; message.purpose(),
-            MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
-                DataMessage::SubmitTransaction(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; MessagePurpose::Data,
-            },
+            MessageKind::Data(<span class="kw">_</span>) =&gt; MessagePurpose::Data,
         }
     }
 }
@@ -610,6 +622,10 @@
     /// TODO rethink this when we start to send these messages
     /// we only need the view number for broadcast
     </span>SubmitTransaction(TYPES::Transaction, TYPES::Time),
+    <span class="doccomment">/// A request for data
+    </span>RequestData(DataRequest&lt;TYPES&gt;),
+    <span class="doccomment">/// A response to a data request
+    </span>DataResponse(ResponseMessage&lt;TYPES&gt;),
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

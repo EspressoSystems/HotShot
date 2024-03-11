@@ -671,6 +671,40 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -698,6 +732,7 @@
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
+    request_response::{Request, RequestResponseState, Response},
 };
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
@@ -757,6 +792,8 @@
     </span>config: NetworkNodeConfig,
     <span class="doccomment">/// the listener id we are listening on, if it exists
     </span>listener_id: <span class="prelude-ty">Option</span>&lt;ListenerId&gt;,
+    <span class="doccomment">/// Handler for requests and response behavior events.
+    </span>request_response_state: RequestResponseState,
 }
 
 <span class="kw">impl </span>NetworkNode {
@@ -942,14 +979,23 @@
 
             <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
-            <span class="kw">let </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; =
+            <span class="kw">let </span>direct_message: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; =
+                RequestResponse::new(
+                    [(
+                        StreamProtocol::new(<span class="string">"/HotShot/direct_message/1.0"</span>),
+                        ProtocolSupport::Full,
+                    )]
+                    .into_iter(),
+                    rrconfig.clone(),
+                );
+            <span class="kw">let </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Request, Response&gt; =
                 RequestResponse::new(
                     [(
                         StreamProtocol::new(<span class="string">"/HotShot/request_response/1.0"</span>),
                         ProtocolSupport::Full,
                     )]
                     .into_iter(),
-                    rrconfig,
+                    rrconfig.clone(),
                 );
 
             <span class="kw">let </span>network = NetworkDef::new(
@@ -962,7 +1008,8 @@
                         .unwrap_or_else(|| NonZeroUsize::new(<span class="number">4</span>).unwrap()),
                 ),
                 identify,
-                DMBehaviour::new(request_response),
+                DMBehaviour::new(direct_message),
+                request_response,
             );
 
             <span class="comment">// build swarm
@@ -993,6 +1040,7 @@
             swarm,
             config,
             listener_id: <span class="prelude-val">None</span>,
+            request_response_state: RequestResponseState::default(),
         })
     }
 
@@ -1096,6 +1144,23 @@
                     }
                     ClientRequest::DirectResponse(chan, msg) =&gt; {
                         behaviour.add_direct_response(chan, msg);
+                    }
+                    ClientRequest::DataRequest {
+                        request,
+                        peer,
+                        chan,
+                    } =&gt; {
+                        <span class="kw">let </span>id = behaviour.request_response.send_request(<span class="kw-2">&amp;</span>peer, request);
+                        <span class="self">self</span>.request_response_state.add_request(id, chan);
+                    }
+                    ClientRequest::DataResponse { response, chan } =&gt; {
+                        <span class="kw">if </span>behaviour
+                            .request_response
+                            .send_response(chan, response)
+                            .is_err()
+                        {
+                            <span class="macro">info!</span>(<span class="string">"Data Response dropped because response peer disconnected"</span>);
+                        }
                     }
                     ClientRequest::AddKnownPeers(peers) =&gt; {
                         <span class="self">self</span>.add_known_peers(<span class="kw-2">&amp;</span>peers);
@@ -1253,6 +1318,9 @@
                             NetworkEvent::DirectResponse(data, pid)
                         }
                     }),
+                    NetworkEventInternal::RequestResponseEvent(e) =&gt; {
+                        <span class="self">self</span>.request_response_state.handle_request_response(e)
+                    }
                 };
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = maybe_event {

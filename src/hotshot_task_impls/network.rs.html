@@ -393,6 +393,10 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -407,7 +411,8 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
+        SequencingMessage,
     },
     traits::{
         election::Membership,
@@ -416,8 +421,8 @@
     },
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>tracing::error;
 <span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>tracing::{error, warn};
 
 <span class="doccomment">/// quorum filter
 </span><span class="kw">pub fn </span>quorum_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
@@ -564,6 +569,9 @@
                 MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
                         transactions.push(transaction);
+                    }
+                    DataMessage::DataResponse(<span class="kw">_</span>) | DataMessage::RequestData(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">"Request and Response messages should not be received in the NetworkMessage task"</span>);
                     }
                 },
             };

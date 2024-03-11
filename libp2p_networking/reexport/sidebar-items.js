@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Multiaddr","PeerId"]};
+window.SIDEBAR_ITEMS = {"struct":["Multiaddr","PeerId","ResponseChannel"]};

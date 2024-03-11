@@ -177,11 +177,24 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
-    request_response::ResponseChannel,
+    request_response::{cbor, ResponseChannel},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -193,6 +206,7 @@
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
+        request_response::{Request, Response},
     },
     NetworkEventInternal,
 };
@@ -225,7 +239,11 @@
 
     <span class="doccomment">/// purpose: directly messaging peer
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>request_response: DMBehaviour,
+    </span><span class="kw">pub </span>direct_message: DMBehaviour,
+
+    <span class="doccomment">/// Behaviour for requesting and receiving data
+    </span><span class="attr">#[debug(skip)]
+    </span><span class="kw">pub </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Request, Response&gt;,
 }
 
 <span class="kw">impl </span>NetworkDef {
@@ -235,12 +253,14 @@
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,
         identify: IdentifyBehaviour,
-        request_response: DMBehaviour,
+        direct_message: DMBehaviour,
+        request_response: cbor::Behaviour&lt;Request, Response&gt;,
     ) -&gt; NetworkDef {
         <span class="self">Self </span>{
             gossipsub,
             dht,
             identify,
+            direct_message,
             request_response,
         }
     }
@@ -323,12 +343,12 @@
             backoff: ExponentialBackoff::default(),
             retry_count,
         };
-        <span class="self">self</span>.request_response.add_direct_request(request);
+        <span class="self">self</span>.direct_message.add_direct_request(request);
     }
 
     <span class="doccomment">/// Add a direct response for a channel
     </span><span class="kw">pub fn </span>add_direct_response(<span class="kw-2">&amp;mut </span><span class="self">self</span>, chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;, msg: Vec&lt;u8&gt;) {
-        <span class="self">self</span>.request_response.add_direct_response(chan, msg);
+        <span class="self">self</span>.direct_message.add_direct_response(chan, msg);
     }
 }
 
@@ -353,6 +373,12 @@
 <span class="kw">impl </span>From&lt;IdentifyEvent&gt; <span class="kw">for </span>NetworkEventInternal {
     <span class="kw">fn </span>from(event: IdentifyEvent) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::IdentifyEvent(Box::new(event))
+    }
+}
+
+<span class="kw">impl </span>From&lt;libp2p::request_response::Event&lt;Request, Response&gt;&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: libp2p::request_response::Event&lt;Request, Response&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::RequestResponseEvent(event)
     }
 }
 </code></pre></div></section></main></body></html>

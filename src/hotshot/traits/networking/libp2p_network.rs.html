@@ -895,6 +895,95 @@
 <a href="#894" id="894">894</a>
 <a href="#895" id="895">895</a>
 <a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -903,9 +992,9 @@
 </span><span class="kw">use </span>async_compatibility_layer::art::async_block_on;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{bounded, unbounded, Sender, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{<span class="self">self</span>, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
 };
-<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
@@ -915,10 +1004,10 @@
     data::ViewNumber,
     traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg,
+            <span class="self">self</span>, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
+            NetworkMsg, ResponseMessage,
         },
-        node_implementation::ConsensusTime,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
@@ -926,10 +1015,7 @@
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::{
     message::{Message, MessageKind},
-    traits::{
-        network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
-        node_implementation::NodeType,
-    },
+    traits::network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
 };
 <span class="kw">use </span>hotshot_utils::{bincode::bincode_opts, version::read_version};
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -938,12 +1024,13 @@
 
 <span class="kw">use </span>libp2p_networking::{
     network::{
+        behaviours::request_response::{Request, Response},
         spawn_network_node,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
         NetworkNodeType,
     },
-    reexport::Multiaddr,
+    reexport::{Multiaddr, ResponseChannel},
 };
 
 <span class="kw">use </span>serde::Serialize;
@@ -952,8 +1039,9 @@
 </span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 
 <span class="kw">use </span>futures::{
+    channel::mpsc::{<span class="self">self</span>, channel, Receiver, Sender},
     future::{join_all, Either},
-    FutureExt,
+    FutureExt, StreamExt,
 };
 <span class="kw">use </span>std::{
     collections::BTreeSet,
@@ -993,6 +1081,9 @@
     }
 }
 
+<span class="doccomment">/// Locked Option of a receiver for moving the value out of the option
+</span><span class="kw">type </span>TakeReceiver&lt;M&gt; = Mutex&lt;<span class="prelude-ty">Option</span>&lt;Receiver&lt;(M, ResponseChannel&lt;Response&gt;)&gt;&gt;&gt;;
+
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs
 </span><span class="kw">pub type </span>PeerInfoVec = Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;;
 
@@ -1003,8 +1094,12 @@
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&gt;,
-    <span class="doccomment">/// map of known replica peer ids to public keys
+    <span class="doccomment">/// Message Receiver
     </span>receiver: UnboundedReceiver&lt;M&gt;,
+    <span class="doccomment">/// Receiver for Requests for Data, includes the request and the response chan
+    /// Lock should only be used once to take the channel and move it into the request
+    /// handler task
+    </span>requests_rx: TakeReceiver&lt;M&gt;,
     <span class="doccomment">/// Sender for broadcast messages
     </span>sender: UnboundedSender&lt;M&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
@@ -1036,7 +1131,7 @@
     <span class="doccomment">/// if we're a member of the DA committee or not
     </span>is_da: bool,
     <span class="doccomment">/// Killswitch sender
-    </span>kill_switch: Sender&lt;()&gt;,
+    </span>kill_switch: channel::Sender&lt;()&gt;,
 }
 
 <span class="doccomment">/// Networking implementation that uses libp2p
@@ -1254,6 +1349,7 @@
         <span class="comment">// unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
         </span><span class="kw">let </span>(sender, receiver) = unbounded();
+        <span class="kw">let </span>(requests_tx, requests_rx) = channel(<span class="number">100</span>);
         <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
         <span class="kw">let </span>(kill_tx, kill_rx) = bounded(<span class="number">1</span>);
         rx.set_kill_switch(kill_rx);
@@ -1262,6 +1358,7 @@
             inner: Arc::new(Libp2pNetworkInner {
                 handle: Arc::new(network_handle),
                 receiver,
+                requests_rx: Mutex::new(<span class="prelude-val">Some</span>(requests_rx)),
                 sender: sender.clone(),
                 pk,
                 bootstrap_addrs_len,
@@ -1285,7 +1382,7 @@
             }),
         };
 
-        result.handle_event_generator(sender, rx);
+        result.handle_event_generator(sender, requests_tx, rx);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
 
@@ -1417,6 +1514,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         msg: NetworkEvent,
         sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
+        <span class="kw-2">mut </span>request_tx: Sender&lt;(M, ResponseChannel&lt;Response&gt;)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
             GossipMsg(msg) =&gt; {
@@ -1461,6 +1559,14 @@
             NetworkEvent::IsBootstrapped =&gt; {
                 <span class="macro">error!</span>(<span class="string">"handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible."</span>);
             }
+            NetworkEvent::ResponseRequested(msg, chan) =&gt; {
+                <span class="kw">let </span>reqeust = bincode_opts()
+                    .deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
+                    .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
+                request_tx
+                    .try_send((reqeust, chan))
+                    .map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
+            }
         }
         <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
     }
@@ -1470,6 +1576,7 @@
     </span><span class="kw">fn </span>handle_event_generator(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         sender: UnboundedSender&lt;M&gt;,
+        request_tx: Sender&lt;(M, ResponseChannel&lt;Response&gt;)&gt;,
         <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver,
     ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
@@ -1492,12 +1599,20 @@
                             NetworkEvent::IsBootstrapped =&gt; {
                                 is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                             }
-                            GossipMsg(raw) | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>) | DirectResponse(raw, <span class="kw">_</span>) =&gt; {
+                            GossipMsg(raw)
+                            | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>)
+                            | DirectResponse(raw, <span class="kw">_</span>)
+                            | NetworkEvent::ResponseRequested(Request(raw), <span class="kw">_</span>) =&gt; {
                                 <span class="kw">let </span>message_version = read_version(raw);
                                 <span class="kw">match </span>message_version {
                                     <span class="prelude-val">Some</span>(VERSION_0_1) =&gt; {
-                                        <span class="kw">let _ </span>=
-                                            handle.handle_recvd_events_0_1(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
+                                        <span class="kw">let _ </span>= handle
+                                            .handle_recvd_events_0_1(
+                                                message,
+                                                <span class="kw-2">&amp;</span>sender,
+                                                request_tx.clone(),
+                                            )
+                                            .<span class="kw">await</span>;
                                     }
                                     <span class="prelude-val">Some</span>(version) =&gt; {
                                         <span class="macro">warn!</span>(
@@ -1535,6 +1650,69 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
+    <span class="kw">async fn </span>request_data&lt;TYPES: NodeType&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: M,
+        recipient: K,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;TYPES&gt;, NetworkError&gt; {
+        <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
+
+        <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
+            </span>.inner
+            .handle
+            .lookup_node::&lt;K&gt;(recipient.clone(), <span class="self">self</span>.inner.dht_timeout)
+            .<span class="kw">await
+        </span>{
+            <span class="prelude-val">Ok</span>(pid) =&gt; pid,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                <span class="macro">error!</span>(
+                    <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
+                    request, recipient
+                );
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: err });
+            }
+        };
+        <span class="kw">match </span><span class="self">self</span>.inner.handle.request_data(<span class="kw-2">&amp;</span>request, pid).<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(response) =&gt; <span class="kw">match </span>response {
+                <span class="prelude-val">Some</span>(msg) =&gt; {
+                    <span class="kw">let </span>res = bincode_opts()
+                        .deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
+                        .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(ResponseMessage::Found(res))
+                }
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(ResponseMessage::NotFound),
+            },
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
+        }
+    }
+
+    <span class="kw">async fn </span>spawn_request_receiver_task(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(M, network::ResponseChannel&lt;M&gt;)&gt;&gt; {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>internal_rx) = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = mpsc::channel(<span class="number">100</span>);
+        async_spawn(<span class="kw">async move </span>{
+            <span class="kw">while let </span><span class="prelude-val">Some</span>((request, chan)) = internal_rx.next().<span class="kw">await </span>{
+                <span class="kw">let </span>(response_tx, response_rx) = futures::channel::oneshot::channel();
+                <span class="kw">if </span>tx
+                    .try_send((request, network::ResponseChannel(response_tx)))
+                    .is_err()
+                {
+                    <span class="kw">continue</span>;
+                }
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(response) = response_rx.<span class="kw">await else </span>{
+                    <span class="kw">continue</span>;
+                };
+                <span class="kw">let _ </span>= handle.respond_data(<span class="kw-2">&amp;</span>response, chan).<span class="kw">await</span>;
+            }
+        });
+
+        <span class="prelude-val">Some</span>(rx)
+    }
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::ready_blocking"</span>, skip_all)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;

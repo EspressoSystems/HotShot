@@ -508,6 +508,20 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -526,7 +540,7 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 
-<span class="kw">use </span>futures::join;
+<span class="kw">use </span>futures::{channel::mpsc, join};
 
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -536,7 +550,7 @@
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent},
+        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -814,6 +828,20 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
     <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt;
 {
+    <span class="kw">async fn </span>request_data&lt;T: NodeType&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: Message&lt;TYPES&gt;,
+        recipient: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;T&gt;, NetworkError&gt; {
+        <span class="self">self</span>.secondary().request_data(request, recipient).<span class="kw">await
+    </span>}
+
+    <span class="kw">async fn </span>spawn_request_receiver_task(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Message&lt;TYPES&gt;, ResponseChannel&lt;Message&lt;TYPES&gt;&gt;)&gt;&gt; {
+        <span class="self">self</span>.secondary().spawn_request_receiver_task().<span class="kw">await
+    </span>}
+
     <span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.networks.<span class="number">0</span>.pause();
     }
