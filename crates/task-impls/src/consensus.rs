@@ -498,7 +498,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
                 // that we do not support.
                 if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
-                    if !upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                    if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                        self.consensus
+                            .write()
+                            .await
+                            .saved_upgrade_certs
+                            .insert(view, upgrade_cert.clone());
+                    } else {
                         error!("Invalid upgrade_cert in proposal for view {}", *view);
                         return;
                     }
@@ -692,6 +698,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                     })
                     .await;
+                // Notify other tasks
+                broadcast_event(
+                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                    &event_stream,
+                )
+                .await;
 
                 let mut new_anchor_view = consensus.last_decided_view;
                 let mut new_locked_view = consensus.locked_view;
@@ -740,7 +752,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .last_synced_block_height
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
-                                if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
+                                if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
                                     info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
                                 }
@@ -821,9 +833,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         &self.output_event_stream,
                     );
                     let old_anchor_view = consensus.last_decided_view;
-                    consensus
-                        .collect_garbage(old_anchor_view, new_anchor_view)
-                        .await;
+                    consensus.collect_garbage(old_anchor_view, new_anchor_view);
                     self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
                     consensus
@@ -1177,6 +1187,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
+                broadcast_event(
+                    Event {
+                        view_number: view,
+                        event: EventType::ViewTimeout { view_number: view },
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
                 debug!(
                     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
                     *view

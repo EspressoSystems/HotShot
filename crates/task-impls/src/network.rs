@@ -9,9 +9,11 @@ use hotshot_constants::VERSION_0_1;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
+        SequencingMessage,
     },
     traits::{
         election::Membership,
@@ -20,8 +22,8 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::error;
 use tracing::instrument;
+use tracing::{error, warn};
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
@@ -168,6 +170,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
                         transactions.push(transaction);
+                    }
+                    DataMessage::DataResponse(_) | DataMessage::RequestData(_) => {
+                        warn!("Request and Response messages should not be received in the NetworkMessage task");
                     }
                 },
             };
@@ -353,6 +358,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
+                self.channel.update_view(&self.view.get_u64()).await;
                 return None;
             }
             HotShotEvent::Shutdown => {

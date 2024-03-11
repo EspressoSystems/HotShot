@@ -166,6 +166,11 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn state_mut(&mut self) -> &mut S {
         &mut self.state
     }
+    /// Get an immutable reference to this tasks state
+    pub fn state(&self) -> &S {
+        &self.state
+    }
+
     /// Spawn a new task adn register it.  It will get all events not seend
     /// by the task creating it.
     pub async fn run_sub_task(&self, state: S) {
@@ -376,10 +381,7 @@ mod tests {
             None
         }
     }
-    #[cfg_attr(
-        async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
+    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     #[allow(unused_must_use)]
     async fn it_works() {

@@ -12,14 +12,15 @@ use crate::simple_vote::{
     DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
     ViewSyncPreCommitVote,
 };
+use crate::traits::network::ResponseMessage;
 use crate::traits::signature_key::SignatureKey;
 use crate::vote::HasViewNumber;
 use crate::{
     data::{DAProposal, VidDisperse},
     simple_vote::QuorumVote,
     traits::{
-        network::{NetworkMsg, ViewMessage},
-        node_implementation::NodeType,
+        network::{DataRequest, NetworkMsg, ViewMessage},
+        node_implementation::{ConsensusTime, NodeType},
     },
 };
 
@@ -119,139 +120,19 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
         match &self {
             MessageKind::Consensus(message) => message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
+            MessageKind::Data(DataMessage::RequestData(msg)) => msg.view,
+            MessageKind::Data(DataMessage::DataResponse(msg)) => match msg {
+                ResponseMessage::Found(m) => m.view_number(),
+                ResponseMessage::NotFound => TYPES::Time::new(1),
+            },
         }
     }
 
     fn purpose(&self) -> MessagePurpose {
         match &self {
             MessageKind::Consensus(message) => message.purpose(),
-            MessageKind::Data(message) => match message {
-                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
-            },
+            MessageKind::Data(_) => MessagePurpose::Data,
         }
-    }
-}
-
-/// A processed consensus message for both validating and sequencing consensus.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = ""))]
-pub enum ProcessedGeneralConsensusMessage<TYPES: NodeType> {
-    /// Message with a quorum proposal.
-    Proposal(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
-    /// Message with a quorum vote.
-    Vote(QuorumVote<TYPES>, TYPES::SignatureKey),
-}
-
-impl<TYPES: NodeType> From<ProcessedGeneralConsensusMessage<TYPES>>
-    for GeneralConsensusMessage<TYPES>
-{
-    fn from(value: ProcessedGeneralConsensusMessage<TYPES>) -> Self {
-        match value {
-            ProcessedGeneralConsensusMessage::Proposal(p, _) => {
-                GeneralConsensusMessage::Proposal(p)
-            }
-            ProcessedGeneralConsensusMessage::Vote(v, _) => GeneralConsensusMessage::Vote(v),
-        }
-    }
-}
-
-impl<TYPES: NodeType> ProcessedGeneralConsensusMessage<TYPES> {
-    /// Create a [`ProcessedGeneralConsensusMessage`] from a [`GeneralConsensusMessage`].
-    /// # Panics
-    /// if reaching the unimplemented `ViewSync` case.
-    pub fn new(value: GeneralConsensusMessage<TYPES>, sender: TYPES::SignatureKey) -> Self {
-        match value {
-            GeneralConsensusMessage::Proposal(p) => {
-                ProcessedGeneralConsensusMessage::Proposal(p, sender)
-            }
-            GeneralConsensusMessage::Vote(v) => ProcessedGeneralConsensusMessage::Vote(v, sender),
-            // ED NOTE These are deprecated
-            GeneralConsensusMessage::TimeoutVote(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncPreCommitVote(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncCommitVote(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncFinalizeVote(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncPreCommitCertificate(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncCommitCertificate(_) => unimplemented!(),
-            GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => unimplemented!(),
-            GeneralConsensusMessage::UpgradeProposal(_) => unimplemented!(),
-            GeneralConsensusMessage::UpgradeVote(_) => unimplemented!(),
-        }
-    }
-}
-
-/// A processed consensus message for the DA committee in sequencing consensus.
-#[derive(Serialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = ""))]
-pub enum ProcessedCommitteeConsensusMessage<TYPES: NodeType> {
-    /// Proposal for the DA committee.
-    DAProposal(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
-    /// Vote from the DA committee.
-    DAVote(DAVote<TYPES>, TYPES::SignatureKey),
-    /// Certificate for the DA.
-    DACertificate(DACertificate<TYPES>, TYPES::SignatureKey),
-    /// VID dispersal data. Like [`DAProposal`]
-    VidDisperseMsg(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
-}
-
-impl<TYPES: NodeType> From<ProcessedCommitteeConsensusMessage<TYPES>>
-    for CommitteeConsensusMessage<TYPES>
-{
-    fn from(value: ProcessedCommitteeConsensusMessage<TYPES>) -> Self {
-        match value {
-            ProcessedCommitteeConsensusMessage::DAProposal(p, _) => {
-                CommitteeConsensusMessage::DAProposal(p)
-            }
-            ProcessedCommitteeConsensusMessage::DAVote(v, _) => {
-                CommitteeConsensusMessage::DAVote(v)
-            }
-            ProcessedCommitteeConsensusMessage::DACertificate(cert, _) => {
-                CommitteeConsensusMessage::DACertificate(cert)
-            }
-            ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, _) => {
-                CommitteeConsensusMessage::VidDisperseMsg(disperse)
-            }
-        }
-    }
-}
-
-impl<TYPES: NodeType> ProcessedCommitteeConsensusMessage<TYPES> {
-    /// Create a [`ProcessedCommitteeConsensusMessage`] from a [`CommitteeConsensusMessage`].
-    pub fn new(value: CommitteeConsensusMessage<TYPES>, sender: TYPES::SignatureKey) -> Self {
-        match value {
-            CommitteeConsensusMessage::DAProposal(p) => {
-                ProcessedCommitteeConsensusMessage::DAProposal(p, sender)
-            }
-            CommitteeConsensusMessage::DAVote(v) => {
-                ProcessedCommitteeConsensusMessage::DAVote(v, sender)
-            }
-            CommitteeConsensusMessage::DACertificate(cert) => {
-                ProcessedCommitteeConsensusMessage::DACertificate(cert, sender)
-            }
-            CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
-                ProcessedCommitteeConsensusMessage::VidDisperseMsg(disperse, sender)
-            }
-        }
-    }
-}
-
-/// A processed consensus message for sequencing consensus.
-pub type ProcessedSequencingMessage<TYPES> =
-    Either<ProcessedGeneralConsensusMessage<TYPES>, ProcessedCommitteeConsensusMessage<TYPES>>;
-
-impl<TYPES: NodeType> From<ProcessedSequencingMessage<TYPES>> for SequencingMessage<TYPES> {
-    fn from(value: ProcessedSequencingMessage<TYPES>) -> Self {
-        match value {
-            Left(message) => SequencingMessage(Left(message.into())),
-            Right(message) => SequencingMessage(Right(message.into())),
-        }
-    }
-}
-
-impl<TYPES: NodeType> From<ProcessedGeneralConsensusMessage<TYPES>>
-    for ProcessedSequencingMessage<TYPES>
-{
-    fn from(value: ProcessedGeneralConsensusMessage<TYPES>) -> Self {
-        Left(value)
     }
 }
 
@@ -419,6 +300,10 @@ pub enum DataMessage<TYPES: NodeType> {
     /// TODO rethink this when we start to send these messages
     /// we only need the view number for broadcast
     SubmitTransaction(TYPES::Transaction, TYPES::Time),
+    /// A request for data
+    RequestData(DataRequest<TYPES>),
+    /// A response to a data request
+    DataResponse(ResponseMessage<TYPES>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

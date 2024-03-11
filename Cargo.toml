@@ -61,10 +61,10 @@ futures = "0.3.30"
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
 
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
-jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
-jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.0" }
-jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.0" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.1" }
 lazy_static = "1.4.0"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
@@ -72,6 +72,7 @@ libp2p-swarm-derive = { version = "0.34.1" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
+serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0.114" }
 sha2 = "0.10"
 snafu = "0.7.5"
