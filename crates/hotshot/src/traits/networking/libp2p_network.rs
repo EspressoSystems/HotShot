@@ -51,14 +51,14 @@ use libp2p_networking::{
 use serde::Serialize;
 use snafu::ResultExt;
 #[cfg(feature = "hotshot-testing")]
-use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
+use std::{num::NonZeroUsize, str::FromStr};
 
 use futures::{
     future::{join_all, Either},
     FutureExt,
 };
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashSet},
     fmt::Debug,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
