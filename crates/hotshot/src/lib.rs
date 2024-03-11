@@ -325,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(view_number),
+                        da_membership.get_whole_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
@@ -566,7 +566,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for SystemContextHandle<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
-        self.hotshot.config.total_nodes
+        self.hotshot.config.num_nodes_with_stake
     }
 
     fn propose_min_round_time(&self) -> Duration {
