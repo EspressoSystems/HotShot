@@ -70,13 +70,13 @@ jobs:
           - async-std
           - tokio
     runs-on: [self-hosted, arm64]
+    container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
-
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
