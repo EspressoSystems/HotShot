@@ -16,7 +16,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 /// Instance-level state, which allows us to fetch missing validated state.
-pub trait InstanceState: Clone + Debug + Send + Sync {}
+pub trait InstanceState: Debug + Send + Sync {}
 
 /// Application-specific state delta, which will be used to store a list of merkle tree entries.
 pub trait StateDelta: Debug + Send + Sync {}
