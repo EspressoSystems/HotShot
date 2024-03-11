@@ -5,8 +5,9 @@ RUN apt-get update \
     &&  rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-COPY ./target/$TARGETARCH/debug/examples/validator-libp2p /usr/local/bin/validator-libp2p
+COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/debug/examples/validator-libp2p /usr/local/bin/validator-libp2p
 
 # logging
 ENV RUST_LOG="warn"
