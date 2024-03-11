@@ -114,6 +114,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             failed_num_views: self.bench_results.failed_num_views,
         };
         // Open a file for writing
+        // Sishan TODO: write without replacing old contents
         let mut wtr = Writer::from_path("scripts/benchmarks_results/results.csv").unwrap();
         let _ = wtr.serialize(output_csv);
         let _ = wtr.flush();

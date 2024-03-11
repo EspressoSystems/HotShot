@@ -61,8 +61,10 @@ jobs:
       - name: Benchmark runs
         run: just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
         # Sishan TODO: change to running the script for benchmarking, and record results for all of them
+        # Sishan TODO: Is it possible for CI runner to write to a file and upload the updated one to the repo?
         # Sishan TODO: add commit_sha
         # Sishan TODO: add notes field
+        # Sishan TODO: add these also to the self-hosted runner
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
