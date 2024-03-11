@@ -101,7 +101,7 @@
 <span class="kw">use </span>std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 <span class="doccomment">/// Instance-level state, which allows us to fetch missing validated state.
-</span><span class="kw">pub trait </span>InstanceState: Clone + Debug + Send + Sync {}
+</span><span class="kw">pub trait </span>InstanceState: Debug + Send + Sync {}
 
 <span class="doccomment">/// Abstraction over the state that blocks modify
 ///
