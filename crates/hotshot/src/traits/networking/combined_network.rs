@@ -16,7 +16,7 @@ use tracing::warn;
 
 use async_trait::async_trait;
 
-use futures::join;
+use futures::{channel::mpsc, join};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -26,7 +26,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent},
+        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -324,6 +324,26 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
     ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
 {
+    async fn request_data<T: NodeType, const MAJOR: u16, const MINOR: u16>(
+        &self,
+        request: Message<TYPES>,
+        recipient: TYPES::SignatureKey,
+        bind_version: StaticVersion<MAJOR, MINOR>,
+    ) -> Result<ResponseMessage<T>, NetworkError> {
+        self.secondary()
+            .request_data(request, recipient, bind_version)
+            .await
+    }
+
+    async fn spawn_request_receiver_task<const MAJOR: u16, const MINOR: u16>(
+        &self,
+        bind_version: StaticVersion<MAJOR, MINOR>,
+    ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
+        self.secondary()
+            .spawn_request_receiver_task(bind_version)
+            .await
+    }
+
     fn pause(&self) {
         self.networks.0.pause();
     }
