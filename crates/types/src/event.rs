@@ -21,13 +21,39 @@ pub struct Event<TYPES: NodeType> {
     pub event: EventType<TYPES>,
 }
 
-/// The chain of leafs decided on with corresponding VID info if we have it
-pub type LeafChain<TYPES> = Vec<(
-    Leaf<TYPES>,
-    Arc<<TYPES as NodeType>::ValidatedState>,
-    Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
-    Option<VidDisperse<TYPES>>,
-)>;
+/// Decided leaf with the corresponding state and VID info.
+#[derive(Clone, Debug)]
+pub struct LeafInfo<TYPES: NodeType> {
+    /// Decided leaf.
+    pub leaf: Leaf<TYPES>,
+    /// Validated state.
+    pub state: Arc<<TYPES as NodeType>::ValidatedState>,
+    /// Optional application-specific state delta.
+    pub delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+    /// Optional VID disperse data.
+    pub vid: Option<VidDisperse<TYPES>>,
+}
+
+impl<TYPES: NodeType> LeafInfo<TYPES> {
+    /// Constructor.
+    pub fn new(
+        leaf: Leaf<TYPES>,
+        state: Arc<<TYPES as NodeType>::ValidatedState>,
+        delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+        vid: Option<VidDisperse<TYPES>>,
+    ) -> Self {
+        Self {
+            leaf,
+            state,
+            delta,
+            vid,
+        }
+    }
+}
+
+/// The chain of decided leaves with its corresponding state and VID info.
+pub type LeafChain<TYPES> = Vec<LeafInfo<TYPES>>;
+
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///
 /// This enum does not include metadata shared among all variants, such as the stage and view

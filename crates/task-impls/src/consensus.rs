@@ -12,6 +12,7 @@ use core::time::Duration;
 use hotshot_constants::Version;
 use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::event::LeafInfo;
 
 use async_broadcast::Sender;
 
@@ -526,7 +527,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         Event {
                             view_number: TYPES::Time::genesis(),
                             event: EventType::Decide {
-                                leaf_chain: Arc::new(vec![(
+                                leaf_chain: Arc::new(vec![LeafInfo::new(
                                     leaf.clone(),
                                     state.clone(),
                                     Some(Arc::new(state_delta)),
@@ -785,7 +786,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     .get(&leaf.get_view_number())
                                     .map(|vid_proposal| vid_proposal.data.clone());
 
-                                leaf_views.push((leaf.clone(), state.clone(), delta.clone(), vid));
+                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
                                 if let Some(ref payload) = leaf.block_payload {
                                     for txn in payload
