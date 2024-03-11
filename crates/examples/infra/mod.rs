@@ -181,13 +181,16 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
         load_config_from_file::<TYPES>(&args.config_file);
 
     if let Some(total_nodes_string) = matches.get_one::<String>("total_nodes") {
-        config.config.total_nodes = total_nodes_string.parse::<NonZeroUsize>().unwrap();
+        config.config.num_nodes_with_stake = total_nodes_string.parse::<NonZeroUsize>().unwrap();
         config.config.known_nodes_with_stake =
-            vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
-        error!("config.config.total_nodes: {:?}", config.config.total_nodes);
+            vec![PeerConfig::default(); config.config.num_nodes_with_stake.get() as usize];
+        error!(
+            "config.config.total_nodes: {:?}",
+            config.config.num_nodes_with_stake
+        );
     }
     if let Some(da_committee_size_string) = matches.get_one::<String>("da_committee_size") {
-        config.config.da_committee_size = da_committee_size_string.parse::<usize>().unwrap();
+        config.config.da_staked_committee_size = da_committee_size_string.parse::<usize>().unwrap();
     }
     if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round")
     {
