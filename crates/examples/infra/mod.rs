@@ -851,20 +851,16 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> CombinedDARun<TYPES> {
-        // generate our own key
-        let (pub_key, _privkey) =
-            <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                config.seed,
-                config.node_index,
-            );
+        // Get our own key
+        let pub_key = config.config.my_own_validator_config.public_key.clone();
 
-        // create and wait for libp2p network
+        // Create and wait for libp2p network
         let libp2p_underlying_quorum_network =
             libp2p_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
 
         libp2p_underlying_quorum_network.wait_for_ready().await;
 
-        // extract values from config (for webserver DA network)
+        // Extract values from config (for webserver DA network)
         let WebServerConfig {
             url,
             wait_between_polls,
@@ -873,7 +869,7 @@ where
         let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
             config.clone().combined_network_config.unwrap();
 
-        // create and wait for underlying webserver network
+        // Create and wait for underlying webserver network
         let web_quorum_network =
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
 
@@ -881,8 +877,7 @@ where
 
         web_quorum_network.wait_for_ready().await;
 
-        // combine the two communication channel
-
+        // Combine the two communication channels
         let da_channel = CombinedNetworks::new(
             Arc::new(UnderlyingCombinedNetworks(
                 web_da_network.clone(),

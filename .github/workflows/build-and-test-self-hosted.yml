@@ -39,7 +39,7 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          just ${{ matrix.just_variants }} test
+          just ${{ matrix.just_variants }} test-ci
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
