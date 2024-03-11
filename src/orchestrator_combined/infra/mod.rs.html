@@ -1043,6 +1043,8 @@
 <a href="#1042" id="1042">1042</a>
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1080,7 +1082,7 @@
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     traits::{
-        block_contents::TestableBlock,
+        block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
@@ -1616,7 +1618,9 @@
 
                                 <span class="comment">// iterate all the decided transactions to calculate latency
                                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block_payload) = <span class="kw-2">&amp;</span>leaf.block_payload {
-                                    <span class="kw">for </span>tx <span class="kw">in </span>block_payload.get_transactions() {
+                                    <span class="kw">for </span>tx <span class="kw">in
+                                        </span>block_payload.get_transactions(leaf.block_header.metadata())
+                                    {
                                         <span class="kw">let </span>restored_timestamp_vec =
                                             tx.<span class="number">0</span>[tx.<span class="number">0</span>.len() - <span class="number">8</span>..].to_vec();
                                         <span class="kw">let </span>restored_timestamp = i64::from_be_bytes(

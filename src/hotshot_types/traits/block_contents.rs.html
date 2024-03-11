@@ -236,7 +236,7 @@
     </span><span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment;
 
     <span class="doccomment">/// Get the transactions in the payload.
-    </span><span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::Transaction&gt;;
+    </span><span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::Transaction&gt;;
 }
 
 <span class="doccomment">/// extra functions required on block to be usable by hotshot-testing
