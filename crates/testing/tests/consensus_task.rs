@@ -252,7 +252,7 @@ async fn test_view_sync_finalize_propose() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::{exact, is_at_view_number, quorum_proposal_send},
+        predicates::{exact, is_at_view_number, leaf_decided, quorum_proposal_send},
         script::{run_test_script, TestScriptStage},
         task_helpers::{build_system_handle, vid_scheme_from_view_number},
         view_generator::TestViewGenerator,
@@ -262,9 +262,8 @@ async fn test_view_sync_finalize_propose() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle(4).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
@@ -273,20 +272,26 @@ async fn test_view_sync_finalize_propose() {
     let payload_commitment = vid_disperse.commit;
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
-        relay: 2,
-        round: ViewNumber::new(2),
+        relay: 3,
+        round: ViewNumber::new(3),
     };
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
-    for view in (&mut generator).take(1) {
+    let mut vids = Vec::new();
+    let mut dacs = Vec::new();
+    for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_vote(&handle));
+        vids.push(view.vid_proposal.clone());
+        dacs.push(view.da_certificate.clone());
     }
 
+    // Each call to `take` moves us to the next generated view. We advance to view
+    // 3 and then add the finalize cert for checking there.
     generator.add_view_sync_finalize(view_sync_finalize_data);
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -295,10 +300,7 @@ async fn test_view_sync_finalize_propose() {
     }
 
     let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            QuorumVoteRecv(votes[0].clone()),
-        ],
+        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             exact(QuorumProposalValidated(proposals[0].data.clone())),
@@ -307,19 +309,35 @@ async fn test_view_sync_finalize_propose() {
         asserts: vec![is_at_view_number(1)],
     };
 
-    let cert = proposals[1].data.view_sync_certificate.clone().unwrap();
-    // Move to view 2 and obtain a ViewSyncFinalizeCertificate2Recv and propose.
     let view_2 = TestScriptStage {
         inputs: vec![
+            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            ViewSyncFinalizeCertificate2Recv(cert),
+            DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             exact(QuorumProposalValidated(proposals[1].data.clone())),
-            quorum_proposal_send(),
+            exact(QuorumVoteSend(votes[1].clone())),
         ],
         asserts: vec![is_at_view_number(2)],
+    };
+
+    let cert = proposals[2].data.view_sync_certificate.clone().unwrap();
+    // Move to view 2 and obtain a ViewSyncFinalizeCertificate2Recv and propose.
+    let view_3 = TestScriptStage {
+        inputs: vec![
+            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
+            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(3)),
+            ViewSyncFinalizeCertificate2Recv(cert),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(3))),
+            exact(QuorumProposalValidated(proposals[2].data.clone())),
+            leaf_decided(),
+            quorum_proposal_send(),
+        ],
+        asserts: vec![is_at_view_number(3)],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -329,7 +347,7 @@ async fn test_view_sync_finalize_propose() {
     >::create_from(&handle)
     .await;
 
-    let stages = vec![view_1, view_2];
+    let stages = vec![view_1, view_2, view_3];
 
     inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
