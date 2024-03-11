@@ -525,7 +525,8 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     let mut cert = proposals[2].data.view_sync_certificate.clone().unwrap();
 
-    // Obtain the ViewSyncFinalizeCertificate2Recv and make sure that the vote goes through
+    // Overwrite the cert view number with something invalid to force the failure. This should
+    // result in the vote NOT being sent below in the outputs.
     cert.view_number = ViewNumber::new(10);
     let view_3 = TestScriptStage {
         inputs: vec![
