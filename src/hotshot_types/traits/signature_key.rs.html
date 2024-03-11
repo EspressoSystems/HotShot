@@ -137,6 +137,8 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
@@ -226,6 +228,7 @@
     // of serialization, to avoid Cryptographic pitfalls
     </span><span class="doccomment">/// Validate a signature
     </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::PureAssembledSignatureType, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool;
+
     <span class="doccomment">/// Produce a signature
     /// # Errors
     /// If unable to sign the data with the key
@@ -233,6 +236,7 @@
         private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey,
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::PureAssembledSignatureType, <span class="self">Self</span>::SignError&gt;;
+
     <span class="doccomment">/// Produce a public key from a private key
     </span><span class="kw">fn </span>from_private(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey) -&gt; <span class="self">Self</span>;
     <span class="doccomment">/// Serialize a public key to bytes

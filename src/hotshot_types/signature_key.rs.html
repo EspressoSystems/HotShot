@@ -126,9 +126,6 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs for the hotshot signature keys
 
 </span><span class="kw">use crate</span>::{
@@ -149,7 +146,6 @@
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 <span class="kw">use </span>tracing::instrument;
-<span class="kw">use </span>typenum::U32;
 
 <span class="doccomment">/// BLS private key used to sign a message
 </span><span class="kw">pub type </span>BLSPrivKey = SignKey;
@@ -171,19 +167,17 @@
     <span class="attr">#[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::PureAssembledSignatureType, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
         <span class="comment">// This is the validation for QC partial signature before append().
-        </span><span class="kw">let </span>generic_msg: <span class="kw-2">&amp;</span>GenericArray&lt;u8, U32&gt; = GenericArray::from_slice(data);
-        BLSOverBN254CurveSignatureScheme::verify(<span class="kw-2">&amp;</span>(), <span class="self">self</span>, generic_msg, signature).is_ok()
+        </span>BLSOverBN254CurveSignatureScheme::verify(<span class="kw-2">&amp;</span>(), <span class="self">self</span>, data, signature).is_ok()
     }
 
     <span class="kw">fn </span>sign(
         sk: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey,
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::PureAssembledSignatureType, <span class="self">Self</span>::SignError&gt; {
-        <span class="kw">let </span>generic_msg = GenericArray::from_slice(data);
         BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::sign(
             <span class="kw-2">&amp;</span>(),
-            generic_msg,
             sk,
+            data,
             <span class="kw-2">&amp;mut </span>rand::thread_rng(),
         )
     }

@@ -92,6 +92,8 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The quorum certificate (QC) trait is a certificate of a sufficient quorum of distinct
 //! parties voted for a message or statement.
 
@@ -136,12 +138,14 @@
     /// # Errors
     ///
     /// Should return error if the underlying signature scheme fail to sign.
-    </span><span class="kw">fn </span>sign&lt;R: CryptoRng + RngCore&gt;(
-        agg_sig_pp: <span class="kw-2">&amp;</span>A::PublicParameter,
-        message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
+    </span><span class="kw">fn </span>sign&lt;R: CryptoRng + RngCore, M: AsRef&lt;[A::MessageUnit]&gt;&gt;(
+        pp: <span class="kw-2">&amp;</span>A::PublicParameter,
         sk: <span class="kw-2">&amp;</span>A::SigningKey,
+        msg: M,
         prng: <span class="kw-2">&amp;mut </span>R,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, PrimitivesError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, PrimitivesError&gt; {
+        A::sign(pp, sk, msg, prng)
+    }
 
     <span class="doccomment">/// Computes an aggregated signature from a set of partial signatures and the verification keys involved
     /// * `qc_pp` - public parameters for generating the QC
