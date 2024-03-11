@@ -25,8 +25,8 @@ just async_std example validator-webserver -- <ORCHESTRATOR_URL> <ORCHESTRATOR_P
 just async_std example multi-validator-webserver -- <NUM_VALIDATORS> <ORCHESTRATOR_URL> <ORCHESTRATOR_PORT>
 ```
 
-I.e.
-``` 
+I.e. 
+```
 just async_std example webserver -- http://127.0.0.1:9000 
 just async_std example webserver -- http://127.0.0.1:9001 
 just async_std example webserver -- http://127.0.0.1:9002
@@ -44,6 +44,7 @@ just async_std example multi-validator-webserver -- 10 http://127.0.0.1:4444
 ================All of the above are out-dated================
 
 OR:
+
 `just async_std example all-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://localhost:4444`
 
 For other argument setting, checkout `read_orchestrator_initialization_config` in `crates/examples/infra/mod.rs`.
