@@ -11,7 +11,7 @@ use hotshot_types::{
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
-    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
+    simple_vote::ViewSyncFinalizeData,
     traits::signature_key::SignatureKey,
 };
 use hotshot_types::{
