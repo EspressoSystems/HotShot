@@ -1267,11 +1267,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let view = certificate.view_number + 1;
 
-                if self
+                if !self
                     .publish_proposal_if_able(view, self.timeout_cert.clone(), &event_stream)
-                    .await
-                {
-                } else {
+                    .await {
                     warn!("Wasn't able to publish proposal");
                 }
             }

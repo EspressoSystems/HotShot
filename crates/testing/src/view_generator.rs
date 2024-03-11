@@ -82,6 +82,7 @@ impl TestView {
             justify_qc: QuorumCertificate::genesis(),
             timeout_certificate: None,
             upgrade_certificate: None,
+            view_sync_certificate: None,
             proposer_id: public_key,
         };
 
@@ -215,6 +216,7 @@ impl TestView {
             justify_qc: quorum_certificate.clone(),
             timeout_certificate: None,
             upgrade_certificate,
+            view_sync_certificate: None,
             proposer_id: public_key,
         };
 
