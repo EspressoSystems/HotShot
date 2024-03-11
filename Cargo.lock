@@ -2755,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2797,7 +2797,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-constants"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "serde",
  "versioned-binary-serialization",
@@ -2805,7 +2805,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2835,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2879,7 +2879,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -2904,7 +2904,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -2923,7 +2923,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2935,7 +2935,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -2995,7 +2995,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing-macros"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "ark-bls12-381",
  "async-compatibility-layer",
@@ -3024,7 +3024,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-utils"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "bincode",
  "hotshot-constants",
@@ -3082,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -4005,7 +4005,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",

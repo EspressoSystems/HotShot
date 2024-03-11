@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.22"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.23"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.65.0"
@@ -68,7 +68,7 @@ jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.1" }
 lazy_static = "1.4.0"
 libp2p-identity = "0.2"
-libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5.22", default-features = false }
+libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5.23", default-features = false }
 libp2p-swarm-derive = { version = "0.34.1" }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
