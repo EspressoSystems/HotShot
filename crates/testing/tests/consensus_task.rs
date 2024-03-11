@@ -200,7 +200,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     ];
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
-    let mut view_2_outputs = vec![
+    let view_2_outputs = vec![
         exact(ViewChange(ViewNumber::new(2))),
         exact(QuorumProposalValidated(proposals[1].data.clone())),
         exact(QuorumVoteSend(votes[1].clone())),
