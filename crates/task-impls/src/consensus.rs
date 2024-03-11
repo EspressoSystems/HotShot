@@ -1339,7 +1339,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
         // Walk back until we find a decide
         if !reached_decided {
-            debug!("not reached decide fro view {:?}", self.cur_view);
+            debug!("We have not reached decide from view {:?}", self.cur_view);
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
