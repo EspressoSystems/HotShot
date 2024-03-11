@@ -244,17 +244,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             // If we have a ViewSyncFinalize cert, only vote if it is valid.
             if let Some(cert) = &self.view_sync_cert {
-                if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                    debug!("Invalid ViewSyncFinalize cert provided");
-                    return false;
-                }
-
                 // Do not vote for the proposal if the cert is valid for an incorrect view
                 if cert.view_number != proposal.view_number {
                     debug!(
                         "Cert view number {:?} does not match proposal view number {:?}",
                         cert.view_number, proposal.view_number
                     );
+                    return false;
+                }
+
+                if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                    debug!("Invalid ViewSyncFinalize cert provided");
                     return false;
                 }
             }
@@ -1285,7 +1285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view = certificate.view_number + 1;
 
                 if !self
-                    .publish_proposal_if_able(view, self.timeout_cert.clone(), &event_stream)
+                    .publish_proposal_if_able(view, None, &event_stream)
                     .await
                 {
                     warn!("Wasn't able to publish proposal");
