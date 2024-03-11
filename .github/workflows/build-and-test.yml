@@ -1,4 +1,4 @@
-name: Build
+name: Build and test
 
 on:
   push:
@@ -226,7 +226,7 @@ jobs:
           - async-std
           - tokio
     runs-on: ubuntu-latest
-    needs: [test, test-self-hosted, build, build-arm, build-release]
+    needs: [build, build-arm, build-release]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
