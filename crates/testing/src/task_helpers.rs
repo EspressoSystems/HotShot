@@ -22,7 +22,13 @@ use hotshot_types::{
     simple_certificate::{DACertificate, QuorumCertificate},
     simple_vote::{DAData, DAVote, SimpleVote},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock}, consensus_api::ConsensusApi, election::Membership, network::Topic, node_implementation::{ConsensusTime, NodeType}, states::ValidatedState, BlockPayload
+        block_contents::{vid_commitment, BlockHeader, TestableBlock},
+        consensus_api::ConsensusApi,
+        election::Membership,
+        network::Topic,
+        node_implementation::{ConsensusTime, NodeType},
+        states::ValidatedState,
+        BlockPayload,
     },
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::HasViewNumber,
