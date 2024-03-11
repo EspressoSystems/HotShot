@@ -20,7 +20,9 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, VidDisperse},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    simple_certificate::{
+        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+    },
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -120,6 +122,9 @@ pub struct ConsensusTaskState<
 
     /// last Upgrade Certificate this node formed
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+
+    /// last View Sync Certificate this node formed
+    pub view_sync_cert: Option<ViewSyncFinalizeCertificate2<TYPES>>,
 
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -1237,6 +1242,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+                if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
+                    warn!(
+                        "View Sync Finalize certificate {:?} was invalid",
+                        certificate.get_data()
+                    );
+                    return;
+                }
+
+                self.view_sync_cert = Some(certificate.clone());
+
+                // cancel poll for votes
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                        *certificate.view_number,
+                    ))
+                    .await;
+
+                debug!(
+                    "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
+                    *certificate.view_number
+                );
+
+                let view = certificate.view_number + 1;
+
+                if self
+                    .publish_proposal_if_able(view, self.timeout_cert.clone(), &event_stream)
+                    .await
+                {
+                } else {
+                    warn!("Wasn't able to publish proposal");
+                }
+            }
             _ => {}
         }
     }
@@ -1360,10 +1398,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| None),
                 upgrade_certificate: upgrade_cert,
+                view_sync_certificate: self.view_sync_cert.clone(),
                 proposer_id: leaf.proposer_id,
             };
 
             self.timeout_cert = None;
+            self.view_sync_cert = None;
             let message = Proposal {
                 data: proposal,
                 signature,
@@ -1405,6 +1445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
                 | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::Shutdown,
         )
     }

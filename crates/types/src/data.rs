@@ -4,7 +4,9 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    simple_certificate::{
+        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+    },
     simple_vote::UpgradeProposalData,
     traits::{
         block_contents::{
@@ -187,6 +189,9 @@ pub struct QuorumProposal<TYPES: NodeType> {
 
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// Possible view sync finalize certificate, which the leader may optionally attach..
+    pub view_sync_certificate: Option<ViewSyncFinalizeCertificate2<TYPES>>,
 
     /// the propser id
     pub proposer_id: TYPES::SignatureKey,
