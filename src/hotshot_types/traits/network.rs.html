@@ -1034,7 +1034,7 @@
     </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;K&gt;) {}
 
     <span class="doccomment">/// handles view update
-    </span><span class="kw">async fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: <span class="kw-2">&amp;</span>u64) {}
+    </span><span class="kw">fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: u64) {}
 }
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation

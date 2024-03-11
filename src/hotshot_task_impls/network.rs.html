@@ -757,7 +757,7 @@
             ),
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="self">self</span>.view = view;
-                <span class="self">self</span>.channel.update_view(<span class="kw-2">&amp;</span><span class="self">self</span>.view.get_u64()).<span class="kw">await</span>;
+                <span class="self">self</span>.channel.update_view(<span class="self">self</span>.view.get_u64());
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::Shutdown =&gt; {
