@@ -16,8 +16,10 @@ use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_types::{
     data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
     message::Proposal,
-    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
-    simple_vote::{UpgradeProposalData, UpgradeVote},
+    simple_certificate::{
+        DACertificate, QuorumCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+    },
+    simple_vote::{UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote},
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
@@ -41,6 +43,7 @@ pub struct TestView {
     pub da_certificate: DACertificate<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
+    view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
 }
 
 impl TestView {
@@ -118,6 +121,7 @@ impl TestView {
             transactions,
             leader_public_key,
             upgrade_data: None,
+            view_sync_finalize_data: None,
         }
     }
 
@@ -188,6 +192,25 @@ impl TestView {
             None
         };
 
+        let view_sync_certificate = if let Some(ref data) = self.view_sync_finalize_data {
+            let cert = build_cert::<
+                TestTypes,
+                ViewSyncFinalizeData<TestTypes>,
+                ViewSyncFinalizeVote<TestTypes>,
+                ViewSyncFinalizeCertificate2<TestTypes>,
+            >(
+                data.clone(),
+                quorum_membership,
+                next_view,
+                &public_key,
+                &private_key,
+            );
+
+            Some(cert)
+        } else {
+            None
+        };
+
         let block_header = TestBlockHeader {
             block_number: *next_view,
             timestamp: *next_view,
@@ -216,7 +239,7 @@ impl TestView {
             justify_qc: quorum_certificate.clone(),
             timeout_certificate: None,
             upgrade_certificate,
-            view_sync_certificate: None,
+            view_sync_certificate,
             proposer_id: public_key,
         };
 
@@ -238,6 +261,7 @@ impl TestView {
             // so we reset for the next view.
             transactions: Vec::new(),
             upgrade_data: None,
+            view_sync_finalize_data: None,
         }
     }
 
@@ -289,6 +313,20 @@ impl TestViewGenerator {
             });
         } else {
             tracing::error!("Cannot attach transactions to the genesis view.");
+        }
+    }
+
+    pub fn add_view_sync_finalize(
+        &mut self,
+        view_sync_finalize_data: ViewSyncFinalizeData<TestTypes>,
+    ) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                view_sync_finalize_data: Some(view_sync_finalize_data),
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach view sync finalize to the genesis view.");
         }
     }
 }

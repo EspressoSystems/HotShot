@@ -242,6 +242,99 @@ async fn test_consensus_vote_with_permuted_dac() {
     test_vote_with_specific_order(vec![2, 1, 0]).await;
 }
 
+#[cfg(test)]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_view_sync_finalize_propose() {
+    use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+    use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
+    use hotshot_testing::{
+        predicates::{exact, is_at_view_number, quorum_proposal_send},
+        script::{run_test_script, TestScriptStage},
+        task_helpers::{build_system_handle, vid_scheme_from_view_number},
+        view_generator::TestViewGenerator,
+    };
+    use hotshot_types::simple_vote::ViewSyncFinalizeData;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    // Make some empty encoded transactions, we just care about having a commitment handy for the
+    // later calls. We need the VID commitment to be able to propose later.
+    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let encoded_transactions = Vec::new();
+    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let payload_commitment = vid_disperse.commit;
+
+    let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
+        relay: 2,
+        round: ViewNumber::new(2),
+    };
+
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    let mut votes = Vec::new();
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_vote(&handle));
+    }
+
+    generator.add_view_sync_finalize(view_sync_finalize_data);
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_vote(&handle));
+    }
+
+    let view_1 = TestScriptStage {
+        inputs: vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumVoteRecv(votes[0].clone()),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
+        ],
+        asserts: vec![is_at_view_number(1)],
+    };
+
+    let cert = proposals[1].data.view_sync_certificate.clone().unwrap();
+    // Move to view 2 and obtain a ViewSyncFinalizeCertificate2Recv and propose.
+    let view_2 = TestScriptStage {
+        inputs: vec![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            ViewSyncFinalizeCertificate2Recv(cert),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_send(),
+        ],
+        asserts: vec![is_at_view_number(2)],
+    };
+
+    let consensus_state = ConsensusTaskState::<
+        TestTypes,
+        MemoryImpl,
+        SystemContextHandle<TestTypes, MemoryImpl>,
+    >::create_from(&handle)
+    .await;
+
+    let stages = vec![view_1, view_2];
+
+    inject_consensus_polls(&consensus_state).await;
+    run_test_script(stages, consensus_state).await;
+}
+
 /// TODO (jparr721): Nuke these old tests. Tracking: https://github.com/EspressoSystems/HotShot/issues/2727
 #[cfg(test)]
 #[cfg_attr(
