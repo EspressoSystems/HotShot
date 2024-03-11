@@ -19,7 +19,7 @@ use hotshot_types::{
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg,
+            NetworkMsg, Topic,
         },
         node_implementation::ConsensusTime,
         signature_key::SignatureKey,
@@ -43,8 +43,7 @@ use libp2p_networking::{
     network::{
         spawn_network_node,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeReceiver, NetworkNodeType,
     },
     reexport::Multiaddr,
 };
@@ -125,10 +124,8 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     is_bootstrapped: Arc<AtomicBool>,
     /// The networking metrics we're keeping track of
     metrics: NetworkingMetricsValue,
-    /// topic map
-    /// hash(hashset) -> topic
-    /// btreemap ordered so is hashable
-    topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
+    /// The topics we're currently subscribed to
+    subscribed_topics: Arc<RwLock<HashSet<Topic>>>,
     /// the latest view number (for node lookup purposes)
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
@@ -256,7 +253,6 @@ where
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
-                let keys = all_keys.clone();
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
                 let net = Arc::new(async_block_on(async move {
@@ -267,10 +263,8 @@ where
                         bootstrap_addrs_ref,
                         num_bootstrap,
                         usize::try_from(node_id).unwrap(),
-                        keys,
                         #[cfg(feature = "hotshot-testing")]
                         reliability_config_dup,
-                        da.clone(),
                         da.contains(&pubkey),
                     )
                     .await
@@ -323,10 +317,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         bootstrap_addrs: BootstrapAddrs,
         bootstrap_addrs_len: usize,
         id: usize,
-        // HACK
-        committee_pks: BTreeSet<K>,
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
-        da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
@@ -347,12 +338,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
         let mut pubkey_pid_map = BiHashMap::new();
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
-
-        let mut topic_map = BiHashMap::new();
-        topic_map.insert(committee_pks, QC_TOPIC.to_string());
-        topic_map.insert(da_pks, "DA".to_string());
-
-        let topic_map = RwLock::new(topic_map);
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
@@ -375,8 +360,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 dht_timeout: Duration::from_secs(120),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
-                topic_map,
                 node_lookup_send,
+                subscribed_topics: Arc::default(),
                 // Start the latest view from 0. "Latest" refers to "most recent view we are polling for
                 // proposals on". We need this because to have consensus info injected we need a working
                 // network already. In the worst case, we send a few lookups we don't need.
@@ -431,6 +416,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
+        let subscribed_topics = self.inner.subscribed_topics.clone();
         let metrics_connected_peers = self.inner.clone();
         let is_da = self.inner.is_da;
         async_spawn({
@@ -458,15 +444,17 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
+                // Subscribe to the global topic
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
+                // Add to our internal list of subscribed topics so we can short-circuit
+                // broadcast to ourselves
+                subscribed_topics.write().await.insert(Topic::Global);
 
                 // only subscribe to DA events if we are DA
                 if is_da {
                     handle.subscribe("DA".to_string()).await.unwrap();
+                    subscribed_topics.write().await.insert(Topic::DA);
                 }
-                // TODO figure out some way of passing in ALL keypairs. That way we can add the
-                // global topic to the topic map
-                // NOTE this wont' work without this change
 
                 info!(
                     "peer {:?} waiting for publishing, type: {:?}",
@@ -674,8 +662,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     async fn broadcast_message(
         &self,
         message: M,
-        recipients: BTreeSet<K>,
+        _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
+        // Quorum messages go to the "global" topic
+        let topic = Topic::Global;
+
         self.wait_for_ready().await;
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
@@ -683,17 +674,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             self.inner.handle.connected_pids().await
         );
 
-        let topic_map = self.inner.topic_map.read().await;
-        let topic = topic_map
-            .get_by_left(&recipients)
-            .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
-            })?
-            .clone();
-        info!("broadcasting to topic: {}", topic);
-
-        // gossip doesn't broadcast from itself, so special case
-        if recipients.contains(&self.inner.pk) {
+        // Short-circuit broadcast to ourselves if we're subscribed to the topic
+        if self
+            .inner
+            .subscribed_topics
+            .read()
+            .await
+            .contains(&Topic::Global)
+        {
             // send to self
             self.inner
                 .sender
@@ -719,7 +707,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         let handle_2 = handle.clone();
                         let metrics_2 = metrics.clone();
                         boxed_sync(async move {
-                            match handle_2.gossip_no_serialize(topic_2, msg).await {
+                            match handle_2.gossip_no_serialize(topic_2.to_string(), msg).await {
                                 Err(e) => {
                                     metrics_2.message_failed_to_send.add(1);
                                     warn!("Failed to broadcast to libp2p: {:?}", e);
@@ -736,7 +724,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         }
 
-        match self.inner.handle.gossip(topic, &message).await {
+        match self.inner.handle.gossip(topic.to_string(), &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
                 Ok(())

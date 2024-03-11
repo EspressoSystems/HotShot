@@ -6,7 +6,7 @@
 use super::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
-    network::{ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation},
+    network::{ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation, Topic},
     states::TestableState,
     storage::{StorageError, StorageState, TestableStorage},
     ValidatedState,
@@ -59,7 +59,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 
     /// Generates a committee-specific election
     fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static>;
+    ) -> Box<dyn Fn(u64, Topic) -> Self::CommitteeElectionConfig + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -115,8 +115,10 @@ where
     type CommitteeElectionConfig = TYPES::ElectionConfigType;
 
     fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeElectionConfig + 'static> {
-        Box::new(|num_nodes| <TYPES as NodeType>::Membership::default_election_config(num_nodes))
+    ) -> Box<dyn Fn(u64, Topic) -> Self::CommitteeElectionConfig + 'static> {
+        Box::new(|num_nodes, topic| {
+            <TYPES as NodeType>::Membership::default_election_config(num_nodes, topic)
+        })
     }
 
     fn state_create_random_transaction(

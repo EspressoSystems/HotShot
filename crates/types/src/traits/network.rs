@@ -39,6 +39,26 @@ impl From<NetworkNodeHandleError> for NetworkError {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash, Default)]
+/// A network topic pertaining to a particular committee.
+pub enum Topic {
+    /// The DA committee. If we are in this committee, subscribe to this topic.
+    DA,
+    /// The global committee. All consensus messages are sent here.
+    #[default]
+    Global,
+}
+
+/// This helps us convert the `Topic` to a string, which Libp2p needs.
+impl std::fmt::Display for Topic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Topic::DA => write!(f, "DA"),
+            Topic::Global => write!(f, "global"),
+        }
+    }
+}
+
 /// for any errors we decide to add to memory network
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]

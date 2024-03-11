@@ -22,12 +22,7 @@ use hotshot_types::{
     simple_certificate::{DACertificate, QuorumCertificate},
     simple_vote::{DAData, DAVote, SimpleVote},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock},
-        consensus_api::ConsensusApi,
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
-        states::ValidatedState,
-        BlockPayload,
+        block_contents::{vid_commitment, BlockHeader, TestableBlock}, consensus_api::ConsensusApi, election::Membership, network::Topic, node_implementation::{ConsensusTime, NodeType}, states::ValidatedState, BlockPayload
     },
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::HasViewNumber,
@@ -71,19 +66,19 @@ pub async fn build_system_handle(
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key;
-    let quorum_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            <TestTypes as NodeType>::Membership::default_election_config(
-                config.total_nodes.get() as u64
-            )
-        });
+    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <TestTypes as NodeType>::Membership::default_election_config(
+            config.total_nodes.get() as u64,
+            Topic::Global,
+        )
+    });
 
-    let committee_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            <TestTypes as NodeType>::Membership::default_election_config(
-                config.total_nodes.get() as u64
-            )
-        });
+    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <TestTypes as NodeType>::Membership::default_election_config(
+            config.total_nodes.get() as u64,
+            Topic::DA,
+        )
+    });
     let networks_bundle = Networks {
         quorum_network: networks.0.clone(),
         da_network: networks.1.clone(),

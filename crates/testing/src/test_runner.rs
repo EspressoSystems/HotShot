@@ -26,6 +26,7 @@ use hotshot_types::{
     data::Leaf,
     traits::{
         election::Membership,
+        network::Topic,
         node_implementation::{ConsensusTime, NodeType},
     },
     HotShotConfig, ValidatorConfig,
@@ -328,7 +329,10 @@ where
             let config = self.launcher.resource_generator.config.clone();
             let known_nodes_with_stake = config.known_nodes_with_stake.clone();
             let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-                TYPES::Membership::default_election_config(config.total_nodes.get() as u64)
+                TYPES::Membership::default_election_config(
+                    config.total_nodes.get() as u64,
+                    Topic::Global,
+                )
             });
             let committee_election_config = I::committee_election_config_generator();
             let memberships = Memberships {
@@ -338,7 +342,7 @@ where
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    committee_election_config(config.da_committee_size as u64),
+                    committee_election_config(config.da_committee_size as u64, Topic::DA),
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),

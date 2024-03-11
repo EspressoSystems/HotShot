@@ -1,5 +1,6 @@
 // use ark_bls12_381::Parameters as Param381;
 use hotshot_types::signature_key::BLSPubKey;
+use hotshot_types::traits::network::Topic;
 use hotshot_types::traits::{
     election::{ElectionConfig, Membership},
     node_implementation::NodeType,
@@ -22,6 +23,9 @@ pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
     nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// The nodes on the static committee and their stake
     committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+    /// The topic pertaining to the particular committee. This helps
+    /// us attribute a membership to a particular subscription.
+    topic: Topic,
     /// Node type phantom
     _type_phantom: PhantomData<T>,
 }
@@ -32,10 +36,15 @@ pub type StaticCommittee<T> = GeneralStaticCommittee<T, BLSPubKey>;
 impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
     /// Creates a new dummy elector
     #[must_use]
-    pub fn new(_nodes: &[PUBKEY], nodes_with_stake: Vec<PUBKEY::StakeTableEntry>) -> Self {
+    pub fn new(
+        _nodes: &[PUBKEY],
+        nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+        topic: Topic,
+    ) -> Self {
         Self {
             nodes_with_stake: nodes_with_stake.clone(),
             committee_nodes_with_stake: nodes_with_stake,
+            topic,
             _type_phantom: PhantomData,
         }
     }
@@ -46,6 +55,9 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
 pub struct StaticElectionConfig {
     /// Number of nodes on the committee
     num_nodes: u64,
+    /// The topic pertaining to the particular committee. This helps
+    /// us attribute a membership to a particular subscription.
+    topic: Topic,
 }
 
 impl ElectionConfig for StaticElectionConfig {}
@@ -95,8 +107,8 @@ where
         }
     }
 
-    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
-        StaticElectionConfig { num_nodes }
+    fn default_election_config(num_nodes: u64, topic: Topic) -> TYPES::ElectionConfigType {
+        StaticElectionConfig { num_nodes, topic }
     }
 
     fn create_election(
@@ -113,6 +125,7 @@ where
         Self {
             nodes_with_stake,
             committee_nodes_with_stake,
+            topic: config.topic,
             _type_phantom: PhantomData,
         }
     }
@@ -145,5 +158,11 @@ where
                 )
             })
             .collect()
+    }
+
+    /// Get the committee's dedicated topic. Used in subscriptions for the
+    /// Push CDN as well as Libp2p.
+    fn get_committee_topic(&self) -> Topic {
+        self.topic.clone()
     }
 }

@@ -27,7 +27,7 @@ use hotshot_orchestrator::{
     config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::network::ConnectedNetwork;
+use hotshot_types::traits::network::{ConnectedNetwork, Topic};
 use hotshot_types::PeerConfig;
 use hotshot_types::ValidatorConfig;
 use hotshot_types::{
@@ -405,9 +405,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         config.node_index as usize,
         // NOTE: this introduces an invariant that the keys are assigned using this indexed
         // function
-        all_keys,
         None,
-        da_keys.clone(),
         da_keys.contains(&pub_key),
     )
     .await
@@ -458,11 +456,15 @@ pub trait RunDA<
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.config.total_nodes.get() as u64)
+            TYPES::Membership::default_election_config(
+                config.config.total_nodes.get() as u64,
+                Topic::Global,
+            )
         });
 
         let committee_election_config = TYPES::Membership::default_election_config(
             config.config.da_committee_size.try_into().unwrap(),
+            Topic::DA,
         );
         let networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
