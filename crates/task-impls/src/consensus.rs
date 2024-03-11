@@ -1269,7 +1269,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 if !self
                     .publish_proposal_if_able(view, self.timeout_cert.clone(), &event_stream)
-                    .await {
+                    .await
+                {
                     warn!("Wasn't able to publish proposal");
                 }
             }
