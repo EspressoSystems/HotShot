@@ -242,23 +242,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return false;
             }
 
-            // If we have a ViewSyncFinalize cert, only vote if it is valid.
-            if let Some(cert) = &self.view_sync_cert {
-                // Do not vote for the proposal if the cert is valid for an incorrect view
-                if cert.view_number != proposal.view_number {
-                    debug!(
-                        "Cert view number {:?} does not match proposal view number {:?}",
-                        cert.view_number, proposal.view_number
-                    );
-                    return false;
-                }
-
-                if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                    debug!("Invalid ViewSyncFinalize cert provided");
-                    return false;
-                }
-            }
-
             // Only vote if you have the DA cert
             // ED Need to update the view number this is stored under?
             if let Some(cert) = consensus.saved_da_certs.get(&(proposal.get_view_number())) {
@@ -491,6 +474,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
                         warn!("Timeout certificate for view {} was invalid", *view);
+                        return;
+                    }
+                }
+
+                // If we have a ViewSyncFinalize cert, only vote if it is valid.
+                if let Some(cert) = &self.view_sync_cert {
+                    // Do not vote for the proposal if the cert is valid for an incorrect view
+                    if cert.view_number != view {
+                        debug!(
+                            "Cert view number {:?} does not match proposal view number {:?}",
+                            cert.view_number, view
+                        );
+                        return;
+                    }
+
+                    if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                        debug!("Invalid ViewSyncFinalize cert provided");
                         return;
                     }
                 }

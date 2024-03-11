@@ -536,12 +536,10 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
             DACRecv(dacs[2].clone()),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
-            leaf_decided(),
-            /* No vote is sent */
+            /* The entire thing dies */
         ],
-        asserts: vec![is_at_view_number(3)],
+        // We are unable to move to the next view.
+        asserts: vec![is_at_view_number(2)],
     };
 
     let consensus_state = ConsensusTaskState::<
