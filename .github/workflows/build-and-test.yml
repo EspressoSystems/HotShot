@@ -80,6 +80,7 @@ jobs:
           - async-std
           - tokio
     runs-on: [self-hosted, arm64]
+    container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
