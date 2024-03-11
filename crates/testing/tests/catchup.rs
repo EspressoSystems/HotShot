@@ -1,8 +1,5 @@
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup() {
     use std::time::Duration;
@@ -28,7 +25,7 @@ async fn test_catchup() {
 
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
-    metadata.total_nodes = 20;
+    metadata.num_nodes_with_stake = 20;
 
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
@@ -60,10 +57,7 @@ async fn test_catchup() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_web() {
     use std::time::Duration;
@@ -89,7 +83,7 @@ async fn test_catchup_web() {
     }];
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
-    metadata.total_nodes = 20;
+    metadata.num_nodes_with_stake = 20;
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
@@ -117,10 +111,7 @@ async fn test_catchup_web() {
 
 /// Test that one node catches up and has sucessful views after coming back
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_one_node() {
     use std::time::Duration;
@@ -145,7 +136,7 @@ async fn test_catchup_one_node() {
     }];
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
-    metadata.total_nodes = 20;
+    metadata.num_nodes_with_stake = 20;
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
@@ -175,10 +166,7 @@ async fn test_catchup_one_node() {
 
 /// Same as `test_catchup` except we start the nodes after their leadership so they join during view sync
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_in_view_sync() {
     use std::time::Duration;
@@ -210,7 +198,7 @@ async fn test_catchup_in_view_sync() {
 
     metadata.timing_data = timing_data;
     metadata.start_nodes = 18;
-    metadata.total_nodes = 20;
+    metadata.num_nodes_with_stake = 20;
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
 
@@ -240,10 +228,7 @@ async fn test_catchup_in_view_sync() {
 // Almost the same as `test_catchup`, but with catchup nodes reloaded from anchor leaf rather than
 // initialized from genesis.
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_reload() {
     use std::time::Duration;
@@ -271,7 +256,7 @@ async fn test_catchup_reload() {
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
     metadata.skip_late = true;
-    metadata.total_nodes = 20;
+    metadata.num_nodes_with_stake = 20;
 
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);

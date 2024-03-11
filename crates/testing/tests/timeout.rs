@@ -1,8 +1,5 @@
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 // TODO Add memory network tests after this issue is finished:
 // https://github.com/EspressoSystems/HotShot/issues/1790
@@ -26,7 +23,7 @@ async fn test_timeout_web() {
     };
 
     let mut metadata = TestMetadata {
-        total_nodes: 10,
+        num_nodes_with_stake: 10,
         start_nodes: 10,
         ..Default::default()
     };
@@ -64,10 +61,7 @@ async fn test_timeout_web() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[ignore]
 async fn test_timeout_libp2p() {
@@ -94,7 +88,7 @@ async fn test_timeout_libp2p() {
     };
 
     let mut metadata = TestMetadata {
-        total_nodes: 10,
+        num_nodes_with_stake: 10,
         start_nodes: 10,
         num_bootstrap_nodes: 10,
         ..Default::default()
