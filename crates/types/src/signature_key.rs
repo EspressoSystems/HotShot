@@ -44,6 +44,15 @@ impl SignatureKey for BLSPubKey {
         BLSOverBN254CurveSignatureScheme::verify(&(), self, generic_msg, signature).is_ok()
     }
 
+    /// Validate a signature of an arbitrary number of bytes, returning on success.
+    fn validate_arbitrary(
+        &self,
+        signature: &Self::PureAssembledSignatureType,
+        data: &[u8],
+    ) -> bool {
+        BLSOverBN254CurveSignatureScheme::verify(&(), self, data, signature).is_ok()
+    }
+
     fn sign(
         sk: &Self::PrivateKey,
         data: &[u8],
@@ -55,6 +64,17 @@ impl SignatureKey for BLSPubKey {
             sk,
             &mut rand::thread_rng(),
         )
+    }
+
+    /// Sign an arbitrary array of bytes.
+    ///
+    /// # Errors
+    /// - If we fail to sign
+    fn sign_arbitrary(
+        sk: &Self::PrivateKey,
+        data: &[u8],
+    ) -> Result<Self::PureAssembledSignatureType, Self::SignError> {
+        BLSOverBN254CurveSignatureScheme::sign(&(), sk, data, &mut rand::thread_rng())
     }
 
     fn from_private(private_key: &Self::PrivateKey) -> Self {
