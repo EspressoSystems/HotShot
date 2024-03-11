@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' && github.run_number) || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   nix-build:
@@ -45,4 +45,4 @@ jobs:
       # sanity check that repository builds with nix
       - name: Build
         run: |
-          nix develop -c just async_std build
+          nix develop -c just async-std build
