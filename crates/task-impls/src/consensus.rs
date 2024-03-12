@@ -458,33 +458,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                // Verify a timeout certificate exists and is valid
+                // Verify a timeout certificate OR a view sync certificate exists and is valid.
                 if proposal.data.justify_qc.get_view_number() != view - 1 {
-                    let Some(timeout_cert) = proposal.data.timeout_certificate.clone() else {
-                        warn!(
-                            "Quorum proposal for view {} needed a timeout certificate but did not have one",
-                            *view);
-                        return;
-                    };
-
-                    if timeout_cert.get_data().view != view - 1 {
-                        warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                        return;
-                    }
-
-                    if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                        warn!("Timeout certificate for view {} was invalid", *view);
-                        return;
-                    }
-
-                    // If we have a ViewSyncFinalize cert, only vote if it is valid.
-                    if let Some(cert) = &self.view_sync_cert {
-                        // Do we have a TC and View Sync Cert?
-                        if proposal.data.timeout_certificate.is_some() {
-                            error!("Received a timeout cert and a view sync cert");
+                    // Do we have a timeout certificate at all?
+                    if let Some(timeout_cert) = proposal.data.timeout_certificate.clone() {
+                        if timeout_cert.get_data().view != view - 1 {
+                            warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
                             return;
                         }
 
+                        if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                            warn!("Timeout certificate for view {} was invalid", *view);
+                            return;
+                        }
+                    } else if let Some(cert) = &self.view_sync_cert {
                         // View sync certs _must_ be for the current view.
                         if cert.view_number != view {
                             debug!(
@@ -499,7 +486,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             debug!("Invalid ViewSyncFinalize cert provided");
                             return;
                         }
-                    }
+                    } else {
+                        warn!(
+                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                            *view);
+                        return;
+                    };
+
+                    // If we have a ViewSyncFinalize cert, only vote if it is valid.
                 }
 
                 let justify_qc = proposal.data.justify_qc.clone();

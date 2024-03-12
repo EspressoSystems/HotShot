@@ -364,18 +364,16 @@ async fn test_view_sync_finalize_propose() {
 /// will indeed vote if the cert is valid and matches the correct view number.
 async fn test_view_sync_finalize_vote() {
     use hotshot_testing::predicates::timeout_vote_send;
-    use hotshot_types::simple_vote::{TimeoutData, TimeoutVote};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(3).await.0;
-    let (private_key, public_key) = key_pair_for_id(3);
+    let handle = build_system_handle(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
-        relay: 3,
-        round: ViewNumber::new(3),
+        relay: 4,
+        round: ViewNumber::new(5),
     };
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
@@ -384,7 +382,7 @@ async fn test_view_sync_finalize_vote() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(3) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_vote(&handle));
@@ -414,31 +412,35 @@ async fn test_view_sync_finalize_vote() {
     };
 
     let view_2 = TestScriptStage {
-        inputs: vec![
-            Timeout(ViewNumber::new(2)),
-            // View sync task will advance to the next view, so we approximate that here.
-            ViewChange(ViewNumber::new(2)),
-        ],
-        outputs: vec![timeout_vote_send(), exact(ViewChange(ViewNumber::new(2)))],
-        asserts: vec![is_at_view_number(2)],
+        inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
+        // Times out, so we now have a delayed view
+        asserts: vec![is_at_view_number(1)],
     };
 
-    let cert = proposals[1].data.view_sync_certificate.clone().unwrap();
-    let view = ViewNumber::new(2);
-    let timeout_vote =
-        TimeoutVote::create_signed_vote(TimeoutData { view }, view, &public_key, &private_key)
-            .unwrap();
-    // Obtain the ViewSyncFinalizeCertificate2Recv and make sure that the vote goes through
+    // Now we're on the latest view. We want to set the quorum
+    // certificate to be the previous highest QC (before the timeouts). This will be distinct from
+    // the view sync cert, which is saying "hey, I'm _actually_ at view 4, but my highest QC is
+    // only for view 1." This forces the QC to be for view 1, and we can move on under this
+    // assumption.
+
+    // Try to view sync at view 4.
+    let view_sync_cert = proposals[3].data.view_sync_certificate.clone().unwrap();
+
+    // Highest qc so far is actually from view 1, so re-assign proposal 0 to the slot of proposal
+    // 3.
+    proposals[0].data.proposer_id = proposals[3].data.proposer_id;
+
+    // Now at view 3 we receive the proposal received response.
     let view_3 = TestScriptStage {
         inputs: vec![
-            TimeoutVoteRecv(timeout_vote),
-            ViewSyncFinalizeCertificate2Recv(cert),
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
-            DACRecv(dacs[1].clone()),
+            // Multiple timeouts in a row, so we call for a view sync
+            ViewSyncFinalizeCertificate2Recv(view_sync_cert),
+            // Receive a proposal for view 4, but with the highest qc being from view 1.
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
         ],
         outputs: vec![
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
             quorum_vote_send(),
         ],
         asserts: vec![],
