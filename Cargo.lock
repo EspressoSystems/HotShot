@@ -3106,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types?branch=keyao/state-to-decide#178685f026a01859837e1b3e07f4e3499b9a0e05"
+source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.1#4e6f836468c8e236f5f5711e941d4d0a5745433a"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
