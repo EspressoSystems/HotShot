@@ -102,6 +102,17 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>commit::{Commitment, Committable};
 
@@ -110,7 +121,7 @@
     traits::{
         block_contents::BlockHeader,
         node_implementation::NodeType,
-        states::{InstanceState, TestableState, ValidatedState},
+        states::{InstanceState, StateDelta, TestableState, ValidatedState},
         BlockPayload,
     },
 };
@@ -126,6 +137,12 @@
 </span><span class="kw">pub struct </span>TestInstanceState {}
 
 <span class="kw">impl </span>InstanceState <span class="kw">for </span>TestInstanceState {}
+
+<span class="doccomment">/// Application-specific state delta implementation for testing purposes.
+</span><span class="attr">#[derive(Clone, Copy, Debug, Default)]
+</span><span class="kw">pub struct </span>TestStateDelta {}
+
+<span class="kw">impl </span>StateDelta <span class="kw">for </span>TestStateDelta {}
 
 <span class="doccomment">/// Validated state implementation for testing purposes.
 </span><span class="attr">#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -163,6 +180,8 @@
 
     <span class="kw">type </span>Instance = TestInstanceState;
 
+    <span class="kw">type </span>Delta = TestStateDelta;
+
     <span class="kw">type </span>Time = ViewNumber;
 
     <span class="kw">async fn </span>validate_and_apply_header(
@@ -170,11 +189,14 @@
         _instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
         _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="prelude-val">Ok</span>(TestValidatedState {
-            block_height: <span class="self">self</span>.block_height + <span class="number">1</span>,
-            prev_state_commitment: <span class="self">self</span>.commit(),
-        })
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Delta), <span class="self">Self</span>::Error&gt; {
+        <span class="prelude-val">Ok</span>((
+            TestValidatedState {
+                block_height: <span class="self">self</span>.block_height + <span class="number">1</span>,
+                prev_state_commitment: <span class="self">self</span>.commit(),
+            },
+            TestStateDelta {},
+        ))
     }
 
     <span class="kw">fn </span>from_header(block_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader) -&gt; <span class="self">Self </span>{
@@ -186,8 +208,8 @@
 
     <span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 
-    <span class="kw">fn </span>genesis(_instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::default()
+    <span class="kw">fn </span>genesis(_instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Delta) {
+        (<span class="self">Self</span>::default(), TestStateDelta {})
     }
 }
 

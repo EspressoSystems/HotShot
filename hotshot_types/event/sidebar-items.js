@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EventType"],"struct":["Event"],"type":["LeafChain"]};
+window.SIDEBAR_ITEMS = {"enum":["EventType"],"struct":["Event","LeafInfo"],"type":["LeafChain"]};

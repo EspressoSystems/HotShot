@@ -1045,6 +1045,7 @@
 <a href="#1044" id="1044">1044</a>
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1613,7 +1614,8 @@
                         } =&gt; {
                             <span class="kw">let </span>current_timestamp = Utc::now().timestamp();
                             <span class="comment">// this might be a obob
-                            </span><span class="kw">if let </span><span class="prelude-val">Some</span>((leaf, <span class="kw">_</span>)) = leaf_chain.first() {
+                            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = leaf_chain.first() {
+                                <span class="kw">let </span>leaf = <span class="kw-2">&amp;</span>leaf_info.leaf;
                                 <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.view_number);
 
                                 <span class="comment">// iterate all the decided transactions to calculate latency

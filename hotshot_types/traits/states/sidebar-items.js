@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["InstanceState","TestableState","ValidatedState"]};
+window.SIDEBAR_ITEMS = {"trait":["InstanceState","StateDelta","TestableState","ValidatedState"]};

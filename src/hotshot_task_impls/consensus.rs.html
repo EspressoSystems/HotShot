@@ -1422,11 +1422,23 @@
 <a href="#1421" id="1421">1421</a>
 <a href="#1422" id="1422">1422</a>
 <a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -1436,9 +1448,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::constants::Version;
 <span class="kw">use </span>hotshot_types::constants::LOOK_AHEAD;
-
-<span class="kw">use </span>async_broadcast::Sender;
-
+<span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal, VidDisperse},
@@ -1943,11 +1953,19 @@
                 </span><span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
                     <span class="comment">// Send the `Decide` event for the genesis block if the justify QC is genesis.
                     </span><span class="kw">let </span>leaf = Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state);
+                    <span class="kw">let </span>(validated_state, state_delta) =
+                        TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>consensus.instance_state);
+                    <span class="kw">let </span>state = Arc::new(validated_state);
                     broadcast_event(
                         Event {
                             view_number: TYPES::Time::genesis(),
                             event: EventType::Decide {
-                                leaf_chain: Arc::new(<span class="macro">vec!</span>[(leaf.clone(), <span class="prelude-val">None</span>)]),
+                                leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
+                                    leaf.clone(),
+                                    state.clone(),
+                                    <span class="prelude-val">Some</span>(Arc::new(state_delta)),
+                                    <span class="prelude-val">None</span>,
+                                )]),
                                 qc: Arc::new(justify_qc.clone()),
                                 block_size: <span class="prelude-val">None</span>,
                             },
@@ -1955,7 +1973,6 @@
                         <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
                     )
                     .<span class="kw">await</span>;
-                    <span class="kw">let </span>state = Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>consensus.instance_state));
                     <span class="prelude-val">Some</span>((leaf, state))
                 } <span class="kw">else </span>{
                     <span class="kw">match </span>consensus
@@ -1964,7 +1981,9 @@
                         .cloned()
                     {
                         <span class="prelude-val">Some</span>(leaf) =&gt; {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = consensus.get_state(leaf.view_number) {
+                            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =
+                                consensus.get_state_and_delta(leaf.view_number)
+                            {
                                 <span class="prelude-val">Some</span>((leaf, state.clone()))
                             } <span class="kw">else </span>{
                                 <span class="macro">error!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
@@ -2008,6 +2027,7 @@
                             view_inner: ViewInner::Leaf {
                                 leaf: leaf.commit(),
                                 state,
+                                delta: <span class="prelude-val">None</span>,
                             },
                         },
                     );
@@ -2048,7 +2068,7 @@
 
                     <span class="kw">return</span>;
                 };
-                <span class="kw">let </span><span class="prelude-val">Ok</span>(state) = parent_state
+                <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
                     .validate_and_apply_header(
                         <span class="kw-2">&amp;</span>consensus.instance_state,
                         <span class="kw-2">&amp;</span>parent_leaf,
@@ -2059,7 +2079,8 @@
                     <span class="macro">error!</span>(<span class="string">"Block header doesn't extend the proposal"</span>,);
                     <span class="kw">return</span>;
                 };
-                <span class="kw">let </span>state = Arc::new(state);
+                <span class="kw">let </span>state = Arc::new(validated_state);
+                <span class="kw">let </span>delta = Arc::new(state_delta);
                 <span class="kw">let </span>parent_commitment = parent_leaf.commit();
                 <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf {
                     view_number: view,
@@ -2088,7 +2109,7 @@
                     justify_qc.get_view_number(),
                     Terminator::Inclusive(consensus.locked_view),
                     <span class="bool-val">false</span>,
-                    |leaf| {
+                    |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
                         <span class="comment">// if leaf view no == locked view no then we're done, report success by
                         // returning true
                         </span>leaf.view_number != consensus.locked_view
@@ -2147,7 +2168,7 @@
                         parent_view,
                         Terminator::Exclusive(old_anchor_view),
                         <span class="bool-val">true</span>,
-                        |leaf| {
+                        |leaf, state, delta| {
                             <span class="kw">if </span>!new_decide_reached {
                                 <span class="kw">if </span>last_view_number_visited == leaf.view_number + <span class="number">1 </span>{
                                     last_view_number_visited = leaf.view_number;
@@ -2198,7 +2219,7 @@
                                     .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                     .map(|vid_proposal| vid_proposal.data.clone());
 
-                                leaf_views.push((leaf.clone(), vid));
+                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
                                     <span class="kw">for </span>txn <span class="kw">in </span>payload
@@ -2234,7 +2255,8 @@
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: leaf.commit(),
-                            state,
+                            state: state.clone(),
+                            delta: <span class="prelude-val">Some</span>(delta.clone()),
                         },
                     },
                 );
@@ -2694,7 +2716,7 @@
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         <span class="comment">// Leaf hash in view inner does not match high qc hash - Why?
-        </span><span class="kw">let </span><span class="prelude-val">Some</span>((leaf_commitment, state)) = parent_view.get_leaf() <span class="kw">else </span>{
+        </span><span class="kw">let </span><span class="prelude-val">Some</span>((leaf_commitment, state)) = parent_view.get_leaf_and_state() <span class="kw">else </span>{
             <span class="macro">error!</span>(
                 <span class="question-mark">?</span>parent_view_number,
                 <span class="question-mark">?</span>parent_view,

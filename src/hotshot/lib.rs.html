@@ -665,6 +665,15 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -869,6 +878,7 @@
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
                     state: validated_state,
+                    delta: initializer.state_delta,
                 },
             },
         );
@@ -896,6 +906,7 @@
         <span class="kw">let </span>consensus = Consensus {
             instance_state,
             validated_state_map,
+            vid_shares: BTreeMap::new(),
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
@@ -1292,6 +1303,11 @@
     /// the state from the block header.
     </span>validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
 
+    <span class="doccomment">/// Optional state delta.
+    ///
+    /// If it's given, we'll use it to constrcut the `SystemContext`.
+    </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
+
     <span class="doccomment">/// Starting view number that we are confident won't lead to a double vote after restart.
     </span>start_view: TYPES::Time,
 }
@@ -1301,11 +1317,12 @@
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     </span><span class="kw">pub fn </span>from_genesis(instance_state: TYPES::InstanceState) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>validated_state = <span class="prelude-val">Some</span>(Arc::new(TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state)));
+        <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
             instance_state,
-            validated_state,
+            validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
+            state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
         })
     }
@@ -1327,6 +1344,7 @@
             inner: anchor_leaf,
             instance_state,
             validated_state,
+            state_delta: <span class="prelude-val">None</span>,
             start_view,
         }
     }

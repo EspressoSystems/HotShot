@@ -773,12 +773,11 @@
 
     <span class="comment">// Only view 2 is tested, higher views are not tested
     </span><span class="kw">for </span>cur_view <span class="kw">in </span><span class="number">2</span>..=view {
-        <span class="kw">let </span>state_new_view = Arc::new(
-            parent_state
-                .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>parent_leaf, <span class="kw-2">&amp;</span>block_header)
-                .<span class="kw">await
-                </span>.unwrap(),
-        );
+        <span class="kw">let </span>(state_new_view, delta_new_view) = parent_state
+            .validate_and_apply_header(<span class="kw-2">&amp;</span>TestInstanceState {}, <span class="kw-2">&amp;</span>parent_leaf, <span class="kw-2">&amp;</span>block_header)
+            .<span class="kw">await
+            </span>.unwrap();
+        <span class="kw">let </span>state_new_view = Arc::new(state_new_view);
         <span class="comment">// save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         </span>consensus.validated_state_map.insert(
@@ -787,6 +786,7 @@
                 view_inner: ViewInner::Leaf {
                     leaf: leaf.commit(),
                     state: state_new_view.clone(),
+                    delta: <span class="prelude-val">Some</span>(Arc::new(delta_new_view)),
                 },
             },
         );

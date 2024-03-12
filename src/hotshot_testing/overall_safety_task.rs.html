@@ -536,11 +536,13 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
-    data::{Leaf, VidDisperse},
+    data::Leaf,
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
@@ -698,7 +700,7 @@
                 block_size: maybe_block_size,
             } =&gt; {
                 <span class="comment">// Skip the genesis leaf.
-                </span><span class="kw">if </span>leaf_chain.last().unwrap().<span class="number">0</span>.get_view_number() == TYPES::Time::genesis() {
+                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.get_view_number() == TYPES::Time::genesis() {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
@@ -743,7 +745,7 @@
             view.update_status(
                 threshold,
                 len,
-                <span class="kw-2">&amp;</span>key.<span class="number">0</span>,
+                <span class="kw-2">&amp;</span>key,
                 check_leaf,
                 check_block,
                 transaction_threshold,
@@ -896,11 +898,12 @@
         idx: usize,
         result: (LeafChain&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;),
         maybe_block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;(Leaf&lt;TYPES&gt;, <span class="prelude-ty">Option</span>&lt;VidDisperse&lt;TYPES&gt;&gt;)&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
 
-        <span class="kw">let </span>maybe_leaf: <span class="prelude-ty">Option</span>&lt;(Leaf&lt;TYPES&gt;, <span class="kw">_</span>)&gt; = result.<span class="number">0</span>.into_iter().last();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((leaf, <span class="kw">_</span>)) = maybe_leaf.clone() {
+        <span class="kw">let </span>maybe_leaf = result.<span class="number">0</span>.into_iter().last();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = maybe_leaf.clone() {
+            <span class="kw">let </span>leaf = leaf_info.leaf;
             <span class="kw">match </span><span class="self">self</span>.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                     <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
@@ -931,9 +934,10 @@
                     }
                 }
             }
+            <span class="kw">return </span><span class="prelude-val">Some</span>(leaf);
         }
-        maybe_leaf
-    }
+        <span class="prelude-val">None
+    </span>}
 
     <span class="doccomment">/// check if the test failed due to not enough nodes getting through enough views
     </span><span class="kw">pub fn </span>check_if_failed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, threshold: usize, total_num_nodes: usize) -&gt; bool {
@@ -1012,8 +1016,8 @@
 
         <span class="kw">for </span>(leaf_vec, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.success_nodes.values() {
             <span class="kw">let </span>most_recent_leaf = leaf_vec.iter().last();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>((leaf, <span class="kw">_</span>)) = most_recent_leaf {
-                <span class="kw">match </span>leaves.entry(leaf.clone()) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = most_recent_leaf {
+                <span class="kw">match </span>leaves.entry(leaf_info.leaf.clone()) {
                     std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                         <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;
                     }
