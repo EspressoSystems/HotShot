@@ -7,7 +7,7 @@ use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*}
 use hotshot_testing::task_helpers::{build_quorum_proposal, build_vote, key_pair_for_id};
 use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
-    predicates::{exact, is_at_view_number, leaf_decided, quorum_vote_send},
+    predicates::{exact, is_at_view_number, quorum_vote_send},
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
@@ -363,15 +363,19 @@ async fn test_view_sync_finalize_propose() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will indeed vote if the cert is valid and matches the correct view number.
 async fn test_view_sync_finalize_vote() {
+    use hotshot_testing::predicates::timeout_vote_send;
+    use hotshot_types::simple_vote::{TimeoutData, TimeoutVote};
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(5).await.0;
+    let handle = build_system_handle(3).await.0;
+    let (private_key, public_key) = key_pair_for_id(3);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
-        relay: 10,
-        round: ViewNumber::new(10),
+        relay: 3,
+        round: ViewNumber::new(3),
     };
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
@@ -380,7 +384,7 @@ async fn test_view_sync_finalize_vote() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_vote(&handle));
@@ -411,34 +415,33 @@ async fn test_view_sync_finalize_vote() {
 
     let view_2 = TestScriptStage {
         inputs: vec![
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            DACRecv(dacs[1].clone()),
+            Timeout(ViewNumber::new(2)),
+            // View sync task will advance to the next view, so we approximate that here.
+            ViewChange(ViewNumber::new(2)),
         ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            exact(QuorumVoteSend(votes[1].clone())),
-        ],
+        outputs: vec![timeout_vote_send(), exact(ViewChange(ViewNumber::new(2)))],
         asserts: vec![is_at_view_number(2)],
     };
 
-    let cert = proposals[2].data.view_sync_certificate.clone().unwrap();
+    let cert = proposals[1].data.view_sync_certificate.clone().unwrap();
+    let view = ViewNumber::new(2);
+    let timeout_vote =
+        TimeoutVote::create_signed_vote(TimeoutData { view }, view, &public_key, &private_key)
+            .unwrap();
     // Obtain the ViewSyncFinalizeCertificate2Recv and make sure that the vote goes through
     let view_3 = TestScriptStage {
         inputs: vec![
+            TimeoutVoteRecv(timeout_vote),
             ViewSyncFinalizeCertificate2Recv(cert),
-            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            VidDisperseRecv(vids[2].0.clone(), vids[2].1),
-            DACRecv(dacs[2].clone()),
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+            DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
-            leaf_decided(),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
             quorum_vote_send(),
         ],
-        asserts: vec![is_at_view_number(3)],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -524,6 +527,9 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     };
 
     let mut cert = proposals[2].data.view_sync_certificate.clone().unwrap();
+
+    // Trigger the timeout cert check
+    proposals[2].data.justify_qc.view_number = ViewNumber::new(1);
 
     // Overwrite the cert view number with something invalid to force the failure. This should
     // result in the vote NOT being sent below in the outputs.

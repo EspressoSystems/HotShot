@@ -476,22 +476,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         warn!("Timeout certificate for view {} was invalid", *view);
                         return;
                     }
-                }
 
-                // If we have a ViewSyncFinalize cert, only vote if it is valid.
-                if let Some(cert) = &self.view_sync_cert {
-                    // Do not vote for the proposal if the cert is valid for an incorrect view
-                    if cert.view_number != view {
-                        debug!(
-                            "Cert view number {:?} does not match proposal view number {:?}",
-                            cert.view_number, view
-                        );
-                        return;
-                    }
+                    // If we have a ViewSyncFinalize cert, only vote if it is valid.
+                    if let Some(cert) = &self.view_sync_cert {
+                        // Do we have a TC and View Sync Cert?
+                        if proposal.data.timeout_certificate.is_some() {
+                            error!("Received a timeout cert and a view sync cert");
+                            return;
+                        }
 
-                    if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                        debug!("Invalid ViewSyncFinalize cert provided");
-                        return;
+                        // View sync certs _must_ be for the current view.
+                        if cert.view_number != view {
+                            debug!(
+                                "Cert view number {:?} does not match proposal view number {:?}",
+                                cert.view_number, view
+                            );
+                            return;
+                        }
+
+                        // View sync certs must also be valid.
+                        if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                            debug!("Invalid ViewSyncFinalize cert provided");
+                            return;
+                        }
                     }
                 }
 

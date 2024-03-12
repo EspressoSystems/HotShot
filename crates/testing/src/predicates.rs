@@ -63,6 +63,19 @@ where
     }
 }
 
+pub fn timeout_vote_send<TYPES>() -> Predicate<HotShotEvent<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "TimeoutVoteSend".to_string();
+    let function = |e: &_| matches!(e, TimeoutVoteSend(_));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
 type ConsensusTaskTestState =
     ConsensusTaskState<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>;
 
