@@ -3106,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types#df93a014947c1b3497263d1d689b5f0695ff4554"
+source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.1#4e6f836468c8e236f5f5711e941d4d0a5745433a"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
