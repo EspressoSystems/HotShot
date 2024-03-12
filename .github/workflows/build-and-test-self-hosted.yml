@@ -24,6 +24,11 @@ jobs:
         with:
           components: "clippy, rustfmt"
 
+      - name: Install Cap'n'Proto
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto
+
       - uses: actions/checkout@v4
         name: Checkout Repository
 

@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler capnproto
 
       - name: Install Just
         run: |
@@ -87,6 +87,11 @@ jobs:
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Cap'n'Proto
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -263,7 +268,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler capnproto
       - name: Install Just
         run: |
           wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
