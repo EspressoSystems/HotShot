@@ -12,7 +12,6 @@ repository = "https://github.com/EspressoSystems/HotShot"
 # when implementing traits externally
 [workspace]
 members = [
-        "crates/constants",
         "crates/hotshot",
         "crates/hotshot-stake-table",
         "crates/libp2p-networking",
@@ -20,7 +19,6 @@ members = [
         "crates/task",
         "crates/task-impls",
         "crates/testing",
-        "crates/types",
         "crates/utils",
         "crates/examples",
         "crates/example-types",
@@ -36,7 +34,7 @@ ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7.0"
-async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.1", default-features = false, features = [
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.2", default-features = false, features = [
         "logging-utils",
 ] }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
@@ -60,6 +58,7 @@ futures = "0.3.30"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
+hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types" }
 
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }

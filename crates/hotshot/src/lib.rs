@@ -26,10 +26,10 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use futures::join;
-use hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
+use hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
@@ -325,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_committee(view_number),
+                        da_membership.get_whole_committee(view_number),
                     ),
                 api
                     .send_external_event(Event {
@@ -566,7 +566,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     for SystemContextHandle<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
-        self.hotshot.config.total_nodes
+        self.hotshot.config.num_nodes_with_stake
     }
 
     fn propose_min_round_time(&self) -> Duration {

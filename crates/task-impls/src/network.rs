@@ -5,7 +5,7 @@ use crate::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
-use hotshot_constants::VERSION_0_1;
+use hotshot_types::constants::VERSION_0_1;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
@@ -358,7 +358,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.channel.update_view(&self.view.get_u64()).await;
+                self.channel.update_view(self.view.get_u64());
                 return None;
             }
             HotShotEvent::Shutdown => {
@@ -376,7 +376,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             kind: message_kind,
         };
         let view = message.kind.get_view_number();
-        let committee = membership.get_committee(view);
+        let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
         async_spawn(async move {
             let transmit_result = match transmit_type {
