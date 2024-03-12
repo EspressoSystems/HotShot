@@ -154,6 +154,8 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
     pub da_web_server_config: Option<WebServerConfig>,
+    /// The address for the Push CDN's "marshal", A.K.A. load balancer
+    pub cdn_marshal_address: Option<String>,
     /// the commit this run is based on
     pub commit_sha: String,
 }
@@ -388,6 +390,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             election_config_type_name: std::any::type_name::<E>().to_string(),
             web_server_config: None,
             da_web_server_config: None,
+            cdn_marshal_address: None,
             next_view_timeout: 10,
             num_bootrap: 5,
             propose_min_round_time: Duration::from_secs(0),
@@ -426,6 +429,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// the hotshot config file
     #[serde(default)]
     pub config: HotShotConfigFile<KEY>,
+    /// The address of the Push CDN's "marshal", A.K.A. load balancer
+    #[serde(default)]
+    pub cdn_marshal_address: Option<String>,
     /// the webserver config
     #[serde(default)]
     pub web_server_config: Option<WebServerConfig>,
@@ -471,6 +477,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
+            cdn_marshal_address: val.cdn_marshal_address,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
             commit_sha: String::new(),

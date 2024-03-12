@@ -11,3 +11,4 @@
 *.cache
 **/.direnv
 **/*.bkp
+*.sqlite

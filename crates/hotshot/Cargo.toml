@@ -51,6 +51,12 @@ snafu = { workspace = true }
 surf-disco = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
+anyhow = "1.0.79"
+
+# Push CDN imports
+cdn-client.workspace = true
+cdn-broker.workspace = true
+cdn-marshal.workspace = true
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
