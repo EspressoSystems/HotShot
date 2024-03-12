@@ -62,7 +62,7 @@ async fn test_catchup() {
 async fn test_catchup_cdn() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{TestTypes, PushCdnImpl};
+    use hotshot_example_types::node_types::{PushCdnImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,

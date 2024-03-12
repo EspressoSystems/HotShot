@@ -1,4 +1,6 @@
-use hotshot::traits::{election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork};
+use hotshot::traits::{
+    election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork,
+};
 
 use crate::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
