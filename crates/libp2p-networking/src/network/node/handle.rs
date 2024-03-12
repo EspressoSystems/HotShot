@@ -1,12 +1,17 @@
 use crate::network::{
-    error::DHTError, gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilderError,
+    behaviours::request_response::{Request, Response},
+    error::{CancelledRequestSnafu, DHTError},
+    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use bincode::Options;
+use futures::channel::oneshot;
+
+use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -172,6 +177,51 @@ impl NetworkNodeHandle {
         }
         Ok(())
     }
+
+    /// Request another peer for some data we want.  Returns the id of the request
+    ///
+    /// # Errors
+    ///
+    /// Will retrun a networking error if the channel closes before the result
+    /// can be sent back
+    pub async fn request_data(
+        &self,
+        request: &impl Serialize,
+        peer: PeerId,
+    ) -> Result<Option<Response>, NetworkNodeHandleError> {
+        let (tx, rx) = oneshot::channel();
+        let serialized_msg = bincode_opts()
+            .serialize(request)
+            .context(SerializationSnafu)?;
+        let req = ClientRequest::DataRequest {
+            request: Request(serialized_msg),
+            peer,
+            chan: tx,
+        };
+
+        self.send_request(req).await?;
+
+        rx.await.map_err(|_| NetworkNodeHandleError::RecvError)
+    }
+
+    /// Send a response to a request with the response channel
+    /// # Errors
+    /// Will error if the client request channel is closed, or serialization fails.
+    pub async fn respond_data(
+        &self,
+        response: &impl Serialize,
+        chan: ResponseChannel<Response>,
+    ) -> Result<(), NetworkNodeHandleError> {
+        let serialized_msg = bincode_opts()
+            .serialize(response)
+            .context(SerializationSnafu)?;
+        let req = ClientRequest::DataResponse {
+            response: Response(serialized_msg),
+            chan,
+        };
+        self.send_request(req).await
+    }
+
     /// Look up a peer's addresses in kademlia
     /// NOTE: this should always be called before any `request_response` is initiated
     /// # Errors
@@ -209,8 +259,6 @@ impl NetworkNodeHandle {
         key: &impl Serialize,
         value: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        use crate::network::error::CancelledRequestSnafu;
-
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_opts().serialize(key).context(SerializationSnafu)?,
@@ -236,8 +284,6 @@ impl NetworkNodeHandle {
         key: &impl Serialize,
         retry_count: u8,
     ) -> Result<V, NetworkNodeHandleError> {
-        use crate::network::error::CancelledRequestSnafu;
-
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: bincode_opts().serialize(key).context(SerializationSnafu)?,
@@ -528,6 +574,26 @@ pub enum NetworkNodeHandleError {
     },
     /// no known topic matches the hashset of keys
     NoSuchTopic,
+}
+
+impl From<NetworkNodeHandleError> for HotshotNetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        match error {
+            NetworkNodeHandleError::SerializationError { source } => {
+                HotshotNetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::DeserializationError { source } => {
+                HotshotNetworkError::FailedToDeserialize { source }
+            }
+            NetworkNodeHandleError::TimeoutError { source } => {
+                HotshotNetworkError::Timeout { source }
+            }
+            NetworkNodeHandleError::Killed => HotshotNetworkError::ShutDown,
+            source => HotshotNetworkError::Libp2p {
+                source: Box::new(source),
+            },
+        }
+    }
 }
 
 /// Re-exports of the snafu errors that [`NetworkNodeHandleError`] can throw

@@ -9,9 +9,9 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
-use hotshot_constants::Version;
-use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::constants::Version;
+use hotshot_types::constants::LOOK_AHEAD;
 
 use async_broadcast::Sender;
 
@@ -1187,6 +1187,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
+                broadcast_event(
+                    Event {
+                        view_number: view,
+                        event: EventType::ViewTimeout { view_number: view },
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
                 debug!(
                     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
                     *view

@@ -84,6 +84,9 @@ pub trait BlockPayload:
 
     /// Generate commitment that builders use to sign block options.
     fn builder_commitment(&self, metadata: &Self::Metadata) -> BuilderCommitment;
+
+    /// Get the transactions in the payload.
+    fn get_transactions(&self, metadata: &Self::Metadata) -> &Vec<Self::Transaction>;
 }
 
 /// extra functions required on block to be usable by hotshot-testing

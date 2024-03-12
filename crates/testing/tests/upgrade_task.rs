@@ -1,6 +1,5 @@
 use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
 use hotshot::types::SystemContextHandle;
-use hotshot_constants::Version;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
@@ -11,6 +10,7 @@ use hotshot_testing::{
     script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
 };
+use hotshot_types::constants::Version;
 use hotshot_types::{
     data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
 };

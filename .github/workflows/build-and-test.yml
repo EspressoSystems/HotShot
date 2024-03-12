@@ -53,7 +53,7 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          just ${{ matrix.just_variants }} test
+          just ${{ matrix.just_variants }} test-ci
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
@@ -80,6 +80,7 @@ jobs:
           - async-std
           - tokio
     runs-on: [self-hosted, arm64]
+    container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository

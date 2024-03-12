@@ -579,7 +579,27 @@ dependencies = [
  "async-std",
  "async-trait",
  "color-eyre",
- "console-subscriber",
+ "console-subscriber 0.1.10",
+ "flume 0.11.0",
+ "futures",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "async-compatibility-layer"
+version = "1.0.0"
+source = "git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2#482cece7d27f20d5a543e209a5d88b1837778b4c"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "color-eyre",
+ "console-subscriber 0.2.0",
  "flume 0.11.0",
  "futures",
  "tokio",
@@ -829,6 +849,28 @@ dependencies = [
  "hickory-resolver",
  "pin-utils",
  "socket2 0.5.5",
+]
+
+[[package]]
+name = "async-stream"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite 0.2.13",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -1229,9 +1271,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.34"
+version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bc015644b92d5890fab7489e49d21f879d5c990186827d42ec511919404f38b"
+checksum = "8eaf5903dcbc0a39312feb77df2ff4c76387d591b9fc7b04a238dcf8bb62639a"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -1338,7 +1380,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "commit"
 version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit#dd9f16e084d45e9ea52459c776f5fdcb6b000889"
+source = "git+https://github.com/EspressoSystems/commit#30679718efd4ecf870b66950160077125dcb8d93"
 dependencies = [
  "arbitrary",
  "ark-serialize",
@@ -1386,9 +1428,22 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2895653b4d9f1538a83970077cb01dfc77a4810524e51a110944688e916b18e"
 dependencies = [
- "prost",
- "prost-types",
- "tonic",
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "tonic 0.9.2",
+ "tracing-core",
+]
+
+[[package]]
+name = "console-api"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd326812b3fd01da5bb1af7d340d0d555fd3d4b641e7f1dfcf5962a902952787"
+dependencies = [
+ "futures-core",
+ "prost 0.12.3",
+ "prost-types 0.12.3",
+ "tonic 0.10.2",
  "tracing-core",
 ]
 
@@ -1398,19 +1453,43 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4cf42660ac07fcebed809cfe561dd8730bcd35b075215e6479c516bcd0d11cb"
 dependencies = [
- "console-api",
+ "console-api 0.5.0",
  "crossbeam-channel",
  "crossbeam-utils",
  "futures",
  "hdrhistogram",
  "humantime",
- "prost-types",
+ "prost-types 0.11.9",
  "serde",
  "serde_json",
  "thread_local",
  "tokio",
  "tokio-stream",
- "tonic",
+ "tonic 0.9.2",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "console-subscriber"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7481d4c57092cd1c19dd541b92bdce883de840df30aa5d03fd48a3935c01842e"
+dependencies = [
+ "console-api 0.6.0",
+ "crossbeam-channel",
+ "crossbeam-utils",
+ "futures-task",
+ "hdrhistogram",
+ "humantime",
+ "prost-types 0.12.3",
+ "serde",
+ "serde_json",
+ "thread_local",
+ "tokio",
+ "tokio-stream",
+ "tonic 0.10.2",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -1593,6 +1672,27 @@ dependencies = [
  "curve25519-dalek",
  "rand_core 0.6.4",
  "serdect",
+]
+
+[[package]]
+name = "csv"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
+dependencies = [
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2201,9 +2301,9 @@ dependencies = [
 
 [[package]]
 name = "eyre"
-version = "0.6.11"
+version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6267a1fa6f59179ea4afc8e50fd8612a3cc60bc858f786ff877a4a8cb042799"
+checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
 dependencies = [
  "indenter",
  "once_cell",
@@ -2750,7 +2850,7 @@ name = "hotshot"
 version = "0.3.3"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
@@ -2764,8 +2864,8 @@ dependencies = [
  "derive_more",
  "either",
  "embed-doc-image",
+ "ethereum-types",
  "futures",
- "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
@@ -2788,18 +2888,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-constants"
-version = "0.3.3"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "hotshot-example-types"
 version = "0.1.0"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "bincode",
@@ -2809,7 +2902,6 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
- "hotshot-constants",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
@@ -2830,13 +2922,14 @@ name = "hotshot-examples"
 version = "0.3.3"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
  "bimap",
  "bincode",
  "blake3",
+ "chrono",
  "clap",
  "commit",
  "custom_debug",
@@ -2846,7 +2939,6 @@ dependencies = [
  "embed-doc-image",
  "futures",
  "hotshot",
- "hotshot-constants",
  "hotshot-example-types",
  "hotshot-orchestrator",
  "hotshot-task",
@@ -2884,13 +2976,15 @@ dependencies = [
 name = "hotshot-orchestrator"
 version = "0.1.1"
 dependencies = [
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "blake3",
  "clap",
+ "csv",
  "futures",
  "hotshot-types",
+ "hotshot-utils",
  "libp2p",
  "serde",
  "serde-inline-default",
@@ -2927,7 +3021,7 @@ name = "hotshot-task"
 version = "0.1.0"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-std",
  "futures",
  "tokio",
@@ -2939,7 +3033,7 @@ name = "hotshot-task-impls"
 version = "0.1.0"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
@@ -2949,7 +3043,6 @@ dependencies = [
  "commit",
  "either",
  "futures",
- "hotshot-constants",
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
@@ -2966,7 +3059,7 @@ name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
  "async-broadcast",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "bincode",
@@ -2976,7 +3069,6 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
- "hotshot-constants",
  "hotshot-example-types",
  "hotshot-macros",
  "hotshot-orchestrator",
@@ -2999,7 +3091,7 @@ name = "hotshot-testing-macros"
 version = "0.1.0"
 dependencies = [
  "ark-bls12-381",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
@@ -3026,14 +3118,16 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/hotshot-types#df93a014947c1b3497263d1d689b5f0695ff4554"
 dependencies = [
  "ark-bls12-381",
+ "ark-bn254",
  "ark-ec",
  "ark-ed-on-bn254",
  "ark-ff",
  "ark-serialize",
  "ark-std",
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.1)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
@@ -3049,18 +3143,15 @@ dependencies = [
  "either",
  "espresso-systems-common 0.4.1",
  "ethereum-types",
+ "futures",
  "generic-array",
- "hotshot-constants",
- "hotshot-utils",
  "jf-plonk",
  "jf-primitives",
  "jf-utils",
  "lazy_static",
- "libp2p-networking",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
- "serde_json",
  "sha2 0.10.8",
  "snafu",
  "tagged-base64",
@@ -3075,14 +3166,14 @@ name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "hotshot-constants",
+ "hotshot-types",
 ]
 
 [[package]]
 name = "hotshot-web-server"
 version = "0.1.1"
 dependencies = [
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "clap",
@@ -4005,7 +4096,7 @@ dependencies = [
 name = "libp2p-networking"
 version = "0.1.0"
 dependencies = [
- "async-compatibility-layer",
+ "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
@@ -4016,7 +4107,7 @@ dependencies = [
  "derive_builder",
  "either",
  "futures",
- "hotshot-constants",
+ "hotshot-types",
  "hotshot-utils",
  "lazy_static",
  "libp2p",
@@ -4024,6 +4115,7 @@ dependencies = [
  "libp2p-swarm-derive",
  "rand 0.8.5",
  "serde",
+ "serde_bytes",
  "serde_json",
  "snafu",
  "tide",
@@ -5357,7 +5449,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b82eaa1d779e9a4bc1c3217db8ffbeabaae1dca241bf70183242128d48681cd"
 dependencies = [
  "bytes 1.5.0",
- "prost-derive",
+ "prost-derive 0.11.9",
+]
+
+[[package]]
+name = "prost"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
+dependencies = [
+ "bytes 1.5.0",
+ "prost-derive 0.12.3",
 ]
 
 [[package]]
@@ -5374,12 +5476,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost-derive"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efb6c9a1dd1def8e2124d17e83a20af56f1570d6c2d2bd9e266ccb768df3840e"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.5",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
+]
+
+[[package]]
 name = "prost-types"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
- "prost",
+ "prost 0.11.9",
+]
+
+[[package]]
+name = "prost-types"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "193898f59edcf43c26227dcd4c8427f00d99d61e95dcde58dabd49fa291d470e"
+dependencies = [
+ "prost 0.12.3",
 ]
 
 [[package]]
@@ -5999,6 +6123,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b8497c313fd43ab992087548117643f6fcd935cbf36f176ffda0aacf9591734"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -7078,7 +7211,34 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
- "prost",
+ "prost 0.11.9",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "tonic"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d560933a0de61cf715926b9cac824d4c883c2c43142f787595e48280c40a1d0e"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "axum",
+ "base64 0.21.7",
+ "bytes 1.5.0",
+ "h2",
+ "http 0.2.11",
+ "http-body",
+ "hyper",
+ "hyper-timeout",
+ "percent-encoding",
+ "pin-project",
+ "prost 0.12.3",
  "tokio",
  "tokio-stream",
  "tower",

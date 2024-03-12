@@ -5,14 +5,15 @@ use crate::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
-use hotshot_constants::VERSION_0_1;
+use hotshot_types::constants::VERSION_0_1;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, Message, MessageKind, SequencingMessage,
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
+        SequencingMessage,
     },
     traits::{
         election::Membership,
@@ -21,8 +22,8 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::error;
 use tracing::instrument;
+use tracing::{error, warn};
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &HotShotEvent<TYPES>) -> bool {
@@ -169,6 +170,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 MessageKind::Data(message) => match message {
                     hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
                         transactions.push(transaction);
+                    }
+                    DataMessage::DataResponse(_) | DataMessage::RequestData(_) => {
+                        warn!("Request and Response messages should not be received in the NetworkMessage task");
                     }
                 },
             };
@@ -354,7 +358,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.channel.update_view(&self.view.get_u64()).await;
+                self.channel.update_view(self.view.get_u64());
                 return None;
             }
             HotShotEvent::Shutdown => {
@@ -372,7 +376,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             kind: message_kind,
         };
         let view = message.kind.get_view_number();
-        let committee = membership.get_committee(view);
+        let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
         async_spawn(async move {
             let transmit_result = match transmit_type {
