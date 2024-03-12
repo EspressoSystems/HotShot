@@ -126,7 +126,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             HotShotEvent::ViewChange(view) => {
-                if *view != 0 && *self.cur_view >= *view {
+                if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }
 
