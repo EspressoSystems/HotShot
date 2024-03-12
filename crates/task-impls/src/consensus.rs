@@ -1053,24 +1053,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::ViewChange(new_view) => {
                 debug!("View Change event for view {} in consensus task", *new_view);
 
-                if *new_view == 0 {
-                    // Start polling for proposals for the first view
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
-                        .await;
-
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
-                        .await;
-
-                    if self.quorum_membership.get_leader(TYPES::Time::new(1)) == self.public_key {
-                        debug!("Polling for quorum votes for view {}", *self.cur_view);
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(0))
-                            .await;
-                    }
-                }
-
                 let old_view_number = self.cur_view;
 
                 // Start polling for VID disperse for the new view
