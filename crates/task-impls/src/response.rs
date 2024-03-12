@@ -6,8 +6,8 @@ use async_lock::RwLock;
 use bincode::Options;
 use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
-use hotshot_constants::VERSION_0_1;
 use hotshot_task::dependency::{Dependency, EventDependency};
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
