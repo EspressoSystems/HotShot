@@ -160,7 +160,7 @@ fix:
 
 doc:
   echo Generating docs {{env_var('RUSTFLAGS')}}
-  cargo doc --no-deps --workspace --document-private-items --bins --examples --lib
+  cargo doc --workspace --document-private-items --bins --examples --lib
 
 doc_test:
   echo Test docs
