@@ -817,7 +817,7 @@ where
                 .cdn_marshal_address
                 .clone()
                 .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
-            topics.iter().map(|topic| topic.to_string()).collect(),
+            topics.iter().map(ToString::to_string).collect(),
             keypair,
         )
         .await

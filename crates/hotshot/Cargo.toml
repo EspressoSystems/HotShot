@@ -53,15 +53,18 @@ time = { workspace = true }
 tracing = { workspace = true }
 anyhow = "1.0.79"
 
-# Push CDN imports
-cdn-client.workspace = true
-cdn-broker.workspace = true
-cdn-marshal.workspace = true
-
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
+cdn-client.workspace = true
+cdn-broker = { workspace = true, features = ["local_discovery"] }
+cdn-marshal.workspace = true
+
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
+cdn-client = { workspace = true, default-features = false, features = ["insecure", "runtime-async-std"] }
+cdn-broker = { workspace = true, default-features = false,  features = ["insecure", "runtime-async-std", "strong_consistency", "local_discovery"] }
+cdn-marshal = { workspace = true, default-features = false, features = ["insecure", "runtime-async-std"] }
+
 
 [dev-dependencies]
 blake3 = { workspace = true }

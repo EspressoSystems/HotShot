@@ -665,6 +665,7 @@ dependencies = [
  "blocking",
  "futures-lite 2.2.0",
  "once_cell",
+ "tokio",
 ]
 
 [[package]]
@@ -1303,6 +1304,7 @@ name = "cdn-broker"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.0#4c0411e6be876536f3a00393b97ba5ed9cd4e881"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
  "dashmap",
@@ -1326,6 +1328,7 @@ name = "cdn-client"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.0#4c0411e6be876536f3a00393b97ba5ed9cd4e881"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
  "derive_builder",
@@ -1341,6 +1344,7 @@ name = "cdn-marshal"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.0#4c0411e6be876536f3a00393b97ba5ed9cd4e881"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
  "derive_builder",
@@ -1357,6 +1361,7 @@ source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.0#4c0411e6be87
 dependencies = [
  "anyhow",
  "ark-serialize",
+ "async-std",
  "async-trait",
  "capnp",
  "capnpc",
@@ -3404,7 +3409,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types#4e6f836468c8e236f5f5711e941d4d0a5745433a"
+source = "git+https://github.com/EspressoSystems/hotshot-types#82040a3aa3a152db50a4cbc2d401014114f60eec"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
