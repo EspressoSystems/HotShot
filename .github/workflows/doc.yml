@@ -1,4 +1,4 @@
-name: Documentation Workflow
+name: Documentation
 on:
   push:
     branches:
