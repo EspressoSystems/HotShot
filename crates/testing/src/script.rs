@@ -73,7 +73,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>>>(
             );
 
             if let Ok(received_output) = test_receiver.try_recv() {
-                tracing::debug!("Test received: {:?}", received_output);
+                tracing::error!("Test received: {:?}", received_output);
                 assert!(
                     (expected.function)(&received_output),
                     "Stage {} | Output failed to satisfy {:?}",

@@ -55,8 +55,6 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     pub commitment: VidCommitment,
     /// Metadata for the block payload
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
-    /// Flag for if this data represents the genesis block
-    pub is_genesis: bool,
 }
 
 /// Alias for Optional type for Vote Collectors
@@ -1048,7 +1046,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Add to the storage that we have received the VID disperse for a specific view
                 self.vid_shares.insert(view, disperse);
-                self.vote_if_able(&event_stream).await;
+                if self.vote_if_able(&event_stream).await {
+                    self.current_proposal = None;
+                }
             }
             HotShotEvent::ViewChange(new_view) => {
                 debug!("View Change event for view {} in consensus task", *new_view);
@@ -1171,7 +1171,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: payload_commitment,
                     metadata,
-                    is_genesis: false,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
