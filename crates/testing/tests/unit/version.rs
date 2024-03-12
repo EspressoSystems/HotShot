@@ -31,10 +31,3 @@ fn read_version_insufficient_bytes_2() {
     let bytes: [u8; 0] = [];
     assert_eq!(read_version(&bytes), None);
 }
-
-#[test]
-/// Check that `None` is returned if there are not enough bytes.
-fn read_version_insufficient_bytes_3() {
-    let bytes: [u8; 0] = [];
-    assert_eq!(read_version(&bytes), None);
-}
