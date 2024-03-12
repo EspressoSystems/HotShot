@@ -90,8 +90,8 @@ jobs:
 
       - name: Install Cap'n'Proto
         run: |
-          sudo apt-get update
-          sudo apt-get install -y capnproto
+          apt-get update
+          apt-get install -y capnproto
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
