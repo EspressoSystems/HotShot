@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StorageError","ViewEntry"],"struct":["NoGenesisViewSnafu","StorageState","StoredView"],"trait":["Storage","TestableStorage"],"type":["Result"]};

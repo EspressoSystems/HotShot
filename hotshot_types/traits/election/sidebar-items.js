@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ElectionError"],"trait":["ElectionConfig","Membership"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DAData","QuorumData","SimpleVote","TimeoutData","UpgradeProposalData","VIDData","ViewSyncCommitData","ViewSyncFinalizeData","ViewSyncPreCommitData"],"trait":["Voteable"],"type":["DAVote","QuorumVote","TimeoutVote","UpgradeVote","ViewSyncCommitVote","ViewSyncFinalizeVote","ViewSyncPreCommitVote"]};
