@@ -1,11 +1,11 @@
 use crate::types::SystemContextHandle;
 
 use async_trait::async_trait;
-use hotshot_constants::VERSION_0_1;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, da::DATaskState, transactions::TransactionTaskState,
     upgrade::UpgradeTaskState, vid::VIDTaskState, view_sync::ViewSyncTaskState,
 };
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
