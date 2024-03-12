@@ -1,4 +1,3 @@
 (function() {var implementors = {
-"hotshot":[],
-"hotshot_types":[]
+"hotshot":[]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

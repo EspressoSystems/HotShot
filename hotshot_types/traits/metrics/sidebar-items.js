@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["NoMetrics"],"trait":["Counter","Gauge","Histogram","Label","Metrics"]};

@@ -205,7 +205,6 @@
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>hotshot_constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
@@ -214,6 +213,7 @@
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
+<span class="kw">use </span>hotshot_types::constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
 <span class="kw">use </span>hotshot_types::traits::{
     block_contents::vid_commitment,

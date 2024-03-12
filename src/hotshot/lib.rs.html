@@ -693,10 +693,10 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>futures::join;
-<span class="kw">use </span>hotshot_constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_task_impls::helpers::broadcast_event;
 <span class="kw">use </span>hotshot_task_impls::network;
+<span class="kw">use </span>hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
 
 <span class="kw">use </span>hotshot_task::task::TaskRegistry;
 <span class="kw">use </span>hotshot_types::{

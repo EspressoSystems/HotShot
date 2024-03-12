@@ -739,7 +739,7 @@
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
-<span class="kw">use </span>hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
+<span class="kw">use </span>hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 <span class="kw">use </span>libp2p::{core::transport::ListenerId, StreamProtocol};
 <span class="kw">use </span>libp2p::{
     gossipsub::{

@@ -984,6 +984,10 @@
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -998,7 +1002,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
+<span class="kw">use </span>hotshot_types::constants::{Version, LOOK_AHEAD, VERSION_0_1};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     data::ViewNumber,
@@ -1670,7 +1674,9 @@
                     <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
                     request, recipient
                 );
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: err });
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
         <span class="kw">match </span><span class="self">self</span>.inner.handle.request_data(<span class="kw-2">&amp;</span>request, pid).<span class="kw">await </span>{
@@ -1762,7 +1768,7 @@
         <span class="kw">let </span>topic = topic_map
             .get_by_left(<span class="kw-2">&amp;</span>recipients)
             .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
+                source: Box::new(NetworkNodeHandleError::NoSuchTopic),
             })<span class="question-mark">?
             </span>.clone();
         <span class="macro">info!</span>(<span class="string">"broadcasting to topic: {}"</span>, topic);
@@ -1877,7 +1883,9 @@
                     <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
                     message, recipient
                 );
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p { source: err });
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
 
