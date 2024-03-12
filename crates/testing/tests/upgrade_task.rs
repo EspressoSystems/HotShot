@@ -58,7 +58,11 @@ async fn test_upgrade_task() {
     }
 
     let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        inputs: vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            DACRecv(dacs[0].clone()),
+        ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             exact(QuorumProposalValidated(proposals[0].data.clone())),
