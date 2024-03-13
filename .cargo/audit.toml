@@ -4,5 +4,7 @@ ignore = [
     # Dependency of async-tungstenite -> tide-websockets / surf-disco
     "RUSTSEC-2023-0065",
     # DoS in WebPKI that comes with tide_disco
-    "RUSTSEC-2023-0052"
+    "RUSTSEC-2023-0052",
+    # Unfixed "Marvin" vulnerability in `RSA`, unused in sqlite dependency
+    "RUSTSEC-2023-0071",
 ]
