@@ -4,10 +4,9 @@ RUN apt-get update \
     &&  apt-get install -y curl libcurl4 wait-for-it tini \
     &&  rm -rf /var/lib/apt/lists/*
 
-ARG TARGETARCH
-ARG ASYNC_EXECUTOR
+ARG ASYNC_EXECUTOR=async-std
 
-COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
+COPY ./target/${ASYNC_EXECUTOR}/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
 
 # logging
 ENV RUST_LOG="warn"

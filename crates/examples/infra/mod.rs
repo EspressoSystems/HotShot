@@ -633,7 +633,7 @@ pub trait RunDA<
                             failed_num_views += 1;
                             warn!("Timed out in view {:?}", view_number);
                         }
-                        _ => {}
+                        _ => {} // mostly DA proposal
                     }
                 }
             }
