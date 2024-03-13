@@ -304,7 +304,6 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         'a: 'b,
         Self: 'b,
     {
-        // TODO: figure out if drop is sufficient
         boxed_sync(async move {})
     }
 
