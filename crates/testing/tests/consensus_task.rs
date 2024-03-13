@@ -10,7 +10,7 @@ use hotshot_testing::{
     predicates::{exact, is_at_view_number, quorum_vote_send},
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
-    view_generator::{TestView, TestViewGenerator},
+    view_generator::TestViewGenerator,
 };
 use hotshot_types::simple_vote::ViewSyncFinalizeData;
 use hotshot_types::traits::{consensus_api::ConsensusApi, election::Membership};
@@ -252,9 +252,7 @@ async fn test_view_sync_finalize_propose() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::{
-            exact, is_at_view_number, leaf_decided, quorum_proposal_send, timeout_vote_send,
-        },
+        predicates::{exact, is_at_view_number, quorum_proposal_send, timeout_vote_send},
         script::{run_test_script, TestScriptStage},
         task_helpers::{build_system_handle, vid_scheme_from_view_number},
         view_generator::TestViewGenerator,
@@ -291,7 +289,7 @@ async fn test_view_sync_finalize_propose() {
     // for view in (&mut generator).take(1) {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
-    votes.push(view.create_vote(&handle));
+    votes.push(view.create_quorum_vote(&handle));
     vids.push(view.vid_proposal.clone());
     dacs.push(view.da_certificate.clone());
     // }
@@ -306,7 +304,7 @@ async fn test_view_sync_finalize_propose() {
     // for view in (&mut generator).take(1) {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
-    votes.push(view.create_vote(&handle));
+    votes.push(view.create_quorum_vote(&handle));
     // }
 
     // This is a bog standard view and covers the situation where everything is going normally.
@@ -413,7 +411,7 @@ async fn test_view_sync_finalize_vote() {
     for view in (&mut generator).take(3) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -424,7 +422,7 @@ async fn test_view_sync_finalize_vote() {
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -516,7 +514,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -527,7 +525,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
