@@ -98,6 +98,13 @@ pub struct WebServerConfig {
     pub wait_between_polls: Duration,
 }
 
+/// configuration for combined network
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct CombinedNetworkConfig {
+    /// delay duration before sending a message through the secondary network
+    pub delay_duration: Duration,
+}
+
 /// a network configuration error
 #[derive(Error, Debug)]
 pub enum NetworkConfigError {
@@ -154,6 +161,10 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
     pub da_web_server_config: Option<WebServerConfig>,
+    /// The address for the Push CDN's "marshal", A.K.A. load balancer
+    pub cdn_marshal_address: Option<String>,
+    /// combined network config
+    pub combined_network_config: Option<CombinedNetworkConfig>,
     /// the commit this run is based on
     pub commit_sha: String,
 }
@@ -388,6 +399,8 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             election_config_type_name: std::any::type_name::<E>().to_string(),
             web_server_config: None,
             da_web_server_config: None,
+            cdn_marshal_address: None,
+            combined_network_config: None,
             next_view_timeout: 10,
             num_bootrap: 5,
             propose_min_round_time: Duration::from_secs(0),
@@ -426,12 +439,18 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// the hotshot config file
     #[serde(default)]
     pub config: HotShotConfigFile<KEY>,
+    /// The address of the Push CDN's "marshal", A.K.A. load balancer
+    #[serde(default)]
+    pub cdn_marshal_address: Option<String>,
     /// the webserver config
     #[serde(default)]
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
     #[serde(default)]
     pub da_web_server_config: Option<WebServerConfig>,
+    /// combined network config
+    #[serde(default)]
+    pub combined_network_config: Option<CombinedNetworkConfig>,
 }
 
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
@@ -471,8 +490,10 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
+            cdn_marshal_address: val.cdn_marshal_address,
             web_server_config: val.web_server_config,
             da_web_server_config: val.da_web_server_config,
+            combined_network_config: val.combined_network_config,
             commit_sha: String::new(),
         }
     }
