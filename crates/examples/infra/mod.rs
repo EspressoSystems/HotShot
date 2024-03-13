@@ -35,7 +35,7 @@ use hotshot_types::{
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     traits::{
-        block_contents::TestableBlock,
+        block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
@@ -566,12 +566,15 @@ pub trait RunDA<
                         } => {
                             let current_timestamp = Utc::now().timestamp();
                             // this might be a obob
-                            if let Some((leaf, _)) = leaf_chain.first() {
+                            if let Some(leaf_info) = leaf_chain.first() {
+                                let leaf = &leaf_info.leaf;
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload {
-                                    for tx in block_payload.get_transactions() {
+                                    for tx in
+                                        block_payload.get_transactions(leaf.block_header.metadata())
+                                    {
                                         let restored_timestamp_vec =
                                             tx.0[tx.0.len() - 8..].to_vec();
                                         let restored_timestamp = i64::from_be_bytes(
