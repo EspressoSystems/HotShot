@@ -32,10 +32,14 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
+    vid::{vid_scheme, VidCommitment},
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
+
+use jf_primitives::vid::VidScheme;
+
+use memoize::memoize;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
@@ -224,6 +228,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     proposal.view_number
                 );
                 return false;
+            }
+
+            if let Some(upgrade_cert) = &self.decided_upgrade_cert {
+                if self.cur_view > upgrade_cert.data.old_version_last_block
+                    && self.cur_view < upgrade_cert.data.new_version_first_block
+                    && Some(proposal.block_header.payload_commitment())
+                        != null_block_commitment(self.quorum_membership.total_nodes())
+                {
+                    return false;
+                }
             }
 
             // Only vote if you have the DA cert
@@ -1424,5 +1438,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
     fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event, HotShotEvent::Shutdown)
+    }
+}
+
+/// The commitment for a null block payload.
+#[memoize(SharedCache, Capacity: 10)]
+fn null_block_commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+    let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
+
+    match vid_result {
+        Ok(r) => Some(r),
+        Err(_) => None,
     }
 }
