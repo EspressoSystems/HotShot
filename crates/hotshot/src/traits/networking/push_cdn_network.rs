@@ -32,7 +32,7 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -154,6 +154,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         da_committee_size: usize,
         _is_da: bool,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         // The configuration we are using for testing is 2 brokers & 1 marshal
 
