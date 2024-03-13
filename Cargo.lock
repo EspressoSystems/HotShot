@@ -2962,6 +2962,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-macros"
+version = "0.1.0"
+dependencies = [
+ "async-lock 2.8.0",
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
+]
+
+[[package]]
 name = "hotshot-orchestrator"
 version = "0.1.1"
 dependencies = [
@@ -3059,6 +3070,7 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-example-types",
+ "hotshot-macros",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
