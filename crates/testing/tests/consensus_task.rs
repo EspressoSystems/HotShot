@@ -41,7 +41,7 @@ async fn test_consensus_task() {
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
@@ -123,7 +123,7 @@ async fn test_consensus_vote() {
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));;
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
@@ -184,7 +184,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }

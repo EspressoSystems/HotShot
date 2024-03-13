@@ -11,7 +11,7 @@ use hotshot_types::traits::{
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
     time::Duration,
@@ -171,7 +171,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             decided_upgrade_cert: None,
             current_network_version: VERSION_0_1,
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
-            vid_shares: BTreeMap::new(),
             current_proposal: None,
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),

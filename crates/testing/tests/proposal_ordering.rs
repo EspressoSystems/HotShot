@@ -41,8 +41,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let mut vids = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
+        votes.push(view.create_quorum_vote(&handle));
         leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
