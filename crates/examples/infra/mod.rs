@@ -24,7 +24,7 @@ use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -566,7 +566,8 @@ pub trait RunDA<
                         } => {
                             let current_timestamp = Utc::now().timestamp();
                             // this might be a obob
-                            if let Some((leaf, _)) = leaf_chain.first() {
+                            if let Some(leaf_info) = leaf_chain.first() {
+                                let leaf = &leaf_info.leaf;
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
@@ -875,6 +876,9 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
+        let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
+            config.clone().combined_network_config.unwrap();
+
         // Create and wait for underlying webserver network
         let web_quorum_network =
             webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
@@ -884,14 +888,20 @@ where
         web_quorum_network.wait_for_ready().await;
 
         // Combine the two communication channels
-        let da_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_da_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
-        let quorum_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_quorum_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
+        let da_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_da_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
+        let quorum_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_quorum_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
 
         CombinedDARun {
             config,
