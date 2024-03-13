@@ -52,86 +52,12 @@ jobs:
           #        env:
           #          RUST_BACKTRACE: full
 
-  build:
-    strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        name: Checkout repository
-
-      - run: rustup toolchain install stable --profile minimal
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust caching
-        with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Install just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
-
-      - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build
-
-  build-release-arm:
-    strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
-    needs: [build, test]
-    runs-on: [self-hosted, arm64]
-    container: ghcr.io/espressosystems/devops-rust:stable
-    steps:
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
-        with:
-          shared-key: ""
-          prefix-key: arm-${{ matrix.just_variants }}
-
-      - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build_release
-
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-aarch64-${{ matrix.just_variants }}
-          path: |
-            target/${{ matrix.just_variants }}/release-lto/examples/counter
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/orchestrator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/validator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/validator-webserver
-
   build-release:
     strategy:
       matrix:
         just_variants:
           - async-std
           - tokio
-    needs: [build, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,21 +85,95 @@ jobs:
       - name: Build HotShot in release mode
         run: just ${{ matrix.just_variants }} build_release
 
+
+  build:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout repository
+
+      - run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust caching
+        with:
+          shared-key: ""
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: |
-            target/${{ matrix.just_variants }}/release-lto/examples/counter
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/orchestrator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/validator-libp2p
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release-lto/examples/validator-webserver
+            target/${{ matrix.just_variants }}/debug/examples/counter
+            target/${{ matrix.just_variants }}/debug/examples/multi-validator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/orchestrator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/validator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/multi-validator-webserver
+            target/${{ matrix.just_variants }}/debug/examples/multi-webserver
+            target/${{ matrix.just_variants }}/debug/examples/webserver
+            target/${{ matrix.just_variants }}/debug/examples/orchestrator-webserver
+            target/${{ matrix.just_variants }}/debug/examples/validator-webserver
 
+  build-arm:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+    needs: [test]
+    runs-on: [self-hosted, arm64]
+    container: ghcr.io/espressosystems/devops-rust:stable
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout repository
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust caching
+        with:
+          shared-key: ""
+          prefix-key: arm-${{ matrix.just_variants }}
+
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-aarch64-${{ matrix.just_variants }}
+          path: |
+            target/${{ matrix.just_variants }}/debug/examples/counter
+            target/${{ matrix.just_variants }}/debug/examples/multi-validator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/orchestrator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/validator-libp2p
+            target/${{ matrix.just_variants }}/debug/examples/multi-validator-webserver
+            target/${{ matrix.just_variants }}/debug/examples/multi-webserver
+            target/${{ matrix.just_variants }}/debug/examples/webserver
+            target/${{ matrix.just_variants }}/debug/examples/orchestrator-webserver
+            target/${{ matrix.just_variants }}/debug/examples/validator-webserver
 
   build-dockers:
     strategy:
@@ -182,7 +182,7 @@ jobs:
           - async-std
           - tokio
     runs-on: ubuntu-latest
-    needs: [build-release-arm, build-release]
+    needs: [build, build-arm]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -202,13 +202,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/amd64/release-lto/examples
+          path: target/${{ matrix.just_variants }}/amd64/debug/examples
 
       - name: Download ARM executables
         uses: actions/download-artifact@v4
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/arm64/release-lto/examples
+          path: target/${{ matrix.just_variants }}/arm64/debug/examples
 
       - name: Generate orchestrator-libp2p Docker metadata
         uses: docker/metadata-action@v5
