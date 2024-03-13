@@ -7,8 +7,7 @@ use cdn_client::{
     reexports::{
         connection::protocols::Quic,
         crypto::signature::{KeyPair, Serializable, SignatureScheme},
-        message::Message as PushCdnMessage,
-        message::Topic,
+        message::{Broadcast, Direct, Message as PushCdnMessage, Topic},
     },
     Client, ConfigBuilder as ClientConfigBuilder,
 };
@@ -16,7 +15,7 @@ use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
 use hotshot_utils::bincode::bincode_opts;
 use tracing::{error, warn};
 
-use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use async_trait::async_trait;
 
 use async_compatibility_layer::channel::UnboundedSendError;
@@ -33,7 +32,7 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, sync::Arc};
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -380,7 +379,6 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         let message = match message {
             Ok(message) => message,
             Err(error) => {
-                async_sleep(Duration::from_millis(100)).await;
                 error!("failed to receive message: {error}");
                 return Err(NetworkError::PushCdnNetwork {
                     source: PushCdnNetworkError::FailedToReceive,
@@ -388,26 +386,23 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             }
         };
 
-        // Figure out if it's the right type
-        if let PushCdnMessage::Direct(data) = message {
-            // Deserialize it
-            let result: Message<TYPES> = bincode_opts()
-                .deserialize(&data.message)
-                .map_err(|e| NetworkError::FailedToSerialize { source: e })?;
+        // Extract the underlying message
+        let message = match message {
+            PushCdnMessage::Direct(Direct {
+                message,
+                recipient: _,
+            }) => message,
+            PushCdnMessage::Broadcast(Broadcast { message, topics: _ }) => message,
+            _ => return Ok(vec![]),
+        };
 
-            // Return it
-            return Ok(vec![result]);
-        }
+        // Deserialize it
+        let result: Message<TYPES> = bincode_opts()
+            .deserialize(&message)
+            .map_err(|e| NetworkError::FailedToSerialize { source: e })?;
 
-        if let PushCdnMessage::Broadcast(data) = message {
-            // Deserialize it
-            let result: Message<TYPES> = bincode_opts()
-                .deserialize(&data.message)
-                .map_err(|e| NetworkError::FailedToSerialize { source: e })?;
-            return Ok(vec![result]);
-        }
-
-        Ok(vec![])
+        // Return it
+        Ok(vec![result])
     }
 
     /// Do nothing here, as we don't need to look up nodes.

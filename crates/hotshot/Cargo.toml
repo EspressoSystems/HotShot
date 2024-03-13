@@ -55,15 +55,15 @@ anyhow = "1.0.79"
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-cdn-client.workspace = true
-cdn-broker = { workspace = true, features = ["local_discovery"] }
-cdn-marshal.workspace = true
+cdn-client = { workspace = true, features = ["insecure", "runtime-tokio"] }
+cdn-broker = { workspace = true, features = ["insecure", "runtime-tokio", "strong_consistency", "local_discovery"] }
+cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
-cdn-client = { workspace = true, default-features = false, features = ["insecure", "runtime-async-std"] }
-cdn-broker = { workspace = true, default-features = false,  features = ["insecure", "runtime-async-std", "strong_consistency", "local_discovery"] }
-cdn-marshal = { workspace = true, default-features = false, features = ["insecure", "runtime-async-std"] }
+cdn-client = { workspace = true, features = ["insecure", "runtime-async-std"] }
+cdn-broker = { workspace = true, features = ["insecure", "runtime-async-std", "strong_consistency", "local_discovery"] }
+cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 
 
 [dev-dependencies]
