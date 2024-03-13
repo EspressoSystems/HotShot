@@ -13,27 +13,27 @@ slow-tests = []
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
-sha3 = "^0.10"
+async-lock = { workspace = true }
+bitvec = { workspace = true }
 commit = { workspace = true }
 either = { workspace = true }
+ethereum-types = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
-hotshot-constants = { path = "../constants" }
-hotshot-types = { path = "../types", default-features = false }
+hotshot-example-types = { path = "../example-types" }
+hotshot-task = { path = "../task" }
+hotshot-types = { workspace = true }
 hotshot-utils = { path = "../utils" }
-hotshot-orchestrator = { version = "0.5.23", path = "../orchestrator", default-features = false }
-hotshot-task-impls = { path = "../task-impls", version = "0.5.23", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.25", default-features = false }
+hotshot-macros = { path = "../macros" }
+hotshot-orchestrator = { version = "0.5.25", path = "../orchestrator", default-features = false }
 jf-primitives = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
-async-lock = { workspace = true }
-bitvec = { workspace = true }
-ethereum-types = { workspace = true }
-hotshot-task = { path = "../task" }
-hotshot-example-types = { path = "../example-types" }
+sha3 = "^0.10"
 versioned-binary-serialization = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]

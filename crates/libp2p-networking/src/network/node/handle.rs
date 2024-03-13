@@ -10,6 +10,7 @@ use async_compatibility_layer::{
 };
 use futures::channel::oneshot;
 
+use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
@@ -591,6 +592,26 @@ pub enum NetworkNodeHandleError {
     },
     /// no known topic matches the hashset of keys
     NoSuchTopic,
+}
+
+impl From<NetworkNodeHandleError> for HotshotNetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        match error {
+            NetworkNodeHandleError::SerializationError { source } => {
+                HotshotNetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::DeserializationError { source } => {
+                HotshotNetworkError::FailedToDeserialize { source }
+            }
+            NetworkNodeHandleError::TimeoutError { source } => {
+                HotshotNetworkError::Timeout { source }
+            }
+            NetworkNodeHandleError::Killed => HotshotNetworkError::ShutDown,
+            source => HotshotNetworkError::Libp2p {
+                source: Box::new(source),
+            },
+        }
+    }
 }
 
 /// Re-exports of the snafu errors that [`NetworkNodeHandleError`] can throw

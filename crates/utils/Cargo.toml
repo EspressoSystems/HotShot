@@ -8,7 +8,7 @@ version = { workspace = true }
 
 [dependencies]
 bincode = { workspace = true }
-hotshot-constants = { path = "../constants" }
+hotshot-types = { workspace = true }
 
 [lints]
 workspace = true

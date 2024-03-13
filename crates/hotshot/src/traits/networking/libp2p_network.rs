@@ -11,7 +11,7 @@ use async_compatibility_layer::{
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use hotshot_constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1, VERSION_MAJ, VERSION_MIN};
+use hotshot_types::constants::{LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1, VERSION_MAJ, VERSION_MIN};
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
@@ -64,7 +64,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use versioned_binary_serialization::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
@@ -182,6 +182,7 @@ where
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -466,13 +467,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     if bs_addrs.len() >= num_bootstrap {
                         break bs_addrs;
                     }
-                    info!(
-                        "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
-                        id,
-                        bs_addrs.len(),
-                        num_bootstrap
-                    );
                 };
+                debug!("Finished adding bootstrap addresses.");
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
                 handle.begin_bootstrap().await?;
@@ -702,7 +698,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     request, recipient
                 );
-                return Err(NetworkError::Libp2p { source: err });
+                return Err(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
         match self
@@ -800,7 +798,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let topic = topic_map
             .get_by_left(&recipients)
             .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
+                source: Box::new(NetworkNodeHandleError::NoSuchTopic),
             })?
             .clone();
         info!("broadcasting to topic: {}", topic);
@@ -925,7 +923,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     message, recipient
                 );
-                return Err(NetworkError::Libp2p { source: err });
+                return Err(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
 

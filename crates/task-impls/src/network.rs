@@ -358,7 +358,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.channel.update_view(&self.view.get_u64()).await;
+                self.channel.update_view(self.view.get_u64());
                 return None;
             }
             HotShotEvent::Shutdown => {
@@ -375,7 +375,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             kind: message_kind,
         };
         let view = message.kind.get_view_number();
-        let committee = membership.get_committee(view);
+        let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
         async_spawn(async move {
             let transmit_result = match transmit_type {

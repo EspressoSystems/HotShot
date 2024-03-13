@@ -3,10 +3,14 @@ use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_lock::RwLock;
 use async_trait::async_trait;
+use cdn_broker::reexports::crypto::signature::KeyPair;
+use cdn_broker::reexports::message::Topic;
 use clap::Parser;
 use clap::{Arg, Command};
 use futures::StreamExt;
-use hotshot::traits::implementations::{CombinedNetworks, UnderlyingCombinedNetworks};
+use hotshot::traits::implementations::{
+    CombinedNetworks, PushCdnNetwork, UnderlyingCombinedNetworks, WrappedSignatureKey,
+};
 use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
@@ -24,7 +28,7 @@ use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -35,7 +39,7 @@ use hotshot_types::{
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     traits::{
-        block_contents::TestableBlock,
+        block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
@@ -170,6 +174,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .required(false),
         )
         .get_matches();
+
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
         args = ConfigArgs {
             config_file: config_file_string.clone(),
@@ -181,13 +186,16 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
         load_config_from_file::<TYPES>(&args.config_file);
 
     if let Some(total_nodes_string) = matches.get_one::<String>("total_nodes") {
-        config.config.total_nodes = total_nodes_string.parse::<NonZeroUsize>().unwrap();
+        config.config.num_nodes_with_stake = total_nodes_string.parse::<NonZeroUsize>().unwrap();
         config.config.known_nodes_with_stake =
-            vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
-        error!("config.config.total_nodes: {:?}", config.config.total_nodes);
+            vec![PeerConfig::default(); config.config.num_nodes_with_stake.get() as usize];
+        error!(
+            "config.config.total_nodes: {:?}",
+            config.config.num_nodes_with_stake
+        );
     }
     if let Some(da_committee_size_string) = matches.get_one::<String>("da_committee_size") {
-        config.config.da_committee_size = da_committee_size_string.parse::<usize>().unwrap();
+        config.config.da_staked_committee_size = da_committee_size_string.parse::<usize>().unwrap();
     }
     if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round")
     {
@@ -205,6 +213,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
     if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
     }
+
     (config, orchestrator_url)
 }
 
@@ -238,7 +247,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
         ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, 1);
     // initialize it with size for better assignment of peers' config
     config.config.known_nodes_with_stake =
-        vec![PeerConfig::default(); config.config.total_nodes.get() as usize];
+        vec![PeerConfig::default(); config.config.num_nodes_with_stake.get() as usize];
 
     config
 }
@@ -246,8 +255,8 @@ pub fn load_config_from_file<TYPES: NodeType>(
 /// Runs the orchestrator
 pub async fn run_orchestrator<
     TYPES: NodeType,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
@@ -349,8 +358,8 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
 
     // generate network
     let mut config_builder = NetworkNodeConfigBuilder::default();
-    assert!(config.config.total_nodes.get() > 2);
-    let replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - 2).unwrap();
+    assert!(config.config.num_nodes_with_stake.get() > 2);
+    let replicated_nodes = NonZeroUsize::new(config.config.num_nodes_with_stake.get() - 2).unwrap();
     config_builder.replication_factor(replicated_nodes);
     config_builder.identity(identity.clone());
 
@@ -384,10 +393,10 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
 
     let mut all_keys = BTreeSet::new();
     let mut da_keys = BTreeSet::new();
-    for i in 0..config.config.total_nodes.get() as u64 {
+    for i in 0..config.config.num_nodes_with_stake.get() as u64 {
         let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], i).1;
         let pub_key = TYPES::SignatureKey::from_private(&privkey);
-        if i < config.config.da_committee_size as u64 {
+        if i < config.config.da_staked_committee_size as u64 {
             da_keys.insert(pub_key.clone());
         }
         all_keys.insert(pub_key);
@@ -422,8 +431,8 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
 #[async_trait]
 pub trait RunDA<
     TYPES: NodeType<InstanceState = TestInstanceState>,
-    DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMNET,
@@ -462,11 +471,15 @@ pub trait RunDA<
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(config.config.total_nodes.get() as u64)
+            TYPES::Membership::default_election_config(
+                config.config.num_nodes_with_stake.get() as u64,
+                config.config.num_nodes_without_stake as u64,
+            )
         });
 
         let committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_committee_size.try_into().unwrap(),
+            config.config.da_staked_committee_size.try_into().unwrap(),
+            config.config.num_nodes_without_stake as u64,
         );
         let networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
@@ -563,12 +576,15 @@ pub trait RunDA<
                         } => {
                             let current_timestamp = Utc::now().timestamp();
                             // this might be a obob
-                            if let Some((leaf, _)) = leaf_chain.first() {
+                            if let Some(leaf_info) = leaf_chain.first() {
+                                let leaf = &leaf_info.leaf;
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload {
-                                    for tx in block_payload.get_transactions() {
+                                    for tx in
+                                        block_payload.get_transactions(leaf.block_header.metadata())
+                                    {
                                         let restored_timestamp_vec =
                                             tx.0[tx.0.len() - 8..].to_vec();
                                         let restored_timestamp = i64::from_be_bytes(
@@ -772,6 +788,89 @@ where
     }
 }
 
+// Push CDN
+
+/// Represents a Push CDN-based run
+pub struct PushCdnDaRun<TYPES: NodeType> {
+    /// The underlying configuration
+    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// The quorum channel
+    quorum_channel: PushCdnNetwork<TYPES>,
+    /// The DA channel
+    da_channel: PushCdnNetwork<TYPES>,
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType<
+            Transaction = TestTransaction,
+            BlockPayload = TestBlockPayload,
+            BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
+        >,
+        NODE: NodeImplementation<
+            TYPES,
+            QuorumNetwork = PushCdnNetwork<TYPES>,
+            CommitteeNetwork = PushCdnNetwork<TYPES>,
+            Storage = MemoryStorage<TYPES>,
+        >,
+    > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+where
+    <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
+    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    Leaf<TYPES>: TestableLeaf,
+    Self: Sync,
+{
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> PushCdnDaRun<TYPES> {
+        // Get our own key
+        let key = config.config.my_own_validator_config.clone();
+
+        // Convert to the Push-CDN-compatible type
+        let keypair = KeyPair {
+            public_key: WrappedSignatureKey(key.public_key),
+            private_key: key.private_key,
+        };
+
+        // See if we should be DA
+        let mut topics = vec![Topic::Global];
+        if config.node_index < config.config.da_staked_committee_size as u64 {
+            topics.push(Topic::DA);
+        }
+
+        // Create the network and await the initial connection
+        let network = PushCdnNetwork::new(
+            config
+                .cdn_marshal_address
+                .clone()
+                .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
+            topics.iter().map(ToString::to_string).collect(),
+            keypair,
+        )
+        .await
+        .expect("failed to perform initial connection");
+
+        PushCdnDaRun {
+            config,
+            quorum_channel: network.clone(),
+            da_channel: network,
+        }
+    }
+
+    fn get_da_channel(&self) -> PushCdnNetwork<TYPES> {
+        self.da_channel.clone()
+    }
+
+    fn get_quorum_channel(&self) -> PushCdnNetwork<TYPES> {
+        self.quorum_channel.clone()
+    }
+
+    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        self.config.clone()
+    }
+}
+
 // Libp2p
 
 /// Represents a libp2p-based run
@@ -909,6 +1008,9 @@ where
             wait_between_polls,
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
+        let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
+            config.clone().combined_network_config.unwrap();
+
         // Create and wait for underlying webserver network
         let web_quorum_network = webserver_network_from_config::<
             TYPES,
@@ -921,14 +1023,20 @@ where
         web_quorum_network.wait_for_ready().await;
 
         // Combine the two communication channels
-        let da_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_da_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
-        let quorum_channel = CombinedNetworks::new(Arc::new(UnderlyingCombinedNetworks(
-            web_quorum_network.clone(),
-            libp2p_underlying_quorum_network.clone(),
-        )));
+        let da_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_da_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
+        let quorum_channel = CombinedNetworks::new(
+            Arc::new(UnderlyingCombinedNetworks(
+                web_quorum_network.clone(),
+                libp2p_underlying_quorum_network.clone(),
+            )),
+            delay_duration,
+        );
 
         CombinedDARun {
             config,
@@ -964,8 +1072,8 @@ pub async fn main_entry_point<
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey> + Debug,
+    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
@@ -1023,13 +1131,19 @@ pub async fn main_entry_point<
         rounds,
         transactions_per_round,
         node_index,
-        config: HotShotConfig { total_nodes, .. },
+        config: HotShotConfig {
+            num_nodes_with_stake,
+            ..
+        },
         ..
     } = run_config;
 
     let mut txn_rng = StdRng::seed_from_u64(node_index);
-    let transactions_to_send_per_round =
-        calculate_num_tx_per_round(node_index, total_nodes.get(), transactions_per_round);
+    let transactions_to_send_per_round = calculate_num_tx_per_round(
+        node_index,
+        num_nodes_with_stake.get(),
+        transactions_per_round,
+    );
     let mut transactions = Vec::new();
 
     for round in 0..rounds {
