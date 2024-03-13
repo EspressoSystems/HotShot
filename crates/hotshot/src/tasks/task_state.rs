@@ -1,7 +1,6 @@
 use crate::types::SystemContextHandle;
 
 use async_trait::async_trait;
-use hotshot_constants::VERSION_0_1;
 use hotshot_task_impls::{
     consensus::{CommitmentAndMetadata, ConsensusTaskState},
     da::DATaskState,
@@ -10,6 +9,7 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::{
     block_contents::vid_commitment,
@@ -18,7 +18,7 @@ use hotshot_types::traits::{
     BlockPayload,
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
     time::Duration,
@@ -188,7 +188,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             decided_upgrade_cert: None,
             current_network_version: VERSION_0_1,
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
-            vid_shares: BTreeMap::new(),
             current_proposal: None,
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),

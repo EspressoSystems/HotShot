@@ -12,15 +12,14 @@ repository = "https://github.com/EspressoSystems/HotShot"
 # when implementing traits externally
 [workspace]
 members = [
-        "crates/constants",
         "crates/hotshot",
         "crates/hotshot-stake-table",
         "crates/libp2p-networking",
+        "crates/macros",
         "crates/testing-macros",
         "crates/task",
         "crates/task-impls",
         "crates/testing",
-        "crates/types",
         "crates/utils",
         "crates/examples",
         "crates/example-types",
@@ -60,6 +59,7 @@ futures = "0.3.30"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
+hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", tag = "0.1.1" }
 
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
@@ -80,7 +80,7 @@ surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = 
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
 time = "0.3.34"
-toml = "0.8.10"
+toml = "0.8.11"
 tracing = "0.1.40"
 typenum = "1.17.0"
 libp2p = { package = "libp2p", version = "0.53.2", features = [

@@ -3,21 +3,20 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
+use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
-use hotshot_constants::Version;
-use hotshot_constants::LOOK_AHEAD;
 use hotshot_task::task::{Task, TaskState};
-
-use async_broadcast::Sender;
-
+use hotshot_types::constants::Version;
+use hotshot_types::constants::LOOK_AHEAD;
+use hotshot_types::event::LeafInfo;
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, VidDisperse},
+    data::{Leaf, QuorumProposal},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
@@ -40,11 +39,7 @@ use tracing::warn;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
-use std::{
-    collections::{BTreeMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
@@ -130,12 +125,6 @@ pub struct ConsensusTaskState<
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
-
-    /// All the VID shares we've received for current and future views.
-    /// In the future we will need a different struct similar to VidDisperse except
-    /// it stores only one share.
-    /// TODO <https://github.com/EspressoSystems/HotShot/issues/1732>
-    pub vid_shares: BTreeMap<TYPES::Time, Proposal<TYPES, VidDisperse<TYPES>>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -229,7 +218,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = self.vid_shares.get(&proposal.view_number) {
+            if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
             } else {
                 debug!(
                     "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
@@ -522,11 +511,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let parent = if justify_qc.is_genesis {
                     // Send the `Decide` event for the genesis block if the justify QC is genesis.
                     let leaf = Leaf::genesis(&consensus.instance_state);
+                    let (validated_state, state_delta) =
+                        TYPES::ValidatedState::genesis(&consensus.instance_state);
+                    let state = Arc::new(validated_state);
                     broadcast_event(
                         Event {
                             view_number: TYPES::Time::genesis(),
                             event: EventType::Decide {
-                                leaf_chain: Arc::new(vec![(leaf.clone(), None)]),
+                                leaf_chain: Arc::new(vec![LeafInfo::new(
+                                    leaf.clone(),
+                                    state.clone(),
+                                    Some(Arc::new(state_delta)),
+                                    None,
+                                )]),
                                 qc: Arc::new(justify_qc.clone()),
                                 block_size: None,
                             },
@@ -534,7 +531,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         &self.output_event_stream,
                     )
                     .await;
-                    let state = Arc::new(TYPES::ValidatedState::genesis(&consensus.instance_state));
                     Some((leaf, state))
                 } else {
                     match consensus
@@ -543,7 +539,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .cloned()
                     {
                         Some(leaf) => {
-                            if let Some(state) = consensus.get_state(leaf.view_number) {
+                            if let (Some(state), _) =
+                                consensus.get_state_and_delta(leaf.view_number)
+                            {
                                 Some((leaf, state.clone()))
                             } else {
                                 error!("Parent state not found! Consensus internally inconsistent");
@@ -587,6 +585,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             view_inner: ViewInner::Leaf {
                                 leaf: leaf.commit(),
                                 state,
+                                delta: None,
                             },
                         },
                     );
@@ -627,7 +626,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                let Ok(state) = parent_state
+                let Ok((validated_state, state_delta)) = parent_state
                     .validate_and_apply_header(
                         &consensus.instance_state,
                         &parent_leaf,
@@ -638,7 +637,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
-                let state = Arc::new(state);
+                let state = Arc::new(validated_state);
+                let delta = Arc::new(state_delta);
                 let parent_commitment = parent_leaf.commit();
                 let leaf: Leaf<_> = Leaf {
                     view_number: view,
@@ -667,7 +667,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     justify_qc.get_view_number(),
                     Terminator::Inclusive(consensus.locked_view),
                     false,
-                    |leaf| {
+                    |leaf, _, _| {
                         // if leaf view no == locked view no then we're done, report success by
                         // returning true
                         leaf.view_number != consensus.locked_view
@@ -726,7 +726,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         parent_view,
                         Terminator::Exclusive(old_anchor_view),
                         true,
-                        |leaf| {
+                        |leaf, state, delta| {
                             if !new_decide_reached {
                                 if last_view_number_visited == leaf.view_number + 1 {
                                     last_view_number_visited = leaf.view_number;
@@ -772,12 +772,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                let vid = self
+                                let vid = consensus
                                     .vid_shares
                                     .get(&leaf.get_view_number())
                                     .map(|vid_proposal| vid_proposal.data.clone());
 
-                                leaf_views.push((leaf.clone(), vid));
+                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
                                 if let Some(ref payload) = leaf.block_payload {
                                     for txn in payload
@@ -813,7 +813,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: leaf.commit(),
-                            state,
+                            state: state.clone(),
+                            delta: Some(delta.clone()),
                         },
                     },
                 );
@@ -841,7 +842,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     let old_anchor_view = consensus.last_decided_view;
                     consensus.collect_garbage(old_anchor_view, new_anchor_view);
-                    self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
                     consensus
                         .metrics
@@ -1118,7 +1118,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // Add to the storage that we have received the VID disperse for a specific view
-                self.vid_shares.insert(view, disperse.clone());
+                self.consensus
+                    .write()
+                    .await
+                    .vid_shares
+                    .insert(view, disperse.clone());
                 self.vote_if_able(&event_stream).await;
             }
             HotShotEvent::ViewChange(new_view) => {
@@ -1281,7 +1285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             return false;
         };
         // Leaf hash in view inner does not match high qc hash - Why?
-        let Some((leaf_commitment, state)) = parent_view.get_leaf() else {
+        let Some((leaf_commitment, state)) = parent_view.get_leaf_and_state() else {
             error!(
                 ?parent_view_number,
                 ?parent_view,
@@ -1413,6 +1417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
                 | HotShotEvent::QCFormed(_)
+                | HotShotEvent::UpgradeCertificateFormed(_)
                 | HotShotEvent::DACRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
