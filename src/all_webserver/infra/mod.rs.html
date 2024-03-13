@@ -1055,15 +1055,108 @@
 <a href="#1054" id="1054">1054</a>
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
+<span class="kw">use </span>cdn_broker::reexports::message::Topic;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>clap::{Arg, Command};
 <span class="kw">use </span>futures::StreamExt;
-<span class="kw">use </span>hotshot::traits::implementations::{CombinedNetworks, UnderlyingCombinedNetworks};
+<span class="kw">use </span>hotshot::traits::implementations::{
+    CombinedNetworks, PushCdnNetwork, UnderlyingCombinedNetworks, WrappedSignatureKey,
+};
 <span class="kw">use </span>hotshot::traits::BlockPayload;
 <span class="kw">use </span>hotshot::{
     traits::{
@@ -1227,6 +1320,7 @@
                 .required(<span class="bool-val">false</span>),
         )
         .get_matches();
+
     <span class="kw">if let </span><span class="prelude-val">Some</span>(config_file_string) = matches.get_one::&lt;String&gt;(<span class="string">"config_file"</span>) {
         args = ConfigArgs {
             config_file: config_file_string.clone(),
@@ -1265,6 +1359,7 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(orchestrator_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"orchestrator_url"</span>) {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
     }
+
     (config, orchestrator_url)
 }
 
@@ -1306,8 +1401,8 @@
 <span class="doccomment">/// Runs the orchestrator
 </span><span class="kw">pub async fn </span>run_orchestrator&lt;
     TYPES: NodeType,
-    DACHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
-    QUORUMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
+    DACHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    QUORUMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     NODE: NodeImplementation&lt;TYPES, Storage = MemoryStorage&lt;TYPES&gt;&gt;,
 &gt;(
     OrchestratorArgs { url, config }: OrchestratorArgs&lt;TYPES&gt;,
@@ -1478,8 +1573,8 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>RunDA&lt;
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
-    DANET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
-    QUORUMNET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
+    DANET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    QUORUMNET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     NODE: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = QUORUMNET,
@@ -1812,6 +1907,89 @@
     }
 }
 
+<span class="comment">// Push CDN
+
+</span><span class="doccomment">/// Represents a Push CDN-based run
+</span><span class="kw">pub struct </span>PushCdnDaRun&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// The underlying configuration
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    <span class="doccomment">/// The quorum channel
+    </span>quorum_channel: PushCdnNetwork&lt;TYPES&gt;,
+    <span class="doccomment">/// The DA channel
+    </span>da_channel: PushCdnNetwork&lt;TYPES&gt;,
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;
+        TYPES: NodeType&lt;
+            Transaction = TestTransaction,
+            BlockPayload = TestBlockPayload,
+            BlockHeader = TestBlockHeader,
+            InstanceState = TestInstanceState,
+        &gt;,
+        NODE: NodeImplementation&lt;
+            TYPES,
+            QuorumNetwork = PushCdnNetwork&lt;TYPES&gt;,
+            CommitteeNetwork = PushCdnNetwork&lt;TYPES&gt;,
+            Storage = MemoryStorage&lt;TYPES&gt;,
+        &gt;,
+    &gt; RunDA&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
+<span class="kw">where
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    Leaf&lt;TYPES&gt;: TestableLeaf,
+    <span class="self">Self</span>: Sync,
+{
+    <span class="kw">async fn </span>initialize_networking(
+        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    ) -&gt; PushCdnDaRun&lt;TYPES&gt; {
+        <span class="comment">// Get our own key
+        </span><span class="kw">let </span>key = config.config.my_own_validator_config.clone();
+
+        <span class="comment">// Convert to the Push-CDN-compatible type
+        </span><span class="kw">let </span>keypair = KeyPair {
+            public_key: WrappedSignatureKey(key.public_key),
+            private_key: key.private_key,
+        };
+
+        <span class="comment">// See if we should be DA
+        </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[Topic::Global];
+        <span class="kw">if </span>config.node_index &lt; config.config.da_staked_committee_size <span class="kw">as </span>u64 {
+            topics.push(Topic::DA);
+        }
+
+        <span class="comment">// Create the network and await the initial connection
+        </span><span class="kw">let </span>network = PushCdnNetwork::new(
+            config
+                .cdn_marshal_address
+                .clone()
+                .expect(<span class="string">"`cdn_marshal_address` needs to be supplied for a push CDN run"</span>),
+            topics.iter().map(ToString::to_string).collect(),
+            keypair,
+        )
+        .<span class="kw">await
+        </span>.expect(<span class="string">"failed to perform initial connection"</span>);
+
+        PushCdnDaRun {
+            config,
+            quorum_channel: network.clone(),
+            da_channel: network,
+        }
+    }
+
+    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
+        <span class="self">self</span>.da_channel.clone()
+    }
+
+    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
+        <span class="self">self</span>.quorum_channel.clone()
+    }
+
+    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+        <span class="self">self</span>.config.clone()
+    }
+}
+
 <span class="comment">// Libp2p
 
 </span><span class="doccomment">/// Represents a libp2p-based run
@@ -1990,8 +2168,8 @@
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     &gt;,
-    DACHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
-    QUORUMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; + Debug,
+    DACHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    QUORUMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     NODE: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
