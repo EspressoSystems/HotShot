@@ -387,13 +387,13 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         };
 
         // Extract the underlying message
-        let message = match message {
-            PushCdnMessage::Direct(Direct {
-                message,
-                recipient: _,
-            }) => message,
-            PushCdnMessage::Broadcast(Broadcast { message, topics: _ }) => message,
-            _ => return Ok(vec![]),
+        let (PushCdnMessage::Broadcast(Broadcast { message, topics: _ })
+        | PushCdnMessage::Direct(Direct {
+            message,
+            recipient: _,
+        })) = message
+        else {
+            return Ok(vec![]);
         };
 
         // Deserialize it

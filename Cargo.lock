@@ -3183,7 +3183,7 @@ dependencies = [
  "surf-disco",
  "time 0.3.34",
  "tokio",
- "toml 0.8.10",
+ "toml 0.8.11",
  "tracing",
 ]
 
@@ -3260,8 +3260,19 @@ dependencies = [
  "surf-disco",
  "time 0.3.34",
  "tokio",
- "toml 0.8.10",
+ "toml 0.8.11",
  "tracing",
+]
+
+[[package]]
+name = "hotshot-macros"
+version = "0.1.0"
+dependencies = [
+ "async-lock 2.8.0",
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -3285,7 +3296,7 @@ dependencies = [
  "thiserror",
  "tide-disco",
  "tokio",
- "toml 0.8.10",
+ "toml 0.8.11",
  "tracing",
 ]
 
@@ -3362,6 +3373,7 @@ dependencies = [
  "futures",
  "hotshot",
  "hotshot-example-types",
+ "hotshot-macros",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
@@ -3409,7 +3421,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types#82040a3aa3a152db50a4cbc2d401014114f60eec"
+source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.1#4e6f836468c8e236f5f5711e941d4d0a5745433a"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -3473,7 +3485,7 @@ dependencies = [
  "rand 0.8.5",
  "tide-disco",
  "tokio",
- "toml 0.8.10",
+ "toml 0.8.11",
  "tracing",
 ]
 
@@ -5870,9 +5882,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "e835ff2298f5721608eb1a980ecaee1aef2c132bf95ecc026a11b7bf3c01c02e"
 dependencies = [
  "unicode-ident",
 ]
@@ -7817,7 +7829,7 @@ dependencies = [
  "tagged-base64",
  "tide",
  "tide-websockets",
- "toml 0.8.10",
+ "toml 0.8.11",
  "tracing",
  "tracing-distributed",
  "tracing-futures",
@@ -8037,14 +8049,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.10"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a9aad4a3066010876e8dcf5a8a06e70a558751117a145c6ce2b82c2e2054290"
+checksum = "af06656561d28735e9c1cd63dfd57132c8155426aa6af24f36a00a351f88c48e"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.4",
+ "toml_edit 0.22.7",
 ]
 
 [[package]]
@@ -8064,20 +8076,20 @@ checksum = "70f427fce4d84c72b5b732388bf4a9f4531b53f74e2887e3ecb2481f68f66d81"
 dependencies = [
  "indexmap 2.1.0",
  "toml_datetime",
- "winnow",
+ "winnow 0.5.34",
 ]
 
 [[package]]
 name = "toml_edit"
-version = "0.22.4"
+version = "0.22.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c9ffdf896f8daaabf9b66ba8e77ea1ed5ed0f72821b398aba62352e95062951"
+checksum = "18769cd1cec395d70860ceb4d932812a0b4d06b1a4bb336745a4d21b9496e992"
 dependencies = [
  "indexmap 2.1.0",
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow",
+ "winnow 0.6.5",
 ]
 
 [[package]]
@@ -8925,6 +8937,15 @@ name = "winnow"
 version = "0.5.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7cf47b659b318dccbd69cc4797a39ae128f533dce7902a1096044d1967b9c16"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dffa400e67ed5a4dd237983829e66475f0a4a26938c4b04c21baede6262215b8"
 dependencies = [
  "memchr",
 ]

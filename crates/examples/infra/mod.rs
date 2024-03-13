@@ -572,7 +572,8 @@ pub trait RunDA<
                         } => {
                             let current_timestamp = Utc::now().timestamp();
                             // this might be a obob
-                            if let Some((leaf, _)) = leaf_chain.first() {
+                            if let Some(leaf_info) = leaf_chain.first() {
+                                let leaf = &leaf_info.leaf;
                                 info!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
