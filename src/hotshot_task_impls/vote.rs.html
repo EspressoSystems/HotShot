@@ -486,6 +486,7 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -561,6 +562,7 @@
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">if </span>vote.get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership) != <span class="self">self</span>.public_key {
+            <span class="macro">error!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 

@@ -1433,6 +1433,7 @@
 <a href="#1432" id="1432">1432</a>
 <a href="#1433" id="1433">1433</a>
 <a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -2845,6 +2846,7 @@
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
+                | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
                 | HotShotEvent::DACRecv(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)

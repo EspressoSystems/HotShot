@@ -4,6 +4,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["all_webserver",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["hotshot",["",[["tasks",[],["mod.rs","task_state.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","web_server_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
 ["hotshot_example_types",["",[],["block_types.rs","lib.rs","node_types.rs","state_types.rs"]]],\
+["hotshot_macros",["",[],["lib.rs"]]],\
 ["hotshot_orchestrator",["",[],["client.rs","config.rs","lib.rs"]]],\
 ["hotshot_stake_table",["",[["mt_based",[],["config.rs","internal.rs"]],["vec_based",[],["config.rs"]]],["config.rs","lib.rs","mt_based.rs","utils.rs","vec_based.rs"]]],\
 ["hotshot_task",["",[],["dependency.rs","dependency_task.rs","lib.rs","task.rs"]]],\
