@@ -131,14 +131,17 @@ impl TestView {
         }
     }
 
-    /// Moves the generator to the next view by referencing an anscestor. To have a standard,
+    /// Moves the generator to the next view by referencing an ancestor. To have a standard,
     /// sequentially ordered set of generated test views, use the `next_view` function. Otherwise,
     /// this method can be used to start from an ancestor (whose view is at least one view older
     /// than the current view) and construct valid views without the data structures in the task
-    /// failing by expecting views that it has never seen.
-    pub fn next_view_from_ancestor(&self, anscestor: TestView) -> Self {
-        let old = anscestor;
+    /// failing by expecting views that they has never seen.
+    pub fn next_view_from_ancestor(&self, ancestor: TestView) -> Self {
+        let old = ancestor;
         let old_view = old.view_number;
+
+        // This ensures that we're always moving forward in time since someone could pass in any
+        // test view here.
         let next_view = max(old_view, self.view_number) + 1;
 
         let quorum_membership = &self.quorum_membership;
