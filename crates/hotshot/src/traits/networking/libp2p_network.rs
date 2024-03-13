@@ -66,7 +66,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 /// convienence alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
