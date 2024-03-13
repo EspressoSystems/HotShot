@@ -541,9 +541,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     }
                 }
                 // Nothing on receiving channel
-                Err(_) => {
-                    debug!("Nothing on receiving channel");
-                }
+                Err(_) => {}
             }
         }
         Err(NetworkError::ShutDown)
