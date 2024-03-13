@@ -194,7 +194,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+        VidDisperseRecv(vids[1].0.clone()),
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
