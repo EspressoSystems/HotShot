@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{cmp::max, marker::PhantomData};
 
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
@@ -139,7 +139,7 @@ impl TestView {
     pub fn next_view_from_ancestor(&self, anscestor: TestView) -> Self {
         let old = anscestor;
         let old_view = old.view_number;
-        let next_view = self.view_number + 1;
+        let next_view = max(old_view, self.view_number) + 1;
 
         let quorum_membership = &self.quorum_membership;
         let transactions = &self.transactions;
@@ -373,9 +373,6 @@ impl TestViewGenerator {
                 view_number: view.view_number + n,
                 ..view.clone()
             })
-            // let mut view = view.clone();
-            // view.view_number += n - 1;
-            // self.current_view = Some(view.next_view())
         } else {
             tracing::error!("Cannot attach view sync finalize to the genesis view.");
         }
