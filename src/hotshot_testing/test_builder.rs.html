@@ -326,6 +326,11 @@
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -362,6 +367,8 @@
     </span><span class="kw">pub </span>propose_min_round_time: Duration,
     <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// Delay before sending through the secondary network in CombinedNetworks
+    </span><span class="kw">pub </span>secondary_network_delay: Duration,
 }
 
 <span class="doccomment">/// metadata describing a test
@@ -409,6 +416,7 @@
             start_delay: <span class="number">100</span>,
             propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
             propose_max_round_time: Duration::from_millis(<span class="number">100</span>),
+            secondary_network_delay: Duration::from_millis(<span class="number">1000</span>),
         }
     }
 }
@@ -625,6 +633,7 @@
             start_delay,
             propose_min_round_time,
             propose_max_round_time,
+            secondary_network_delay,
         } = timing_data;
         <span class="kw">let </span>mod_config =
             <span class="comment">// TODO this should really be using the timing config struct
@@ -644,6 +653,7 @@
                     num_bootstrap_nodes,
                     da_staked_committee_size,
                     unreliable_network,
+                    secondary_network_delay,
                 ),
                 storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
                 config,

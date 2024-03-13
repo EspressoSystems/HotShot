@@ -373,6 +373,8 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -386,6 +388,7 @@
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
@@ -562,6 +565,7 @@
         _da_committee_size: usize,
         _is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
+        _secondary_network_delay: Duration,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>master: Arc&lt;<span class="kw">_</span>&gt; = MasterMap::new();
         <span class="comment">// We assign known_nodes' public key and stake value rather than read from config file since it's a test

@@ -451,6 +451,9 @@
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -541,7 +544,7 @@
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;, delay_duration: Duration) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -549,7 +552,7 @@
             ))),
             primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
             delayed_tasks: Arc::default(),
-            delay_duration: Arc::new(RwLock::new(Duration::from_millis(<span class="number">1000</span>))),
+            delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
     }
 
@@ -640,6 +643,7 @@
         da_committee_size: usize,
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
+        secondary_network_delay: Duration,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>generators = (
             &lt;WebServerNetwork&lt;
@@ -651,6 +655,7 @@
                 da_committee_size,
                 is_da,
                 <span class="prelude-val">None</span>,
+                Duration::default(),
             ),
             &lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
                 expected_node_count,
@@ -659,6 +664,7 @@
                 da_committee_size,
                 is_da,
                 reliability_config,
+                Duration::default(),
             )
         );
         Box::new(<span class="kw">move </span>|node_id| {
@@ -681,7 +687,7 @@
                 ))),
                 primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(Duration::from_millis(<span class="number">1000</span>))),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             <span class="kw">let </span>da_net = <span class="self">Self </span>{
                 networks: Arc::new(da_networks),
@@ -690,7 +696,7 @@
                 ))),
                 primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(Duration::from_millis(<span class="number">1000</span>))),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             (quorum_net.into(), da_net.into())
         })
