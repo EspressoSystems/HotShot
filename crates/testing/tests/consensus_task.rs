@@ -99,10 +99,7 @@ async fn test_consensus_task() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
@@ -225,10 +222,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote_with_permuted_dac() {
     // These tests verify that a vote is indeed sent no matter when it receives a DACRecv
@@ -243,10 +237,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
@@ -381,10 +372,7 @@ async fn test_view_sync_finalize_propose() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will indeed vote if the cert is valid and matches the correct view number.
@@ -486,10 +474,7 @@ async fn test_view_sync_finalize_vote() {
 }
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
@@ -591,10 +576,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
 /// TODO (jparr721): Nuke these old tests. Tracking: https://github.com/EspressoSystems/HotShot/issues/2727
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task_old() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
