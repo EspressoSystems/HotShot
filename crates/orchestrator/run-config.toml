@@ -68,10 +68,10 @@ online_time = 10
 base_port = 9000
 
 [web_server_config]
-url = "http://localhost:9000"
+url = "http://18.221.96.51:9000"
 
 [da_web_server_config]
-url = "http://localhost:9001"
+url = "http://13.58.87.200:9001"
 
 
 [web_server_config.wait_between_polls]
