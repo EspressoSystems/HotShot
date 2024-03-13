@@ -12,7 +12,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
-use hotshot_constants::VERSION_0_1;
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     boxed_sync,
     message::{Message, MessagePurpose},
@@ -1251,6 +1251,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let da_gen = Self::single_generator(
             expected_node_count,

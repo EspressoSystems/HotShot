@@ -12,7 +12,7 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_constants::{Version, LOOK_AHEAD, VERSION_0_1};
+use hotshot_types::constants::{Version, LOOK_AHEAD, VERSION_0_1};
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
@@ -179,6 +179,7 @@ where
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -684,7 +685,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     request, recipient
                 );
-                return Err(NetworkError::Libp2p { source: err });
+                return Err(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
         match self.inner.handle.request_data(&request, pid).await {
@@ -776,7 +779,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let topic = topic_map
             .get_by_left(&recipients)
             .ok_or(NetworkError::Libp2p {
-                source: NetworkNodeHandleError::NoSuchTopic,
+                source: Box::new(NetworkNodeHandleError::NoSuchTopic),
             })?
             .clone();
         info!("broadcasting to topic: {}", topic);
@@ -891,7 +894,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     message, recipient
                 );
-                return Err(NetworkError::Libp2p { source: err });
+                return Err(NetworkError::Libp2p {
+                    source: Box::new(err),
+                });
             }
         };
 

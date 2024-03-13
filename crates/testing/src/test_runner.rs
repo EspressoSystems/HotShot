@@ -19,8 +19,8 @@ use hotshot_example_types::state_types::TestInstanceState;
 
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
-use hotshot_constants::EVENT_CHANNEL_SIZE;
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
+use hotshot_types::constants::EVENT_CHANNEL_SIZE;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::Leaf,
@@ -145,8 +145,11 @@ where
             }
         }
 
-        self.add_nodes(self.launcher.metadata.total_nodes, &late_start_nodes)
-            .await;
+        self.add_nodes(
+            self.launcher.metadata.num_nodes_with_stake,
+            &late_start_nodes,
+        )
+        .await;
         let mut event_rxs = vec![];
         let mut internal_event_rxs = vec![];
 
@@ -328,7 +331,10 @@ where
             let config = self.launcher.resource_generator.config.clone();
             let known_nodes_with_stake = config.known_nodes_with_stake.clone();
             let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-                TYPES::Membership::default_election_config(config.total_nodes.get() as u64)
+                TYPES::Membership::default_election_config(
+                    config.num_nodes_with_stake.get() as u64,
+                    config.num_nodes_without_stake as u64,
+                )
             });
             let committee_election_config = I::committee_election_config_generator();
             let memberships = Memberships {
@@ -338,7 +344,10 @@ where
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    committee_election_config(config.da_committee_size as u64),
+                    committee_election_config(
+                        config.da_staked_committee_size as u64,
+                        config.num_nodes_without_stake as u64,
+                    ),
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),

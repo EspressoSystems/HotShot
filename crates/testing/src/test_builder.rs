@@ -36,13 +36,17 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
+    /// Delay before sending through the secondary network in CombinedNetworks
+    pub secondary_network_delay: Duration,
 }
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
 pub struct TestMetadata {
-    /// Total number of nodes in the test
-    pub total_nodes: usize,
+    /// Total number of staked nodes in the test
+    pub num_nodes_with_stake: usize,
+    /// Total number of non-staked nodes in the test
+    pub num_nodes_without_stake: usize,
     /// nodes available at start
     pub start_nodes: usize,
     /// Whether to skip initializing nodes that will start late, which will catch up later with
@@ -50,8 +54,10 @@ pub struct TestMetadata {
     pub skip_late: bool,
     /// number of bootstrap nodes (libp2p usage only)
     pub num_bootstrap_nodes: usize,
-    /// Size of the DA committee for the test
-    pub da_committee_size: usize,
+    /// Size of the staked DA committee for the test
+    pub da_staked_committee_size: usize,
+    /// Size of the non-staked DA committee for the test
+    pub da_non_staked_committee_size: usize,
     /// overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription,
     /// spinning properties
@@ -80,6 +86,7 @@ impl Default for TimingData {
             propose_min_round_time: Duration::new(0, 0),
             propose_max_round_time: Duration::from_millis(100),
             data_request_delay: Duration::from_millis(200),
+            secondary_network_delay: Duration::from_millis(1000),
         }
     }
 }
@@ -87,12 +94,16 @@ impl Default for TimingData {
 impl TestMetadata {
     /// the default metadata for a stress test
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_stress() -> Self {
-        let num_nodes = 100;
+        let num_nodes_with_stake = 100;
+        let num_nodes_without_stake = 0;
+
         TestMetadata {
-            num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 50,
                 check_leaf: true,
@@ -108,21 +119,24 @@ impl TestMetadata {
                 round_start_delay: 25,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
 
     /// the default metadata for multiple rounds
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_multiple_rounds() -> TestMetadata {
-        let num_nodes = 10;
+        let num_nodes_with_stake = 10;
+        let num_nodes_without_stake = 0;
         TestMetadata {
             // TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
-            num_bootstrap_nodes: num_nodes,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
                 check_leaf: true,
@@ -136,25 +150,28 @@ impl TestMetadata {
                 round_start_delay: 25,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
 
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
+    #[allow(clippy::redundant_field_names)]
     pub fn default_more_nodes() -> TestMetadata {
-        let num_nodes = 20;
+        let num_nodes_with_stake = 20;
+        let num_nodes_without_stake = 0;
         TestMetadata {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            num_bootstrap_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
+            num_bootstrap_nodes: num_nodes_with_stake,
             // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
             // TODO: Update message broadcasting to avoid hanging
             // <https://github.com/EspressoSystems/HotShot/issues/1567>
-            da_committee_size: 14,
+            da_staked_committee_size: 14,
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // Increase the duration to get the expected number of successful views.
@@ -168,7 +185,7 @@ impl TestMetadata {
                 next_view_timeout: 5000,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
             ..TestMetadata::default()
         }
     }
@@ -176,16 +193,20 @@ impl TestMetadata {
 
 impl Default for TestMetadata {
     /// by default, just a single round
+    #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
-        let num_nodes = 6;
+        let num_nodes_with_stake = 6;
+        let num_nodes_without_stake = 0;
         Self {
             timing_data: TimingData::default(),
             min_transactions: 0,
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
+            num_nodes_with_stake: num_nodes_with_stake,
+            num_nodes_without_stake: num_nodes_without_stake,
+            start_nodes: num_nodes_with_stake,
             skip_late: false,
-            num_bootstrap_nodes: num_nodes,
-            da_committee_size: num_nodes,
+            num_bootstrap_nodes: num_nodes_with_stake,
+            da_staked_committee_size: num_nodes_with_stake,
+            da_non_staked_committee_size: num_nodes_without_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
             },
@@ -199,7 +220,7 @@ impl Default for TestMetadata {
                 },
             ),
             unreliable_network: None,
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
         }
     }
 }
@@ -221,18 +242,18 @@ impl TestMetadata {
         I: NodeImplementation<TYPES>,
     {
         let TestMetadata {
-            total_nodes,
+            num_nodes_with_stake,
             num_bootstrap_nodes,
             min_transactions,
             timing_data,
-            da_committee_size,
-
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             unreliable_network,
             ..
         } = self.clone();
 
         // We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
-        let known_nodes_with_stake = (0..total_nodes)
+        let known_nodes_with_stake = (0..num_nodes_with_stake)
             .map(|node_id_| {
                 let cur_validator_config: ValidatorConfig<TYPES::SignatureKey> =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id_ as u64, 1);
@@ -251,13 +272,17 @@ impl TestMetadata {
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
+            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
+            // Currently making this zero for simplicity
+            num_nodes_without_stake: 0,
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes_with_stake,
+            known_nodes_without_stake: vec![],
             my_own_validator_config,
-            da_committee_size,
+            da_staked_committee_size,
+            da_non_staked_committee_size,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
@@ -268,7 +293,8 @@ impl TestMetadata {
             data_request_delay: Duration::from_millis(200),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
-                total_nodes as u64,
+                num_nodes_with_stake as u64,
+                0,
             )),
         };
         let TimingData {
@@ -279,6 +305,7 @@ impl TestMetadata {
             propose_min_round_time,
             propose_max_round_time,
             data_request_delay,
+            secondary_network_delay,
         } = timing_data;
         let mod_config =
             // TODO this should really be using the timing config struct
@@ -295,10 +322,11 @@ impl TestMetadata {
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
-                    total_nodes,
+                    num_nodes_with_stake,
                     num_bootstrap_nodes,
-                    da_committee_size,
+                    da_staked_committee_size,
                     unreliable_network,
+                    secondary_network_delay,
                 ),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,

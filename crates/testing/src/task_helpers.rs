@@ -71,19 +71,22 @@ pub async fn build_system_handle(
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key;
-    let quorum_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            <TestTypes as NodeType>::Membership::default_election_config(
-                config.total_nodes.get() as u64
-            )
-        });
 
-    let committee_election_config =
-        config.election_config.clone().unwrap_or_else(|| {
-            <TestTypes as NodeType>::Membership::default_election_config(
-                config.total_nodes.get() as u64
-            )
-        });
+    let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
+
+    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <TestTypes as NodeType>::Membership::default_election_config(
+            config.num_nodes_with_stake.get() as u64,
+            config.num_nodes_without_stake as u64,
+        )
+    });
+
+    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
+        <TestTypes as NodeType>::Membership::default_election_config(
+            config.num_nodes_with_stake.get() as u64,
+            config.num_nodes_without_stake as u64,
+        )
+    });
     let networks_bundle = Networks {
         quorum_network: networks.0.clone(),
         da_network: networks.1.clone(),
@@ -269,12 +272,11 @@ async fn build_quorum_proposal_and_signature(
 
     // Only view 2 is tested, higher views are not tested
     for cur_view in 2..=view {
-        let state_new_view = Arc::new(
-            parent_state
-                .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
-                .await
-                .unwrap(),
-        );
+        let (state_new_view, delta_new_view) = parent_state
+            .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
+            .await
+            .unwrap();
+        let state_new_view = Arc::new(state_new_view);
         // save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         consensus.validated_state_map.insert(
@@ -283,6 +285,7 @@ async fn build_quorum_proposal_and_signature(
                 view_inner: ViewInner::Leaf {
                     leaf: leaf.commit(),
                     state: state_new_view.clone(),
+                    delta: Some(Arc::new(delta_new_view)),
                 },
             },
         );
@@ -367,7 +370,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.get_committee(view_number).len();
+    let num_storage_nodes = membership.get_staked_committee(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 

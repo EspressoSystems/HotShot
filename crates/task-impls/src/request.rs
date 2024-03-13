@@ -9,10 +9,10 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 use bincode::Options;
 use either::Either;
-use hotshot_constants::VERSION_0_1;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
+    constants::VERSION_0_1,
     message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
@@ -130,7 +130,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         sender: Sender<HotShotEvent<TYPES>>,
         view: TYPES::Time,
     ) {
-        let mut recipients: Vec<_> = self.da_membership.get_committee(view).into_iter().collect();
+        let mut recipients: Vec<_> = self
+            .da_membership
+            .get_whole_committee(view)
+            .into_iter()
+            .collect();
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: self.network.clone(),
@@ -185,7 +189,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
 
     /// Handle sending a VID Share request, runs the loop until the data exists
     async fn do_vid(&mut self, req: VidRequest<TYPES>, signature: Signature<TYPES>) {
-        // let VidRequest(view, key) = req;
         let message = make_vid(&req, signature);
 
         while !self.recipients.is_empty() && !self.cancel_vid(&req).await {
