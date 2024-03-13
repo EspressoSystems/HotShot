@@ -118,7 +118,7 @@ pub struct ConsensusTaskState<
     /// last Upgrade Certificate this node formed
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
-    /// TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
+    // TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
     /// last View Sync Certificate this node formed
     pub view_sync_cert: Option<ViewSyncFinalizeCertificate2<TYPES>>,
 
