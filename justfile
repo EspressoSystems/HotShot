@@ -49,6 +49,10 @@ test-ci *ARGS:
   echo Testing {{ARGS}}
   RUST_LOG=hotshot=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --skip crypto_test
 
+test-ci-multi *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=hotshot=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip crypto_test
+
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
 test_catchup:
