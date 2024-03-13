@@ -3118,7 +3118,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.1#4e6f836468c8e236f5f5711e941d4d0a5745433a"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=lr/config-combined-delay#8f9ec411fa41733d13adb20cf39dc481209ad706"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
