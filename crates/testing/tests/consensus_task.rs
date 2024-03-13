@@ -10,7 +10,7 @@ use hotshot_testing::{
     predicates::{exact, is_at_view_number, quorum_vote_send},
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
-    view_generator::TestViewGenerator,
+    view_generator::{TestView, TestViewGenerator},
 };
 use hotshot_types::simple_vote::ViewSyncFinalizeData;
 use hotshot_types::traits::{consensus_api::ConsensusApi, election::Membership};
@@ -252,28 +252,31 @@ async fn test_view_sync_finalize_propose() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::{exact, is_at_view_number, leaf_decided, quorum_proposal_send},
+        predicates::{
+            exact, is_at_view_number, leaf_decided, quorum_proposal_send, timeout_vote_send,
+        },
         script::{run_test_script, TestScriptStage},
         task_helpers::{build_system_handle, vid_scheme_from_view_number},
         view_generator::TestViewGenerator,
     };
-    use hotshot_types::simple_vote::ViewSyncFinalizeData;
+    use hotshot_types::simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle(4).await.0;
+    let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(4));
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
-        relay: 3,
-        round: ViewNumber::new(3),
+        relay: 4,
+        round: ViewNumber::new(4),
     };
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
@@ -282,23 +285,31 @@ async fn test_view_sync_finalize_propose() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
-    for view in (&mut generator).take(2) {
-        proposals.push(view.quorum_proposal.clone());
-        leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
-        vids.push(view.vid_proposal.clone());
-        dacs.push(view.da_certificate.clone());
-    }
+
+    generator.next();
+    let view = generator.current_view.clone().unwrap();
+    // for view in (&mut generator).take(1) {
+    proposals.push(view.quorum_proposal.clone());
+    leaders.push(view.leader_public_key);
+    votes.push(view.create_vote(&handle));
+    vids.push(view.vid_proposal.clone());
+    dacs.push(view.da_certificate.clone());
+    // }
 
     // Each call to `take` moves us to the next generated view. We advance to view
     // 3 and then add the finalize cert for checking there.
+    // Skip two views
+    generator.advance_view_number_by(2);
     generator.add_view_sync_finalize(view_sync_finalize_data);
-    for view in (&mut generator).take(1) {
-        proposals.push(view.quorum_proposal.clone());
-        leaders.push(view.leader_public_key);
-        votes.push(view.create_vote(&handle));
-    }
+    generator.next_from_anscestor_view(view.clone());
+    let view = generator.current_view.unwrap();
+    // for view in (&mut generator).take(1) {
+    proposals.push(view.quorum_proposal.clone());
+    leaders.push(view.leader_public_key);
+    votes.push(view.create_vote(&handle));
+    // }
 
+    // This is a bog standard view and covers the situation where everything is going normally.
     let view_1 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
         outputs: vec![
@@ -309,36 +320,53 @@ async fn test_view_sync_finalize_propose() {
         asserts: vec![is_at_view_number(1)],
     };
 
-    let view_2 = TestScriptStage {
-        inputs: vec![
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            DACRecv(dacs[1].clone()),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            exact(QuorumVoteSend(votes[1].clone())),
-        ],
-        asserts: vec![is_at_view_number(2)],
+    // Fail twice here to "trigger" a view sync event. This is accomplished above by advancing the
+    // view number in the generator.
+    let view_2_3 = TestScriptStage {
+        inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
+        // Times out, so we now have a delayed view
+        asserts: vec![is_at_view_number(1)],
     };
 
-    let cert = proposals[2].data.view_sync_certificate.clone().unwrap();
+    // Handle the view sync finalize cert, get the requisite data, propose.
+    let cert = proposals[1].data.view_sync_certificate.clone().unwrap();
 
-    // Move to view 3 and obtain a ViewSyncFinalizeCertificate2Recv and propose for view 4.
-    let view_3 = TestScriptStage {
+    // Generate the timeout votes for the timeouts that just occurred.
+    let timeout_vote_view_2 = TimeoutVote::create_signed_vote(
+        TimeoutData {
+            view: ViewNumber::new(2),
+        },
+        ViewNumber::new(2),
+        &pub_key,
+        &priv_key,
+    )
+    .unwrap();
+
+    let timeout_vote_view_3 = TimeoutVote::create_signed_vote(
+        TimeoutData {
+            view: ViewNumber::new(3),
+        },
+        ViewNumber::new(3),
+        &pub_key,
+        &priv_key,
+    )
+    .unwrap();
+
+    let view_4 = TestScriptStage {
         inputs: vec![
-            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(3)),
+            TimeoutVoteRecv(timeout_vote_view_2),
+            TimeoutVoteRecv(timeout_vote_view_3),
             ViewSyncFinalizeCertificate2Recv(cert),
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(4)),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
-            leaf_decided(),
+            exact(ViewChange(ViewNumber::new(4))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
             quorum_proposal_send(),
         ],
-        asserts: vec![is_at_view_number(3)],
+        asserts: vec![is_at_view_number(4)],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -348,7 +376,7 @@ async fn test_view_sync_finalize_propose() {
     >::create_from(&handle)
     .await;
 
-    let stages = vec![view_1, view_2, view_3];
+    let stages = vec![view_1, view_2_3, view_4];
 
     inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;

@@ -439,6 +439,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *proposal.data.view_number
                 );
 
+                debug!("Received proposal {:?}", proposal);
+
                 // stop polling for the received proposal
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
@@ -658,6 +660,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Block header doesn't extend the proposal",);
                     return;
                 };
+
                 let state = Arc::new(state);
                 let parent_commitment = parent_leaf.commit();
                 let leaf: Leaf<_> = Leaf {
@@ -1247,7 +1250,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.publish_proposal_if_able(view, None, &event_stream)
                         .await;
                 }
-                if let Some(tc) = &self.timeout_cert {
+
+                if let Some(tc) = self.timeout_cert.as_ref() {
                     if self.quorum_membership.get_leader(tc.get_view_number() + 1)
                         == self.public_key
                     {
@@ -1257,6 +1261,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             &event_stream,
                         )
                         .await;
+                    }
+                } else if let Some(vsc) = self.view_sync_cert.as_ref() {
+                    if self.quorum_membership.get_leader(vsc.get_view_number()) == self.public_key {
+                        self.publish_proposal_if_able(view, None, &event_stream)
+                            .await;
                     }
                 }
             }
