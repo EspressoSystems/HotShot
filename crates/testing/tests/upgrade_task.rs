@@ -227,7 +227,11 @@ async fn test_upgrade_and_consensus_task() {
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
     let inputs = vec![
-        vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            DACRecv(dacs[0].clone()),
+        ],
         upgrade_vote_recvs,
         vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         vec![
