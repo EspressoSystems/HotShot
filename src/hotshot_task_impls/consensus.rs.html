@@ -1427,13 +1427,6 @@
 <a href="#1426" id="1426">1426</a>
 <a href="#1427" id="1427">1427</a>
 <a href="#1428" id="1428">1428</a>
-<a href="#1429" id="1429">1429</a>
-<a href="#1430" id="1430">1430</a>
-<a href="#1431" id="1431">1431</a>
-<a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1452,7 +1445,7 @@
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, VidDisperse},
+    data::{Leaf, QuorumProposal},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
@@ -1475,11 +1468,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>std::{
-    collections::{BTreeMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
+<span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument};
@@ -1565,12 +1554,6 @@
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// All the VID shares we've received for current and future views.
-    /// In the future we will need a different struct similar to VidDisperse except
-    /// it stores only one share.
-    /// TODO &lt;https://github.com/EspressoSystems/HotShot/issues/1732&gt;
-    </span><span class="kw">pub </span>vid_shares: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -1663,7 +1646,7 @@
             }
 
             <span class="comment">// Only vote if you has seen the VID share for this view
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = <span class="self">self</span>.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = consensus.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
             } <span class="kw">else </span>{
                 <span class="macro">debug!</span>(
                     <span class="string">"We have not seen the VID share for this view {:?} yet, so we cannot vote."</span>,
@@ -2215,8 +2198,8 @@
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                <span class="kw">let </span>vid = <span class="self">self
-                                    </span>.vid_shares
+                                <span class="kw">let </span>vid = consensus
+                                    .vid_shares
                                     .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                     .map(|vid_proposal| vid_proposal.data.clone());
 
@@ -2281,7 +2264,6 @@
                     );
                     <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
                     consensus.collect_garbage(old_anchor_view, new_anchor_view);
-                    <span class="self">self</span>.vid_shares = <span class="self">self</span>.vid_shares.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
                     consensus
                         .metrics
@@ -2557,7 +2539,11 @@
                     .<span class="kw">await</span>;
 
                 <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
-                </span><span class="self">self</span>.vid_shares.insert(view, disperse);
+                </span><span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.vid_shares
+                    .insert(view, disperse);
                 <span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
             }
             HotShotEvent::ViewChange(new_view) =&gt; {

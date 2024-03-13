@@ -8,7 +8,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["hotshot_orchestrator",["",[],["client.rs","config.rs","lib.rs"]]],\
 ["hotshot_stake_table",["",[["mt_based",[],["config.rs","internal.rs"]],["vec_based",[],["config.rs"]]],["config.rs","lib.rs","mt_based.rs","utils.rs","vec_based.rs"]]],\
 ["hotshot_task",["",[],["dependency.rs","dependency_task.rs","lib.rs","task.rs"]]],\
-["hotshot_task_impls",["",[],["consensus.rs","da.rs","events.rs","harness.rs","helpers.rs","lib.rs","network.rs","transactions.rs","upgrade.rs","vid.rs","view_sync.rs","vote.rs"]]],\
+["hotshot_task_impls",["",[],["consensus.rs","da.rs","events.rs","harness.rs","helpers.rs","lib.rs","network.rs","response.rs","transactions.rs","upgrade.rs","vid.rs","view_sync.rs","vote.rs"]]],\
 ["hotshot_testing",["",[],["completion_task.rs","lib.rs","overall_safety_task.rs","predicates.rs","script.rs","spinning_task.rs","task_helpers.rs","test_builder.rs","test_helpers.rs","test_launcher.rs","test_runner.rs","txn_task.rs","view_generator.rs","view_sync_task.rs"]]],\
 ["hotshot_testing_macros",["",[],["lib.rs"]]],\
 ["hotshot_types",["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","states.rs","storage.rs"]]],["consensus.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","qc.rs","signature_key.rs","simple_certificate.rs","simple_vote.rs","stake_table.rs","traits.rs","utils.rs","vid.rs","vote.rs"]]],\

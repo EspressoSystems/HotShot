@@ -201,7 +201,6 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -222,7 +221,7 @@
     BlockPayload,
 };
 <span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
     time::Duration,
@@ -392,7 +391,6 @@
             decided_upgrade_cert: <span class="prelude-val">None</span>,
             current_network_version: VERSION_0_1,
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
-            vid_shares: BTreeMap::new(),
             current_proposal: <span class="prelude-val">None</span>,
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),

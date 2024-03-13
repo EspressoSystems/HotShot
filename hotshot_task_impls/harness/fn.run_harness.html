@@ -6,7 +6,7 @@
     allow_extra_output: <a class="primitive" href="https://doc.rust-lang.org/1.76.0/std/primitive.bool.html">bool</a>
 )<div class="where">where
     TYPES: <a class="trait" href="../../hotshot_types/traits/node_implementation/trait.NodeType.html" title="trait hotshot_types::traits::node_implementation::NodeType">NodeType</a>,
-    S: <a class="trait" href="https://doc.rust-lang.org/1.76.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static + <a class="trait" href="../../hotshot_task/task/trait.TaskState.html" title="trait hotshot_task::task::TaskState">TaskState</a>&lt;Event = <a class="enum" href="../events/enum.HotShotEvent.html" title="enum hotshot_task_impls::events::HotShotEvent">HotShotEvent</a>&lt;TYPES&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runs a test by building the task using <code>build_fn</code> and then passing it the <code>input</code> events
+    S: <a class="trait" href="https://doc.rust-lang.org/1.76.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static + TaskState&lt;Event = <a class="enum" href="../events/enum.HotShotEvent.html" title="enum hotshot_task_impls::events::HotShotEvent">HotShotEvent</a>&lt;TYPES&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runs a test by building the task using <code>build_fn</code> and then passing it the <code>input</code> events
 and testing the make sure all of the <code>expected_output</code> events are seen</p>
 <h2 id="arguments"><a href="#arguments">Arguments</a></h2>
 <ul>
