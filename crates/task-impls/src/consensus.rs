@@ -1331,6 +1331,79 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
+        if let Some(upgrade_cert) = &self.decided_upgrade_cert {
+            if self.cur_view > upgrade_cert.data.old_version_last_block
+                && self.cur_view < upgrade_cert.data.new_version_first_block
+            {
+                let Ok((_payload, metadata)) =
+                    <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
+                else {
+                    error!("Failed to build null block payload and metadata");
+                    return false;
+                };
+
+                let Some(null_block_commitment) =
+                    null_block_commitment(self.quorum_membership.total_nodes())
+                else {
+                    debug!("Failed to calculate null block commitment");
+                    return false;
+                };
+
+                let block_header = TYPES::BlockHeader::new(
+                    state,
+                    &consensus.instance_state,
+                    &parent_leaf,
+                    null_block_commitment,
+                    metadata,
+                )
+                .await;
+
+                let leaf = Leaf {
+                    view_number: view,
+                    justify_qc: consensus.high_qc.clone(),
+                    parent_commitment: parent_leaf.commit(),
+                    block_header: block_header.clone(),
+                    block_payload: None,
+                    proposer_id: self.api.public_key().clone(),
+                };
+
+                let Ok(signature) =
+                    TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref())
+                else {
+                    error!("Failed to sign leaf.commit()!");
+                    return false;
+                };
+
+                let proposal = QuorumProposal {
+                    block_header,
+                    view_number: leaf.view_number,
+                    justify_qc: consensus.high_qc.clone(),
+                    timeout_certificate: timeout_certificate.or_else(|| None),
+                    upgrade_certificate: None,
+                    proposer_id: leaf.proposer_id,
+                };
+
+                self.timeout_cert = None;
+                let message = Proposal {
+                    data: proposal,
+                    signature,
+                    _pd: PhantomData,
+                };
+                debug!(
+                    "Sending null proposal for view {:?} \n {:?}",
+                    leaf.view_number, ""
+                );
+
+                broadcast_event(
+                    HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
+                    event_stream,
+                )
+                .await;
+
+                return true;
+            }
+        }
+
         if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
             let block_header = TYPES::BlockHeader::new(
                 state,
