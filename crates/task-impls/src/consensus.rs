@@ -43,6 +43,7 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
+use hotshot_types::data::VidDisperseShare;
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {

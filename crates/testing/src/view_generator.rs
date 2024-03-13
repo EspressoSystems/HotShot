@@ -23,6 +23,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
 };
+use hotshot_types::data::VidDisperseShare;
 
 use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::simple_vote::QuorumVote;
@@ -35,6 +36,10 @@ pub struct TestView {
     pub quorum_membership: <TestTypes as NodeType>::Membership,
     pub vid_proposal: (
         Proposal<TestTypes, VidDisperse<TestTypes>>,
+        <TestTypes as NodeType>::SignatureKey,
+    ),
+    pub vid_share_proposal: (
+        Proposal<TestTypes, VidDisperseShare<TestTypes>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
@@ -55,7 +60,7 @@ impl TestView {
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        let vid_proposal = build_vid_proposal(
+        let (vid_proposal, vid_share_proposal) = build_vid_proposal(
             quorum_membership,
             genesis_view,
             transactions.clone(),
@@ -113,6 +118,7 @@ impl TestView {
             view_number: genesis_view,
             quorum_membership: quorum_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
+            vid_share_proposal: (vid_share_proposal, public_key),
             da_certificate,
             transactions,
             leader_public_key,
@@ -140,7 +146,7 @@ impl TestView {
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        let vid_proposal = build_vid_proposal(
+        let (vid_proposal, vid_share_proposal) = build_vid_proposal(
             quorum_membership,
             next_view,
             transactions.clone(),
@@ -230,6 +236,7 @@ impl TestView {
             view_number: next_view,
             quorum_membership: quorum_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
+            vid_share_proposal: (vid_share_proposal, public_key),
             da_certificate,
             leader_public_key,
             // Transactions and upgrade data need to be manually injected each view,

@@ -25,7 +25,9 @@ use tokio::task::spawn_blocking;
 
 use std::marker::PhantomData;
 use std::sync::Arc;
+use futures::future::join_all;
 use tracing::{debug, error, instrument, warn};
+use hotshot_types::data::VidDisperseShare;
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<
@@ -103,26 +105,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
-                let Ok(signature) = TYPES::SignatureKey::sign(
-                    &self.private_key,
-                    vid_disperse.payload_commitment.as_ref().as_ref(),
-                ) else {
-                    error!("VID: failed to sign dispersal payload");
-                    return None;
-                };
-                debug!("publishing VID disperse for view {}", *view_number);
-                broadcast_event(
-                    HotShotEvent::VidDisperseSend(
-                        Proposal {
-                            signature,
-                            data: vid_disperse,
-                            _pd: PhantomData,
-                        },
-                        self.public_key.clone(),
-                    ),
-                    &event_stream,
-                )
-                .await;
+                let mut broadcast_tasks = Vec::new();
+                let vid_disperse_shares = VidDisperseShare::from_vid_disperse(vid_disperse);
+                for vid_disperse_share in vid_disperse_shares {
+                    broadcast_tasks.push(broadcast_event(
+                        HotShotEvent::VidDisperseSend(
+                            vid_disperse_share.to_proposal(&self.private_key)?,
+                            self.public_key.clone(),
+                        ),
+                        &event_stream,
+                    ));
+                }
+                debug!("publishing VID disperse shares for view {}", *view_number);
+                join_all(broadcast_tasks).await;
+                // let Ok(signature) = TYPES::SignatureKey::sign(
+                //     &self.private_key,
+                //     vid_disperse.payload_commitment.as_ref().as_ref(),
+                // ) else {
+                //     error!("VID: failed to sign dispersal payload");
+                //     return None;
+                // };
+                // debug!("publishing VID disperse for view {}", *view_number);
+                // broadcast_event(
+                //     HotShotEvent::VidDisperseSend(
+                //         Proposal {
+                //             signature,
+                //             data: vid_disperse,
+                //             _pd: PhantomData,
+                //         },
+                //         self.public_key.clone(),
+                //     ),
+                //     &event_stream,
+                // )
+                // .await;
             }
 
             HotShotEvent::ViewChange(view) => {

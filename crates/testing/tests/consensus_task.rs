@@ -10,6 +10,7 @@ use hotshot_types::{
 };
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
+use hotshot_types::data::VidDisperseShare;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -173,12 +174,14 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut vid_shares = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        vid_shares.push(view.vid_share_proposal.clone());
     }
 
     // Get out of the genesis view first
@@ -194,7 +197,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+        VidDisperseRecv(vid_shares[1].0.clone(), vid_shares[1].1),
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
@@ -407,13 +410,12 @@ async fn test_consensus_with_vid_old() {
         vid_disperse,
         &quorum_membership.clone().into(),
     );
+    let vid_disperse_share = VidDisperseShare::from_vid_disperse(vid_disperse_inner).swap_remove(0);
     // TODO for now reuse the same block payload commitment and signature as DA committee
     // https://github.com/EspressoSystems/jellyfish/issues/369
-    let vid_proposal = Proposal {
-        data: vid_disperse_inner.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    };
+    let vid_proposal = vid_disperse_share
+        .to_proposal(handle.private_key())
+        .expect("Failed to sign payload commitment");
 
     let mut input = Vec::new();
     let mut output = HashMap::new();

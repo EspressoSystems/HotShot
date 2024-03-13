@@ -47,6 +47,7 @@ use jf_primitives::vid::VidScheme;
 
 use serde::Serialize;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
+use hotshot_types::data::VidDisperseShare;
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -400,7 +401,7 @@ pub fn build_vid_proposal(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
+) -> (Proposal<TestTypes, VidDisperse<TestTypes>>, Proposal<TestTypes, VidDisperseShare<TestTypes>>) {
     let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
@@ -416,11 +417,17 @@ pub fn build_vid_proposal(
         &quorum_membership.clone().into(),
     );
 
-    Proposal {
-        data: vid_disperse.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    }
+    (
+        Proposal {
+            data: vid_disperse.clone(),
+            signature: vid_signature,
+            _pd: PhantomData,
+        },
+        VidDisperseShare::from_vid_disperse(vid_disperse)
+            .swap_remove(0)
+            .to_proposal(private_key)
+            .expect("Failed to sign payload commitment")
+    )
 }
 
 pub fn build_da_certificate(

@@ -14,6 +14,7 @@ use hotshot_types::constants::Version;
 use hotshot_types::{
     data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
 };
+use hotshot_types::data::VidDisperseShare;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -42,6 +43,7 @@ async fn test_upgrade_task() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut vid_shares = Vec::new();
     let mut leaders = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
@@ -51,6 +53,7 @@ async fn test_upgrade_task() {
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        vid_shares.push(view.vid_share_proposal.clone());
         leaders.push(view.leader_public_key);
     }
 
@@ -76,7 +79,7 @@ async fn test_upgrade_task() {
 
     let view_2 = TestScriptStage {
         inputs: vec![
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+            VidDisperseRecv(vid_shares[1].0.clone(), vid_shares[1].1),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             DACRecv(dacs[1].clone()),
         ],
@@ -92,7 +95,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             DACRecv(dacs[2].clone()),
-            VidDisperseRecv(vids[2].0.clone(), vids[2].1),
+            VidDisperseRecv(vid_shares[2].0.clone(), vid_shares[2].1),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
@@ -107,7 +110,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
             DACRecv(dacs[3].clone()),
-            VidDisperseRecv(vids[3].0.clone(), vids[3].1),
+            VidDisperseRecv(vid_shares[3].0.clone(), vid_shares[3].1),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),

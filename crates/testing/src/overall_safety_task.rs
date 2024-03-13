@@ -15,6 +15,7 @@ use std::{
     sync::Arc,
 };
 use tracing::error;
+use hotshot_types::data::VidDisperseShare;
 
 use crate::test_runner::{HotShotTaskCompleted, Node};
 /// convenience type alias for state and block

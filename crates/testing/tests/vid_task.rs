@@ -10,6 +10,7 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use hotshot_types::data::VidDisperseShare;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -55,11 +56,10 @@ async fn test_vid_task() {
         &quorum_membership.clone().into(),
     );
 
-    let vid_proposal = Proposal {
-        data: vid_disperse.clone(),
-        signature: message.signature.clone(),
-        _pd: PhantomData,
-    };
+    let vid_proposal = VidDisperseShare::from_vid_disperse(vid_disperse.clone())
+        .swap_remove(0)
+        .to_proposal(handle.private_key())
+        .expect("Failed to sign block payload!");
 
     let mut input = Vec::new();
     let mut output = HashMap::new();

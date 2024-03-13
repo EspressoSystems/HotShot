@@ -9,6 +9,7 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, marker::PhantomData};
+use hotshot_types::data::VidDisperseShare;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -64,13 +65,13 @@ async fn test_network_task() {
         &quorum_membership.clone().into(),
     );
 
+    let vid_disperse_share =  VidDisperseShare::from_vid_disperse(vid_disperse_inner.clone()).swap_remove(0);
+
     // TODO for now reuse the same block payload commitment and signature as DA committee
     // https://github.com/EspressoSystems/jellyfish/issues/369
-    let vid_proposal = Proposal {
-        data: vid_disperse_inner.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    };
+    let vid_proposal = vid_disperse_share
+        .to_proposal(handle.private_key())
+        .expect("Failed to sign block commitment");
 
     // Every event input is seen on the event stream in the output.
     let mut input = Vec::new();

@@ -21,6 +21,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
+use hotshot_types::data::VidDisperseShare;
 use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
 
@@ -127,13 +128,12 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     /// build the response and return it
     fn handle_vid(
         &self,
-        mut vid: Proposal<TYPES, VidDisperse<TYPES>>,
+        mut vid: Proposal<TYPES, VidDisperseShare<TYPES>>,
         key: TYPES::SignatureKey,
     ) -> Message<TYPES> {
-        let Some(share) = vid.data.shares.get(&key) else {
+        if key != vid.data.recipient_key {
             return self.make_msg(ResponseMessage::NotFound);
-        };
-        vid.data.shares = BTreeMap::from([(key, share.clone())]);
+        }
         let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(vid)));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
