@@ -192,7 +192,6 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
 <span class="kw">use </span><span class="kw">crate</span>::helpers::broadcast_event;
 <span class="kw">use </span>async_broadcast::Sender;
@@ -321,7 +320,7 @@
             }
 
             HotShotEvent::ViewChange(view) =&gt; {
-                <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
+                <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -329,7 +328,6 @@
                     <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
-                <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_view(view);
 
                 <span class="comment">// Start polling for VID disperse for the new view
                 </span><span class="self">self</span>.network

@@ -674,6 +674,8 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -896,9 +898,6 @@
                 }
             };
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
-            <span class="comment">// View 1 doesn't have DA which is responsible for saving the payloads, so we store the
-            // payload for view 1 manually during the intialization.
-            </span>saved_payloads.insert(TYPES::Time::new(<span class="number">1</span>), encoded_txns);
         }
 
         <span class="kw">let </span>start_view = initializer.start_view;
@@ -951,6 +950,11 @@
     /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
+        <span class="self">self</span>.internal_event_stream
+            .<span class="number">0
+            </span>.broadcast_direct(HotShotEvent::ViewChange(TYPES::Time::new(<span class="number">0</span>)))
+            .<span class="kw">await
+            </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(HotShotEvent::QCFormed(either::Left(
