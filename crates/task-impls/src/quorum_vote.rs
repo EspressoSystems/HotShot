@@ -25,19 +25,52 @@ use tokio::task::JoinHandle;
 use tracing::warn;
 use tracing::{debug, instrument};
 
+/// Vote dependency types.
 #[derive(PartialEq)]
 enum VoteDependency {
+    /// For the `QuorumProposalRecv` event.
     QuorumProposal,
+    /// For the `DACRecv` event.
     Dac,
+    /// For the `VidDisperseRecv` event.
     Vid,
+}
+
+/// Validate the quorum proposal.
+// TODO: Complete the dependency implementation.
+// <https://github.com/EspressoSystems/HotShot/issues/2710>
+#[allow(clippy::needless_pass_by_value)]
+fn validate_proposal<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+    true
+}
+
+/// Validate the DAC.
+// TODO: Complete the dependency implementation.
+// <https://github.com/EspressoSystems/HotShot/issues/2710>
+#[allow(clippy::needless_pass_by_value)]
+fn validate_dac<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+    true
+}
+
+/// Validate the VID share.
+// TODO: Complete the dependency implementation.
+// <https://github.com/EspressoSystems/HotShot/issues/2710>
+#[allow(clippy::needless_pass_by_value)]
+fn validate_vid<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+    true
 }
 
 /// The state for the quorum vote task.
 ///
 /// Contains all of the information for the quorum vote.
 pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Smallest potential view number that will be voted for.
     pub next_vote_view: TYPES::Time,
+
+    /// Table for the in-progress vote dependencies.
     pub vote_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
+
+    /// Event receiver.
     pub event_receiver: Receiver<HotShotEvent<TYPES>>,
 
     /// Network for all nodes
@@ -54,30 +87,6 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
-    /// Validate the quorum proposal.
-    // TODO: Complete the dependency implementation.
-    // <https://github.com/EspressoSystems/HotShot/issues/2710>
-    #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote validate proposal", level = "error")]
-    fn validate_proposal(&self, _event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
-        true
-    }
-
-    /// Validate the DAC.
-    // TODO: Complete the dependency implementation.
-    // <https://github.com/EspressoSystems/HotShot/issues/2710>
-    #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote validate DAC", level = "error")]
-    fn validate_dac(&self, _event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
-        true
-    }
-
-    /// Validate the VID share.
-    // TODO: Complete the dependency implementation.
-    // <https://github.com/EspressoSystems/HotShot/issues/2710>
-    #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote validate VID", level = "error")]
-    fn validate_vid(&self, _event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
-        true
-    }
-
     /// Create an event dependency.
     #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote validate VID", level = "error")]
     fn create_event_dependency(
@@ -86,15 +95,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         view_number: TYPES::Time,
         event_sender: Sender<HotShotEvent<TYPES>>,
     ) -> EventDependency<HotShotEvent<TYPES>> {
-        EventDependency {
-            event_rx: self.event_receiver.clone(),
-            match_fn: Box::new(move |event| match dependency_type {
+        EventDependency::new(
+            self.event_receiver.clone(),
+            Box::new(move |event| match dependency_type {
                 VoteDependency::QuorumProposal => {
                     if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
                         if proposal.data.view_number != view_number {
                             return false;
                         }
-                        return self.validate_proposal(event_sender.clone());
+                        return validate_proposal(event_sender.clone());
                     }
                     false
                 }
@@ -103,7 +112,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         if cert.view_number != view_number {
                             return false;
                         }
-                        return self.validate_dac(event_sender.clone());
+                        return validate_dac(event_sender.clone());
                     }
                     false
                 }
@@ -112,36 +121,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         if proposal.data.view_number != view_number {
                             return false;
                         }
-                        return self.validate_vid(event_sender.clone());
+                        return validate_vid(event_sender.clone());
                     }
                     false
                 }
             }),
-        }
+        )
     }
 
+    /// Create an [`AddDependency`] combining three [`EventDependency`]s.
     fn create_vote_dependency(
         &self,
-        validated_dependency: VoteDependency,
+        validated_dependency: &VoteDependency,
         view_number: TYPES::Time,
         event_sender: Sender<HotShotEvent<TYPES>>,
     ) -> AndDependency<HotShotEvent<TYPES>> {
         let mut deps = Vec::new();
-        if validated_dependency != VoteDependency::QuorumProposal {
+        if validated_dependency != &VoteDependency::QuorumProposal {
             deps.push(self.create_event_dependency(
                 VoteDependency::QuorumProposal,
                 view_number,
                 event_sender.clone(),
             ));
         }
-        if validated_dependency != VoteDependency::Dac {
+        if validated_dependency != &VoteDependency::Dac {
             deps.push(self.create_event_dependency(
                 VoteDependency::Dac,
                 view_number,
                 event_sender.clone(),
             ));
         }
-        if validated_dependency != VoteDependency::Vid {
+        if validated_dependency != &VoteDependency::Vid {
             deps.push(self.create_event_dependency(VoteDependency::Vid, view_number, event_sender));
         }
         AndDependency::from_deps(deps)
@@ -152,7 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     async fn update_next_vote_view(
         &mut self,
         new_view: TYPES::Time,
-        _event_stream: &Sender<HotShotEvent<TYPES>>,
+        event_sender: &Sender<HotShotEvent<TYPES>>,
     ) -> bool {
         if *self.next_vote_view < *new_view {
             debug!(
@@ -168,6 +178,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
 
             self.next_vote_view = new_view;
+
+            broadcast_event(HotShotEvent::ViewChange(new_view), event_sender).await;
 
             return true;
         }
@@ -194,11 +206,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
                     .await;
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !self.validate_proposal(event_sender.clone()) {
+                    if !validate_proposal(event_sender.clone()) {
                         return;
                     }
                     let dependency = self.create_vote_dependency(
-                        VoteDependency::QuorumProposal,
+                        &VoteDependency::QuorumProposal,
                         view,
                         event_sender,
                     );
@@ -223,11 +235,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await;
 
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !self.validate_dac(event_sender.clone()) {
+                    if !validate_dac(event_sender.clone()) {
                         return;
                     }
                     let dependency =
-                        self.create_vote_dependency(VoteDependency::Dac, view, event_sender);
+                        self.create_vote_dependency(&VoteDependency::Dac, view, event_sender);
                     self.vote_dependencies.insert(
                         view,
                         async_spawn(async move {
@@ -247,11 +259,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await;
 
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !self.validate_proposal(event_sender.clone()) {
+                    if !validate_proposal(event_sender.clone()) {
                         return;
                     }
                     let dependency =
-                        self.create_vote_dependency(VoteDependency::Vid, view, event_sender);
+                        self.create_vote_dependency(&VoteDependency::Vid, view, event_sender);
                     self.vote_dependencies.insert(
                         view,
                         async_spawn(async move {

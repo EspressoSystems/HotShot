@@ -40,8 +40,8 @@ use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::simple_vote::QuorumVote;
 use hotshot_types::utils::View;
 use hotshot_types::utils::ViewInner;
-use hotshot_types::vote_collection::Certificate;
-use hotshot_types::vote_collection::Vote;
+use hotshot_types::vote::Certificate;
+use hotshot_types::vote::Vote;
 
 use jf_primitives::vid::VidScheme;
 
