@@ -129,7 +129,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                if *self.cur_view >= *view {
+                if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }
 
@@ -137,7 +137,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-                self.consensus.write().await.update_view(view);
 
                 // Start polling for VID disperse for the new view
                 self.network
