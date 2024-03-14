@@ -1,7 +1,7 @@
 //! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
-/// the task which implements the main parts of consensus except the voting logic.
+/// the task which implements the main parts of consensus
 pub mod consensus;
 
 /// The task which handles the logic for the quorum vote.
