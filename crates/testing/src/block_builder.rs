@@ -4,9 +4,12 @@ use futures::future::BoxFuture;
 use hotshot::traits::BlockPayload;
 use hotshot::types::SignatureKey;
 use hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
+use hotshot_types::traits::block_contents::vid_commitment;
 use hotshot_types::utils::BuilderCommitment;
-use hotshot_types::{data::VidCommitment, traits::node_implementation::NodeType};
-use hs_builder_api::block_info::{AvailableBlockData, AvailableBlockInfo};
+use hotshot_types::{traits::node_implementation::NodeType, vid::VidCommitment};
+use hs_builder_api::block_info::{
+    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
+};
 use hs_builder_api::{
     builder::{BuildError, Options},
     data_source::BuilderDataSource,
@@ -56,6 +59,7 @@ impl BuilderDataSource<TestTypes> for TestableBuilderSource {
             _phantom: std::marker::PhantomData,
         }])
     }
+
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
@@ -64,6 +68,7 @@ impl BuilderDataSource<TestTypes> for TestableBuilderSource {
         if block_hash == &EMPTY_BLOCK.builder_commitment(&()) {
             Ok(AvailableBlockData {
                 block_payload: EMPTY_BLOCK,
+                metadata: (),
                 signature: <TestTypes as NodeType>::SignatureKey::sign(
                     &self.priv_key,
                     EMPTY_BLOCK.builder_commitment(&()).as_ref(),
@@ -76,11 +81,26 @@ impl BuilderDataSource<TestTypes> for TestableBuilderSource {
             Err(BuildError::Missing)
         }
     }
-    async fn submit_txn(
+
+    async fn claim_block_header_input(
         &self,
-        _txn: <TestTypes as NodeType>::Transaction,
-    ) -> Result<(), BuildError> {
-        Ok(())
+        block_hash: &BuilderCommitment,
+        _signature: &<<TestTypes as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<AvailableBlockHeaderInput<TestTypes>, BuildError> {
+        if block_hash == &EMPTY_BLOCK.builder_commitment(&()) {
+            Ok(AvailableBlockHeaderInput {
+                vid_commitment: vid_commitment(&vec![], 1),
+                signature: <TestTypes as NodeType>::SignatureKey::sign(
+                    &self.priv_key,
+                    EMPTY_BLOCK.builder_commitment(&()).as_ref(),
+                )
+                .unwrap(),
+                sender: self.pub_key,
+                _phantom: std::marker::PhantomData,
+            })
+        } else {
+            Err(BuildError::Missing)
+        }
     }
 }
 

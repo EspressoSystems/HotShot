@@ -2,9 +2,9 @@ use async_compatibility_layer::art::async_sleep;
 use std::time::{Duration, Instant};
 
 use hotshot_types::{
-    data::VidCommitment,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use hs_builder_api::builder::{BuildError, Error as BuilderApiError};
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,12 @@ pub enum BuilderClientError {
 impl From<BuilderApiError> for BuilderClientError {
     fn from(value: BuilderApiError) -> Self {
         match value {
-            BuilderApiError::Request { source } => Self::Api {
+            BuilderApiError::Request { source } | BuilderApiError::TxnUnpack { source } => {
+                Self::Api {
+                    message: source.to_string(),
+                }
+            }
+            BuilderApiError::TxnSubmit { source } => Self::Api {
                 message: source.to_string(),
             },
             BuilderApiError::Custom { message, .. } => Self::Api { message },
