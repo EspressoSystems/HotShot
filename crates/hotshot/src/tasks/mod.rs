@@ -50,7 +50,7 @@ pub async fn add_network_message_task<
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
 >(
     task_reg: Arc<TaskRegistry>,
-    event_stream: Sender<HotShotEvent<TYPES>>,
+    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     channel: Arc<NET>,
 ) {
     let net = channel.clone();
@@ -90,11 +90,11 @@ pub async fn add_network_event_task<
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
 >(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     channel: Arc<NET>,
     membership: TYPES::Membership,
-    filter: fn(&HotShotEvent<TYPES>) -> bool,
+    filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
 ) {
     let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
         channel,
@@ -141,13 +141,34 @@ pub async fn inject_consensus_polls<
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
         .await;
+    // Start polling for proposals for the first view
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
+        .await;
+
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
+        .await;
+
+    if consensus_state
+        .quorum_membership
+        .get_leader(TYPES::Time::new(1))
+        == consensus_state.public_key
+    {
+        consensus_state
+            .quorum_network
+            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(0))
+            .await;
+    }
 }
 
 /// add the consensus task
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let consensus_state = ConsensusTaskState::create_from(handle).await;
@@ -161,8 +182,8 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// add the VID task
 pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let vid_state = VIDTaskState::create_from(handle).await;
@@ -173,8 +194,8 @@ pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// add the Upgrade task.
 pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let upgrade_state = UpgradeTaskState::create_from(handle).await;
@@ -185,8 +206,8 @@ pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// add the Data Availability task
 pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the da task
@@ -199,8 +220,8 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// add the Transaction Handling task
 pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let transactions_state = TransactionTaskState::create_from(handle).await;
@@ -212,8 +233,8 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
 /// add the view sync task
 pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
-    tx: Sender<HotShotEvent<TYPES>>,
-    rx: Receiver<HotShotEvent<TYPES>>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let view_sync_state = ViewSyncTaskState::create_from(handle).await;

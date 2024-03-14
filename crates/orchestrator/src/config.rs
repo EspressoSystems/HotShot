@@ -668,7 +668,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             num_bootstrap: 5,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
-            data_request_delay: Duration::from_secs(2),
+            data_request_delay: Duration::from_millis(200),
         }
     }
 }

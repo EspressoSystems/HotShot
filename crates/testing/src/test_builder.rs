@@ -287,7 +287,7 @@ impl TestMetadata {
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
-            data_request_delay: Duration::from_millis(10),
+            data_request_delay: Duration::from_millis(200),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 num_nodes_with_stake as u64,
