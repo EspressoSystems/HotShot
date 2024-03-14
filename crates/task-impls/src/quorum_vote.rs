@@ -129,7 +129,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         )
     }
 
-    /// Create an [`AddDependency`] combining three [`EventDependency`]s.
+    /// Create an [`AndDependency`] combining three [`EventDependency`]s.
     fn create_vote_dependency(
         &self,
         validated_dependency: &VoteDependency,
