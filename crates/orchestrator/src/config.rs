@@ -528,7 +528,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
-    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    /// The delay a leader inserts before proposing, in milliseconds
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,

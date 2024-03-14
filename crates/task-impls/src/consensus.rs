@@ -72,6 +72,8 @@ pub struct ConsensusTaskState<
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// View timeout from config.
     pub timeout: u64,
+    /// Round start delay from config, in milliseconds.
+    pub round_start_delay: u64,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
@@ -1378,6 +1380,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 leaf.view_number, ""
             );
 
+            async_sleep(Duration::from_millis(self.round_start_delay)).await;
             broadcast_event(
                 HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
                 event_stream,
