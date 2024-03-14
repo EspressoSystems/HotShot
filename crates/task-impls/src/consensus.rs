@@ -1223,22 +1223,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // cancel poll for votes
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                        *certificate.view_number,
+                        *certificate.view_number - 1,
                     ))
                     .await;
 
-                debug!(
-                    "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                    *certificate.view_number
-                );
-
                 let view = certificate.view_number;
 
-                if !self
-                    .publish_proposal_if_able(view, None, &event_stream)
-                    .await
-                {
-                    warn!("Wasn't able to publish proposal");
+                if self.quorum_membership.get_leader(view) == self.public_key {
+                    debug!(
+                        "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
+                        *certificate.view_number
+                    );
+                    self.publish_proposal_if_able(view, None, &event_stream)
+                        .await;
                 }
             }
             _ => {}
@@ -1375,10 +1372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 signature,
                 _pd: PhantomData,
             };
-            debug!(
-                "Sending proposal for view {:?} \n {:?}",
-                leaf.view_number, ""
-            );
+            debug!("Sending proposal for view {:?}", leaf.view_number);
 
             broadcast_event(
                 HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
