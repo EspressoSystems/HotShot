@@ -19,7 +19,9 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    simple_certificate::{
+        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+    },
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -114,6 +116,10 @@ pub struct ConsensusTaskState<
     /// last Upgrade Certificate this node formed
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
+    // TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
+    /// last View Sync Certificate this node formed
+    pub view_sync_cert: Option<ViewSyncFinalizeCertificate2<TYPES>>,
+
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
@@ -139,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    async fn vote_if_able(&mut self, event_stream: &Sender<HotShotEvent<TYPES>>) -> bool {
+    async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
         if !self.quorum_membership.has_stake(&self.public_key) {
             debug!(
                 "We were not chosen for consensus committee on {:?}",
@@ -150,7 +156,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
         if let Some(proposal) = &self.current_proposal {
             let consensus = self.consensus.read().await;
-
             // Only vote if you has seen the VID share for this view
             if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
             } else {
@@ -232,7 +237,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
-                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).await;
+                    broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
+                        .await;
                     return true;
                 }
             }
@@ -255,7 +261,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     async fn update_view(
         &mut self,
         new_view: TYPES::Time,
-        event_stream: &Sender<HotShotEvent<TYPES>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if *self.cur_view < *new_view {
             debug!(
@@ -302,7 +308,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
             }
 
-            broadcast_event(HotShotEvent::ViewChange(new_view), event_stream).await;
+            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
 
             // Spawn a timeout task if we did actually update view
             let timeout = self.timeout;
@@ -314,7 +320,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
                     broadcast_event(
-                        HotShotEvent::Timeout(TYPES::Time::new(*view_number)),
+                        Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                         &stream,
                     )
                     .await;
@@ -348,15 +354,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
     pub async fn handle(
         &mut self,
-        event: HotShotEvent<TYPES>,
-        event_stream: Sender<HotShotEvent<TYPES>>,
+        event: Arc<HotShotEvent<TYPES>>,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        match event {
+        match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                let sender = sender.clone();
                 debug!(
                     "Received Quorum Proposal for view {}",
                     *proposal.data.view_number
                 );
+
+                debug!("Received proposal {:?}", proposal);
 
                 // stop polling for the received proposal
                 self.quorum_network
@@ -377,24 +386,42 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                // Verify a timeout certificate exists and is valid
+                // Verify a timeout certificate OR a view sync certificate exists and is valid.
                 if proposal.data.justify_qc.get_view_number() != view - 1 {
-                    let Some(timeout_cert) = proposal.data.timeout_certificate.clone() else {
+                    // Do we have a timeout certificate at all?
+                    if let Some(timeout_cert) = proposal.data.timeout_certificate.clone() {
+                        if timeout_cert.get_data().view != view - 1 {
+                            warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                            return;
+                        }
+
+                        if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                            warn!("Timeout certificate for view {} was invalid", *view);
+                            return;
+                        }
+                    } else if let Some(cert) = &self.view_sync_cert {
+                        // View sync certs _must_ be for the current view.
+                        if cert.view_number != view {
+                            debug!(
+                                "Cert view number {:?} does not match proposal view number {:?}",
+                                cert.view_number, view
+                            );
+                            return;
+                        }
+
+                        // View sync certs must also be valid.
+                        if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                            debug!("Invalid ViewSyncFinalize cert provided");
+                            return;
+                        }
+                    } else {
                         warn!(
-                            "Quorum proposal for view {} needed a timeout certificate but did not have one",
+                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
                             *view);
                         return;
                     };
 
-                    if timeout_cert.get_data().view != view - 1 {
-                        warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                        return;
-                    }
-
-                    if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                        warn!("Timeout certificate for view {} was invalid", *view);
-                        return;
-                    }
+                    // If we have a ViewSyncFinalize cert, only vote if it is valid.
                 }
 
                 let justify_qc = proposal.data.justify_qc.clone();
@@ -635,7 +662,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
                 // Notify other tasks
                 broadcast_event(
-                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
                     &event_stream,
                 )
                 .await;
@@ -756,7 +783,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 #[allow(clippy::cast_precision_loss)]
                 if new_decide_reached {
-                    broadcast_event(HotShotEvent::LeafDecided(leafs_decided), &event_stream).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
+                        &event_stream,
+                    )
+                    .await;
                     let decide_sent = broadcast_event(
                         Event {
                             view_number: consensus.last_decided_view,
@@ -977,7 +1008,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Update our current upgrade_cert as long as it's still relevant.
                 if cert.view_number >= self.cur_view {
-                    self.upgrade_cert = Some(cert);
+                    self.upgrade_cert = Some(cert.clone());
                 }
             }
             HotShotEvent::DACRecv(cert) => {
@@ -1003,6 +1034,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             HotShotEvent::VidDisperseRecv(disperse, sender) => {
+                let sender = sender.clone();
                 let view = disperse.data.get_view_number();
 
                 debug!(
@@ -1049,12 +1081,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .write()
                     .await
                     .vid_shares
-                    .insert(view, disperse);
+                    .insert(view, disperse.clone());
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }
             }
             HotShotEvent::ViewChange(new_view) => {
+                let new_view = *new_view;
                 debug!("View Change event for view {} in consensus task", *new_view);
 
                 let old_view_number = self.cur_view;
@@ -1095,6 +1128,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
             }
             HotShotEvent::Timeout(view) => {
+                let view = *view;
                 // NOTE: We may optionally have the timeout task listen for view change events
                 if self.cur_view >= view {
                     return;
@@ -1127,7 +1161,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
+                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), &event_stream).await;
                 broadcast_event(
                     Event {
                         view_number: view,
@@ -1153,10 +1187,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 consensus.metrics.number_of_timeouts.add(1);
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+                let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
-                    commitment: payload_commitment,
-                    metadata,
+                    commitment: *payload_commitment,
+                    metadata: metadata.clone(),
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1164,7 +1199,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.publish_proposal_if_able(view, None, &event_stream)
                         .await;
                 }
-                if let Some(tc) = &self.timeout_cert {
+
+                if let Some(tc) = self.timeout_cert.as_ref() {
                     if self.quorum_membership.get_leader(tc.get_view_number() + 1)
                         == self.public_key
                     {
@@ -1175,6 +1211,40 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         )
                         .await;
                     }
+                } else if let Some(vsc) = self.view_sync_cert.as_ref() {
+                    if self.quorum_membership.get_leader(vsc.get_view_number()) == self.public_key {
+                        self.publish_proposal_if_able(view, None, &event_stream)
+                            .await;
+                    }
+                }
+            }
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+                if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
+                    warn!(
+                        "View Sync Finalize certificate {:?} was invalid",
+                        certificate.get_data()
+                    );
+                    return;
+                }
+
+                self.view_sync_cert = Some(certificate.clone());
+
+                // cancel poll for votes
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                        *certificate.view_number - 1,
+                    ))
+                    .await;
+
+                let view = certificate.view_number;
+
+                if self.quorum_membership.get_leader(view) == self.public_key {
+                    debug!(
+                        "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
+                        *certificate.view_number
+                    );
+                    self.publish_proposal_if_able(view, None, &event_stream)
+                        .await;
                 }
             }
             _ => {}
@@ -1187,7 +1257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         &mut self,
         view: TYPES::Time,
         timeout_certificate: Option<TimeoutCertificate<TYPES>>,
-        event_stream: &Sender<HotShotEvent<TYPES>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
@@ -1242,7 +1312,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
         // Walk back until we find a decide
         if !reached_decided {
-            debug!("not reached decide fro view {:?}", self.cur_view);
+            debug!("We have not reached decide from view {:?}", self.cur_view);
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
@@ -1300,22 +1370,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| None),
                 upgrade_certificate: upgrade_cert,
+                view_sync_certificate: self.view_sync_cert.clone(),
                 proposer_id: leaf.proposer_id,
             };
 
             self.timeout_cert = None;
+            self.view_sync_cert = None;
             let message = Proposal {
                 data: proposal,
                 signature,
                 _pd: PhantomData,
             };
-            debug!(
-                "Sending proposal for view {:?} \n {:?}",
-                leaf.view_number, ""
-            );
+            debug!("Sending proposal for view {:?}", leaf.view_number);
 
             broadcast_event(
-                HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
+                Arc::new(HotShotEvent::QuorumProposalSend(
+                    message.clone(),
+                    self.public_key.clone(),
+                )),
                 event_stream,
             )
             .await;
@@ -1331,11 +1403,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ConsensusTaskState<TYPES, I, A>
 {
-    type Event = HotShotEvent<TYPES>;
+    type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
-    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
-            event,
+            event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
                 | HotShotEvent::QCFormed(_)
@@ -1346,6 +1418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
                 | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::Shutdown,
         )
     }
@@ -1359,6 +1432,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         None
     }
     fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event, HotShotEvent::Shutdown)
+        matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
