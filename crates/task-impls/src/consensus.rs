@@ -40,6 +40,7 @@ use tracing::warn;
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+use std::collections::HashMap;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
@@ -770,10 +771,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                let vid = consensus
-                                    .vid_shares
-                                    .get(&leaf.get_view_number())
-                                    .map(|vid_proposal| vid_proposal.data.clone());
+                                let vid = VidDisperseShare::to_vid_disperse(
+                                    consensus
+                                        .vid_shares
+                                        .get(&leaf.get_view_number())
+                                        .unwrap_or(&HashMap::new())
+                                        .iter()
+                                        .map(|(_key, proposal)| &proposal.data)
+                                );
 
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
@@ -1111,11 +1116,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // Add to the storage that we have received the VID disperse for a specific view
-                self.consensus
+                if let Some(vid_disperse) = self.consensus
                     .write()
                     .await
                     .vid_shares
-                    .insert(view, disperse);
+                    .get_mut(&view) {
+                    vid_disperse
+                        .insert(disperse.data.recipient_key.clone(), disperse);
+                } else {
+                    let mut proposals_map = HashMap::new();
+                    proposals_map.insert(disperse.data.recipient_key.clone(), disperse);
+                    self.consensus
+                        .write()
+                        .await
+                        .vid_shares
+                        .insert(view, proposals_map);
+                }
                 self.vote_if_able(&event_stream).await;
             }
             HotShotEvent::ViewChange(new_view) => {

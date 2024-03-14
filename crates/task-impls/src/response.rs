@@ -1,4 +1,5 @@
 use std::{collections::BTreeMap, sync::Arc};
+use std::collections::HashMap;
 
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
@@ -114,10 +115,10 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
         match req.request {
             RequestKind::VID(view, pub_key) => {
                 let state = self.consensus.read().await;
-                let Some(shares) = state.vid_shares.get(&view) else {
+                let Some(proposals_map) = state.vid_shares.get(&view) else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
-                self.handle_vid(shares.clone(), pub_key)
+                self.handle_vid(proposals_map, pub_key)
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
             RequestKind::DAProposal(_view) => self.make_msg(ResponseMessage::NotFound),
@@ -128,13 +129,13 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     /// build the response and return it
     fn handle_vid(
         &self,
-        mut vid: Proposal<TYPES, VidDisperseShare<TYPES>>,
+        proposals_map: &HashMap<TYPES::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
         key: TYPES::SignatureKey,
     ) -> Message<TYPES> {
-        if key != vid.data.recipient_key {
+        if !proposals_map.contains_key(&key) {
             return self.make_msg(ResponseMessage::NotFound);
         }
-        let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(vid)));
+        let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(proposals_map.get(&key).unwrap().clone())));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
 
