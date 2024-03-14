@@ -68,7 +68,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
     /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    async fn run_loop(mut self, shutdown: EventDependency<HotShotEvent<TYPES>>) {
+    async fn run_loop(mut self, shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         loop {
             futures::select! {
@@ -173,11 +173,11 @@ fn valid_signature<TYPES: NodeType>(
 /// on the `event_stream` arg.
 pub fn run_response_task<TYPES: NodeType>(
     task_state: NetworkResponseState<TYPES>,
-    event_stream: Receiver<HotShotEvent<TYPES>>,
+    event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {
     let dep = EventDependency::new(
         event_stream,
-        Box::new(|e| matches!(e, HotShotEvent::Shutdown)),
+        Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
     );
     async_spawn(task_state.run_loop(dep))
 }
