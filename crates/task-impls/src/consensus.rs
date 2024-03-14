@@ -145,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    async fn vote_if_able(&mut self, event_stream: &Sender<HotShotEvent<TYPES>>) -> bool {
+    async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
         if !self.quorum_membership.has_stake(&self.public_key) {
             debug!(
                 "We were not chosen for consensus committee on {:?}",
@@ -156,7 +156,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
         if let Some(proposal) = &self.current_proposal {
             let consensus = self.consensus.read().await;
-
             // Only vote if you has seen the VID share for this view
             if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
             } else {
@@ -238,7 +237,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
-                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).await;
+                    broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
+                        .await;
                     return true;
                 }
             }
@@ -261,7 +261,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     async fn update_view(
         &mut self,
         new_view: TYPES::Time,
-        event_stream: &Sender<HotShotEvent<TYPES>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if *self.cur_view < *new_view {
             debug!(
@@ -308,7 +308,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
             }
 
-            broadcast_event(HotShotEvent::ViewChange(new_view), event_stream).await;
+            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
 
             // Spawn a timeout task if we did actually update view
             let timeout = self.timeout;
@@ -320,7 +320,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
                     broadcast_event(
-                        HotShotEvent::Timeout(TYPES::Time::new(*view_number)),
+                        Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                         &stream,
                     )
                     .await;
@@ -354,11 +354,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
     pub async fn handle(
         &mut self,
-        event: HotShotEvent<TYPES>,
-        event_stream: Sender<HotShotEvent<TYPES>>,
+        event: Arc<HotShotEvent<TYPES>>,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        match event {
+        match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                let sender = sender.clone();
                 debug!(
                     "Received Quorum Proposal for view {}",
                     *proposal.data.view_number
@@ -661,7 +662,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
                 // Notify other tasks
                 broadcast_event(
-                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
                     &event_stream,
                 )
                 .await;
@@ -782,7 +783,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 #[allow(clippy::cast_precision_loss)]
                 if new_decide_reached {
-                    broadcast_event(HotShotEvent::LeafDecided(leafs_decided), &event_stream).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
+                        &event_stream,
+                    )
+                    .await;
                     let decide_sent = broadcast_event(
                         Event {
                             view_number: consensus.last_decided_view,
@@ -1003,7 +1008,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Update our current upgrade_cert as long as it's still relevant.
                 if cert.view_number >= self.cur_view {
-                    self.upgrade_cert = Some(cert);
+                    self.upgrade_cert = Some(cert.clone());
                 }
             }
             HotShotEvent::DACRecv(cert) => {
@@ -1029,6 +1034,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             HotShotEvent::VidDisperseRecv(disperse, sender) => {
+                let sender = sender.clone();
                 let view = disperse.data.get_view_number();
 
                 debug!(
@@ -1075,12 +1081,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .write()
                     .await
                     .vid_shares
-                    .insert(view, disperse);
+                    .insert(view, disperse.clone());
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }
             }
             HotShotEvent::ViewChange(new_view) => {
+                let new_view = *new_view;
                 debug!("View Change event for view {} in consensus task", *new_view);
 
                 let old_view_number = self.cur_view;
@@ -1121,6 +1128,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
             }
             HotShotEvent::Timeout(view) => {
+                let view = *view;
                 // NOTE: We may optionally have the timeout task listen for view change events
                 if self.cur_view >= view {
                     return;
@@ -1153,7 +1161,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), &event_stream).await;
+                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), &event_stream).await;
                 broadcast_event(
                     Event {
                         view_number: view,
@@ -1179,10 +1187,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 consensus.metrics.number_of_timeouts.add(1);
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+                let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
-                    commitment: payload_commitment,
-                    metadata,
+                    commitment: *payload_commitment,
+                    metadata: metadata.clone(),
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1248,7 +1257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         &mut self,
         view: TYPES::Time,
         timeout_certificate: Option<TimeoutCertificate<TYPES>>,
-        event_stream: &Sender<HotShotEvent<TYPES>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
@@ -1375,7 +1384,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             debug!("Sending proposal for view {:?}", leaf.view_number);
 
             broadcast_event(
-                HotShotEvent::QuorumProposalSend(message.clone(), self.public_key.clone()),
+                Arc::new(HotShotEvent::QuorumProposalSend(
+                    message.clone(),
+                    self.public_key.clone(),
+                )),
                 event_stream,
             )
             .await;
@@ -1391,11 +1403,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ConsensusTaskState<TYPES, I, A>
 {
-    type Event = HotShotEvent<TYPES>;
+    type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
-    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
-            event,
+            event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
                 | HotShotEvent::QCFormed(_)
@@ -1420,6 +1432,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         None
     }
     fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event, HotShotEvent::Shutdown)
+        matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
