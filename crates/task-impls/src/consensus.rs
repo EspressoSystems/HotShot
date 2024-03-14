@@ -1296,7 +1296,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *certificate.view_number
                 );
 
-                let view = certificate.view_number + 1;
+                let view = certificate.view_number;
 
                 if !self
                     .publish_proposal_if_able(view, None, &event_stream)
