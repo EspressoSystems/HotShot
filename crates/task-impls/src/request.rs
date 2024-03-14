@@ -33,7 +33,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// Long running task which will request information after a proposal is received.
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
-/// shares.  
+/// shares.
 pub struct NetworkResponseState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     pub network: I::QuorumNetwork,
