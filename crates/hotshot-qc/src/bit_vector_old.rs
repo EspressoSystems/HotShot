@@ -263,18 +263,16 @@ mod tests {
             // Check the QC and the QCParams can be serialized / deserialized
             assert_eq!(
                 qc,
-                Serializer::<STATIC_VER_0_1::MAJOR, STATIC_VER_0_1::MINOR>::deserialize(
-                    &Serializer::<STATIC_VER_0_1::MAJOR, STATIC_VER_0_1::MINOR>::serialize(&qc)
-                        .unwrap()
+                Serializer::<STATIC_VER_0_1>::deserialize(
+                    &Serializer::<STATIC_VER_0_1>::serialize(&qc).unwrap()
                 )
                 .unwrap()
             );
 
             assert_eq!(
                 qc_pp,
-                Serializer::<STATIC_VER_0_1::MAJOR, STATIC_VER_0_1::MINOR>::deserialize(
-                    &Serializer::<STATIC_VER_0_1::MAJOR, STATIC_VER_0_1::MINOR>::serialize(&qc_pp)
-                        .unwrap()
+                Serializer::<STATIC_VER_0_1>::deserialize(
+                    &Serializer::<STATIC_VER_0_1>::serialize(&qc_pp).unwrap()
                 )
                 .unwrap()
             );

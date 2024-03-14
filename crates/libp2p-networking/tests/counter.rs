@@ -5,7 +5,7 @@ use crate::common::print_connections;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use common::{test_bed, HandleSnafu, HandleWithState, TestError};
-use hotshot_constants::{STATIC_VER_0_1, VERSION_MAJ, VERSION_MIN};
+use hotshot_types::constants::{Version01, STATIC_VER_0_1};
 use libp2p_networking::network::{NetworkEvent, NetworkNodeHandleError};
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
@@ -74,9 +74,7 @@ pub async fn counter_handle_network_event(
     match event {
         IsBootstrapped | NetworkEvent::ResponseRequested(..) => {}
         GossipMsg(m) | DirectResponse(m, _) => {
-            if let Ok(msg) =
-                Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<CounterMessage>(&m)
-            {
+            if let Ok(msg) = Serializer::<Version01>::deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message only
                     MyCounterIs(c) => {
@@ -101,9 +99,7 @@ pub async fn counter_handle_network_event(
             }
         }
         DirectRequest(m, _, chan) => {
-            if let Ok(msg) =
-                Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<CounterMessage>(&m)
-            {
+            if let Ok(msg) = Serializer::<Version01>::deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message request
                     IncrementCounter { from, to, .. } => {

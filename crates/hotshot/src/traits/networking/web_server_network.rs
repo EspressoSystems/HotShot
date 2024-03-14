@@ -12,14 +12,14 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
-use hotshot_types::constants::{VERSION_0_1, VERSION_MAJ, VERSION_MIN};
 use hotshot_types::{
     boxed_sync,
+    constants::{Version01, VERSION_0_1},
     message::{Message, MessagePurpose},
     traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, WebServerNetworkError,
+            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg, NetworkReliability,
+            TestableNetworkingImplementation, ViewMessage, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -30,14 +30,9 @@ use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
-use surf_disco::Url;
-use versioned_binary_serialization::version::{StaticVersion, Version};
-use versioned_binary_serialization::{BinarySerializer, Serializer};
-
-use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
-use std::collections::BTreeMap;
 use std::{
     collections::{btree_map::Entry, BTreeSet},
     sync::{
@@ -47,7 +42,12 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
+use surf_disco::Url;
 use tracing::{debug, error, info, warn};
+use versioned_binary_serialization::{
+    version::{StaticVersionType, Version},
+    BinarySerializer, Serializer,
+};
 
 /// convenience alias alias for the result of getting transactions from the web server
 pub type TxnResult = Result<Option<(u64, Vec<Vec<u8>>)>, ClientError>;
@@ -63,20 +63,14 @@ fn hash<T: Hash>(t: &T) -> u64 {
 
 /// The web server network state
 #[derive(Clone, Debug)]
-pub struct WebServerNetwork<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
-> {
+pub struct WebServerNetwork<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>,
+    inner: Arc<Inner<TYPES, NetworkVersion>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
-    WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
-{
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> WebServerNetwork<TYPES, NetworkVersion> {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(
         &self,
@@ -175,7 +169,7 @@ impl<K: SignatureKey> TaskMap<K> {
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16> {
+struct Inner<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for messages
@@ -185,7 +179,7 @@ struct Inner<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MI
     /// The web server connection is ready
     connected: AtomicBool,
     /// The connection to the web server
-    client: surf_disco::Client<ClientError, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+    client: surf_disco::Client<ClientError, NetworkVersion>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
@@ -214,9 +208,7 @@ struct Inner<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MI
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
-    Inner<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
-{
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVersion> {
     #![allow(clippy::too_many_lines)]
 
     /// Handle version 0.1 transactions
@@ -237,7 +229,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         *tx_index += 1;
 
         if let Ok(Some(deserialized_message_inner)) =
-            Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<Option<Message<TYPES>>>(&tx)
+            Serializer::<Version01>::deserialize::<Option<Message<TYPES>>>(&tx)
         {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
@@ -266,9 +258,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let poll_queue = &self.poll_queue_0_1;
-        match Serializer::<VERSION_MAJ, VERSION_MIN>::deserialize::<Option<Message<TYPES>>>(
-            &message,
-        ) {
+        match Serializer::<Version01>::deserialize::<Option<Message<TYPES>>>(&message) {
             Ok(Some(deserialized_message_inner)) => {
                 let deserialized_message = RecvMsg {
                     message: Some(deserialized_message_inner),
@@ -558,11 +548,8 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
 impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
-impl<
-        TYPES: NodeType + 'static,
-        const NETWORK_MAJOR_VERSION: u16,
-        const NETWORK_MINOR_VERSION: u16,
-    > WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
+    WebServerNetwork<TYPES, NetworkVersion>
 {
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
@@ -576,10 +563,7 @@ impl<
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
         // TODO ED Wait for healthcheck
-        let client =
-            surf_disco::Client::<ClientError, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>::new(
-                url,
-            );
+        let client = surf_disco::Client::<ClientError, NetworkVersion>::new(url);
 
         let inner = Arc::new(Inner {
             poll_queue_0_1: Arc::default(),
@@ -661,11 +645,11 @@ impl<
         info!("Launching web server on port {port}");
         // Start web server
         async_spawn(async {
-            match hotshot_web_server::run_web_server::<
-                TYPES::SignatureKey,
-                NETWORK_MAJOR_VERSION,
-                NETWORK_MINOR_VERSION,
-            >(Some(server_shutdown), url)
+            match hotshot_web_server::run_web_server::<TYPES::SignatureKey, NetworkVersion>(
+                Some(server_shutdown),
+                url,
+                NetworkVersion::instance(),
+            )
             .await
             {
                 Ok(()) => error!("Web server future finished unexpectedly"),
@@ -699,12 +683,9 @@ impl<
 }
 
 #[async_trait]
-impl<
-        TYPES: NodeType + 'static,
-        const NETWORK_MAJOR_VERSION: u16,
-        const NETWORK_MINOR_VERSION: u16,
-    > ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
+    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for WebServerNetwork<TYPES, NetworkVersion>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -755,11 +736,11 @@ impl<
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
+    async fn broadcast_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        _: StaticVersion<MAJOR, MINOR>,
+        _: VER,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -778,11 +759,11 @@ impl<
 
     /// broadcast a message only to a DA committee
     /// blocking
-    async fn da_broadcast_message<const MAJOR: u16, const MINOR: u16>(
+    async fn da_broadcast_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, recipients, bind_version)
             .await
@@ -790,11 +771,11 @@ impl<
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
+    async fn direct_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipient: TYPES::SignatureKey,
-        _: StaticVersion<MAJOR, MINOR>,
+        _: VER,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -1217,9 +1198,8 @@ impl<
     }
 }
 
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
-    TestableNetworkingImplementation<TYPES>
-    for WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+impl<TYPES: NodeType, NetworkVersion: 'static + StaticVersionType>
+    TestableNetworkingImplementation<TYPES> for WebServerNetwork<TYPES, NetworkVersion>
 {
     fn generator(
         expected_node_count: usize,

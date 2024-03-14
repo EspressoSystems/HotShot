@@ -3130,7 +3130,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3139,6 +3139,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bimap",
+ "bincode",
  "blake3",
  "cdn-broker",
  "cdn-client",
@@ -3156,7 +3157,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "hotshot-utils",
  "hotshot-web-server",
  "libp2p-identity",
  "libp2p-networking",
@@ -3176,7 +3176,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3192,7 +3192,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "hotshot-utils",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3205,7 +3204,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3232,7 +3231,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "hotshot-utils",
  "hotshot-web-server",
  "libp2p-identity",
  "libp2p-networking",
@@ -3247,6 +3245,7 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
@@ -3262,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
@@ -3272,7 +3271,6 @@ dependencies = [
  "csv",
  "futures",
  "hotshot-types",
- "hotshot-utils",
  "libp2p",
  "serde",
  "serde-inline-default",
@@ -3283,11 +3281,12 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3306,7 +3305,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3318,7 +3317,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3333,7 +3332,6 @@ dependencies = [
  "futures",
  "hotshot-task",
  "hotshot-types",
- "hotshot-utils",
  "jf-primitives",
  "sha2 0.10.8",
  "snafu",
@@ -3345,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3363,7 +3361,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "hotshot-utils",
  "jf-primitives",
  "rand 0.8.5",
  "serde",
@@ -3377,7 +3374,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing-macros"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "ark-bls12-381",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -3406,9 +3403,10 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.2#dced831d81e59b64f6119b9319abff4e8a51693e"
+version = "0.1.6"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=adding_vbs_support#07e64de08cf21792b4b0380b536b0d09eea764e6"
 dependencies = [
+ "anyhow",
  "ark-bls12-381",
  "ark-bn254",
  "ark-ec",
@@ -3448,19 +3446,12 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
-]
-
-[[package]]
-name = "hotshot-utils"
-version = "0.5.25"
-dependencies = [
- "bincode",
- "hotshot-types",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
@@ -3473,6 +3464,7 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
@@ -4402,7 +4394,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "anyhow",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
@@ -4416,7 +4408,6 @@ dependencies = [
  "either",
  "futures",
  "hotshot-types",
- "hotshot-utils",
  "lazy_static",
  "libp2p",
  "libp2p-identity",
@@ -7512,8 +7503,8 @@ dependencies = [
 
 [[package]]
 name = "surf-disco"
-version = "0.4.7"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.7#070e18d1daf0c9783e009a1a3b7f8b28b4546e24"
+version = "0.4.8"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=nfy/transition_away_from_const_generics#bea3a69fccb89941a4c59c2498c66fd4a5722526"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -7777,8 +7768,8 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.4.7"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.7#1f8515bde918b9e2c50875a68dfa0e23b8167579"
+version = "0.4.8"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?branch=nfy/transition_away_from_const_generics#58a8cc5c59978573d31cb6b78cb248ed25befa1d"
 dependencies = [
  "anyhow",
  "async-std",
@@ -8532,8 +8523,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "versioned-binary-serialization"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?tag=0.1.0#6b5bf0c0b74f8384c940880d5a988d5ec757de3e"
+version = "0.1.2"
+source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?tag=0.1.2#6874f91a3c8d64acc24fe0abe4ad93c35b75eb9d"
 dependencies = [
  "anyhow",
  "bincode",

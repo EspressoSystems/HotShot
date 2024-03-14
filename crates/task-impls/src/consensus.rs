@@ -1364,6 +1364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 justify_qc: consensus.high_qc.clone(),
                 timeout_certificate: timeout_certificate.or_else(|| None),
                 upgrade_certificate: upgrade_cert,
+                view_sync_certificate: None, // view_sync_certificate.or_else(|| None),
                 proposer_id: leaf.proposer_id,
             };
 

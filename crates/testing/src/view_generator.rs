@@ -83,6 +83,7 @@ impl TestView {
             timeout_certificate: None,
             upgrade_certificate: None,
             proposer_id: public_key,
+            view_sync_certificate: None,
         };
 
         let leaf = Leaf {
@@ -216,6 +217,7 @@ impl TestView {
             timeout_certificate: None,
             upgrade_certificate,
             proposer_id: public_key,
+            view_sync_certificate: None,
         };
 
         let quorum_proposal = Proposal {

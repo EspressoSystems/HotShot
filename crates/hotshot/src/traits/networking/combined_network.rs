@@ -33,8 +33,6 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use versioned_binary_serialization::version::StaticVersion;
-
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
@@ -52,6 +50,7 @@ use std::hash::Hash;
 use std::time::Duration;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use versioned_binary_serialization::version::StaticVersionType;
 
 /// Helper function to calculate a hash of a type that implements Hash
 pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
@@ -66,13 +65,9 @@ type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, Vec<JoinHandle<Result<(), 
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
-pub struct CombinedNetworks<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
-> {
+pub struct CombinedNetworks<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// The two networks we'll use for send/recv
-    networks: Arc<UnderlyingCombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>,
+    networks: Arc<UnderlyingCombinedNetworks<TYPES, NetworkVersion>>,
 
     /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<LruCache<u64, ()>>>,
@@ -87,9 +82,7 @@ pub struct CombinedNetworks<
     delay_duration: Arc<RwLock<Duration>>,
 }
 
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
-    CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
-{
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> CombinedNetworks<TYPES, NetworkVersion> {
     /// Constructor
     ///
     /// # Panics
@@ -97,9 +90,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
     pub fn new(
-        networks: Arc<
-            UnderlyingCombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
-        >,
+        networks: Arc<UnderlyingCombinedNetworks<TYPES, NetworkVersion>>,
         delay_duration: Duration,
     ) -> Self {
         Self {
@@ -115,9 +106,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn primary(
-        &self,
-    ) -> &WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    pub fn primary(&self) -> &WebServerNetwork<TYPES, NetworkVersion> {
         &self.networks.0
     }
 
@@ -188,19 +177,14 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 #[derive(Debug, Clone)]
-pub struct UnderlyingCombinedNetworks<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
->(
-    pub WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+pub struct UnderlyingCombinedNetworks<TYPES: NodeType, NetworkVersion: StaticVersionType>(
+    pub WebServerNetwork<TYPES, NetworkVersion>,
     pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 );
 
 #[cfg(feature = "hotshot-testing")]
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
-    TestableNetworkingImplementation<TYPES>
-    for CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>
+    TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES, NetworkVersion>
 {
     fn generator(
         expected_node_count: usize,
@@ -212,7 +196,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
-            <WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> as TestableNetworkingImplementation<_>>::generator(
+            <WebServerNetwork<TYPES, NetworkVersion> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -235,11 +219,11 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
             let (quorum_web, da_web) = generators.0(node_id);
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>::into_inner(da_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(da_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>>::into_inner(quorum_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(quorum_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
                     quorum_p2p,
                 ),
@@ -275,24 +259,24 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
 }
 
 #[async_trait]
-impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERSION: u16>
+impl<TYPES: NodeType, NetworkVersion: 'static + StaticVersionType>
     ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+    for CombinedNetworks<TYPES, NetworkVersion>
 {
-    async fn request_data<T: NodeType, const MAJOR: u16, const MINOR: u16>(
+    async fn request_data<T: NodeType, VER: 'static + StaticVersionType>(
         &self,
         request: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Result<ResponseMessage<T>, NetworkError> {
         self.secondary()
             .request_data(request, recipient, bind_version)
             .await
     }
 
-    async fn spawn_request_receiver_task<const MAJOR: u16, const MINOR: u16>(
+    async fn spawn_request_receiver_task<VER: 'static + StaticVersionType>(
         &self,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
         self.secondary()
             .spawn_request_receiver_task(bind_version)
@@ -329,11 +313,11 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         boxed_sync(closure)
     }
 
-    async fn broadcast_message<const MAJOR: u16, const MINOR: u16>(
+    async fn broadcast_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -356,11 +340,11 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         .await
     }
 
-    async fn da_broadcast_message<const MAJOR: u16, const MINOR: u16>(
+    async fn da_broadcast_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -383,11 +367,11 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
         .await
     }
 
-    async fn direct_message<const MAJOR: u16, const MINOR: u16>(
+    async fn direct_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-        bind_version: StaticVersion<MAJOR, MINOR>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -457,7 +441,7 @@ impl<TYPES: NodeType, const NETWORK_MAJOR_VERSION: u16, const NETWORK_MINOR_VERS
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> as ConnectedNetwork<
+        <WebServerNetwork<_, NetworkVersion> as ConnectedNetwork<
             Message<TYPES>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(self.primary(), event.clone())

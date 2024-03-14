@@ -10,7 +10,6 @@ use hotshot_testing::{
     script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
 };
-use hotshot_types::constants::Version;
 use hotshot_types::{
     data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
 };

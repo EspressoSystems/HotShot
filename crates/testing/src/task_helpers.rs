@@ -268,6 +268,7 @@ async fn build_quorum_proposal_and_signature(
         timeout_certificate: None,
         upgrade_certificate: None,
         proposer_id: leaf.proposer_id,
+        view_sync_certificate: None,
     };
 
     // Only view 2 is tested, higher views are not tested
@@ -327,6 +328,7 @@ async fn build_quorum_proposal_and_signature(
             timeout_certificate: None,
             upgrade_certificate: None,
             proposer_id: leaf_new_view.clone().proposer_id,
+            view_sync_certificate: None,
         };
         proposal = proposal_new_view;
         signature = signature_new_view;

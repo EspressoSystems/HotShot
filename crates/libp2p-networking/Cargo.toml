@@ -22,7 +22,6 @@ derive_builder = "0.13.1"
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-types = { workspace = true }
-hotshot-utils = { path = "../utils" }
 libp2p-swarm-derive = { workspace = true }
 libp2p-identity = { workspace = true }
 rand = { workspace = true }

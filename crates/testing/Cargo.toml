@@ -23,10 +23,9 @@ hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
 hotshot-example-types = { path = "../example-types" }
 hotshot-task = { path = "../task" }
 hotshot-types = { workspace = true }
-hotshot-utils = { path = "../utils" }
-hotshot-task-impls = { path = "../task-impls", version = "0.5.25", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.26", default-features = false }
 hotshot-macros = { path = "../macros" }
-hotshot-orchestrator = { version = "0.5.25", path = "../orchestrator", default-features = false }
+hotshot-orchestrator = { version = "0.5.26", path = "../orchestrator", default-features = false }
 jf-primitives = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }

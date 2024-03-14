@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use cdn_broker::reexports::crypto::signature::KeyPair;
 use cdn_broker::reexports::message::Topic;
+use chrono::Utc;
 use clap::Parser;
 use clap::{Arg, Command};
 use futures::StreamExt;
@@ -30,22 +31,21 @@ use hotshot_orchestrator::{
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::network::ConnectedNetwork;
-use hotshot_types::PeerConfig;
-use hotshot_types::ValidatorConfig;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
+    message::Message,
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
-    HotShotConfig,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
+use libp2p_identity::PeerId;
 use libp2p_identity::{
     ed25519::{self, SecretKey},
     Keypair,
@@ -56,17 +56,15 @@ use libp2p_networking::{
 };
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::{collections::BTreeSet, sync::Arc};
+use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-
-use chrono::Utc;
-use libp2p_identity::PeerId;
-use std::fmt::Debug;
-use std::{fs, time::Instant};
 use tracing::{error, info, warn};
+use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -286,14 +284,10 @@ fn calculate_num_tx_per_round(
 /// create a web server network from a config file + public key
 /// # Panics
 /// Panics if the web server config doesn't exist in `config`
-fn webserver_network_from_config<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
->(
+fn webserver_network_from_config<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>(
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     pub_key: TYPES::SignatureKey,
-) -> WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+) -> WebServerNetwork<TYPES, NetworkVersion> {
     // Get the configuration for the web server
     let WebServerConfig {
         url,
@@ -694,17 +688,13 @@ pub trait RunDA<
 // WEB SERVER
 
 /// Represents a web server-based run
-pub struct WebServerDARun<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
-> {
+pub struct WebServerDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+    quorum_channel: WebServerNetwork<TYPES, NetworkVersion>,
     /// data availability channel
-    da_channel: WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+    da_channel: WebServerNetwork<TYPES, NetworkVersion>,
 }
 
 #[async_trait]
@@ -717,32 +707,28 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
-            CommitteeNetwork = WebServerNetwork<
-                TYPES,
-                NETWORK_MAJOR_VERSION,
-                NETWORK_MINOR_VERSION,
-            >,
+            QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
+            CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
             Storage = MemoryStorage<TYPES>,
         >,
-        const NETWORK_MAJOR_VERSION: u16,
-        const NETWORK_MINOR_VERSION: u16,
+        NetworkVersion: StaticVersionType,
     >
     RunDA<
         TYPES,
-        WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
-        WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+        WebServerNetwork<TYPES, NetworkVersion>,
+        WebServerNetwork<TYPES, NetworkVersion>,
         NODE,
-    > for WebServerDARun<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+    > for WebServerDARun<TYPES, NetworkVersion>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
+    NetworkVersion: 'static,
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> WebServerDARun<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    ) -> WebServerDARun<TYPES, NetworkVersion> {
         // Get our own key
         let pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -753,15 +739,12 @@ where
         }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         // create and wait for underlying network
-        let underlying_quorum_network = webserver_network_from_config::<
-            TYPES,
-            NETWORK_MAJOR_VERSION,
-            NETWORK_MINOR_VERSION,
-        >(config.clone(), pub_key.clone());
+        let underlying_quorum_network =
+            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
 
         underlying_quorum_network.wait_for_ready().await;
 
-        let da_channel: WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> =
+        let da_channel: WebServerNetwork<TYPES, NetworkVersion> =
             WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true);
 
         WebServerDARun {
@@ -771,15 +754,11 @@ where
         }
     }
 
-    fn get_da_channel(
-        &self,
-    ) -> WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    fn get_da_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(
-        &self,
-    ) -> WebServerNetwork<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    fn get_quorum_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
         self.quorum_channel.clone()
     }
 
@@ -944,17 +923,13 @@ where
 // Combined network
 
 /// Represents a combined-network-based run
-pub struct CombinedDARun<
-    TYPES: NodeType,
-    const NETWORK_MAJOR_VERSION: u16,
-    const NETWORK_MINOR_VERSION: u16,
-> {
+pub struct CombinedDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+    quorum_channel: CombinedNetworks<TYPES, NetworkVersion>,
     /// data availability channel
-    da_channel: CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+    da_channel: CombinedNetworks<TYPES, NetworkVersion>,
 }
 
 #[async_trait]
@@ -968,31 +943,27 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             Storage = MemoryStorage<TYPES>,
-            QuorumNetwork = CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
-            CommitteeNetwork = CombinedNetworks<
-                TYPES,
-                NETWORK_MAJOR_VERSION,
-                NETWORK_MINOR_VERSION,
-            >,
+            QuorumNetwork = CombinedNetworks<TYPES, NetworkVersion>,
+            CommitteeNetwork = CombinedNetworks<TYPES, NetworkVersion>,
         >,
-        const NETWORK_MAJOR_VERSION: u16,
-        const NETWORK_MINOR_VERSION: u16,
+        NetworkVersion: StaticVersionType,
     >
     RunDA<
         TYPES,
-        CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
-        CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>,
+        CombinedNetworks<TYPES, NetworkVersion>,
+        CombinedNetworks<TYPES, NetworkVersion>,
         NODE,
-    > for CombinedDARun<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION>
+    > for CombinedDARun<TYPES, NetworkVersion>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
+    NetworkVersion: 'static,
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> CombinedDARun<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    ) -> CombinedDARun<TYPES, NetworkVersion> {
         // Get our own key
         let pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -1012,11 +983,8 @@ where
             config.clone().combined_network_config.unwrap();
 
         // Create and wait for underlying webserver network
-        let web_quorum_network = webserver_network_from_config::<
-            TYPES,
-            NETWORK_MAJOR_VERSION,
-            NETWORK_MINOR_VERSION,
-        >(config.clone(), pub_key.clone());
+        let web_quorum_network =
+            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
 
         let web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, true);
 
@@ -1045,15 +1013,11 @@ where
         }
     }
 
-    fn get_da_channel(
-        &self,
-    ) -> CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    fn get_da_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(
-        &self,
-    ) -> CombinedNetworks<TYPES, NETWORK_MAJOR_VERSION, NETWORK_MINOR_VERSION> {
+    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
         self.quorum_channel.clone()
     }
 

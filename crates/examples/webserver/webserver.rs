@@ -1,8 +1,9 @@
 //! web server example
-use hotshot_constants::{WEB_SERVER_MAJOR_VERSION, WEB_SERVER_MINOR_VERSION};
 use hotshot_example_types::state_types::TestTypes;
+use hotshot_types::constants::WebServerVersion;
 use std::sync::Arc;
 use surf_disco::Url;
+use versioned_binary_serialization::version::StaticVersionType;
 
 use async_compatibility_layer::{
     channel::oneshot,
@@ -27,8 +28,11 @@ async fn main() {
     let _sender = Arc::new(server_shutdown_sender);
     let _result = hotshot_web_server::run_web_server::<
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
-        { WEB_SERVER_MAJOR_VERSION },
-        { WEB_SERVER_MINOR_VERSION },
-    >(Some(server_shutdown), args.url)
+        WebServerVersion,
+    >(
+        Some(server_shutdown),
+        args.url,
+        WebServerVersion::instance(),
+    )
     .await;
 }

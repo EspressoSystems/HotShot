@@ -13,7 +13,10 @@ use hotshot_types::{
     simple_vote::ViewSyncCommitData,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
-use versioned_binary_serialization::{version::Version, BinarySerializer, Serializer};
+use versioned_binary_serialization::{
+    version::{StaticVersion, Version},
+    BinarySerializer, Serializer,
+};
 
 #[test]
 // Checks that the current program protocol version
@@ -28,6 +31,7 @@ fn version_number_at_start_of_serialization() {
         major: MAJOR,
         minor: MINOR,
     };
+    type TestVersion = StaticVersion<MAJOR, MINOR>;
     // The specific data we attach to our message shouldn't affect the serialization,
     // we're using ViewSyncCommitData for simplicity.
     let data: ViewSyncCommitData<TestTypes> = ViewSyncCommitData {
@@ -48,7 +52,7 @@ fn version_number_at_start_of_serialization() {
             GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
         ))),
     };
-    let serialized_message: Vec<u8> = Serializer::<MAJOR, MINOR>::serialize(&message).unwrap();
+    let serialized_message: Vec<u8> = Serializer::<TestVersion>::serialize(&message).unwrap();
     // The versions we've read from the message
 
     let version_read = Version::deserialize(&serialized_message).unwrap().0;

@@ -7,8 +7,8 @@ use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
 use std::sync::Arc;
 
-use hotshot_constants::STATIC_VER_0_1;
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::constants::STATIC_VER_0_1;
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     message::{
