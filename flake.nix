@@ -168,6 +168,7 @@
             nixpkgs-fmt
             git-chglog
             protobuf
+            capnproto
             python3
             zlib.dev
             zlib.out
