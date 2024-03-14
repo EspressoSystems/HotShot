@@ -115,6 +115,18 @@ impl<S: TaskState + Send + 'static> Task<S> {
             state,
         }
     }
+
+    /// The Task analog of `TaskState::handle_event`.
+    pub fn handle_event(
+        &mut self,
+        event: S::Event,
+    ) -> impl Future<Output = Option<S::Output>> + Send + '_
+    where
+        Self: Sized,
+    {
+        S::handle_event(event, self)
+    }
+
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
     pub fn run(mut self) -> JoinHandle<()> {
@@ -166,6 +178,11 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn state_mut(&mut self) -> &mut S {
         &mut self.state
     }
+    /// Get an immutable reference to this tasks state
+    pub fn state(&self) -> &S {
+        &self.state
+    }
+
     /// Spawn a new task adn register it.  It will get all events not seend
     /// by the task creating it.
     pub async fn run_sub_task(&self, state: S) {
@@ -376,10 +393,7 @@ mod tests {
             None
         }
     }
-    #[cfg_attr(
-        async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
+    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     #[allow(unused_must_use)]
     async fn it_works() {

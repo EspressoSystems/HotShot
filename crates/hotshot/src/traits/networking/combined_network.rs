@@ -3,20 +3,22 @@
 use super::NetworkError;
 use crate::traits::implementations::{Libp2pNetwork, WebServerNetwork};
 use async_lock::RwLock;
-use hotshot_constants::{
+use hotshot_types::constants::{
     COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
+use lru::LruCache;
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::BTreeSet,
     hash::Hasher,
+    num::NonZeroUsize,
     sync::atomic::{AtomicU64, Ordering},
 };
 use tracing::warn;
 
 use async_trait::async_trait;
 
-use futures::join;
+use futures::{channel::mpsc, join, select, FutureExt};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -26,75 +28,28 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent},
+        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
 };
+use std::collections::BTreeMap;
+use std::future::Future;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
+use either::Either;
+use futures::future::join_all;
+use hotshot_task_impls::helpers::cancel_task;
+use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
+use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use std::hash::Hash;
-
-/// A cache to keep track of the last n messages we've seen, avoids reprocessing duplicates
-/// from multiple networks
-#[derive(Clone, Debug)]
-pub struct Cache {
-    /// The maximum number of items to store in the cache
-    capacity: usize,
-    /// The cache itself
-    inner: HashSet<u64>,
-    /// The hashes of the messages in the cache, in order of insertion
-    hashes: Vec<u64>,
-}
-
-impl Cache {
-    /// Create a new cache with the given capacity
-    #[must_use]
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            capacity,
-            inner: HashSet::with_capacity(capacity),
-            hashes: Vec::with_capacity(capacity),
-        }
-    }
-
-    /// Insert a hash into the cache
-    pub fn insert(&mut self, hash: u64) {
-        if self.inner.contains(&hash) {
-            return;
-        }
-
-        // calculate how much we are over and remove that many elements from the cache. deal with overflow
-        let over = (self.hashes.len() + 1).saturating_sub(self.capacity);
-        if over > 0 {
-            for _ in 0..over {
-                let hash = self.hashes.remove(0);
-                self.inner.remove(&hash);
-            }
-        }
-
-        self.inner.insert(hash);
-        self.hashes.push(hash);
-    }
-
-    /// Check if the cache contains a hash
-    #[must_use]
-    pub fn contains(&self, hash: u64) -> bool {
-        self.inner.contains(&hash)
-    }
-
-    /// Get the number of items in the cache
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// True if the cache is empty false otherwise
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-}
+use std::time::Duration;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 /// Helper function to calculate a hash of a type that implements Hash
 pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
@@ -102,6 +57,9 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
     t.hash(&mut s);
     s.finish()
 }
+
+/// thread-safe ref counted lock to a map of delayed tasks
+type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, Vec<JoinHandle<Result<(), NetworkError>>>>>>;
 
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
@@ -111,20 +69,34 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     networks: Arc<UnderlyingCombinedNetworks<TYPES>>,
 
     /// Last n seen messages to prevent processing duplicates
-    message_cache: Arc<RwLock<Cache>>,
+    message_cache: Arc<RwLock<LruCache<u64, ()>>>,
 
     /// If the primary network is down (0) or not, and for how many messages
     primary_down: Arc<AtomicU64>,
+
+    /// delayed, cancelable tasks for secondary network
+    delayed_tasks: DelayedTasksLockedMap,
+
+    /// how long to delay
+    delay_duration: Arc<RwLock<Duration>>,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     /// Constructor
+    ///
+    /// # Panics
+    ///
+    /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>) -> Self {
+    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>, delay_duration: Duration) -> Self {
         Self {
             networks,
-            message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+            message_cache: Arc::new(RwLock::new(LruCache::new(
+                NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+            ))),
             primary_down: Arc::new(AtomicU64::new(0)),
+            delayed_tasks: Arc::default(),
+            delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
     }
 
@@ -138,6 +110,62 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     #[must_use]
     pub fn secondary(&self) -> &Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         &self.networks.1
+    }
+
+    /// a helper function returning a bool whether a given message is of delayable type
+    fn should_delay(message: &Message<TYPES>) -> bool {
+        match &message.kind {
+            MessageKind::Consensus(consensus_message) => match &consensus_message.0 {
+                Either::Left(general_consensus_message) => {
+                    matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
+                }
+                Either::Right(_) => true,
+            },
+            MessageKind::Data(_) => false,
+        }
+    }
+
+    /// a helper function to send messages through both networks (possibly delayed)
+    async fn send_both_networks(
+        &self,
+        message: Message<TYPES>,
+        primary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
+        secondary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
+    ) -> Result<(), NetworkError> {
+        // send optimistically on both networks, but if the primary network is down, skip it
+        let primary_down = self.primary_down.load(Ordering::Relaxed);
+        let mut primary_failed = false;
+        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
+        {
+            // send on the primary network as it is not down, or we are checking if it is back up
+            match primary_future.await {
+                Ok(()) => {
+                    self.primary_down.store(0, Ordering::Relaxed);
+                }
+                Err(e) => {
+                    warn!("Error on primary network: {}", e);
+                    self.primary_down.fetch_add(1, Ordering::Relaxed);
+                    primary_failed = true;
+                }
+            };
+        }
+
+        if !primary_failed && Self::should_delay(&message) {
+            let duration = *self.delay_duration.read().await;
+            self.delayed_tasks
+                .write()
+                .await
+                .entry(message.kind.get_view_number().get_u64())
+                .or_default()
+                .push(async_spawn(async move {
+                    async_sleep(duration).await;
+                    secondary_future.await
+                }));
+            Ok(())
+        } else {
+            secondary_future.await
+        }
     }
 }
 
@@ -159,6 +187,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         da_committee_size: usize,
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
             <WebServerNetwork<
@@ -170,6 +199,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 da_committee_size,
                 is_da,
                 None,
+                Duration::default(),
             ),
             <Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
@@ -178,6 +208,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 da_committee_size,
                 is_da,
                 reliability_config,
+                Duration::default(),
             )
         );
         Box::new(move |node_id| {
@@ -195,13 +226,21 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             );
             let quorum_net = Self {
                 networks: Arc::new(quorum_networks),
-                message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+                message_cache: Arc::new(RwLock::new(LruCache::new(
+                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
+                delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             let da_net = Self {
                 networks: Arc::new(da_networks),
-                message_cache: Arc::new(RwLock::new(Cache::new(COMBINED_NETWORK_CACHE_SIZE))),
+                message_cache: Arc::new(RwLock::new(LruCache::new(
+                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
+                delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             (quorum_net.into(), da_net.into())
         })
@@ -219,6 +258,20 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for CombinedNetworks<TYPES>
 {
+    async fn request_data<T: NodeType>(
+        &self,
+        request: Message<TYPES>,
+        recipient: TYPES::SignatureKey,
+    ) -> Result<ResponseMessage<T>, NetworkError> {
+        self.secondary().request_data(request, recipient).await
+    }
+
+    async fn spawn_request_receiver_task(
+        &self,
+    ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
+        self.secondary().spawn_request_receiver_task().await
+    }
+
     fn pause(&self) {
         self.networks.0.pause();
     }
@@ -254,30 +307,25 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        // broadcast optimistically on both networks, but if the primary network is down, skip it
-        let primary_down = self.primary_down.load(Ordering::Relaxed);
-        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
-        {
-            // broadcast on the primary network as it is not down, or we are checking if it is back up
-            match self
-                .primary()
-                .broadcast_message(message.clone(), recipients.clone())
-                .await
-            {
-                Ok(()) => {
-                    self.primary_down.store(0, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    warn!("Error on primary network: {}", e);
-                    self.primary_down.fetch_add(1, Ordering::Relaxed);
-                }
-            };
-        }
-
-        self.secondary()
-            .broadcast_message(message, recipients)
-            .await
+        let primary = self.primary().clone();
+        let secondary = self.secondary().clone();
+        let primary_message = message.clone();
+        let secondary_message = message.clone();
+        let primary_recipients = recipients.clone();
+        self.send_both_networks(
+            message,
+            async move {
+                primary
+                    .broadcast_message(primary_message, primary_recipients)
+                    .await
+            },
+            async move {
+                secondary
+                    .broadcast_message(secondary_message, recipients)
+                    .await
+            },
+        )
+        .await
     }
 
     async fn da_broadcast_message(
@@ -285,7 +333,25 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients).await
+        let primary = self.primary().clone();
+        let secondary = self.secondary().clone();
+        let primary_message = message.clone();
+        let secondary_message = message.clone();
+        let primary_recipients = recipients.clone();
+        self.send_both_networks(
+            message,
+            async move {
+                primary
+                    .da_broadcast_message(primary_message, primary_recipients)
+                    .await
+            },
+            async move {
+                secondary
+                    .da_broadcast_message(secondary_message, recipients)
+                    .await
+            },
+        )
+        .await
     }
 
     async fn direct_message(
@@ -293,64 +359,56 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        // DM optimistically on both networks, but if the primary network is down, skip it
-        let primary_down = self.primary_down.load(Ordering::Relaxed);
-        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
-        {
-            // message on the primary network as it is not down, or we are checking if it is back up
-            match self
-                .primary()
-                .direct_message(message.clone(), recipient.clone())
-                .await
-            {
-                Ok(()) => {
-                    self.primary_down.store(0, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    warn!("Error on primary network: {}", e);
-                    self.primary_down.fetch_add(1, Ordering::Relaxed);
-                }
-            };
-        }
-
-        self.secondary().direct_message(message, recipient).await
+        let primary = self.primary().clone();
+        let secondary = self.secondary().clone();
+        let primary_message = message.clone();
+        let secondary_message = message.clone();
+        let primary_recipient = recipient.clone();
+        self.send_both_networks(
+            message,
+            async move {
+                primary
+                    .direct_message(primary_message, primary_recipient)
+                    .await
+            },
+            async move { secondary.direct_message(secondary_message, recipient).await },
+        )
+        .await
     }
 
-    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
+    /// Receive one or many messages from the underlying network.
+    ///
+    /// # Errors
+    /// Does not error
+    async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        let closure = async move {
-            let mut primary_msgs = self.primary().recv_msgs().await?;
-            let mut secondary_msgs = self.secondary().recv_msgs().await?;
+        let mut primary_fut = self.primary().recv_msgs().fuse();
+        let mut secondary_fut = self.secondary().recv_msgs().fuse();
 
-            primary_msgs.append(secondary_msgs.as_mut());
-
-            let mut filtered_msgs = Vec::with_capacity(primary_msgs.len());
-            for msg in primary_msgs {
-                // see if we've already seen this message
-                if !self
-                    .message_cache
-                    .read()
-                    .await
-                    .contains(calculate_hash_of(&msg))
-                {
-                    filtered_msgs.push(msg.clone());
-                    self.message_cache
-                        .write()
-                        .await
-                        .insert(calculate_hash_of(&msg));
-                }
-            }
-
-            Ok(filtered_msgs)
+        let msgs = select! {
+            p = primary_fut => p?,
+            s = secondary_fut => s?,
         };
 
-        boxed_sync(closure)
+        let mut filtered_msgs = Vec::with_capacity(msgs.len());
+        for msg in msgs {
+            // see if we've already seen this message
+            if !self
+                .message_cache
+                .read()
+                .await
+                .contains(&calculate_hash_of(&msg))
+            {
+                filtered_msgs.push(msg.clone());
+                self.message_cache
+                    .write()
+                    .await
+                    .put(calculate_hash_of(&msg), ());
+            }
+        }
+
+        Ok(filtered_msgs)
     }
 
     async fn queue_node_lookup(
@@ -371,35 +429,27 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.secondary(), event).await;
     }
-}
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use tracing::instrument;
-
-    /// cache eviction test
-    #[cfg_attr(
-        async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-    #[instrument]
-    async fn test_cache_eviction() {
-        let mut cache = Cache::new(3);
-        cache.insert(1);
-        cache.insert(2);
-        cache.insert(3);
-        cache.insert(4);
-        assert_eq!(cache.inner.len(), 3);
-        assert_eq!(cache.hashes.len(), 3);
-        assert!(!cache.inner.contains(&1));
-        assert!(cache.inner.contains(&2));
-        assert!(cache.inner.contains(&3));
-        assert!(cache.inner.contains(&4));
-        assert!(!cache.hashes.contains(&1));
-        assert!(cache.hashes.contains(&2));
-        assert!(cache.hashes.contains(&3));
-        assert!(cache.hashes.contains(&4));
+    fn update_view(&self, view: u64) {
+        let delayed_map = self.delayed_tasks.clone();
+        async_spawn(async move {
+            let mut cancel_tasks = Vec::new();
+            {
+                let mut map_lock = delayed_map.write().await;
+                while let Some((first_view, _tasks)) = map_lock.first_key_value() {
+                    if *first_view < view {
+                        if let Some((_view, tasks)) = map_lock.pop_first() {
+                            let mut ctasks = tasks.into_iter().map(cancel_task).collect();
+                            cancel_tasks.append(&mut ctasks);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            join_all(cancel_tasks).await;
+        });
     }
 }

@@ -3,11 +3,13 @@ use std::{
     mem::size_of,
 };
 
+use crate::node_types::TestTypes;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::BlockError,
+    data::{BlockError, Leaf},
     traits::{
         block_contents::{BlockHeader, TestableBlock, Transaction},
+        node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -15,8 +17,7 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
-
-use crate::state_types::TestValidatedState;
+use time::OffsetDateTime;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -169,6 +170,10 @@ impl BlockPayload for TestBlockPayload {
         }
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
+
+    fn get_transactions(&self, _metadata: &Self::Metadata) -> &Vec<Self::Transaction> {
+        &self.transactions
+    }
 }
 
 /// A [`BlockHeader`] that commits to [`TestBlockPayload`].
@@ -178,33 +183,44 @@ pub struct TestBlockHeader {
     pub block_number: u64,
     /// VID commitment to the payload.
     pub payload_commitment: VidCommitment,
+    /// Timestamp when this header was created.
+    pub timestamp: u64,
 }
 
-impl BlockHeader for TestBlockHeader {
-    type Payload = TestBlockPayload;
-    type State = TestValidatedState;
-
+impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeader<TYPES>
+    for TestBlockHeader
+{
     async fn new(
-        _parent_state: &Self::State,
-        _instance_state: &<Self::State as ValidatedState>::Instance,
-        parent_header: &Self,
+        _parent_state: &TYPES::ValidatedState,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
+        let parent = &parent_leaf.block_header;
+
+        let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
+        if timestamp < parent.timestamp {
+            // Prevent decreasing timestamps.
+            timestamp = parent.timestamp;
+        }
+
         Self {
-            block_number: parent_header.block_number + 1,
+            block_number: parent.block_number + 1,
             payload_commitment,
+            timestamp,
         }
     }
 
     fn genesis(
-        _instance_state: &<Self::State as ValidatedState>::Instance,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
-        _metadata: <Self::Payload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
             payload_commitment,
+            timestamp: 0,
         }
     }
 
@@ -216,7 +232,7 @@ impl BlockHeader for TestBlockHeader {
         self.payload_commitment
     }
 
-    fn metadata(&self) -> &<Self::Payload as BlockPayload>::Metadata {
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
     }
 }
@@ -224,9 +240,16 @@ impl BlockHeader for TestBlockHeader {
 impl Committable for TestBlockHeader {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("Header Comm")
-            .u64_field("block number", self.block_number())
+            .u64_field(
+                "block number",
+                <TestBlockHeader as BlockHeader<TestTypes>>::block_number(self),
+            )
             .constant_str("payload commitment")
-            .fixed_size_bytes(self.payload_commitment().as_ref().as_ref())
+            .fixed_size_bytes(
+                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self)
+                    .as_ref()
+                    .as_ref(),
+            )
             .finalize()
     }
 

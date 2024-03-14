@@ -36,6 +36,18 @@ pub mod view_sync_task;
 /// Test implementation of block builder
 pub mod block_builder;
 
+/// predicates to use in tests
+pub mod predicates;
+
+/// scripting harness for tests
+pub mod script;
+
+/// view generator for tests
+pub mod view_generator;
+
+/// helper functions for test scripts
+pub mod test_helpers;
+
 /// global event at the test level
 #[derive(Clone, Debug)]
 pub enum GlobalTestEvent {

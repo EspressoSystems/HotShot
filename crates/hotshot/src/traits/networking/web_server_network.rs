@@ -12,7 +12,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
-use hotshot_constants::VERSION_0_1;
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     boxed_sync,
     message::{Message, MessagePurpose},
@@ -503,46 +503,37 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 }
             }
 
-            let maybe_event = receiver.try_recv();
-            match maybe_event {
-                Ok(event) => {
-                    match event {
-                        // TODO ED Should add extra error checking here to make sure we are intending to cancel a task
-                        ConsensusIntentEvent::CancelPollForVotes(event_view)
-                        | ConsensusIntentEvent::CancelPollForProposal(event_view)
-                        | ConsensusIntentEvent::CancelPollForDAC(event_view)
-                        | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
-                        | ConsensusIntentEvent::CancelPollForVIDDisperse(event_view)
-                        | ConsensusIntentEvent::CancelPollForLatestProposal(event_view)
-                        | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(
-                            event_view,
-                        )
-                        | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
-                            if view_number == event_view {
-                                debug!("Shutting down polling task for view {}", event_view);
-                                return Ok(());
-                            }
-                        }
-                        ConsensusIntentEvent::CancelPollForTransactions(event_view) => {
-                            // Write the most recent tx index so we can pick up where we left off later
-
-                            let mut lock = self.tx_index.write().await;
-                            *lock = tx_index;
-
-                            if view_number == event_view {
-                                debug!("Shutting down polling task for view {}", event_view);
-                                return Ok(());
-                            }
-                        }
-
-                        _ => {
-                            unimplemented!()
+            if let Ok(event) = receiver.try_recv() {
+                match event {
+                    // TODO ED Should add extra error checking here to make sure we are intending to cancel a task
+                    ConsensusIntentEvent::CancelPollForVotes(event_view)
+                    | ConsensusIntentEvent::CancelPollForProposal(event_view)
+                    | ConsensusIntentEvent::CancelPollForDAC(event_view)
+                    | ConsensusIntentEvent::CancelPollForViewSyncCertificate(event_view)
+                    | ConsensusIntentEvent::CancelPollForVIDDisperse(event_view)
+                    | ConsensusIntentEvent::CancelPollForLatestProposal(event_view)
+                    | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(event_view)
+                    | ConsensusIntentEvent::CancelPollForViewSyncVotes(event_view) => {
+                        if view_number == event_view {
+                            debug!("Shutting down polling task for view {}", event_view);
+                            return Ok(());
                         }
                     }
-                }
-                // Nothing on receiving channel
-                Err(_) => {
-                    debug!("Nothing on receiving channel");
+                    ConsensusIntentEvent::CancelPollForTransactions(event_view) => {
+                        // Write the most recent tx index so we can pick up where we left off later
+
+                        let mut lock = self.tx_index.write().await;
+                        *lock = tx_index;
+
+                        if view_number == event_view {
+                            debug!("Shutting down polling task for view {}", event_view);
+                            return Ok(());
+                        }
+                    }
+
+                    _ => {
+                        unimplemented!()
+                    }
                 }
             }
         }
@@ -840,25 +831,18 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
         }
     }
 
-    /// Moves out the entire queue of received messages
+    /// Receive one or many messages from the underlying network.
     ///
-    /// Will unwrap the underlying `NetworkMessage`
-    /// blocking
-    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<Message<TYPES>>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            let mut queue = self.inner.poll_queue_0_1.write().await;
-            Ok(queue
-                .drain(..)
-                .collect::<Vec<_>>()
-                .iter()
-                .map(|x| x.get_message().unwrap())
-                .collect())
-        };
-        boxed_sync(closure)
+    /// # Errors
+    /// Does not error
+    async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        let mut queue = self.inner.poll_queue_0_1.write().await;
+        Ok(queue
+            .drain(..)
+            .collect::<Vec<_>>()
+            .iter()
+            .map(|x| x.get_message().expect("failed to clone message"))
+            .collect())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1258,6 +1242,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwo
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let da_gen = Self::single_generator(
             expected_node_count,

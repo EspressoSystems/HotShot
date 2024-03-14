@@ -9,11 +9,13 @@ pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
     },
-    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
+    handle::{
+        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeReceiver,
+    },
 };
 
 use super::{
-    behaviours::gossip::GossipBehaviour,
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -23,18 +25,18 @@ use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMEvent},
     exponential_backoff::ExponentialBackoff,
-    gossip::GossipEvent,
+    request_response::{Request, RequestResponseState, Response},
 };
 use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use futures::{select, FutureExt, StreamExt};
-use hotshot_constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
+use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::{core::transport::ListenerId, StreamProtocol};
 use libp2p::{
     gossipsub::{
-        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder,
+        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
         Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
@@ -83,6 +85,8 @@ pub struct NetworkNode {
     config: NetworkNodeConfig,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
+    /// Handler for requests and response behavior events.
+    request_response_state: RequestResponseState,
 }
 
 impl NetworkNode {
@@ -268,18 +272,27 @@ impl NetworkNode {
 
             let rrconfig = RequestResponseConfig::default();
 
-            let request_response: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
+            let direct_message: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
+                RequestResponse::new(
+                    [(
+                        StreamProtocol::new("/HotShot/direct_message/1.0"),
+                        ProtocolSupport::Full,
+                    )]
+                    .into_iter(),
+                    rrconfig.clone(),
+                );
+            let request_response: libp2p::request_response::cbor::Behaviour<Request, Response> =
                 RequestResponse::new(
                     [(
                         StreamProtocol::new("/HotShot/request_response/1.0"),
                         ProtocolSupport::Full,
                     )]
                     .into_iter(),
-                    rrconfig,
+                    rrconfig.clone(),
                 );
 
             let network = NetworkDef::new(
-                GossipBehaviour::new(gossipsub),
+                gossipsub,
                 DHTBehaviour::new(
                     kadem,
                     peer_id,
@@ -288,7 +301,8 @@ impl NetworkNode {
                         .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
                 ),
                 identify,
-                DMBehaviour::new(request_response),
+                DMBehaviour::new(direct_message),
+                request_response,
             );
 
             // build swarm
@@ -319,6 +333,7 @@ impl NetworkNode {
             swarm,
             config,
             listener_id: None,
+            request_response_state: RequestResponseState::default(),
         })
     }
 
@@ -394,7 +409,7 @@ impl NetworkNode {
                         return Ok(true);
                     }
                     ClientRequest::GossipMsg(topic, contents) => {
-                        behaviour.publish_gossip(Topic::new(topic), contents);
+                        behaviour.publish_gossip(Topic::new(topic.clone()), contents.clone());
                     }
                     ClientRequest::Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
@@ -422,6 +437,23 @@ impl NetworkNode {
                     }
                     ClientRequest::DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
+                    }
+                    ClientRequest::DataRequest {
+                        request,
+                        peer,
+                        chan,
+                    } => {
+                        let id = behaviour.request_response.send_request(&peer, request);
+                        self.request_response_state.add_request(id, chan);
+                    }
+                    ClientRequest::DataResponse { response, chan } => {
+                        if behaviour
+                            .request_response
+                            .send_response(chan, response)
+                            .is_err()
+                        {
+                            info!("Data Response dropped because response peer disconnected");
+                        }
                     }
                     ClientRequest::AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
@@ -552,9 +584,23 @@ impl NetworkNode {
                         }
                         None
                     }
-                    NetworkEventInternal::GossipEvent(e) => match e {
-                        GossipEvent::GossipMsg(data, topic) => {
-                            Some(NetworkEvent::GossipMsg(data, topic))
+                    NetworkEventInternal::GossipEvent(e) => match *e {
+                        GossipEvent::Message {
+                            propagation_source: _peer_id,
+                            message_id: _id,
+                            message,
+                        } => Some(NetworkEvent::GossipMsg(message.data)),
+                        GossipEvent::Subscribed { peer_id, topic } => {
+                            info!("Peer: {:?}, Subscribed to topic: {:?}", peer_id, topic);
+                            None
+                        }
+                        GossipEvent::Unsubscribed { peer_id, topic } => {
+                            info!("Peer: {:?}, Unsubscribed from topic: {:?}", peer_id, topic);
+                            None
+                        }
+                        GossipEvent::GossipsubNotSupported { peer_id } => {
+                            info!("Peer: {:?}, Does not support Gossip", peer_id);
+                            None
                         }
                     },
                     NetworkEventInternal::DMEvent(e) => Some(match e {
@@ -565,6 +611,9 @@ impl NetworkNode {
                             NetworkEvent::DirectResponse(data, pid)
                         }
                     }),
+                    NetworkEventInternal::RequestResponseEvent(e) => {
+                        self.request_response_state.handle_request_response(e)
+                    }
                 };
 
                 if let Some(event) = maybe_event {

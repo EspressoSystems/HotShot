@@ -11,6 +11,7 @@ use async_compatibility_layer::{
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
+use core::time::Duration;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
@@ -187,6 +188,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         _da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let master: Arc<_> = MasterMap::new();
         // We assign known_nodes' public key and stake value rather than read from config file since it's a test
@@ -351,27 +353,24 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         }
     }
 
+    /// Receive one or many messages from the underlying network.
+    ///
+    /// # Errors
+    /// If the other side of the channel is closed
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
-    fn recv_msgs<'a, 'b>(&'a self) -> BoxSyncFuture<'b, Result<Vec<M>, NetworkError>>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        let closure = async move {
-            let ret = self
-                .inner
-                .output
-                .lock()
-                .await
-                .drain_at_least_one()
-                .await
-                .map_err(|_x| NetworkError::ShutDown)?;
-            self.inner
-                .in_flight_message_count
-                .fetch_sub(ret.len(), Ordering::Relaxed);
-            self.inner.metrics.incoming_message_count.add(ret.len());
-            Ok(ret)
-        };
-        boxed_sync(closure)
+    async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError> {
+        let ret = self
+            .inner
+            .output
+            .lock()
+            .await
+            .drain_at_least_one()
+            .await
+            .map_err(|_x| NetworkError::ShutDown)?;
+        self.inner
+            .in_flight_message_count
+            .fetch_sub(ret.len(), Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(ret.len());
+        Ok(ret)
     }
 }

@@ -6,22 +6,28 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' && github.run_number) || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     strategy:
       matrix:
         just_variants:
-          - async_std
+          - async-std
           #- tokio
     runs-on: [self-hosted]
+    container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: dtolnay/rust-toolchain@stable
         name: Install Current Rust
         with:
           components: "clippy, rustfmt"
+
+      - name: Install Cap'n'Proto
+        run: |
+          apt-get update
+          apt-get install -y capnproto
 
       - uses: actions/checkout@v4
         name: Checkout Repository

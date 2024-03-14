@@ -10,10 +10,7 @@ use hotshot_testing::{
 use tracing::instrument;
 
 /// libp2p network test
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
@@ -45,10 +42,7 @@ async fn libp2p_network() {
 }
 
 /// libp2p network test with failures
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
 async fn libp2p_network_failures_2() {
@@ -80,8 +74,8 @@ async fn libp2p_network_failures_2() {
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(3, dead_nodes)],
     };
-    metadata.total_nodes = 12;
-    metadata.da_committee_size = 12;
+    metadata.num_nodes_with_stake = 12;
+    metadata.da_staked_committee_size = 12;
     metadata.start_nodes = 12;
     // 2 nodes fail triggering view sync, expect no other timeouts
     metadata.overall_safety_properties.num_failed_views = 1;
@@ -96,10 +90,7 @@ async fn libp2p_network_failures_2() {
 }
 
 /// stress test for libp2p
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
 #[ignore]

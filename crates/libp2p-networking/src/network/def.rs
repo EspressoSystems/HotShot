@@ -1,20 +1,20 @@
 use futures::channel::oneshot::Sender;
 use libp2p::{
-    gossipsub::IdentTopic as Topic,
+    gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
-    request_response::ResponseChannel,
+    request_response::{cbor, ResponseChannel},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
 use std::num::NonZeroUsize;
-use tracing::debug;
+use tracing::{debug, error};
 
 use super::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
         direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
-        gossip::{GossipBehaviour, GossipEvent},
+        request_response::{Request, Response},
     },
     NetworkEventInternal,
 };
@@ -47,7 +47,11 @@ pub struct NetworkDef {
 
     /// purpose: directly messaging peer
     #[debug(skip)]
-    pub request_response: DMBehaviour,
+    pub direct_message: DMBehaviour,
+
+    /// Behaviour for requesting and receiving data
+    #[debug(skip)]
+    pub request_response: libp2p::request_response::cbor::Behaviour<Request, Response>,
 }
 
 impl NetworkDef {
@@ -57,12 +61,14 @@ impl NetworkDef {
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,
         identify: IdentifyBehaviour,
-        request_response: DMBehaviour,
+        direct_message: DMBehaviour,
+        request_response: cbor::Behaviour<Request, Response>,
     ) -> NetworkDef {
         Self {
             gossipsub,
             dht,
             identify,
+            direct_message,
             request_response,
         }
     }
@@ -85,18 +91,23 @@ impl NetworkDef {
 /// Gossip functions
 impl NetworkDef {
     /// Publish a given gossip
-    pub fn publish_gossip(&mut self, topic: Topic, contents: Vec<u8>) {
-        self.gossipsub.publish_gossip(topic, contents);
+    pub fn publish_gossip(&mut self, topic: IdentTopic, contents: Vec<u8>) {
+        if let Err(e) = self.gossipsub.publish(topic, contents) {
+            tracing::warn!("Failed to publish gossip message. Error: {:?}", e);
+        }
     }
-
     /// Subscribe to a given topic
     pub fn subscribe_gossip(&mut self, t: &str) {
-        self.gossipsub.subscribe_gossip(t);
+        if let Err(e) = self.gossipsub.subscribe(&IdentTopic::new(t)) {
+            error!("Failed to subsribe to topic {:?}. Error: {:?}", t, e);
+        }
     }
 
     /// Unsubscribe from a given topic
     pub fn unsubscribe_gossip(&mut self, t: &str) {
-        self.gossipsub.unsubscribe_gossip(t);
+        if let Err(e) = self.gossipsub.unsubscribe(&IdentTopic::new(t)) {
+            error!("Failed to unsubsribe from topic {:?}. Error: {:?}", t, e);
+        }
     }
 }
 
@@ -140,12 +151,12 @@ impl NetworkDef {
             backoff: ExponentialBackoff::default(),
             retry_count,
         };
-        self.request_response.add_direct_request(request);
+        self.direct_message.add_direct_request(request);
     }
 
     /// Add a direct response for a channel
     pub fn add_direct_response(&mut self, chan: ResponseChannel<Vec<u8>>, msg: Vec<u8>) {
-        self.request_response.add_direct_response(chan, msg);
+        self.direct_message.add_direct_response(chan, msg);
     }
 }
 
@@ -157,7 +168,7 @@ impl From<DMEvent> for NetworkEventInternal {
 
 impl From<GossipEvent> for NetworkEventInternal {
     fn from(event: GossipEvent) -> Self {
-        Self::GossipEvent(event)
+        Self::GossipEvent(Box::new(event))
     }
 }
 
@@ -170,5 +181,11 @@ impl From<DHTEvent> for NetworkEventInternal {
 impl From<IdentifyEvent> for NetworkEventInternal {
     fn from(event: IdentifyEvent) -> Self {
         Self::IdentifyEvent(Box::new(event))
+    }
+}
+
+impl From<libp2p::request_response::Event<Request, Response>> for NetworkEventInternal {
+    fn from(event: libp2p::request_response::Event<Request, Response>) -> Self {
+        Self::RequestResponseEvent(event)
     }
 }
