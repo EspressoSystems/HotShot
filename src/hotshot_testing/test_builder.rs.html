@@ -331,6 +331,7 @@
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -625,6 +626,7 @@
                 num_nodes_with_stake <span class="kw">as </span>u64,
                 <span class="number">0</span>,
             )),
+            data_request_delay: Duration::from_millis(<span class="number">200</span>),
         };
         <span class="kw">let </span>TimingData {
             next_view_timeout,

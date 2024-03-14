@@ -887,23 +887,6 @@
 <a href="#886" id="886">886</a>
 <a href="#887" id="887">887</a>
 <a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -917,7 +900,7 @@
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
-    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
+    simple_vote::ViewSyncFinalizeData,
     traits::signature_key::SignatureKey,
 };
 <span class="kw">use </span>hotshot_types::{
@@ -1619,23 +1602,6 @@
             }
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
-                <span class="comment">// HACK sending a timeout vote to the next leader so we they
-                // can actually propose.  We don't give the leader the actual view sync cert
-                // so they have nothing to propose from.  Proper fix is to handle the
-                // view sync cert in the consensus task as another cert to propose from
-                </span><span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = TimeoutVote::create_signed_vote(
-                    TimeoutData {
-                        view: <span class="self">self</span>.next_view - <span class="number">1</span>,
-                    },
-                    <span class="self">self</span>.next_view - <span class="number">1</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign TimeoutData!"</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
-
-                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate.get_view_number() &lt; <span class="self">self</span>.next_view {
                     <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
