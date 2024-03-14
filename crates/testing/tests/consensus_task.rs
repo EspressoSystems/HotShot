@@ -18,7 +18,6 @@ use hotshot_types::{
     data::ViewNumber, message::GeneralConsensusMessage, traits::node_implementation::ConsensusTime,
 };
 use jf_primitives::vid::VidScheme;
-use std::collections::HashMap;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -51,15 +50,23 @@ async fn test_consensus_task() {
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
+    let mut dacs = Vec::new();
+    let mut vids = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
     }
 
     // Run view 1 (the genesis stage).
     let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        inputs: vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+        ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             exact(QuorumProposalValidated(proposals[0].data.clone())),
@@ -122,16 +129,22 @@ async fn test_consensus_vote() {
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
+    let mut dacs = Vec::new();
+    let mut vids = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
     }
 
     // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
@@ -180,7 +193,11 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     // Get out of the genesis view first
     let view_1 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[0].clone(), leaders[0])],
+        inputs: vec![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+        ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             exact(QuorumProposalValidated(proposals[0].data.clone())),
@@ -277,26 +294,24 @@ async fn test_view_sync_finalize_propose() {
 
     generator.next();
     let view = generator.current_view.clone().unwrap();
-    // for view in (&mut generator).take(1) {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
     votes.push(view.create_quorum_vote(&handle));
     vids.push(view.vid_proposal.clone());
     dacs.push(view.da_certificate.clone());
-    // }
 
-    // Each call to `take` moves us to the next generated view. We advance to view
-    // 3 and then add the finalize cert for checking there.
     // Skip two views
     generator.advance_view_number_by(2);
+
+    // Initiate a view sync finalize
     generator.add_view_sync_finalize(view_sync_finalize_data);
+
+    // Build the next proposal from view 1
     generator.next_from_anscestor_view(view.clone());
     let view = generator.current_view.unwrap();
-    // for view in (&mut generator).take(1) {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
     votes.push(view.create_quorum_vote(&handle));
-    // }
 
     // This is a bog standard view and covers the situation where everything is going normally.
     let view_1 = TestScriptStage {
