@@ -3417,8 +3417,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.4"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.4#76a21095f7c39f0aaf5a08b2f8540448c97728c1"
+version = "0.1.5"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=bf/view-sync-timeout#b6bb67546a164b8979f586d348adca18c04c0186"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
