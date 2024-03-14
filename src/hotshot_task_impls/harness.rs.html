@@ -143,7 +143,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskState <span class="kw">for </span>TestHarnessState&lt;TYPES&gt; {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
     <span class="kw">async fn </span>handle_event(
@@ -155,7 +155,7 @@
     }
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 
@@ -171,7 +171,7 @@
 /// Panics if any state the test expects is not set. Panicing causes a test failure
 </span><span class="attr">#[allow(clippy::implicit_hasher)]
 #[allow(clippy::panic)]
-</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt;&gt;(
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;(
     input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
     state: S,
@@ -202,7 +202,7 @@
     tasks.push(task.run());
 
     <span class="kw">for </span>event <span class="kw">in </span>input {
-        to_task.broadcast_direct(event).<span class="kw">await</span>.unwrap();
+        to_task.broadcast_direct(Arc::new(event)).<span class="kw">await</span>.unwrap();
     }
 
     <span class="kw">if </span>async_timeout(Duration::from_secs(<span class="number">2</span>), futures::future::join_all(tasks))
@@ -224,7 +224,7 @@
 /// Will panic to fail the test when it receives and unexpected event
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
 </span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType&gt;(
-    event: HotShotEvent&lt;TYPES&gt;,
+    event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     task: <span class="kw-2">&amp;mut </span>Task&lt;TestHarnessState&lt;TYPES&gt;&gt;,
     allow_extra_output: bool,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {

@@ -237,6 +237,7 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -306,10 +307,10 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Upgrade Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        tx: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>should_vote = <span class="self">self</span>.should_vote;
                 <span class="comment">// If the proposal does not match our upgrade target, we immediately exit.
@@ -344,7 +345,7 @@
 
                 <span class="comment">// We then validate that the proposal was issued by the leader for the view.
                 </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.get_leader(view);
-                <span class="kw">if </span>view_leader_key != sender {
+                <span class="kw">if </span><span class="kw-2">&amp;</span>view_leader_key != sender {
                     <span class="macro">error!</span>(<span class="string">"Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}"</span>, <span class="kw-2">*</span>view, proposal.data.clone());
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -366,7 +367,7 @@
 
                 <span class="comment">// If everything is fine up to here, we generate and send a vote on the proposal.
                 </span><span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = UpgradeVote::create_signed_vote(
-                    proposal.data.upgrade_proposal,
+                    proposal.data.upgrade_proposal.clone(),
                     view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
@@ -375,7 +376,7 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="macro">debug!</span>(<span class="string">"Sending upgrade vote {:?}"</span>, vote.get_view_number());
-                broadcast_event(HotShotEvent::UpgradeVoteSend(vote), <span class="kw-2">&amp;</span>tx).<span class="kw">await</span>;
+                broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), <span class="kw-2">&amp;</span>tx).<span class="kw">await</span>;
             }
             HotShotEvent::UpgradeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Upgrade vote recv, Main Task {:?}"</span>, vote.get_view_number());
@@ -421,6 +422,7 @@
                 }
             }
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -448,7 +450,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, A&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
@@ -462,12 +464,12 @@
     </span>}
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::UpgradeProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::UpgradeVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown

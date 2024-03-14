@@ -192,6 +192,9 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
 <span class="kw">use </span><span class="kw">crate</span>::helpers::broadcast_event;
 <span class="kw">use </span>async_broadcast::Sender;
@@ -256,11 +259,12 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"VID Main Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) =&gt; {
+                <span class="kw">let </span>encoded_transactions = encoded_transactions.clone();
                 <span class="comment">// get the number of quorum committee members to be used for VID calculation
                 </span><span class="kw">let </span>num_storage_nodes = <span class="self">self</span>.membership.total_nodes();
 
@@ -276,27 +280,28 @@
                 </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(
-                    HotShotEvent::SendPayloadCommitmentAndMetadata(
+                    Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,
-                        metadata,
-                        view_number,
-                    ),
+                        metadata.clone(),
+                        <span class="kw-2">*</span>view_number,
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
 
                 <span class="comment">// send the block to the VID dispersal function
                 </span>broadcast_event(
-                    HotShotEvent::BlockReady(
-                        VidDisperse::from_membership(view_number, vid_disperse, <span class="kw-2">&amp;</span><span class="self">self</span>.membership),
-                        view_number,
-                    ),
+                    Arc::new(HotShotEvent::BlockReady(
+                        VidDisperse::from_membership(<span class="kw-2">*</span>view_number, vid_disperse, <span class="kw-2">&amp;</span><span class="self">self</span>.membership),
+                        <span class="kw-2">*</span>view_number,
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) =&gt; {
+                <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                     vid_disperse.payload_commitment.as_ref().as_ref(),
@@ -306,20 +311,21 @@
                 };
                 <span class="macro">debug!</span>(<span class="string">"publishing VID disperse for view {}"</span>, <span class="kw-2">*</span>view_number);
                 broadcast_event(
-                    HotShotEvent::VidDisperseSend(
+                    Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
                             signature,
-                            data: vid_disperse,
+                            data: vid_disperse.clone(),
                             _pd: PhantomData,
                         },
                         <span class="self">self</span>.public_key.clone(),
-                    ),
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
             }
 
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -360,7 +366,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>VIDTaskState&lt;TYPES, I, A&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
@@ -374,7 +380,7 @@
     </span>}
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::Shutdown
                 | HotShotEvent::TransactionsSequenced(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::BlockReady(<span class="kw">_</span>, <span class="kw">_</span>)
@@ -382,7 +388,7 @@
         )
     }
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 </code></pre></div></section></main></body></html>

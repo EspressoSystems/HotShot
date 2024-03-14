@@ -198,9 +198,9 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">pub struct </span>TestScriptStage&lt;TYPES: NodeType, S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+<span class="kw">pub struct </span>TestScriptStage&lt;TYPES: NodeType, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt; {
     <span class="kw">pub </span>inputs: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    <span class="kw">pub </span>outputs: Vec&lt;Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    <span class="kw">pub </span>outputs: Vec&lt;Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="kw">pub </span>asserts: Vec&lt;Predicate&lt;S&gt;&gt;,
 }
 
@@ -264,7 +264,7 @@
 /// Note: the task is not spawned with an async thread; instead, the harness just calls `handle_event`.
 /// This has a few implications, e.g. shutting down tasks doesn't really make sense,
 /// and event ordering is deterministic.
-</span><span class="kw">pub async fn </span>run_test_script&lt;TYPES, S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt;&gt;(
+</span><span class="kw">pub async fn </span>run_test_script&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;(
     <span class="kw-2">mut </span>script: TestScript&lt;TYPES, S&gt;,
     state: S,
 ) <span class="kw">where
@@ -288,11 +288,11 @@
 
     <span class="kw">for </span>(stage_number, stage) <span class="kw">in </span>script.iter_mut().enumerate() {
         <span class="macro">tracing::debug!</span>(<span class="string">"Beginning test stage {}"</span>, stage_number);
-        <span class="kw">for </span>input <span class="kw">in </span><span class="kw-2">&amp;mut *</span>stage.inputs {
-            <span class="kw">if </span>!task.state_mut().filter(input) {
-                <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input);
+        <span class="kw">for </span>input <span class="kw">in </span><span class="kw-2">&amp;</span>stage.inputs {
+            <span class="kw">if </span>!task.state_mut().filter(<span class="kw-2">&amp;</span>Arc::new(input.clone())) {
+                <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input.clone());
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = S::handle_event(input.clone(), <span class="kw-2">&amp;mut </span>task).<span class="kw">await </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = S::handle_event(input.clone().into(), <span class="kw-2">&amp;mut </span>task).<span class="kw">await </span>{
                     task.state_mut().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
                 }
             }
@@ -323,7 +323,7 @@
 }
 
 <span class="kw">pub struct </span>Expectations&lt;TYPES: NodeType, S&gt; {
-    <span class="kw">pub </span>output_asserts: Vec&lt;Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    <span class="kw">pub </span>output_asserts: Vec&lt;Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="kw">pub </span>task_state_asserts: Vec&lt;Predicate&lt;S&gt;&gt;,
 }
 

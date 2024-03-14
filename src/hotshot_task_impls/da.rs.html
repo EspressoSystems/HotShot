@@ -353,6 +353,12 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -435,11 +441,12 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"DA Main Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::DAProposalRecv(proposal, sender) =&gt; {
+                <span class="kw">let </span>sender = sender.clone();
                 <span class="macro">debug!</span>(
                     <span class="string">"DA proposal received for view: {:?}"</span>,
                     proposal.data.get_view_number()
@@ -520,7 +527,7 @@
 
                 </span><span class="macro">debug!</span>(<span class="string">"Sending vote to the DA leader {:?}"</span>, vote.get_view_number());
 
-                broadcast_event(HotShotEvent::DAVoteSend(vote), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                broadcast_event(Arc::new(HotShotEvent::DAVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
 
                 <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
@@ -533,7 +540,7 @@
                 <span class="comment">// Record the payload we have promised to make available.
                 </span>consensus
                     .saved_payloads
-                    .insert(view, proposal.data.encoded_transactions);
+                    .insert(view, proposal.data.encoded_transactions.clone());
             }
             HotShotEvent::DAVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DA vote recv, Main Task {:?}"</span>, vote.get_view_number());
@@ -575,6 +582,7 @@
                 }
             }
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -621,12 +629,13 @@
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="self">self</span>.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(<span class="kw-2">*</span>view))
                     .<span class="kw">await</span>;
 
                 <span class="comment">// quick hash the encoded txns with sha256
-                </span><span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
+                </span><span class="kw">let </span>encoded_transactions_hash = Sha256::digest(encoded_transactions);
 
                 <span class="comment">// sign the encoded transactions as opposed to the VID commitment
                 </span><span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
@@ -637,7 +646,7 @@
                 };
 
                 <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
-                    encoded_transactions,
+                    encoded_transactions: encoded_transactions.clone(),
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
                     </span>view_number: view,
@@ -651,7 +660,10 @@
                 };
 
                 broadcast_event(
-                    HotShotEvent::DAProposalSend(message.clone(), <span class="self">self</span>.public_key.clone()),
+                    Arc::new(HotShotEvent::DAProposalSend(
+                        message.clone(),
+                        <span class="self">self</span>.public_key.clone(),
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -659,7 +671,7 @@
 
             HotShotEvent::Timeout(view) =&gt; {
                 <span class="self">self</span>.da_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">*</span>view))
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(<span class="kw-2">**</span>view))
                     .<span class="kw">await</span>;
             }
 
@@ -679,13 +691,13 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>DATaskState&lt;TYPES, I, A&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::DAProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::DAVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
@@ -704,7 +716,7 @@
     </span>}
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 </code></pre></div></section></main></body></html>

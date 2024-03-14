@@ -1363,6 +1363,18 @@
 <a href="#1362" id="1362">1362</a>
 <a href="#1363" id="1363">1363</a>
 <a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1504,7 +1516,7 @@
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus vote if able"</span>, level = <span class="string">"error"</span>)]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) -&gt; bool {
         <span class="kw">if </span>!<span class="self">self</span>.quorum_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
             <span class="macro">debug!</span>(
                 <span class="string">"We were not chosen for consensus committee on {:?}"</span>,
@@ -1515,7 +1527,6 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_proposal {
             <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-
             <span class="comment">// Only vote if you has seen the VID share for this view
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = consensus.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
             } <span class="kw">else </span>{
@@ -1597,7 +1608,8 @@
                         <span class="string">"Sending vote to next quorum leader {:?}"</span>,
                         vote.get_view_number() + <span class="number">1
                     </span>);
-                    broadcast_event(HotShotEvent::QuorumVoteSend(vote), event_stream).<span class="kw">await</span>;
+                    broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
+                        .<span class="kw">await</span>;
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
             }
@@ -1620,7 +1632,7 @@
     </span><span class="kw">async fn </span>update_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         new_view: TYPES::Time,
-        event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &lt; <span class="kw-2">*</span>new_view {
             <span class="macro">debug!</span>(
@@ -1667,7 +1679,7 @@
                     .<span class="kw">await</span>;
             }
 
-            broadcast_event(HotShotEvent::ViewChange(new_view), event_stream).<span class="kw">await</span>;
+            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).<span class="kw">await</span>;
 
             <span class="comment">// Spawn a timeout task if we did actually update view
             </span><span class="kw">let </span>timeout = <span class="self">self</span>.timeout;
@@ -1679,7 +1691,7 @@
                 <span class="kw">async move </span>{
                     async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
                     broadcast_event(
-                        HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number)),
+                        Arc::new(HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number))),
                         <span class="kw-2">&amp;</span>stream,
                     )
                     .<span class="kw">await</span>;
@@ -1713,11 +1725,12 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
+                <span class="kw">let </span>sender = sender.clone();
                 <span class="macro">debug!</span>(
                     <span class="string">"Received Quorum Proposal for view {}"</span>,
                     <span class="kw-2">*</span>proposal.data.view_number
@@ -2000,7 +2013,7 @@
                     .<span class="kw">await</span>;
                 <span class="comment">// Notify other tasks
                 </span>broadcast_event(
-                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -2121,7 +2134,11 @@
                 }
                 <span class="attr">#[allow(clippy::cast_precision_loss)]
                 </span><span class="kw">if </span>new_decide_reached {
-                    broadcast_event(HotShotEvent::LeafDecided(leafs_decided), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
+                        <span class="kw-2">&amp;</span>event_stream,
+                    )
+                    .<span class="kw">await</span>;
                     <span class="kw">let </span>decide_sent = broadcast_event(
                         Event {
                             view_number: consensus.last_decided_view,
@@ -2342,7 +2359,7 @@
 
                 <span class="comment">// Update our current upgrade_cert as long as it's still relevant.
                 </span><span class="kw">if </span>cert.view_number &gt;= <span class="self">self</span>.cur_view {
-                    <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert);
+                    <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
             HotShotEvent::DACRecv(cert) =&gt; {
@@ -2368,6 +2385,7 @@
                 }
             }
             HotShotEvent::VidDisperseRecv(disperse, sender) =&gt; {
+                <span class="kw">let </span>sender = sender.clone();
                 <span class="kw">let </span>view = disperse.data.get_view_number();
 
                 <span class="macro">debug!</span>(
@@ -2414,12 +2432,13 @@
                     .write()
                     .<span class="kw">await
                     </span>.vid_shares
-                    .insert(view, disperse);
+                    .insert(view, disperse.clone());
                 <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }
             }
             HotShotEvent::ViewChange(new_view) =&gt; {
+                <span class="kw">let </span>new_view = <span class="kw-2">*</span>new_view;
                 <span class="macro">debug!</span>(<span class="string">"View Change event for view {} in consensus task"</span>, <span class="kw-2">*</span>new_view);
 
                 <span class="kw">let </span>old_view_number = <span class="self">self</span>.cur_view;
@@ -2460,6 +2479,7 @@
                 .<span class="kw">await</span>;
             }
             HotShotEvent::Timeout(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="comment">// NOTE: We may optionally have the timeout task listen for view change events
                 </span><span class="kw">if </span><span class="self">self</span>.cur_view &gt;= view {
                     <span class="kw">return</span>;
@@ -2492,7 +2512,7 @@
                     <span class="kw">return</span>;
                 };
 
-                broadcast_event(HotShotEvent::TimeoutVoteSend(vote), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 broadcast_event(
                     Event {
                         view_number: view,
@@ -2518,10 +2538,11 @@
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="macro">debug!</span>(<span class="string">"got commit and meta {:?}"</span>, payload_commitment);
                 <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
-                    commitment: payload_commitment,
-                    metadata,
+                    commitment: <span class="kw-2">*</span>payload_commitment,
+                    metadata: metadata.clone(),
                 });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
@@ -2552,7 +2573,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
         timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
-        event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
             <span class="comment">// This is expected for view 1, so skipping the logging.
@@ -2680,7 +2701,10 @@
             </span>);
 
             broadcast_event(
-                HotShotEvent::QuorumProposalSend(message.clone(), <span class="self">self</span>.public_key.clone()),
+                Arc::new(HotShotEvent::QuorumProposalSend(
+                    message.clone(),
+                    <span class="self">self</span>.public_key.clone(),
+                )),
                 event_stream,
             )
             .<span class="kw">await</span>;
@@ -2696,11 +2720,11 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, A&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
     <span class="kw">type </span>Output = ();
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
@@ -2724,7 +2748,7 @@
         <span class="prelude-val">None
     </span>}
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 </code></pre></div></section></main></body></html>

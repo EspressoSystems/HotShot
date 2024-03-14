@@ -168,6 +168,7 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Macros for use in testing.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
@@ -190,7 +191,8 @@
 ///
 /// The macro panics if the input stream cannot be parsed.
 /// The test will panic if the any of the scripts has a different number of stages from the input.
-</span><span class="attr">#[proc_macro]
+</span><span class="attr">#[allow(clippy::too_many_lines)]
+#[proc_macro]
 </span><span class="kw">pub fn </span>test_scripts(input: proc_macro::TokenStream) -&gt; TokenStream {
     <span class="comment">// Parse the input as an iter of Expr
     </span><span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = syn::parse::Parser::parse2(
@@ -264,10 +266,10 @@
 
         <span class="kw">for </span>input <span class="kw">in </span><span class="kw-2">&amp;</span>input_group {
             #(
-                <span class="kw">if </span>!#task_names.state().filter(input) {
+                <span class="kw">if </span>!#task_names.state().filter(<span class="kw-2">&amp;</span>input.clone().into()) {
                     <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input);
 
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = #task_names.handle_event(input.clone()).<span class="kw">await </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = #task_names.handle_event(input.clone().into()).<span class="kw">await </span>{
                         #task_names.state().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
                     }
 

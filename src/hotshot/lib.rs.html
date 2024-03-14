@@ -676,6 +676,7 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -824,9 +825,10 @@
     </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
+    </span><span class="attr">#[allow(clippy::type_complexity)]
     </span>internal_event_stream: (
-        Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-        InactiveReceiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ),
 
     <span class="doccomment">/// uid for instrumentation
@@ -952,14 +954,14 @@
         <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
-            </span>.broadcast_direct(HotShotEvent::ViewChange(TYPES::Time::new(<span class="number">0</span>)))
+            </span>.broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(<span class="number">0</span>))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
-            </span>.broadcast_direct(HotShotEvent::QCFormed(either::Left(
+            </span>.broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
-            )))
+            ))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
     }
@@ -1092,8 +1094,8 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             SystemContextHandle&lt;TYPES, I&gt;,
-            Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-            Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+            Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+            Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         ),
         HotShotError&lt;TYPES&gt;,
     &gt; {

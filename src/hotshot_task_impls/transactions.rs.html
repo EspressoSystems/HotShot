@@ -326,6 +326,11 @@
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -406,10 +411,10 @@
 
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        event_stream: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) =&gt; {
                 <span class="macro">futures::join! </span>{
                     <span class="self">self</span>.api
@@ -429,7 +434,7 @@
 
                                     <span class="comment">// If we didn't already know about this transaction, update our mempool metrics.
                                     </span><span class="kw">if </span>!<span class="self">self</span>.seen_transactions.remove(<span class="kw-2">&amp;</span>transaction.commit())
-                                        &amp;&amp; txns.insert(transaction.commit(), transaction).is_none()
+                                        &amp;&amp; txns.insert(transaction.commit(), transaction.clone()).is_none()
                                     {
                                         consensus.metrics.outstanding_transactions.update(<span class="number">1</span>);
                                         consensus
@@ -501,6 +506,7 @@
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="macro">debug!</span>(<span class="string">"view change in transactions to view {:?}"</span>, view);
                 <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -542,7 +548,11 @@
                 <span class="comment">// send the sequenced transactions to VID and DA tasks
                 </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
                 broadcast_event(
-                    HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, block_view),
+                    Arc::new(HotShotEvent::TransactionsSequenced(
+                        encoded_transactions,
+                        metadata,
+                        block_view,
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -627,13 +637,13 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, A&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::TransactionsRecv(<span class="kw">_</span>)
                 | HotShotEvent::LeafDecided(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
@@ -650,7 +660,7 @@
     </span>}
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 </code></pre></div></section></main></body></html>

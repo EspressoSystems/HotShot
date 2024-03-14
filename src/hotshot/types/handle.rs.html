@@ -174,6 +174,7 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -204,9 +205,10 @@
     /// clone of the `Receiver` when they get output stream.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
+    </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: (
-        Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-        InactiveReceiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ),
     <span class="doccomment">/// registry for controlling tasks
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: Arc&lt;TaskRegistry&gt;,
@@ -237,7 +239,7 @@
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
-    </span><span class="kw">pub fn </span>get_internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned()
     }
 

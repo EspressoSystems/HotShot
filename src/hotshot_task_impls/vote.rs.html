@@ -487,6 +487,10 @@
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -559,7 +563,7 @@
     </span><span class="kw">pub async fn </span>accumulate_vote(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
-        event_stream: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">if </span>vote.get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership) != <span class="self">self</span>.public_key {
             <span class="macro">error!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>);
@@ -582,7 +586,11 @@
             Either::Right(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Certificate Formed! {:?}"</span>, cert);
 
-                broadcast_event(VOTE::make_cert_event(cert, <span class="kw-2">&amp;</span><span class="self">self</span>.public_key), event_stream).<span class="kw">await</span>;
+                broadcast_event(
+                    Arc::new(VOTE::make_cert_event(cert, <span class="kw-2">&amp;</span><span class="self">self</span>.public_key)),
+                    event_stream,
+                )
+                .<span class="kw">await</span>;
                 <span class="self">self</span>.accumulator = <span class="prelude-val">None</span>;
                 <span class="prelude-val">Some</span>(HotShotTaskCompleted)
             }
@@ -606,7 +614,7 @@
 <span class="kw">where
     </span>VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;: HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;,
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
@@ -616,7 +624,7 @@
     </span>}
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
 
@@ -631,12 +639,12 @@
     <span class="doccomment">/// Handle a vote event
     </span><span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;;
 
     <span class="doccomment">/// Event filter to use for this event
-    </span><span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool;
+    </span><span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool;
 }
 
 <span class="doccomment">/// Info needed to create a vote accumulator task
@@ -657,8 +665,8 @@
 </span><span class="kw">pub async fn </span>create_vote_accumulator&lt;TYPES, VOTE, CERT&gt;(
     info: <span class="kw-2">&amp;</span>AccumulatorInfo&lt;TYPES&gt;,
     vote: VOTE,
-    event: HotShotEvent&lt;TYPES&gt;,
-    sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
@@ -841,16 +849,16 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
-            HotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await</span>,
+        <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -861,16 +869,16 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
-            HotShotEvent::UpgradeVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await</span>,
+        <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::UpgradeVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::UpgradeVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::UpgradeVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -880,16 +888,16 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
-            HotShotEvent::DAVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await</span>,
+        <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::DAVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::DAVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::DAVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -899,16 +907,16 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
-            HotShotEvent::TimeoutVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await</span>,
+        <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::TimeoutVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -919,18 +927,18 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) =&gt; {
-                <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await
+                <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await
             </span>}
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -941,16 +949,16 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
-            HotShotEvent::ViewSyncCommitVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await</span>,
+        <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::ViewSyncCommitVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw">_</span>))
     }
 }
 
@@ -961,18 +969,18 @@
 {
     <span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event: HotShotEvent&lt;TYPES&gt;,
-        sender: <span class="kw-2">&amp;</span>Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) =&gt; {
-                <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote, sender).<span class="kw">await
+                <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await
             </span>}
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">fn </span>filter(event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::ViewSyncFinalizeVoteRecv(<span class="kw">_</span>))
+    <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::ViewSyncFinalizeVoteRecv(<span class="kw">_</span>))
     }
 }
 </code></pre></div></section></main></body></html>

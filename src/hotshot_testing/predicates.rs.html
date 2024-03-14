@@ -158,7 +158,12 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task_impls::{
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::<span class="kw-2">*</span>,
 };
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
@@ -178,11 +183,12 @@
     }
 }
 
-<span class="kw">pub fn </span>exact&lt;TYPES&gt;(event: HotShotEvent&lt;TYPES&gt;) -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>exact&lt;TYPES&gt;(event: HotShotEvent&lt;TYPES&gt;) -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, event);
+    <span class="kw">let </span>event = Arc::new(event);
 
     Predicate {
         function: Box::new(<span class="kw">move </span>|e| e == <span class="kw-2">&amp;</span>event),
@@ -190,12 +196,12 @@
     }
 }
 
-<span class="kw">pub fn </span>leaf_decided&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>leaf_decided&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"LeafDecided"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, LeafDecided(<span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), LeafDecided(<span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),
@@ -203,12 +209,12 @@
     }
 }
 
-<span class="kw">pub fn </span>quorum_vote_send&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>quorum_vote_send&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"QuorumVoteSend"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, QuorumVoteSend(<span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), QuorumVoteSend(<span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),
@@ -216,12 +222,12 @@
     }
 }
 
-<span class="kw">pub fn </span>view_change&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>view_change&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"ViewChange"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, ViewChange(<span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), ViewChange(<span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),
@@ -229,12 +235,12 @@
     }
 }
 
-<span class="kw">pub fn </span>upgrade_certificate_formed&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>upgrade_certificate_formed&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"UpgradeCertificateFormed"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, UpgradeCertificateFormed(<span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), UpgradeCertificateFormed(<span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),
@@ -242,12 +248,12 @@
     }
 }
 
-<span class="kw">pub fn </span>quorum_proposal_send_with_upgrade_certificate&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>quorum_proposal_send_with_upgrade_certificate&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"QuorumProposalSend with UpgradeCertificate attached"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="kw">match </span>e {
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="kw">match </span>e.as_ref() {
         QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; proposal.data.upgrade_certificate.is_some(),
         <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
     };
@@ -258,12 +264,12 @@
     }
 }
 
-<span class="kw">pub fn </span>quorum_proposal_validated&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>quorum_proposal_validated&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"QuorumProposalValidated"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, QuorumProposalValidated(<span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), QuorumProposalValidated(<span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),
@@ -271,12 +277,12 @@
     }
 }
 
-<span class="kw">pub fn </span>quorum_proposal_send&lt;TYPES&gt;() -&gt; Predicate&lt;HotShotEvent&lt;TYPES&gt;&gt;
+<span class="kw">pub fn </span>quorum_proposal_send&lt;TYPES&gt;() -&gt; Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
 {
     <span class="kw">let </span>info = <span class="string">"QuorumProposalSend"</span>.to_string();
-    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span><span class="kw">_</span>| <span class="macro">matches!</span>(e, QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>));
+    <span class="kw">let </span>function = |e: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>));
 
     Predicate {
         function: Box::new(function),

@@ -556,8 +556,8 @@
     node_id: u64,
 ) -&gt; (
     SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
-    Sender&lt;HotShotEvent&lt;TestTypes&gt;&gt;,
-    Receiver&lt;HotShotEvent&lt;TestTypes&gt;&gt;,
+    Sender&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
+    Receiver&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
 ) {
     <span class="kw">let </span>builder = TestMetadata::default_multiple_rounds();
 
