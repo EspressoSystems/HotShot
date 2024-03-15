@@ -217,7 +217,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         self.vote_dependencies.insert(
             view_number,
             async_spawn(async move {
-                let () = dependency_task.run().await;
+                #[cfg(async_executor_impl = "async-std")]
+                dependency_task.run().await;
+                // Allos `unwrap()` for tokio.
+                #[cfg(async_executor_impl = "tokio")]
+                dependency_task.run().await.unwrap();
             }),
         );
     }
