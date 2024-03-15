@@ -4,7 +4,6 @@ use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use bincode::Options;
-use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::constants::VERSION_0_1;
@@ -134,7 +133,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
             return self.make_msg(ResponseMessage::NotFound);
         };
         vid.data.shares = BTreeMap::from([(key, share.clone())]);
-        let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(vid)));
+        let seq_msg = SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(vid));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
 

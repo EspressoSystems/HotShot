@@ -26,7 +26,7 @@ use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImple
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
-    message::Message,
+    message::{Message, SequencingMessage},
     traits::{
         network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
@@ -40,7 +40,6 @@ use std::{collections::hash_map::DefaultHasher, sync::Arc};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use either::Either;
 use futures::future::join_all;
 use hotshot_task_impls::helpers::cancel_task;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
@@ -115,11 +114,11 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     /// a helper function returning a bool whether a given message is of delayable type
     fn should_delay(message: &Message<TYPES>) -> bool {
         match &message.kind {
-            MessageKind::Consensus(consensus_message) => match &consensus_message.0 {
-                Either::Left(general_consensus_message) => {
+            MessageKind::Consensus(consensus_message) => match &consensus_message {
+                SequencingMessage::General(general_consensus_message) => {
                     matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
-                Either::Right(_) => true,
+                SequencingMessage::Committee(_) => true,
             },
             MessageKind::Data(_) => false,
         }

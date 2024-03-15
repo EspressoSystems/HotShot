@@ -61,7 +61,7 @@ futures = "0.3.30"
 generic-array = { version = "0.14.7", features = ["serde"] }
 hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", tag = "0.1.6" }
 
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
@@ -77,7 +77,7 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0.114" }
 sha2 = "0.10"
-snafu = "0.7.5"
+snafu = "0.8.2"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }
@@ -187,3 +187,6 @@ rust_2018_idioms = "warn"
 # TODO cahnge to deny
 missing_docs = "warn"
 warnings = "warn"
+
+[patch."https://github.com/EspressoSystems/hotshot-types"]
+hotshot-types = { git = "https://github.com/EspressoSystems//hotshot-types", branch = "ss/arbitrary-messages" }

@@ -4,7 +4,6 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
-use either::Either::{self, Left, Right};
 use hotshot_types::constants::VERSION_0_1;
 use std::sync::Arc;
 
@@ -108,8 +107,8 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
             let sender = message.sender;
             match message.kind {
                 MessageKind::Consensus(consensus_message) => {
-                    let event = match consensus_message.0 {
-                        Either::Left(general_message) => match general_message {
+                    let event = match consensus_message {
+                        SequencingMessage::General(general_message) => match general_message {
                             GeneralConsensusMessage::Proposal(proposal) => {
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
@@ -147,20 +146,22 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::UpgradeVoteRecv(message)
                             }
                         },
-                        Either::Right(committee_message) => match committee_message {
-                            CommitteeConsensusMessage::DAProposal(proposal) => {
-                                HotShotEvent::DAProposalRecv(proposal, sender)
+                        SequencingMessage::Committee(committee_message) => {
+                            match committee_message {
+                                CommitteeConsensusMessage::DAProposal(proposal) => {
+                                    HotShotEvent::DAProposalRecv(proposal, sender)
+                                }
+                                CommitteeConsensusMessage::DAVote(vote) => {
+                                    HotShotEvent::DAVoteRecv(vote.clone())
+                                }
+                                CommitteeConsensusMessage::DACertificate(cert) => {
+                                    HotShotEvent::DACRecv(cert)
+                                }
+                                CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
+                                    HotShotEvent::VidDisperseRecv(proposal)
+                                }
                             }
-                            CommitteeConsensusMessage::DAVote(vote) => {
-                                HotShotEvent::DAVoteRecv(vote.clone())
-                            }
-                            CommitteeConsensusMessage::DACertificate(cert) => {
-                                HotShotEvent::DACRecv(cert)
-                            }
-                            CommitteeConsensusMessage::VidDisperseMsg(proposal) => {
-                                HotShotEvent::VidDisperseRecv(proposal)
-                            }
-                        },
+                        }
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
@@ -250,9 +251,9 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
         let (sender, message_kind, transmit_type, recipient) = match event.as_ref().clone() {
             HotShotEvent::QuorumProposalSend(proposal, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::Proposal(proposal),
-                ))),
+                )),
                 TransmitType::Broadcast,
                 None,
             ),
@@ -260,99 +261,99 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             HotShotEvent::QuorumVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::Vote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
             HotShotEvent::VidDisperseSend(proposal, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Committee(
                     CommitteeConsensusMessage::VidDisperseMsg(proposal),
-                ))), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                )), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
                 TransmitType::Broadcast, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
                 None,
             ),
             HotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Committee(
                     CommitteeConsensusMessage::DAProposal(proposal),
-                ))),
+                )),
                 TransmitType::DACommitteeBroadcast,
                 None,
             ),
             HotShotEvent::DAVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Committee(
                     CommitteeConsensusMessage::DAVote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number())),
             ),
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
             HotShotEvent::DACSend(certificate, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Committee(
                     CommitteeConsensusMessage::DACertificate(certificate),
-                ))),
+                )),
                 TransmitType::Broadcast,
                 None,
             ),
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
             ),
             HotShotEvent::ViewSyncCommitVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
             ),
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
             ),
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
-                ))),
+                )),
                 TransmitType::Broadcast,
                 None,
             ),
             HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
-                ))),
+                )),
                 TransmitType::Broadcast,
                 None,
             ),
 
             HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) => (
                 sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),
-                ))),
+                )),
                 TransmitType::Broadcast,
                 None,
             ),
             HotShotEvent::TimeoutVoteSend(vote) => (
                 vote.get_signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Left(
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::TimeoutVote(vote.clone()),
-                ))),
+                )),
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
