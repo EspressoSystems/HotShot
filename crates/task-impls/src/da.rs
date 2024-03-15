@@ -16,6 +16,7 @@ use hotshot_types::{
     simple_vote::{DAData, DAVote},
     traits::{
         block_contents::vid_commitment,
+        block_storage::{BlockStorage, ProposalType},
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -149,6 +150,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "We were not chosen for consensus committee on {:?}",
                         self.cur_view
                     );
+                    return None;
+                }
+
+                // If the block storage layer fails for any reason, don't let the da task vote.
+                if let Err(e) = self
+                    .block_storage
+                    .write()
+                    .await
+                    .append(&ProposalType::DAProposal(proposal.clone()))
+                    .await
+                {
+                    error!("Failed to store DA Proposal with error {:?}", e);
                     return None;
                 }
 
