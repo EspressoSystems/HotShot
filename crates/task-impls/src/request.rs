@@ -33,7 +33,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// Long running task which will request information after a proposal is received.
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
-/// shares
+/// shares.
 pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     pub network: Arc<I::QuorumNetwork>,
@@ -91,6 +91,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
+
     fn filter(&self, event: &Self::Event) -> bool {
         !matches!(
             event.as_ref(),
@@ -124,7 +125,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     }
 
     /// run a delayed request task for a request.  The first response
-    /// recieved will be send over `sender`
+    /// recieved will be sent over `sender`
     fn run_delay(
         &self,
         request: RequestKind<TYPES>,
@@ -136,6 +137,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             .get_whole_committee(view)
             .into_iter()
             .collect();
+        // Randomize the recipients so all replicas don't overload the same 1 recipients
+        // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: self.network.clone(),
