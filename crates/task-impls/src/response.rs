@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use bincode::Options;
+use bincode::config::Options;
 use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};

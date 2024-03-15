@@ -3335,9 +3335,13 @@ dependencies = [
  "futures",
  "hotshot-task",
  "hotshot-types",
+ "hs-builder-api",
  "jf-primitives",
+ "serde",
  "sha2 0.10.8",
  "snafu",
+ "surf-disco",
+ "tagged-base64",
  "time 0.3.34",
  "tokio",
  "tracing",
@@ -3352,6 +3356,7 @@ dependencies = [
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
+ "async-trait",
  "bitvec",
  "commit",
  "either",
@@ -3364,12 +3369,15 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
+ "hs-builder-api",
  "jf-primitives",
+ "portpicker",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "sha3",
  "snafu",
+ "tide-disco",
  "tokio",
  "tracing",
  "versioned-binary-serialization",
@@ -3406,8 +3414,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.6"
-source = "git+https://github.com/EspressoSystems/hotshot-types?branch=adding_vbs_support#07e64de08cf21792b4b0380b536b0d09eea764e6"
+version = "0.1.7"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=adding_vbs_support#6053bbf454b55daf7f2dcadfcc946350317ac72d"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -3467,6 +3475,24 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+ "versioned-binary-serialization",
+]
+
+[[package]]
+name = "hs-builder-api"
+version = "0.1.1"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?branch=adding_vbs_support#5adb048889c181a13b02642891c44c5ff11c9d55"
+dependencies = [
+ "async-trait",
+ "clap",
+ "derive_more",
+ "futures",
+ "hotshot-types",
+ "serde",
+ "snafu",
+ "tagged-base64",
+ "tide-disco",
+ "toml 0.8.11",
  "versioned-binary-serialization",
 ]
 
