@@ -20,6 +20,7 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::storage_types::TestBlockStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -31,7 +32,7 @@ use hotshot_orchestrator::{
     config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::block_storage;
+use hotshot_types::traits::block_storage::BlockStorage;
 use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::PeerConfig;
 use hotshot_types::ValidatorConfig;
@@ -258,7 +259,11 @@ pub async fn run_orchestrator<
     TYPES: NodeType,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
+    NODE: NodeImplementation<
+        TYPES,
+        Storage = MemoryStorage<TYPES>,
+        BlockStorage = TestBlockStorage<TYPES>,
+    >,
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
@@ -435,6 +440,7 @@ pub trait RunDA<
         QuorumNetwork = QUORUMNET,
         CommitteeNetwork = DANET,
         Storage = MemoryStorage<TYPES>,
+        BlockStorage = TestBlockStorage<TYPES>,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -452,10 +458,7 @@ pub trait RunDA<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(
-        &self,
-        block_storage: NODE::BlockStorage,
-    ) -> SystemContextHandle<TYPES, NODE> {
+    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
@@ -516,7 +519,7 @@ pub trait RunDA<
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
-            block_storage,
+            TestBlockStorage::empty(),
         )
         .await
         .expect("Could not init hotshot")
@@ -717,6 +720,7 @@ impl<
             QuorumNetwork = WebServerNetwork<TYPES>,
             CommitteeNetwork = WebServerNetwork<TYPES>,
             Storage = MemoryStorage<TYPES>,
+            BlockStorage = TestBlockStorage<TYPES>,
         >,
     > RunDA<TYPES, WebServerNetwork<TYPES>, WebServerNetwork<TYPES>, NODE> for WebServerDARun<TYPES>
 where
@@ -791,6 +795,7 @@ impl<
             QuorumNetwork = PushCdnNetwork<TYPES>,
             CommitteeNetwork = PushCdnNetwork<TYPES>,
             Storage = MemoryStorage<TYPES>,
+            BlockStorage = TestBlockStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -874,6 +879,7 @@ impl<
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             Storage = MemoryStorage<TYPES>,
+            BlockStorage = TestBlockStorage<TYPES>,
         >,
     >
     RunDA<
@@ -944,6 +950,7 @@ impl<
             Storage = MemoryStorage<TYPES>,
             QuorumNetwork = CombinedNetworks<TYPES>,
             CommitteeNetwork = CombinedNetworks<TYPES>,
+            BlockStorage = TestBlockStorage<TYPES>,
         >,
     > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
 where
@@ -1034,6 +1041,7 @@ pub async fn main_entry_point<
         QuorumNetwork = QUORUMCHANNEL,
         CommitteeNetwork = DACHANNEL,
         Storage = MemoryStorage<TYPES>,
+        BlockStorage = TestBlockStorage<TYPES>,
     >,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(

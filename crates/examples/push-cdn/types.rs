@@ -1,6 +1,6 @@
 use crate::infra::PushCdnDaRun;
 use hotshot::traits::implementations::{MemoryStorage, PushCdnNetwork};
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{state_types::TestTypes, storage_types::TestBlockStorage};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,7 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type Storage = MemoryStorage<TestTypes>;
     type CommitteeNetwork = DANetwork;
     type QuorumNetwork = QuorumNetwork;
+    type BlockStorage = TestBlockStorage<TestTypes>;
 }
 
 /// Convenience type alias

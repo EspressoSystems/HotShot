@@ -62,4 +62,8 @@ impl<TYPES: NodeType> BlockStorage<TYPES> for TestBlockStorage<TYPES> {
 
         Ok(())
     }
+
+    fn empty() -> Self {
+        Self::default()
+    }
 }

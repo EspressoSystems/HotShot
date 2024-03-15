@@ -412,6 +412,7 @@ where
     /// add a specific node with a config
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_node_with_config(
         node_id: u64,
         networks: Networks<TYPES, I>,

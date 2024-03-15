@@ -1,6 +1,6 @@
 use crate::infra::Libp2pDARun;
 use hotshot::traits::implementations::{Libp2pNetwork, MemoryStorage};
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{state_types::TestTypes, storage_types::TestBlockStorage};
 use hotshot_types::{
     message::Message,
     traits::node_implementation::{NodeImplementation, NodeType},
@@ -21,6 +21,7 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
+    type BlockStorage = TestBlockStorage<TestTypes>;
 }
 /// convenience type alias
 pub type ThisRun = Libp2pDARun<TestTypes>;
