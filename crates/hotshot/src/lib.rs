@@ -383,6 +383,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// the `HotShot` instance will log the error and shut down.
     ///
     /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
+    /// # Errors
+    ///
+    /// Can throw an error if `Self::new` fails.
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
         public_key: TYPES::SignatureKey,

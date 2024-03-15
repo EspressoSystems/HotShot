@@ -50,6 +50,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
+    #[must_use]
     pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
         self.output_event_stream.1.activate_cloned()
     }
@@ -59,6 +60,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
+    #[must_use]
     pub fn get_internal_event_stream_known_impl(&self) -> Receiver<Arc<HotShotEvent<TYPES>>> {
         self.internal_event_stream.1.activate_cloned()
     }
@@ -95,6 +97,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     ///
     /// # Panics
     /// Panics if internal consensus is in an inconsistent state.
+    #[must_use]
     pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
         self.hotshot.try_get_decided_leaf()
     }
@@ -115,6 +118,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Get the underlying consensus state for this [`SystemContext`]
+    #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
         self.hotshot.get_consensus()
     }
@@ -140,6 +144,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// return the timeout for a view of the underlying `SystemContext`
+    #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
         self.hotshot.get_next_view_timeout()
     }
@@ -156,6 +161,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     // Below is for testing only:
     /// Wrapper to get this node's public key
     #[cfg(feature = "hotshot-testing")]
+    #[must_use]
     pub fn get_public_key(&self) -> TYPES::SignatureKey {
         self.hotshot.public_key.clone()
     }
