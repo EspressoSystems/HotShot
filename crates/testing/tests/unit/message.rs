@@ -2,7 +2,6 @@
 use std::marker::PhantomData;
 
 use commit::Committable;
-use either::Left;
 
 use hotshot_types::constants::Version;
 
@@ -48,9 +47,9 @@ fn version_number_at_start_of_serialization() {
     let message = Message {
         version,
         sender,
-        kind: MessageKind::Consensus(SequencingMessage(Left(
+        kind: MessageKind::Consensus(SequencingMessage::General(
             GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
-        ))),
+        )),
     };
     let serialized_message: Vec<u8> = bincode_opts().serialize(&message).unwrap();
     // The versions we've read from the message
