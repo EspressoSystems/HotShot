@@ -304,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 broadcast_event(HotShotEvent::DACValidated(cert), &event_sender.clone()).await;
                 self.create_dependency_task_if_new(view, event_receiver, event_sender);
             }
-            HotShotEvent::VidDisperseRecv(disperse, _sender) => {
+            HotShotEvent::VidDisperseRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
                 // stop polling for the received disperse after verifying it's valid
