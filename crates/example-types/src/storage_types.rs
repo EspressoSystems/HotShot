@@ -9,6 +9,7 @@ use hotshot_types::{
         block_storage::{BlockStorage, BlockStorageError, ProposalType},
         node_implementation::NodeType,
     },
+    vote::HasViewNumber,
 };
 
 #[derive(Clone, Debug)]
@@ -41,7 +42,24 @@ impl<TYPES: NodeType> Default for TestBlockStorage<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> BlockStorage<TYPES> for TestBlockStorage<TYPES> {
-    async fn append(&self, _proposal: &ProposalType<TYPES>) -> Result<(), BlockStorageError> {
+    async fn append(&self, proposal: &ProposalType<TYPES>) -> Result<(), BlockStorageError> {
+        match proposal {
+            ProposalType::DAProposal(p) => {
+                self.inner
+                    .write()
+                    .await
+                    .da_storage
+                    .insert(p.data.get_view_number(), p.clone());
+            }
+            ProposalType::VidDisperse(p) => {
+                self.inner
+                    .write()
+                    .await
+                    .vid_storage
+                    .insert(p.data.get_view_number(), p.clone());
+            }
+        };
+
         Ok(())
     }
 }

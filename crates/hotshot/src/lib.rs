@@ -129,6 +129,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
 
+    /// This `HotShot` instance's block storage
+    pub block_storage: I::BlockStorage,
+
     /// Networks used by the instance of hotshot
     pub networks: Arc<Networks<TYPES, I>>,
 
@@ -162,7 +165,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, storage, memberships, networks, initializer, metrics))]
+    #[instrument(skip(
+        private_key,
+        storage,
+        memberships,
+        networks,
+        initializer,
+        metrics,
+        block_storage
+    ))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -173,6 +184,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        block_storage: I::BlockStorage,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
@@ -257,6 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             private_key,
             config,
             storage,
+            block_storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
@@ -432,6 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             networks,
             initializer,
             metrics,
+            block_storage,
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
@@ -479,6 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: self.storage.clone(),
+            block_storage: Arc::new(RwLock::new(self.block_storage.clone())),
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;

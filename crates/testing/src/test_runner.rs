@@ -61,6 +61,7 @@ pub type LateNodeContext<TYPES, I> = Either<
         <I as NodeImplementation<TYPES>>::Storage,
         Memberships<TYPES>,
         HotShotConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
+        <I as NodeImplementation<TYPES>>::BlockStorage,
     ),
 >;
 
@@ -328,6 +329,7 @@ where
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
             let storage = (self.launcher.resource_generator.storage)(node_id);
+            let block_storage = (self.launcher.resource_generator.block_storage)(node_id);
             let config = self.launcher.resource_generator.config.clone();
             let known_nodes_with_stake = config.known_nodes_with_stake.clone();
             let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
@@ -365,7 +367,7 @@ where
                     node_id,
                     LateStartNode {
                         networks,
-                        context: Right((storage, memberships, config)),
+                        context: Right((storage, memberships, config, block_storage)),
                     },
                 );
             } else {
@@ -382,6 +384,7 @@ where
                     initializer,
                     config,
                     validator_config,
+                    block_storage,
                 )
                 .await;
                 if late_start.contains(&node_id) {
@@ -417,6 +420,7 @@ where
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
+        block_storage: I::BlockStorage,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
@@ -438,6 +442,7 @@ where
             network_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            block_storage,
         )
         .await
         .expect("Could not init hotshot")

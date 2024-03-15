@@ -10,6 +10,7 @@ use hotshot::traits::implementations::{
 use hotshot::traits::NodeImplementation;
 use hotshot::types::SignatureKey;
 use hotshot_example_types::state_types::TestInstanceState;
+use hotshot_example_types::storage_types::TestBlockStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestValidatedState,
@@ -70,6 +71,7 @@ impl NodeImplementation<Test> for TestImpl {
     type Storage = MemoryStorage<Test>;
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
+    type BlockStorage = TestBlockStorage<Test>;
 }
 
 /// fake Eq

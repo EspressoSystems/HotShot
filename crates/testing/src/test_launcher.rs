@@ -26,6 +26,8 @@ pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYP
     pub storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
     pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    /// generate new block storage for each node
+    pub block_storage: Generator<<I as NodeImplementation<TYPES>>::BlockStorage>,
 }
 
 /// test launcher

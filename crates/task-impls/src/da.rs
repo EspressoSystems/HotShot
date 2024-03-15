@@ -71,6 +71,9 @@ pub struct DATaskState<
 
     /// This state's ID
     pub id: u64,
+
+    /// The block storage for the DA task
+    pub block_storage: Arc<RwLock<I::BlockStorage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -148,6 +151,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return None;
                 }
+
                 // Generate and send vote
                 let Ok(vote) = DAVote::create_signed_vote(
                     DAData {

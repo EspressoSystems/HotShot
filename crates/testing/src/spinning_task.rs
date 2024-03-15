@@ -99,7 +99,7 @@ where
                                     Left(context) => context,
                                     // Node not initialized. Initialize it
                                     // based on the received leaf.
-                                    Right((storage, memberships, config)) => {
+                                    Right((storage, memberships, config, block_storage)) => {
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
                                             state.last_decided_leaf.clone(),
                                             TestInstanceState {},
@@ -119,6 +119,7 @@ where
                                             initializer,
                                             config,
                                             validator_config,
+                                            block_storage,
                                         )
                                         .await
                                     }

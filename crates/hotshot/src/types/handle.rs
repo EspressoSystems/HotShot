@@ -41,6 +41,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
+
+    /// DA and VID storage for hotshot
+    pub(crate) block_storage: Arc<RwLock<I::BlockStorage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {

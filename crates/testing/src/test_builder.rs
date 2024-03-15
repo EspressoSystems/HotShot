@@ -1,4 +1,5 @@
 use hotshot::traits::NetworkReliability;
+use hotshot_example_types::storage_types::TestBlockStorage;
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -236,7 +237,7 @@ impl TestMetadata {
         node_id: u64,
     ) -> TestLauncher<TYPES, I>
     where
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, BlockStorage = TestBlockStorage<TYPES>>,
     {
         let TestMetadata {
             num_nodes_with_stake,
@@ -325,6 +326,7 @@ impl TestMetadata {
                 ),
                 storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
+                block_storage: Box::new(|_| TestBlockStorage::default()),
             },
             metadata: self,
         }
