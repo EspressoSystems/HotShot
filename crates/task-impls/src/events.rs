@@ -121,7 +121,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
-    VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
+    VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>),
     /// A VID disperse data is validated.
     VidDisperseValidated(VidDisperse<TYPES>),
     /// Upgrade proposal has been received from the network
