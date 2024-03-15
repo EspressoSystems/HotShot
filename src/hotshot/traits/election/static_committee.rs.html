@@ -292,9 +292,9 @@
     <span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
     </span><span class="doccomment">/// Index the vector of public keys with a random number generated using the current view number as a seed
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
-        <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number <span class="kw">as </span>u64);
-        <span class="kw">let </span>randomized_view_number: u64 = rng.gen();
-        <span class="kw">let </span>index = (randomized_view_number % <span class="self">self</span>.nodes_with_stake.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
+        <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number);
+        <span class="kw">let </span>randomized_view_number: usize = rng.gen();
+        <span class="kw">let </span>index = randomized_view_number % <span class="self">self</span>.nodes_with_stake.len();
         <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
     }

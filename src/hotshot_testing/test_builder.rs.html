@@ -332,6 +332,12 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::traits::election::Membership;
@@ -370,6 +376,8 @@
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
     <span class="doccomment">/// Delay before sending through the secondary network in CombinedNetworks
     </span><span class="kw">pub </span>secondary_network_delay: Duration,
+    <span class="doccomment">/// view sync timeout
+    </span><span class="kw">pub </span>view_sync_timeout: Duration,
 }
 
 <span class="doccomment">/// metadata describing a test
@@ -418,6 +426,7 @@
             propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
             propose_max_round_time: Duration::from_millis(<span class="number">100</span>),
             secondary_network_delay: Duration::from_millis(<span class="number">1000</span>),
+            view_sync_timeout: Duration::from_millis(<span class="number">2000</span>),
         }
     }
 }
@@ -615,6 +624,7 @@
             da_staked_committee_size,
             da_non_staked_committee_size,
             next_view_timeout: <span class="number">500</span>,
+            view_sync_timeout: Duration::from_millis(<span class="number">250</span>),
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">1</span>,
             start_delay: <span class="number">1</span>,
@@ -636,6 +646,7 @@
             propose_min_round_time,
             propose_max_round_time,
             secondary_network_delay,
+            view_sync_timeout,
         } = timing_data;
         <span class="kw">let </span>mod_config =
             <span class="comment">// TODO this should really be using the timing config struct
@@ -646,6 +657,7 @@
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;
+                a.view_sync_timeout = view_sync_timeout;
             };
 
         TestLauncher {

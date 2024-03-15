@@ -184,7 +184,6 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -201,7 +200,6 @@
     collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
-    time::Duration,
 };
 
 <span class="doccomment">/// Trait for creating task states.
@@ -305,7 +303,7 @@
             pre_commit_relay_map: HashMap::default().into(),
             commit_relay_map: HashMap::default().into(),
             finalize_relay_map: HashMap::default().into(),
-            view_sync_timeout: Duration::new(<span class="number">10</span>, <span class="number">0</span>),
+            view_sync_timeout: handle.hotshot.config.view_sync_timeout,
             id: handle.hotshot.id,
             last_garbage_collected_view: TYPES::Time::new(<span class="number">0</span>),
         }
