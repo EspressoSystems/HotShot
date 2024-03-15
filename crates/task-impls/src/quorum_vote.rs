@@ -11,7 +11,10 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
+    data::{QuorumProposal, VidDisperse},
     event::{Event, EventType},
+    message::Proposal,
+    simple_certificate::DACertificate,
     traits::{
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -40,7 +43,10 @@ enum VoteDependency {
 // TODO: Complete the dependency implementation.
 // <https://github.com/EspressoSystems/HotShot/issues/2710>
 #[allow(clippy::needless_pass_by_value)]
-fn validate_proposal<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+fn validate_quorum_proposal<TYPES: NodeType>(
+    _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+    _event_sender: Sender<HotShotEvent<TYPES>>,
+) -> bool {
     true
 }
 
@@ -48,7 +54,10 @@ fn validate_proposal<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>
 // TODO: Complete the dependency implementation.
 // <https://github.com/EspressoSystems/HotShot/issues/2710>
 #[allow(clippy::needless_pass_by_value)]
-fn validate_dac<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+fn validate_dac<TYPES: NodeType>(
+    _dac: DACertificate<TYPES>,
+    _event_sender: Sender<HotShotEvent<TYPES>>,
+) -> bool {
     true
 }
 
@@ -56,7 +65,10 @@ fn validate_dac<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> 
 // TODO: Complete the dependency implementation.
 // <https://github.com/EspressoSystems/HotShot/issues/2710>
 #[allow(clippy::needless_pass_by_value)]
-fn validate_vid<TYPES: NodeType>(_event_sender: Sender<HotShotEvent<TYPES>>) -> bool {
+fn validate_vid<TYPES: NodeType>(
+    _disperse: Proposal<TYPES, VidDisperse<TYPES>>,
+    _event_sender: Sender<HotShotEvent<TYPES>>,
+) -> bool {
     true
 }
 
@@ -103,7 +115,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         if proposal.data.view_number != view_number {
                             return false;
                         }
-                        return validate_proposal(event_sender.clone());
+                        return validate_quorum_proposal(proposal.clone(), event_sender.clone());
                     }
                     false
                 }
@@ -112,16 +124,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         if cert.view_number != view_number {
                             return false;
                         }
-                        return validate_dac(event_sender.clone());
+                        return validate_dac(cert.clone(), event_sender.clone());
                     }
                     false
                 }
                 VoteDependency::Vid => {
-                    if let HotShotEvent::VidDisperseRecv(proposal, _) = event {
-                        if proposal.data.view_number != view_number {
+                    if let HotShotEvent::VidDisperseRecv(disperse, _) = event {
+                        if disperse.data.view_number != view_number {
                             return false;
                         }
-                        return validate_vid(event_sender.clone());
+                        return validate_vid(disperse.clone(), event_sender.clone());
                     }
                     false
                 }
@@ -159,11 +171,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
     /// Update the view number for the next view to be voted for.
     #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote update next vote view", level = "error")]
-    async fn update_next_vote_view(
-        &mut self,
-        new_view: TYPES::Time,
-        event_sender: &Sender<HotShotEvent<TYPES>>,
-    ) -> bool {
+    async fn update_next_vote_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.next_vote_view < *new_view {
             debug!(
                 "Updating next vote view from {} to {} in the quorum vote task",
@@ -174,12 +182,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             for view in *self.next_vote_view..*new_view {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
+
+                    broadcast_event(
+                        Event {
+                            view_number: TYPES::Time::new(view),
+                            event: EventType::ViewFinished {
+                                view_number: TYPES::Time::new(view),
+                            },
+                        },
+                        &self.output_event_stream,
+                    )
+                    .await;
                 }
             }
 
             self.next_vote_view = new_view;
-
-            broadcast_event(HotShotEvent::ViewChange(new_view), event_sender).await;
 
             return true;
         }
@@ -206,18 +223,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
                     .await;
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !validate_proposal(event_sender.clone()) {
+                    if !validate_quorum_proposal(proposal, event_sender.clone()) {
                         return;
                     }
                     let dependency = self.create_vote_dependency(
                         &VoteDependency::QuorumProposal,
                         view,
-                        event_sender,
+                        event_sender.clone(),
                     );
                     self.vote_dependencies.insert(
                         view,
                         async_spawn(async move {
                             dependency.completed().await;
+                            broadcast_event(HotShotEvent::ViewChange(view + 1), &event_sender)
+                                .await;
+                            broadcast_event(HotShotEvent::DummyQuorumVoteSend(view), &event_sender)
+                                .await;
                         }),
                     );
                 }
@@ -235,15 +256,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await;
 
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !validate_dac(event_sender.clone()) {
+                    if !validate_dac(cert, event_sender.clone()) {
                         return;
                     }
-                    let dependency =
-                        self.create_vote_dependency(&VoteDependency::Dac, view, event_sender);
+                    let dependency = self.create_vote_dependency(
+                        &VoteDependency::Dac,
+                        view,
+                        event_sender.clone(),
+                    );
                     self.vote_dependencies.insert(
                         view,
                         async_spawn(async move {
                             dependency.completed().await;
+                            broadcast_event(HotShotEvent::ViewChange(view + 1), &event_sender)
+                                .await;
+                            broadcast_event(HotShotEvent::DummyQuorumVoteSend(view), &event_sender)
+                                .await;
                         }),
                     );
                 }
@@ -259,15 +287,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await;
 
                 if self.vote_dependencies.get(&view).is_none() {
-                    if !validate_proposal(event_sender.clone()) {
+                    if !validate_vid(disperse, event_sender.clone()) {
                         return;
                     }
-                    let dependency =
-                        self.create_vote_dependency(&VoteDependency::Vid, view, event_sender);
+                    let dependency = self.create_vote_dependency(
+                        &VoteDependency::Vid,
+                        view,
+                        event_sender.clone(),
+                    );
                     self.vote_dependencies.insert(
                         view,
                         async_spawn(async move {
                             dependency.completed().await;
+                            broadcast_event(HotShotEvent::ViewChange(view + 1), &event_sender)
+                                .await;
+                            broadcast_event(HotShotEvent::DummyQuorumVoteSend(view), &event_sender)
+                                .await;
                         }),
                     );
                 }
@@ -286,21 +321,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
-                if !self.update_next_vote_view(new_view, &event_sender).await {
+                if !self.update_next_vote_view(new_view).await {
                     debug!("view not updated");
                     return;
                 }
-
-                broadcast_event(
-                    Event {
-                        view_number: old_view_number,
-                        event: EventType::ViewFinished {
-                            view_number: old_view_number,
-                        },
-                    },
-                    &self.output_event_stream,
-                )
-                .await;
             }
             _ => {}
         }
