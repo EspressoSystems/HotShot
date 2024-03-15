@@ -123,7 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkResponseState<TYPES, 
     }
 
     /// run a delayed request task for a request.  The first response
-    /// recieved will be send over `sender`
+    /// recieved will be sent over `sender`
     fn run_delay(
         &self,
         request: RequestKind<TYPES>,
@@ -135,6 +135,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkResponseState<TYPES, 
             .get_whole_committee(view)
             .into_iter()
             .collect();
+        // Randomize the recipients so all replicas don't overload the same 1 recipients
+        // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: self.network.clone(),
