@@ -3406,6 +3406,7 @@ dependencies = [
  "hotshot-utils",
  "hs-builder-api",
  "jf-primitives 0.4.0-pre.0 (git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2)",
+ "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "snafu",
