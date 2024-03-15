@@ -1491,9 +1491,9 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "color-eyre"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a667583cca8c4f8436db8de46ea8233c42a7d9ae424a82d338f2e4675229204"
+checksum = "55146f5e46f237f7423d74111267d4597b59b0dad0ffaf7303bce9945d843ad5"
 dependencies = [
  "backtrace",
  "color-spantrace",
@@ -3192,6 +3192,7 @@ dependencies = [
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
+ "async-trait",
  "bincode",
  "bitvec",
  "commit",
@@ -3417,8 +3418,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.4"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.4#76a21095f7c39f0aaf5a08b2f8540448c97728c1"
+version = "0.1.5"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=jparr721/issue-2621#d79a257dee022d16749b8518666389172ffd9b27"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -8009,9 +8010,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
+checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.13",

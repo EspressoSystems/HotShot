@@ -412,6 +412,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        block_storage: I::BlockStorage,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,

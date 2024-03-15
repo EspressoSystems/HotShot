@@ -6,3 +6,5 @@ pub mod state_types;
 
 /// node types
 pub mod node_types;
+
+pub mod storage_types;

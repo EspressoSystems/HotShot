@@ -5,6 +5,7 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestBlockStorage,
 };
 
 use crate::test_builder::TestMetadata;
@@ -122,6 +123,7 @@ pub async fn build_system_handle(
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        TestBlockStorage::default(),
     )
     .await
     .expect("Could not init hotshot")

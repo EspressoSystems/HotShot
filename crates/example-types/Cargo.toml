@@ -13,6 +13,7 @@ slow-tests = []
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
+async-trait = { workspace = true }
 sha3 = "^0.10"
 bincode = { workspace = true }
 commit = { workspace = true }

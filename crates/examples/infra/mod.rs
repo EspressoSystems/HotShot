@@ -31,6 +31,7 @@ use hotshot_orchestrator::{
     config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::message::Message;
+use hotshot_types::traits::block_storage;
 use hotshot_types::traits::network::ConnectedNetwork;
 use hotshot_types::PeerConfig;
 use hotshot_types::ValidatorConfig;
@@ -451,7 +452,10 @@ pub trait RunDA<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
+    async fn initialize_state_and_hotshot(
+        &self,
+        block_storage: NODE::BlockStorage,
+    ) -> SystemContextHandle<TYPES, NODE> {
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
@@ -512,6 +516,7 @@ pub trait RunDA<
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            block_storage,
         )
         .await
         .expect("Could not init hotshot")
