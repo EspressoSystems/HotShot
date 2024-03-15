@@ -1112,7 +1112,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -3484,7 +3484,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.7#84c447d80b34a73e2d8c58570de9f093a064c9ae"
+source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.7#0dadf7d13cd80598ab725abb7629ec9d6ec943e6"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -3554,7 +3554,7 @@ dependencies = [
 [[package]]
 name = "hs-builder-api"
 version = "0.1.2"
-source = "git+https://github.com/EspressoSystems/hs-builder-api?tag=0.1.2#2bb00615c5e976221526708ec11d235a7ede3c4c"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?tag=0.1.2#a1a742866f4310084a9f8d60820d8375e04dd00d"
 dependencies = [
  "async-trait",
  "clap",
@@ -4037,7 +4037,7 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 [[package]]
 name = "jf-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#39aa65e52347daa7ded14c00ef3cb4005b319d98"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4111,7 +4111,7 @@ dependencies = [
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#39aa65e52347daa7ded14c00ef3cb4005b319d98"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -4185,7 +4185,7 @@ dependencies = [
 [[package]]
 name = "jf-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#39aa65e52347daa7ded14c00ef3cb4005b319d98"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -4227,7 +4227,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#39aa65e52347daa7ded14c00ef3cb4005b319d98"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4316,7 +4316,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.4",
 ]
 
 [[package]]
