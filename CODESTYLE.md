@@ -1,4 +1,4 @@
-# CODESTYLE.md
+# HotShot Code Style Guide
 
 ## Logging Guidelines
 
