@@ -3346,9 +3346,13 @@ dependencies = [
  "hotshot-task",
  "hotshot-types",
  "hotshot-utils",
+ "hs-builder-api",
  "jf-primitives",
+ "serde",
  "sha2 0.10.8",
  "snafu",
+ "surf-disco",
+ "tagged-base64",
  "time 0.3.34",
  "tokio",
  "tracing",
@@ -3362,6 +3366,7 @@ dependencies = [
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
+ "async-trait",
  "bincode",
  "bitvec",
  "commit",
@@ -3376,12 +3381,15 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-utils",
+ "hs-builder-api",
  "jf-primitives",
+ "portpicker",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "sha3",
  "snafu",
+ "tide-disco",
  "tokio",
  "tracing",
 ]
@@ -3484,6 +3492,23 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+]
+
+[[package]]
+name = "hs-builder-api"
+version = "0.1.1"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?branch=ag/types-0.1.2#acff0e1e698952c136e4ee8b52a6fbc258480670"
+dependencies = [
+ "async-trait",
+ "clap",
+ "derive_more",
+ "futures",
+ "hotshot-types",
+ "serde",
+ "snafu",
+ "tagged-base64",
+ "tide-disco",
+ "toml 0.8.11",
 ]
 
 [[package]]
