@@ -38,9 +38,6 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
-
-    /// Our copy of the `Storage` view for a hotshot
-    pub(crate) storage: I::Storage,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
@@ -115,12 +112,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot.publish_transaction_async(tx).await
-    }
-
-    /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
-    /// historical data
-    pub fn storage(&self) -> &I::Storage {
-        &self.storage
     }
 
     /// Get the underlying consensus state for this [`SystemContext`]

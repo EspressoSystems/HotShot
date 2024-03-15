@@ -293,6 +293,7 @@ impl TestMetadata {
                 0,
             )),
             data_request_delay: Duration::from_millis(200),
+            view_sync_timeout: Duration::from_millis(200),
         };
         let TimingData {
             next_view_timeout,
@@ -323,7 +324,6 @@ impl TestMetadata {
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
                 config,
             },
             metadata: self,

@@ -3426,7 +3426,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.5"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.5#62eb49a93d36ca6695975456c148027edba4c71a"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=jp/issue-2788#dc9a95673d0be1649ed3531ee460ceb49b6c7fc2"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -3497,7 +3497,7 @@ dependencies = [
 [[package]]
 name = "hs-builder-api"
 version = "0.1.1"
-source = "git+https://github.com/EspressoSystems/hs-builder-api#83c8a2523a589c36388509478922d455f0edbbbb"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?branch=jparr721/issue-2788#b5bf8722e9fd227912c2e821bbc44b40c292c767"
 dependencies = [
  "async-trait",
  "clap",
