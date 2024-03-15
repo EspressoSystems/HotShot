@@ -217,7 +217,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         self.vote_dependencies.insert(
             view_number,
             async_spawn(async move {
-                dependency_task.run().await;
+                let () = dependency_task.run().await;
             }),
         );
     }
