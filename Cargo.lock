@@ -7511,7 +7511,7 @@ dependencies = [
 [[package]]
 name = "surf-disco"
 version = "0.4.8"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=nfy/transition_away_from_const_generics#bea3a69fccb89941a4c59c2498c66fd4a5722526"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.8#522b160f6fa03793f6b1a920568d93980ab18f19"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -7775,7 +7775,7 @@ dependencies = [
 [[package]]
 name = "tide-disco"
 version = "0.4.8"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?branch=nfy/transition_away_from_const_generics#58a8cc5c59978573d31cb6b78cb248ed25befa1d"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.8#d0d2bfb8de1fcee6c28362c768efd6a2928d7b56"
 dependencies = [
  "anyhow",
  "async-std",

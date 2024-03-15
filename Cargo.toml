@@ -74,10 +74,10 @@ serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0.114" }
 sha2 = "0.10"
 snafu = "0.7.5"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "nfy/transition_away_from_const_generics" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.8" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
-tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", branch = "nfy/transition_away_from_const_generics" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.8" }
 time = "0.3.34"
 toml = "0.8.11"
 tracing = "0.1.40"
