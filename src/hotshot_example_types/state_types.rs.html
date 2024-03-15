@@ -139,7 +139,7 @@
 <span class="kw">impl </span>InstanceState <span class="kw">for </span>TestInstanceState {}
 
 <span class="doccomment">/// Application-specific state delta implementation for testing purposes.
-</span><span class="attr">#[derive(Clone, Copy, Debug, Default)]
+</span><span class="attr">#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>TestStateDelta {}
 
 <span class="kw">impl </span>StateDelta <span class="kw">for </span>TestStateDelta {}
