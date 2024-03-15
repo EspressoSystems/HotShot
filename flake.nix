@@ -277,7 +277,7 @@
             let cudatoolkit = pkgsAllowUnfree.cudaPackages_12_3.cudatoolkit;
             in pkgs.mkShell {
             inherit CARGO_TARGET_DIR;
-            buildInputs = with pkgs; [ cmake cudatoolkit util-linux gcc11 ] ++ buildDeps;
+            buildInputs = with pkgs; [ cmake cudatoolkit util-linux gcc11 fenixStable ] ++ buildDeps;
             shellHook = ''
               export PATH="${pkgs.gcc11}/bin:${cudatoolkit}/bin:${cudatoolkit}/nvvm/bin:$PATH"
               export LD_LIBRARY_PATH=${cudatoolkit}/lib
