@@ -47,7 +47,7 @@ enum VoteDependency {
 #[allow(clippy::needless_pass_by_value)]
 fn validate_quorum_proposal<TYPES: NodeType>(
     _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    _event_sender: Sender<HotShotEvent<TYPES>>,
+    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> bool {
     true
 }
@@ -58,7 +58,7 @@ fn validate_quorum_proposal<TYPES: NodeType>(
 #[allow(clippy::needless_pass_by_value)]
 fn validate_dac<TYPES: NodeType>(
     _dac: DACertificate<TYPES>,
-    _event_sender: Sender<HotShotEvent<TYPES>>,
+    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> bool {
     true
 }
@@ -69,7 +69,7 @@ fn validate_dac<TYPES: NodeType>(
 #[allow(clippy::needless_pass_by_value)]
 fn validate_vid<TYPES: NodeType>(
     _disperse: Proposal<TYPES, VidDisperse<TYPES>>,
-    _event_sender: Sender<HotShotEvent<TYPES>>,
+    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> bool {
     true
 }
@@ -79,10 +79,10 @@ struct VoteDependencyHandle<TYPES: NodeType> {
     /// View number to vote on.
     view_number: TYPES::Time,
     /// Event sender.
-    sender: Sender<HotShotEvent<TYPES>>,
+    sender: Sender<Arc<HotShotEvent<TYPES>>>,
 }
 impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
-    type Output = Vec<HotShotEvent<TYPES>>;
+    type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     async fn handle_dep_result(self, res: Self::Output) {
         // Add this commitment check to test if the handler works, but this isn't the only thing
         // that we'll need to check.
@@ -90,7 +90,7 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
         // <https://github.com/EspressoSystems/HotShot/issues/2710>
         let mut payload_commitment = None;
         for event in res {
-            match event {
+            match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
@@ -114,9 +114,13 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                 _ => {}
             }
         }
-        broadcast_event(HotShotEvent::ViewChange(self.view_number + 1), &self.sender).await;
         broadcast_event(
-            HotShotEvent::DummyQuorumVoteSend(self.view_number),
+            Arc::new(HotShotEvent::ViewChange(self.view_number + 1)),
+            &self.sender,
+        )
+        .await;
+        broadcast_event(
+            Arc::new(HotShotEvent::DummyQuorumVoteSend(self.view_number)),
             &self.sender,
         )
         .await;
@@ -153,11 +157,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         &self,
         dependency_type: VoteDependency,
         view_number: TYPES::Time,
-        event_receiver: Receiver<HotShotEvent<TYPES>>,
-    ) -> EventDependency<HotShotEvent<TYPES>> {
+        event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+    ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
         EventDependency::new(
             event_receiver.clone(),
             Box::new(move |event| {
+                let event = event.as_ref();
                 let event_view = match dependency_type {
                     VoteDependency::QuorumProposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal) = event {
@@ -191,8 +196,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
-        event_receiver: Receiver<HotShotEvent<TYPES>>,
-        event_sender: Sender<HotShotEvent<TYPES>>,
+        event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+        event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         if self.vote_dependencies.get(&view_number).is_some() {
             return;
@@ -264,11 +269,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote handle", level = "error")]
     pub async fn handle(
         &mut self,
-        event: HotShotEvent<TYPES>,
-        event_receiver: Receiver<HotShotEvent<TYPES>>,
-        event_sender: Sender<HotShotEvent<TYPES>>,
+        event: Arc<HotShotEvent<TYPES>>,
+        event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+        event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        match event {
+        match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
                 let view = proposal.data.view_number;
                 if view < self.next_vote_view {
@@ -284,7 +289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
                 broadcast_event(
-                    HotShotEvent::QuorumProposalValidated(proposal.data),
+                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
                     &event_sender.clone(),
                 )
                 .await;
@@ -305,7 +310,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 if !validate_dac(cert.clone(), event_sender.clone()) {
                     return;
                 }
-                broadcast_event(HotShotEvent::DACValidated(cert), &event_sender.clone()).await;
+                broadcast_event(
+                    Arc::new(HotShotEvent::DACValidated(cert.clone())),
+                    &event_sender.clone(),
+                )
+                .await;
                 self.create_dependency_task_if_new(view, event_receiver, event_sender);
             }
             HotShotEvent::VidDisperseRecv(disperse) => {
@@ -322,13 +331,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
                 broadcast_event(
-                    HotShotEvent::VidDisperseValidated(disperse.data),
+                    Arc::new(HotShotEvent::VidDisperseValidated(disperse.data.clone())),
                     &event_sender.clone(),
                 )
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, event_sender);
             }
             HotShotEvent::ViewChange(new_view) => {
+                let new_view = *new_view;
                 debug!("View Change event for view {} in consensus task", *new_view);
 
                 let old_view_number = self.next_vote_view;
@@ -353,11 +363,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTaskState<TYPES, I> {
-    type Event = HotShotEvent<TYPES>;
+    type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
-    fn filter(&self, event: &HotShotEvent<TYPES>) -> bool {
+    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
-            event,
+            event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::DACRecv(_)
                 | HotShotEvent::ViewChange(_)
@@ -376,6 +386,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
         None
     }
     fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.clone(), HotShotEvent::Shutdown)
+        matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
