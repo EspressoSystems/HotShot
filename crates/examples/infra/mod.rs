@@ -653,9 +653,10 @@ pub trait RunDA<
             let throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed.as_secs();
+            let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
             BenchResults {
-                avg_latency_in_sec: total_latency / num_latency,
+                avg_latency_in_sec,
                 num_latency,
                 minimum_latency_in_sec: minimum_latency,
                 maximum_latency_in_sec: maximum_latency,
