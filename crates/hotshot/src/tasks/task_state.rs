@@ -2,26 +2,18 @@ use crate::types::SystemContextHandle;
 
 use async_trait::async_trait;
 use hotshot_task_impls::{
-    consensus::{CommitmentAndMetadata, ConsensusTaskState},
-    da::DATaskState,
-    transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState,
-    vid::VIDTaskState,
-    view_sync::ViewSyncTaskState,
+    consensus::ConsensusTaskState, da::DATaskState, transactions::TransactionTaskState,
+    upgrade::UpgradeTaskState, vid::VIDTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::constants::VERSION_0_1;
-use hotshot_types::traits::election::Membership;
 use hotshot_types::traits::{
-    block_contents::vid_commitment,
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    BlockPayload,
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
-    time::Duration,
 };
 
 /// Trait for creating task states.
@@ -125,7 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             pre_commit_relay_map: HashMap::default().into(),
             commit_relay_map: HashMap::default().into(),
             finalize_relay_map: HashMap::default().into(),
-            view_sync_timeout: Duration::new(10, 0),
+            view_sync_timeout: handle.hotshot.config.view_sync_timeout,
             id: handle.hotshot.id,
             last_garbage_collected_view: TYPES::Time::new(0),
         }
@@ -163,21 +155,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     ) -> ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         let consensus = handle.hotshot.get_consensus();
 
-        let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::genesis();
-        // Impossible for `unwrap` to fail on the genesis payload.
-        let payload_commitment = vid_commitment(
-            &payload.encode().unwrap().collect(),
-            handle.hotshot.memberships.quorum_membership.total_nodes(),
-        );
         ConsensusTaskState {
             consensus,
             timeout: handle.hotshot.config.next_view_timeout,
             cur_view: handle.get_cur_view().await,
-            payload_commitment_and_metadata: Some(CommitmentAndMetadata {
-                commitment: payload_commitment,
-                metadata,
-                is_genesis: true,
-            }),
+            payload_commitment_and_metadata: None,
             api: handle.clone(),
             _pd: PhantomData,
             vote_collector: None.into(),
@@ -185,10 +167,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_task: None,
             timeout_cert: None,
             upgrade_cert: None,
+            view_sync_cert: None,
             decided_upgrade_cert: None,
             current_network_version: VERSION_0_1,
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
-            vid_shares: BTreeMap::new(),
             current_proposal: None,
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),
