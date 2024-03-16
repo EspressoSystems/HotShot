@@ -13,8 +13,10 @@ use jf_primitives::vid::VidScheme;
 /// Runs a basic test where a qualified proposal occurs (i.e. not initiated by the genesis view or node 1).
 /// This proposal should happen no matter how the `input_permutation` is specified.
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
-    use hotshot_testing::script::{run_test_script, TestScriptStage};
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::{
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();

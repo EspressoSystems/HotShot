@@ -5,36 +5,34 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
-use async_lock::RwLock;
-use client::{BenchResults, BenchResultsDownloadConfig};
-use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    PeerConfig,
-};
 use std::{
     collections::HashSet,
     io,
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
-use tide_disco::{Api, App, RequestError};
 
+use async_lock::RwLock;
+use client::{BenchResults, BenchResultsDownloadConfig};
+use csv::Writer;
+use futures::FutureExt;
+use hotshot_types::{
+    traits::{election::ElectionConfig, signature_key::SignatureKey},
+    PeerConfig,
+};
+use libp2p::identity::{
+    ed25519::{Keypair as EdKeypair, SecretKey},
+    Keypair,
+};
 use surf_disco::Url;
 use tide_disco::{
     api::ApiError,
     error::ServerError,
     method::{ReadState, WriteState},
+    Api, App, RequestError,
 };
-
-use futures::FutureExt;
 
 use crate::config::NetworkConfig;
-
-use csv::Writer;
-use libp2p::identity::{
-    ed25519::{Keypair as EdKeypair, SecretKey},
-    Keypair,
-};
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed

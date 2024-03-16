@@ -1,11 +1,7 @@
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
-};
+use std::{marker::PhantomData, sync::Arc};
+
 use async_broadcast::Sender;
 use async_lock::RwLock;
-
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, View},
@@ -26,10 +22,13 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-
-use crate::vote::HandleVoteEvent;
-use std::{marker::PhantomData, sync::Arc};
 use tracing::{debug, error, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
+};
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;

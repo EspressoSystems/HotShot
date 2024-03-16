@@ -1,6 +1,7 @@
+use std::marker::PhantomData;
+
 use commit::Committable;
-use hotshot::traits::implementations::MemoryStorage;
-use hotshot::traits::Storage;
+use hotshot::traits::{implementations::MemoryStorage, Storage};
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::{
     data::Leaf,
@@ -11,7 +12,6 @@ use hotshot_types::{
         storage::{StoredView, TestableStorage},
     },
 };
-use std::marker::PhantomData;
 use tracing::instrument;
 
 fn random_stored_view(view_number: <TestTypes as NodeType>::Time) -> StoredView<TestTypes> {

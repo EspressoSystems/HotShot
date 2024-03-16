@@ -1,28 +1,29 @@
-use crate::network::{
-    behaviours::request_response::{Request, Response},
-    error::{CancelledRequestSnafu, DHTError},
-    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
-    NetworkNodeConfigBuilderError,
+use std::{
+    collections::HashSet,
+    fmt::Debug,
+    time::{Duration, Instant},
 };
+
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use bincode::Options;
 use futures::channel::oneshot;
-
 use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use std::{
-    collections::HashSet,
-    fmt::Debug,
-    time::{Duration, Instant},
-};
 use tracing::{debug, info, instrument};
+
+use crate::network::{
+    behaviours::request_response::{Request, Response},
+    error::{CancelledRequestSnafu, DHTError},
+    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
+};
 
 /// A handle containing:
 /// - A reference to the state

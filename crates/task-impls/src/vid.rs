@@ -1,10 +1,9 @@
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
-use crate::helpers::broadcast_event;
+use std::{marker::PhantomData, sync::Arc};
+
 use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
-
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
@@ -22,10 +21,12 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
-
-use std::marker::PhantomData;
-use std::sync::Arc;
 use tracing::{debug, error, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<

@@ -1,6 +1,6 @@
-use async_compatibility_layer::art::async_sleep;
 use std::time::{Duration, Instant};
 
+use async_compatibility_layer::art::async_sleep;
 use hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,

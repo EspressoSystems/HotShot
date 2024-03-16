@@ -1,34 +1,32 @@
 #![allow(clippy::panic)]
-use std::collections::BTreeSet;
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_compatibility_layer::logging::setup_logging;
-use hotshot::traits::election::static_committee::{GeneralStaticCommittee, StaticElectionConfig};
-use hotshot::traits::implementations::{
-    MasterMap, MemoryNetwork, MemoryStorage, NetworkingMetricsValue,
+use hotshot::{
+    traits::{
+        election::static_committee::{GeneralStaticCommittee, StaticElectionConfig},
+        implementations::{MasterMap, MemoryNetwork, MemoryStorage, NetworkingMetricsValue},
+        NodeImplementation,
+    },
+    types::SignatureKey,
 };
-use hotshot::traits::NodeImplementation;
-use hotshot::types::SignatureKey;
-use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::TestValidatedState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
-use hotshot_types::constants::VERSION_0_1;
-use hotshot_types::message::Message;
-use hotshot_types::signature_key::BLSPubKey;
-use hotshot_types::traits::network::ConnectedNetwork;
-use hotshot_types::traits::network::TestableNetworkingImplementation;
-use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
+    constants::VERSION_0_1,
     data::ViewNumber,
-    message::{DataMessage, MessageKind},
+    message::{DataMessage, Message, MessageKind},
+    signature_key::BLSPubKey,
+    traits::{
+        network::{ConnectedNetwork, TestableNetworkingImplementation},
+        node_implementation::{ConsensusTime, NodeType},
+    },
 };
-use rand::rngs::StdRng;
-use rand::{RngCore, SeedableRng};
+use rand::{rngs::StdRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
-use tracing::trace;
+use tracing::{instrument, trace};
 
 #[derive(
     Copy,

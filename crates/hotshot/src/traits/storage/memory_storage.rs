@@ -1,6 +1,11 @@
 //! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
+
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::traits::{
@@ -8,10 +13,6 @@ use hotshot_types::traits::{
     storage::{
         Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
     },
-};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
 };
 
 /// Internal state for a [`MemoryStorage`]

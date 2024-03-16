@@ -1,14 +1,15 @@
-use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl};
-use hotshot_example_types::state_types::TestTypes;
-use hotshot_testing::completion_task::{
-    CompletionTaskDescription, TimeBasedCompletionTaskDescription,
-};
-use hotshot_testing::spinning_task::ChangeNode;
-use hotshot_testing::spinning_task::SpinningTaskDescription;
-use hotshot_testing::spinning_task::UpDown;
-use hotshot_testing::test_builder::TestMetadata;
-use hotshot_testing_macros::cross_tests;
 use std::time::Duration;
+
+use hotshot_example_types::{
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl},
+    state_types::TestTypes,
+};
+use hotshot_testing::{
+    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+    test_builder::TestMetadata,
+};
+use hotshot_testing_macros::cross_tests;
 
 cross_tests!(
     TestName: test_success,

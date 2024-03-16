@@ -1,13 +1,13 @@
 //! web server example
-use hotshot_example_types::state_types::TestTypes;
 use std::sync::Arc;
-use surf_disco::Url;
 
 use async_compatibility_layer::{
     channel::oneshot,
     logging::{setup_backtrace, setup_logging},
 };
 use clap::Parser;
+use hotshot_example_types::state_types::TestTypes;
+use surf_disco::Url;
 
 /// web server arguments
 #[derive(Parser, Debug)]

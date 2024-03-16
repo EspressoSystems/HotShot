@@ -1,7 +1,9 @@
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
 };
+
 use async_broadcast::Sender;
 use async_compatibility_layer::{
     art::async_timeout,
@@ -10,7 +12,6 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use bincode::config::Options;
 use commit::{Commitment, Committable};
-
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
@@ -25,12 +26,12 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Instant,
-};
 use tracing::{debug, error, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;

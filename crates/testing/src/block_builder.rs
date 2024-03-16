@@ -1,16 +1,15 @@
 use async_compatibility_layer::art::async_spawn;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
-use hotshot::traits::BlockPayload;
-use hotshot::types::SignatureKey;
+use hotshot::{traits::BlockPayload, types::SignatureKey};
 use hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
-use hotshot_types::traits::block_contents::vid_commitment;
-use hotshot_types::utils::BuilderCommitment;
-use hotshot_types::{traits::node_implementation::NodeType, vid::VidCommitment};
-use hs_builder_api::block_info::{
-    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
+use hotshot_types::{
+    traits::{block_contents::vid_commitment, node_implementation::NodeType},
+    utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use hs_builder_api::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Options},
     data_source::BuilderDataSource,
 };

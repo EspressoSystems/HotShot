@@ -1,4 +1,10 @@
-use super::NetworkError;
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
+
+use async_compatibility_layer::{
+    art::{async_block_on, async_spawn},
+    channel::UnboundedSendError,
+};
+use async_trait::async_trait;
 use bincode::Options;
 use cdn_broker::{
     reexports::connection::protocols::Tcp, Broker, Config, ConfigBuilder as BrokerConfigBuilder,
@@ -12,13 +18,6 @@ use cdn_client::{
     Client, ConfigBuilder as ClientConfigBuilder,
 };
 use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
-use hotshot_utils::bincode::bincode_opts;
-use tracing::{error, warn};
-
-use async_compatibility_layer::art::{async_block_on, async_spawn};
-use async_trait::async_trait;
-
-use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -32,7 +31,10 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use hotshot_utils::bincode::bincode_opts;
+use tracing::{error, warn};
+
+use super::NetworkError;
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.

@@ -1,20 +1,23 @@
-use crate::types::SystemContextHandle;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, da::DATaskState, transactions::TransactionTaskState,
     upgrade::UpgradeTaskState, vid::VIDTaskState, view_sync::ViewSyncTaskState,
 };
-use hotshot_types::constants::VERSION_0_1;
-use hotshot_types::traits::{
-    consensus_api::ConsensusApi,
-    node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+use hotshot_types::{
+    constants::VERSION_0_1,
+    traits::{
+        consensus_api::ConsensusApi,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    },
 };
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
+
+use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]

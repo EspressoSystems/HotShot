@@ -1,14 +1,15 @@
+use std::time::Duration;
+
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestTransaction},
     node_types::TestTypes,
 };
 use hotshot_task_impls::builder::{BuilderClient, BuilderClientError};
 use hotshot_testing::block_builder::run_builder;
-use hotshot_types::traits::BlockPayload;
 use hotshot_types::traits::{
     block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
+    BlockPayload,
 };
-use std::time::Duration;
 use tide_disco::Url;
 
 #[cfg(test)]

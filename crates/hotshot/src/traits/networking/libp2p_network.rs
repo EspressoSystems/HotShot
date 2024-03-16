@@ -1,7 +1,18 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
-use super::NetworkingMetricsValue;
+use std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+#[cfg(feature = "hotshot-testing")]
+use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
+
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
@@ -12,9 +23,14 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_types::constants::{Version, LOOK_AHEAD, VERSION_0_1};
+use futures::{
+    channel::mpsc::{self, channel, Receiver, Sender},
+    future::{join_all, Either},
+    FutureExt, StreamExt,
+};
 use hotshot_types::{
     boxed_sync,
+    constants::{Version, LOOK_AHEAD, VERSION_0_1},
     data::ViewNumber,
     traits::{
         network::{
@@ -35,7 +51,6 @@ use hotshot_utils::{bincode::bincode_opts, version::read_version};
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder};
-
 use libp2p_networking::{
     network::{
         behaviours::request_response::{Request, Response},
@@ -46,27 +61,11 @@ use libp2p_networking::{
     },
     reexport::{Multiaddr, ResponseChannel},
 };
-
 use serde::Serialize;
 use snafu::ResultExt;
-#[cfg(feature = "hotshot-testing")]
-use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
-
-use futures::{
-    channel::mpsc::{self, channel, Receiver, Sender},
-    future::{join_all, Either},
-    FutureExt, StreamExt,
-};
-use std::{
-    collections::BTreeSet,
-    fmt::Debug,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
 use tracing::{debug, error, info, instrument, warn};
+
+use super::NetworkingMetricsValue;
 
 /// convienence alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests

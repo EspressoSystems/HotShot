@@ -1,8 +1,9 @@
-use crate::infra::PushCdnDaRun;
 use hotshot::traits::implementations::{MemoryStorage, PushCdnNetwork};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
+
+use crate::infra::PushCdnDaRun;
 
 #[derive(Clone, Deserialize, Serialize, Hash, PartialEq, Eq)]
 /// Convenience type alias

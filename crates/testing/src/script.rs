@@ -1,10 +1,11 @@
-use crate::predicates::Predicate;
-use async_broadcast::broadcast;
-use hotshot_task_impls::events::HotShotEvent;
-
-use hotshot_task::task::{Task, TaskRegistry, TaskState};
-use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
+
+use async_broadcast::broadcast;
+use hotshot_task::task::{Task, TaskRegistry, TaskState};
+use hotshot_task_impls::events::HotShotEvent;
+use hotshot_types::traits::node_implementation::NodeType;
+
+use crate::predicates::Predicate;
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,

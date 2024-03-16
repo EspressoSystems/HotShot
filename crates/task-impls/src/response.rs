@@ -7,9 +7,9 @@ use bincode::Options;
 use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
-use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     consensus::Consensus,
+    constants::VERSION_0_1,
     data::VidDisperse,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
