@@ -1,5 +1,3 @@
-use crate::view_sync::ViewSyncPhase;
-
 use either::Either;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
@@ -15,6 +13,8 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
+
+use crate::view_sync::ViewSyncPhase;
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]

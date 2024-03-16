@@ -1,16 +1,8 @@
 use hotshot::traits::{
-    election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork,
-};
-
-use crate::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::{TestInstanceState, TestValidatedState},
-};
-
-use hotshot::traits::{
-    election::static_committee::{StaticCommittee, StaticElectionConfig},
+    election::static_committee::{GeneralStaticCommittee, StaticCommittee, StaticElectionConfig},
     implementations::{
-        CombinedNetworks, Libp2pNetwork, MemoryNetwork, MemoryStorage, WebServerNetwork,
+        CombinedNetworks, Libp2pNetwork, MemoryNetwork, MemoryStorage, PushCdnNetwork,
+        WebServerNetwork,
     },
     NodeImplementation,
 };
@@ -19,6 +11,11 @@ use hotshot_types::{
     traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::{TestInstanceState, TestValidatedState},
+};
 
 #[derive(
     Copy,

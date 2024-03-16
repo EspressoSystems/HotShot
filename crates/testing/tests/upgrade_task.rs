@@ -1,5 +1,7 @@
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-use hotshot::types::SystemContextHandle;
+use hotshot::{
+    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    types::SystemContextHandle,
+};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
@@ -10,16 +12,18 @@ use hotshot_testing::{
     script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
 };
-use hotshot_types::constants::Version;
 use hotshot_types::{
-    data::ViewNumber, simple_vote::UpgradeProposalData, traits::node_implementation::ConsensusTime,
+    constants::Version, data::ViewNumber, simple_vote::UpgradeProposalData,
+    traits::node_implementation::ConsensusTime,
 };
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_task() {
-    use hotshot_testing::script::{run_test_script, TestScriptStage};
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::{
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();

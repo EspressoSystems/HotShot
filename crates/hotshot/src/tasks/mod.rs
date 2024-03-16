@@ -3,13 +3,10 @@
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
 
-use crate::tasks::task_state::CreateTaskState;
-use crate::ConsensusApi;
+use std::{sync::Arc, time::Duration};
 
-use crate::types::SystemContextHandle;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-
 use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
@@ -22,18 +19,16 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    message::Message,
-    traits::{election::Membership, network::ConnectedNetwork},
-};
-use hotshot_types::{
-    message::Messages,
+    message::{Message, Messages},
     traits::{
-        network::ConsensusIntentEvent,
+        election::Membership,
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use std::{sync::Arc, time::Duration};
 use tracing::error;
+
+use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 /// event for global event stream
 #[derive(Clone, Debug)]

@@ -3,9 +3,8 @@ use std::{
     task::Poll,
 };
 
-use libp2p::request_response::cbor::Behaviour;
 use libp2p::{
-    request_response::{Event, Message, OutboundRequestId, ResponseChannel},
+    request_response::{cbor::Behaviour, Event, Message, OutboundRequestId, ResponseChannel},
     swarm::{NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };

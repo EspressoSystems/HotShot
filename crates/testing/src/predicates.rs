@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
+use hotshot::types::SystemContextHandle;
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
+    consensus::ConsensusTaskState,
+    events::{HotShotEvent, HotShotEvent::*},
 };
 use hotshot_types::traits::node_implementation::NodeType;
-
-use hotshot::types::SystemContextHandle;
-
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
 pub struct Predicate<INPUT> {
     pub function: Box<dyn Fn(&INPUT) -> bool>,

@@ -1,6 +1,7 @@
 //! Implementations for examples and tests only
-use commit::{Commitment, Committable};
+use std::fmt::Debug;
 
+use commit::{Commitment, Committable};
 use hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
     traits::{
@@ -10,9 +11,7 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;

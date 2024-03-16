@@ -3,7 +3,16 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
+use core::time::Duration;
+use std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
+
 use async_compatibility_layer::{
     art::async_spawn,
     channel::{bounded, BoundedStream, Receiver, SendError, Sender},
@@ -11,7 +20,6 @@ use async_compatibility_layer::{
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
-use core::time::Duration;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
@@ -27,15 +35,9 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use snafu::ResultExt;
-use std::{
-    collections::BTreeSet,
-    fmt::Debug,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
 
 /// Shared state for in-memory mock networking.
 ///

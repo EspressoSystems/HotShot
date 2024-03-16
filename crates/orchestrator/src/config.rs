@@ -1,17 +1,17 @@
+use std::{
+    env, fs,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    time::Duration,
+    vec,
+};
+
 use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use serde_inline_default::serde_inline_default;
-use std::{
-    env,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    num::NonZeroUsize,
-    path::PathBuf,
-    time::Duration,
-    vec,
-};
-use std::{fs, path::Path};
 use surf_disco::Url;
 use thiserror::Error;
 use toml;

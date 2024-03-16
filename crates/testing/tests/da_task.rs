@@ -1,8 +1,13 @@
-use hotshot::tasks::task_state::CreateTaskState;
-use hotshot::types::SignatureKey;
-use hotshot::types::SystemContextHandle;
-use hotshot_example_types::node_types::MemoryImpl;
-use hotshot_example_types::{block_types::TestTransaction, node_types::TestTypes};
+use std::{collections::HashMap, marker::PhantomData};
+
+use hotshot::{
+    tasks::task_state::CreateTaskState,
+    types::{SignatureKey, SystemContextHandle},
+};
+use hotshot_example_types::{
+    block_types::TestTransaction,
+    node_types::{MemoryImpl, TestTypes},
+};
 use hotshot_task_impls::{da::DATaskState, events::HotShotEvent};
 use hotshot_types::{
     data::{DAProposal, ViewNumber},
@@ -15,7 +20,6 @@ use hotshot_types::{
     },
 };
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, marker::PhantomData};
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]

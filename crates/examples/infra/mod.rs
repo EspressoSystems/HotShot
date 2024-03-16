@@ -1,21 +1,32 @@
 #![allow(clippy::panic)]
-use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+use std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    fs,
+    marker::PhantomData,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use async_compatibility_layer::{
+    art::async_sleep,
+    logging::{setup_backtrace, setup_logging},
+};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use cdn_broker::reexports::crypto::signature::KeyPair;
-use cdn_broker::reexports::message::Topic;
-use clap::Parser;
-use clap::{Arg, Command};
+use cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+use chrono::Utc;
+use clap::{Arg, Command, Parser};
 use futures::StreamExt;
-use hotshot::traits::implementations::{
-    CombinedNetworks, PushCdnNetwork, UnderlyingCombinedNetworks, WrappedSignatureKey,
-};
-use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
-        NodeImplementation,
+        implementations::{
+            CombinedNetworks, Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, PushCdnNetwork,
+            UnderlyingCombinedNetworks, WebServerNetwork, WrappedSignatureKey,
+        },
+        BlockPayload, NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
@@ -24,48 +35,38 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
 };
-use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{
+        CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
+        WebServerConfig,
+    },
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::network::ConnectedNetwork;
-use hotshot_types::PeerConfig;
-use hotshot_types::ValidatorConfig;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
+    message::Message,
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
-    HotShotConfig,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use libp2p_identity::{
     ed25519::{self, SecretKey},
-    Keypair,
+    Keypair, PeerId,
 };
 use libp2p_networking::{
     network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType},
     reexport::Multiaddr,
 };
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use std::marker::PhantomData;
-use std::time::Duration;
-use std::{collections::BTreeSet, sync::Arc};
-use std::{num::NonZeroUsize, str::FromStr};
+use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
-
-use chrono::Utc;
-use libp2p_identity::PeerId;
-use std::fmt::Debug;
-use std::{fs, time::Instant};
 use tracing::{error, info, warn};
 
 #[derive(Debug, Clone)]

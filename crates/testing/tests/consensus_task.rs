@@ -1,18 +1,20 @@
 #![allow(clippy::panic)]
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-use hotshot::types::SystemContextHandle;
+use hotshot::{
+    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    types::SystemContextHandle,
+};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
-use hotshot_testing::task_helpers::key_pair_for_id;
-use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
     predicates::{exact, is_at_view_number, quorum_vote_send},
     script::{run_test_script, TestScriptStage},
-    task_helpers::build_system_handle,
+    task_helpers::{build_system_handle, key_pair_for_id},
+    test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::simple_vote::ViewSyncFinalizeData;
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::ViewNumber, simple_vote::ViewSyncFinalizeData, traits::node_implementation::ConsensusTime,
+};
 use jf_primitives::vid::VidScheme;
 
 #[cfg(test)]

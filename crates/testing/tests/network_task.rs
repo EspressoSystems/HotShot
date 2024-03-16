@@ -1,3 +1,5 @@
+use std::{collections::HashMap, marker::PhantomData};
+
 use hotshot::types::SignatureKey;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_task_impls::events::HotShotEvent;
@@ -8,7 +10,6 @@ use hotshot_types::{
 };
 use jf_primitives::vid::VidScheme;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, marker::PhantomData};
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]

@@ -1,55 +1,53 @@
 //! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
-use super::NetworkError;
-use crate::traits::implementations::{Libp2pNetwork, WebServerNetwork};
-use async_lock::RwLock;
-use hotshot_types::constants::{
-    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
-};
-use lru::LruCache;
 use std::{
-    collections::BTreeSet,
-    hash::Hasher,
+    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet},
+    future::Future,
+    hash::{Hash, Hasher},
     num::NonZeroUsize,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
-use tracing::warn;
 
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::UnboundedSendError,
+};
+use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
-
-use futures::{channel::mpsc, join, select, FutureExt};
-
-use async_compatibility_layer::channel::UnboundedSendError;
+use either::Either;
+use futures::{channel::mpsc, future::join_all, join, select, FutureExt};
+use hotshot_task_impls::helpers::cancel_task;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
     boxed_sync,
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
     data::ViewNumber,
-    message::Message,
+    message::{GeneralConsensusMessage, Message, MessageKind},
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
-        node_implementation::NodeType,
+        network::{
+            ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage, ViewMessage,
+        },
+        node_implementation::{ConsensusTime, NodeType},
     },
     BoxSyncFuture,
 };
-use std::collections::BTreeMap;
-use std::future::Future;
-use std::{collections::hash_map::DefaultHasher, sync::Arc};
-
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
-use either::Either;
-use futures::future::join_all;
-use hotshot_task_impls::helpers::cancel_task;
-use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
-use hotshot_types::traits::network::ViewMessage;
-use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::hash::Hash;
-use std::time::Duration;
+use lru::LruCache;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tracing::warn;
+
+use super::NetworkError;
+use crate::traits::implementations::{Libp2pNetwork, WebServerNetwork};
 
 /// Helper function to calculate a hash of a type that implements Hash
 pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {

@@ -1,22 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::test_runner::HotShotTaskCompleted;
-use crate::test_runner::{LateStartNode, Node, TestRunner};
 use either::{Left, Right};
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer};
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_task::task::{Task, TaskState, TestTaskState};
-use hotshot_types::{data::Leaf, ValidatorConfig};
 use hotshot_types::{
+    data::Leaf,
     event::Event,
     message::Message,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{NodeImplementation, NodeType},
     },
+    ValidatorConfig,
 };
 use snafu::Snafu;
-use std::collections::BTreeMap;
+
+use crate::test_runner::{HotShotTaskCompleted, LateStartNode, Node, TestRunner};
 /// convience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 

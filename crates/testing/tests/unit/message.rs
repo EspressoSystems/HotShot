@@ -1,24 +1,19 @@
 #[cfg(test)]
 use std::marker::PhantomData;
 
+use bincode::config::Options;
 use commit::Committable;
 use either::Left;
-
-use hotshot_types::constants::Version;
-
 use hotshot_example_types::node_types::TestTypes;
-
-use hotshot_utils::bincode::bincode_opts;
-
-use bincode::config::Options;
-
 use hotshot_types::{
+    constants::Version,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     signature_key::BLSPubKey,
     simple_certificate::SimpleCertificate,
     simple_vote::ViewSyncCommitData,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
+use hotshot_utils::bincode::bincode_opts;
 
 #[test]
 // Checks that the current program protocol version

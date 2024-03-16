@@ -1,16 +1,16 @@
 use std::{net::IpAddr, time::Duration};
 
-use crate::config::NetworkConfig;
 use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
-
 use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
+
+use crate::config::NetworkConfig;
 /// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     /// the client

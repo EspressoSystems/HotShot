@@ -1,23 +1,19 @@
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
-};
+use core::time::Duration;
+use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use chrono::Utc;
 use commit::Committable;
-use core::time::Duration;
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::constants::Version;
-use hotshot_types::constants::LOOK_AHEAD;
-use hotshot_types::event::LeafInfo;
 use hotshot_types::{
     consensus::{Consensus, View},
+    constants::{Version, LOOK_AHEAD},
     data::{Leaf, QuorumProposal},
-    event::{Event, EventType},
+    event::{Event, EventType, LeafInfo},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
@@ -37,14 +33,15 @@ use hotshot_types::{
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-use tracing::warn;
-
-use crate::vote::HandleVoteEvent;
-use chrono::Utc;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
+};
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {

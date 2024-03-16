@@ -1,16 +1,11 @@
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use std::sync::Arc;
+
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
-use hotshot_types::constants::VERSION_0_1;
-use std::sync::Arc;
-
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
+    constants::VERSION_0_1,
     message::{
         CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
         SequencingMessage,
@@ -18,12 +13,16 @@ use hotshot_types::{
     traits::{
         election::Membership,
         network::{ConnectedNetwork, TransmitType, ViewMessage},
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::instrument;
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {

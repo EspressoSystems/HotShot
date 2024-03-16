@@ -12,28 +12,28 @@ pub mod types;
 
 pub mod tasks;
 
-use crate::{
-    tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_upgrade_task, add_view_sync_task,
-    },
-    traits::{NodeImplementation, Storage},
-    types::{Event, SystemContextHandle},
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
 };
+
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use futures::join;
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_task_impls::helpers::broadcast_event;
-use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
-
 use hotshot_task::task::TaskRegistry;
+use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
+// Internal
+/// Reexport error type
+pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
+    constants::{EVENT_CHANNEL_SIZE, VERSION_0_1},
     data::Leaf,
     error::StorageSnafu,
     event::EventType,
@@ -51,24 +51,22 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use snafu::ResultExt;
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    num::NonZeroUsize,
-    sync::Arc,
-    time::Duration,
-};
-use tasks::add_vid_task;
-use tracing::{debug, instrument, trace};
-
 // -- Rexports
 // External
 /// Reexport rand crate
 pub use rand;
-// Internal
-/// Reexport error type
-pub use hotshot_types::error::HotShotError;
+use snafu::ResultExt;
+use tasks::add_vid_task;
+use tracing::{debug, instrument, trace};
+
+use crate::{
+    tasks::{
+        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
+    },
+    traits::{NodeImplementation, Storage},
+    types::{Event, SystemContextHandle},
+};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
