@@ -409,7 +409,7 @@ pub fn build_vid_proposal(
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(&encoded_transactions).unwrap(),
+        vid.disperse(encoded_transactions).unwrap(),
         &quorum_membership.clone().into(),
     );
 

@@ -117,7 +117,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
                 let Some(proposals_map) = state.vid_shares.get(&view) else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
-                self.handle_vid(proposals_map, pub_key)
+                self.handle_vid(proposals_map, &pub_key)
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
             RequestKind::DAProposal(_view) => self.make_msg(ResponseMessage::NotFound),
@@ -129,13 +129,13 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     fn handle_vid(
         &self,
         proposals_map: &HashMap<TYPES::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
-        key: TYPES::SignatureKey,
+        key: &TYPES::SignatureKey,
     ) -> Message<TYPES> {
-        if !proposals_map.contains_key(&key) {
+        if !proposals_map.contains_key(key) {
             return self.make_msg(ResponseMessage::NotFound);
         }
         let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(
-            proposals_map.get(&key).unwrap().clone(),
+            proposals_map.get(key).unwrap().clone(),
         )));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
