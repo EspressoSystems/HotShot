@@ -2,15 +2,16 @@ use hotshot::types::SignatureKey;
 use hotshot_example_types::{block_types::TestTransaction, node_types::TestTypes};
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
-use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
-    data::{DAProposal, VidDisperse, ViewNumber},
-    traits::consensus_api::ConsensusApi,
+    data::{DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    traits::{
+        consensus_api::ConsensusApi,
+        node_implementation::{ConsensusTime, NodeType},
+    },
 };
 use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use hotshot_types::data::VidDisperseShare;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]

@@ -14,7 +14,7 @@ use commit::Committable;
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 use hotshot_types::{
-    data::{Leaf, QuorumProposal, ViewNumber},
+    data::{Leaf, QuorumProposal, VidDisperseShare, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -29,7 +29,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
 };
-use hotshot_types::data::VidDisperseShare;
 
 use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::simple_vote::QuorumVote;

@@ -1,6 +1,7 @@
 use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
+use hotshot_types::data::VidDisperseShare;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
@@ -15,7 +16,6 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
-use hotshot_types::data::VidDisperseShare;
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -114,11 +114,17 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`HotShotEvent::DAProposalSend`].
-    VidDisperseSend(Proposal<TYPES, VidDisperseShare<TYPES>>, TYPES::SignatureKey),
+    VidDisperseSend(
+        Proposal<TYPES, VidDisperseShare<TYPES>>,
+        TYPES::SignatureKey,
+    ),
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
-    VidDisperseRecv(Proposal<TYPES, VidDisperseShare<TYPES>>, TYPES::SignatureKey),
+    VidDisperseRecv(
+        Proposal<TYPES, VidDisperseShare<TYPES>>,
+        TYPES::SignatureKey,
+    ),
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network

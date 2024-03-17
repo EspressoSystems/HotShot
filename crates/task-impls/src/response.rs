@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
@@ -9,6 +9,7 @@ use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::constants::VERSION_0_1;
+use hotshot_types::data::VidDisperseShare;
 use hotshot_types::{
     consensus::Consensus,
     message::{
@@ -21,7 +22,6 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-use hotshot_types::data::VidDisperseShare;
 use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
 
@@ -134,7 +134,9 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
         if !proposals_map.contains_key(&key) {
             return self.make_msg(ResponseMessage::NotFound);
         }
-        let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(proposals_map.get(&key).unwrap().clone())));
+        let seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(
+            proposals_map.get(&key).unwrap().clone(),
+        )));
         self.make_msg(ResponseMessage::Found(seq_msg))
     }
 

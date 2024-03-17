@@ -45,9 +45,9 @@ use hotshot_types::vote::Vote;
 
 use jf_primitives::vid::VidScheme;
 
+use hotshot_types::data::VidDisperseShare;
 use serde::Serialize;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
-use hotshot_types::data::VidDisperseShare;
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics

@@ -3,13 +3,12 @@ use hotshot_example_types::node_types::TestTypes;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_testing::task_helpers::{build_quorum_proposal, vid_scheme_from_view_number};
 use hotshot_types::{
-    data::{DAProposal, ViewNumber},
+    data::{DAProposal, VidDisperseShare, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
 };
 use jf_primitives::vid::VidScheme;
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, marker::PhantomData};
-use hotshot_types::data::VidDisperseShare;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -59,7 +58,8 @@ async fn test_network_task() {
         &quorum_membership.clone().into(),
     );
 
-    let vid_disperse_share =  VidDisperseShare::from_vid_disperse(vid_disperse_inner.clone()).swap_remove(0);
+    let vid_disperse_share =
+        VidDisperseShare::from_vid_disperse(vid_disperse_inner.clone()).swap_remove(0);
 
     // TODO for now reuse the same block payload commitment and signature as DA committee
     // https://github.com/EspressoSystems/jellyfish/issues/369

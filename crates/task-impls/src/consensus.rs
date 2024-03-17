@@ -41,12 +41,15 @@ use tracing::warn;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc};
-use std::collections::HashMap;
+use hotshot_types::data::VidDisperseShare;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument};
-use hotshot_types::data::VidDisperseShare;
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -1085,17 +1088,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 {
                     let mut consensus_lock = self.consensus.write().await;
                     // Add to the storage that we have received the VID disperse for a specific view
-                    if let Some(vid_disperse) = consensus_lock
-                        .vid_shares
-                        .get_mut(&view) {
-                        vid_disperse
-                            .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    if let Some(vid_disperse) = consensus_lock.vid_shares.get_mut(&view) {
+                        vid_disperse.insert(disperse.data.recipient_key.clone(), disperse.clone());
                     } else {
                         let mut proposals_map = HashMap::new();
                         proposals_map.insert(disperse.data.recipient_key.clone(), disperse.clone());
-                        consensus_lock
-                            .vid_shares
-                            .insert(view, proposals_map);
+                        consensus_lock.vid_shares.insert(view, proposals_map);
                     }
                 }
 

@@ -22,10 +22,10 @@ use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
-use std::sync::Arc;
 use futures::future::join_all;
-use tracing::{debug, error, instrument, warn};
 use hotshot_types::data::VidDisperseShare;
+use std::sync::Arc;
+use tracing::{debug, error, instrument, warn};
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<
