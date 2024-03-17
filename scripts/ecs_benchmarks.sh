@@ -4,8 +4,8 @@ source "$HOME/.cargo/env"
 
 # assign local ip
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
-webserver_url_1=http://"$ip":9000
-webserver_url_2=http://"$ip":9001
+webserver_url=http://"$ip":9000
+da_webserver_url=http://"$ip":9001
 orchestrator_url=http://"$ip":4444
 
 # start webserver
@@ -14,8 +14,7 @@ just async_std example webserver -- http://0.0.0.0:9001 &
 sleep 1m
 
 # start orchestrator
-# Sishan TODO: add webserver url
-just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 &
+just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url ${webserver_url} --da_webserver_url ${da_webserver_url} &
 sleep 1m
 
 # start validators

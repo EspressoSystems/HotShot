@@ -173,6 +173,22 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .help("Sets the url of the orchestrator")
                 .required(false),
         )
+        .arg(
+            Arg::new("webserver_url")
+                .short('w')
+                .long("webserver_url")
+                .value_name("URL")
+                .help("Sets the url of the webserver")
+                .required(false),
+        )
+        .arg(
+            Arg::new("da_webserver_url")
+                .short('a')
+                .long("da_webserver_url")
+                .value_name("URL")
+                .help("Sets the url of the da webserver")
+                .required(false),
+        )
         .get_matches();
 
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
@@ -212,6 +228,20 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
     }
     if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
+    }
+    if let Some(webserver_url_string) = matches.get_one::<String>("webserver_url") {
+        let updated_web_server_config = WebServerConfig {
+            url: Url::parse(webserver_url_string).unwrap(),
+            wait_between_polls: config.web_server_config.unwrap().wait_between_polls,
+        };
+        config.web_server_config = Some(updated_web_server_config);
+    }
+    if let Some(da_webserver_url_string) = matches.get_one::<String>("da_webserver_url") {
+        let updated_da_web_server_config = WebServerConfig {
+            url: Url::parse(da_webserver_url_string).unwrap(),
+            wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
+        };
+        config.da_web_server_config = Some(updated_da_web_server_config);
     }
 
     (config, orchestrator_url)
