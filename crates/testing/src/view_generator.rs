@@ -14,7 +14,7 @@ use commit::Committable;
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 use hotshot_types::{
-    data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
+    data::{Leaf, QuorumProposal, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -41,10 +41,6 @@ pub struct TestView {
     pub view_number: ViewNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
     pub vid_proposal: (
-        Proposal<TestTypes, VidDisperse<TestTypes>>,
-        <TestTypes as NodeType>::SignatureKey,
-    ),
-    pub vid_share_proposal: (
         Proposal<TestTypes, VidDisperseShare<TestTypes>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
@@ -68,7 +64,7 @@ impl TestView {
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        let (vid_proposal, vid_share_proposal) = build_vid_proposal(
+        let vid_proposal = build_vid_proposal(
             quorum_membership,
             genesis_view,
             transactions.clone(),
@@ -127,7 +123,6 @@ impl TestView {
             view_number: genesis_view,
             quorum_membership: quorum_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
-            vid_share_proposal: (vid_share_proposal, public_key),
             da_certificate,
             transactions,
             leader_public_key,
@@ -165,7 +160,7 @@ impl TestView {
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        let (vid_proposal, vid_share_proposal) = build_vid_proposal(
+        let vid_proposal = build_vid_proposal(
             quorum_membership,
             next_view,
             transactions.clone(),
@@ -294,7 +289,6 @@ impl TestView {
             view_number: next_view,
             quorum_membership: quorum_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
-            vid_share_proposal: (vid_share_proposal, public_key),
             da_certificate,
             leader_public_key,
             // Transactions and upgrade data need to be manually injected each view,

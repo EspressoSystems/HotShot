@@ -9,7 +9,6 @@ use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
-    message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -23,7 +22,6 @@ use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
-use std::marker::PhantomData;
 use std::sync::Arc;
 use futures::future::join_all;
 use tracing::{debug, error, instrument, warn};
@@ -106,14 +104,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
+                let view_number = *view_number;
                 let mut broadcast_tasks = Vec::new();
-                let vid_disperse_shares = VidDisperseShare::from_vid_disperse(vid_disperse);
+                let vid_disperse_shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 for vid_disperse_share in vid_disperse_shares {
                     broadcast_tasks.push(broadcast_event(
-                        HotShotEvent::VidDisperseSend(
+                        Arc::new(HotShotEvent::VidDisperseSend(
                             vid_disperse_share.to_proposal(&self.private_key)?,
                             self.public_key.clone(),
-                        ),
+                        )),
                         &event_stream,
                     ));
                 }

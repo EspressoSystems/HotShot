@@ -1082,22 +1082,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                // Add to the storage that we have received the VID disperse for a specific view
-                if let Some(vid_disperse) = self.consensus
-                    .write()
-                    .await
-                    .vid_shares
-                    .get_mut(&view) {
-                    vid_disperse
-                        .insert(disperse.data.recipient_key.clone(), disperse);
-                } else {
-                    let mut proposals_map = HashMap::new();
-                    proposals_map.insert(disperse.data.recipient_key.clone(), disperse);
-                    self.consensus
-                        .write()
-                        .await
+                {
+                    let mut consensus_lock = self.consensus.write().await;
+                    // Add to the storage that we have received the VID disperse for a specific view
+                    if let Some(vid_disperse) = consensus_lock
                         .vid_shares
-                        .insert(view, proposals_map);
+                        .get_mut(&view) {
+                        vid_disperse
+                            .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    } else {
+                        let mut proposals_map = HashMap::new();
+                        proposals_map.insert(disperse.data.recipient_key.clone(), disperse.clone());
+                        consensus_lock
+                            .vid_shares
+                            .insert(view, proposals_map);
+                    }
                 }
 
                 if self.vote_if_able(&event_stream).await {

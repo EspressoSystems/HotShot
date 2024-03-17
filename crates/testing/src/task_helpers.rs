@@ -403,33 +403,20 @@ pub fn build_vid_proposal(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> (Proposal<TestTypes, VidDisperse<TestTypes>>, Proposal<TestTypes, VidDisperseShare<TestTypes>>) {
+) -> Proposal<TestTypes, VidDisperseShare<TestTypes>> {
     let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
-    let payload_commitment = vid_disperse.commit;
-
-    let vid_signature =
-        <TestTypes as NodeType>::SignatureKey::sign(private_key, payload_commitment.as_ref())
-            .expect("Failed to sign payload commitment");
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(&encoded_transactions).unwrap(),
         &quorum_membership.clone().into(),
     );
 
-    (
-        Proposal {
-            data: vid_disperse.clone(),
-            signature: vid_signature,
-            _pd: PhantomData,
-        },
-        VidDisperseShare::from_vid_disperse(vid_disperse)
-            .swap_remove(0)
-            .to_proposal(private_key)
-            .expect("Failed to sign payload commitment")
-    )
+    VidDisperseShare::from_vid_disperse(vid_disperse)
+        .swap_remove(0)
+        .to_proposal(private_key)
+        .expect("Failed to sign payload commitment")
 }
 
 pub fn build_da_certificate(

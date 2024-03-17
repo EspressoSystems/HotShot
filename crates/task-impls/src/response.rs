@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 use std::collections::HashMap;
 
 use async_broadcast::Receiver;
@@ -11,7 +11,6 @@ use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     consensus::Consensus,
-    data::VidDisperse,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
     },
