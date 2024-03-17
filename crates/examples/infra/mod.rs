@@ -648,7 +648,7 @@ pub trait RunDA<
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
-        println!("[{node_index}]: Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
+        println!("[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}");
         // +2 is for uncommitted views
         assert!(total_num_views <= (failed_num_views + num_successful_commits + 2));
         // Output run results
