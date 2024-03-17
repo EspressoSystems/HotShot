@@ -27,8 +27,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::warn;
-use tracing::{debug, instrument};
+use tracing::{debug,warn,error, instrument};
 
 /// Vote dependency types.
 #[derive(PartialEq)]
@@ -95,6 +94,7 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
+                            error!("Quorum proposal and DAC have inconsistent payload commitment.");
                             return;
                         }
                     } else {
@@ -105,6 +105,7 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
+                            error!("Quorum proposal and DAC have inconsistent payload commitment.");
                             return;
                         }
                     } else {
@@ -265,7 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         false
     }
 
-    /// Handles a consensus event received on the event stream
+    /// Handle a vote dependent event received on the event stream
     #[instrument(skip_all, fields(id = self.id, next_vote_view = *self.next_vote_view), name = "Quorum vote handle", level = "error")]
     pub async fn handle(
         &mut self,

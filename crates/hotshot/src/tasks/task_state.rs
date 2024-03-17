@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, da::DATaskState, transactions::TransactionTaskState,
     upgrade::UpgradeTaskState, vid::VIDTaskState, view_sync::ViewSyncTaskState,
+    quorum_vote::QuorumVoteTaskState
 };
 use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::traits::{
@@ -180,6 +181,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
+        }
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for QuorumVoteTaskState<TYPES, I>
+{
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I>,
+    ) -> QuorumVoteTaskState<TYPES, I> {
+        QuorumVoteTaskState {
+            next_vote_view: handle.get_cur_view().await,
+            vote_dependencies: HashMap::new(),
+            quorum_network: handle.hotshot.networks.quorum_network.clone(),
+            committee_network: handle.hotshot.networks.da_network.clone(),
+            output_event_stream: handle.hotshot.output_event_stream.0.clone(),
+            id: handle.hotshot.id,
         }
     }
 }

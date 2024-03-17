@@ -14,7 +14,7 @@ pub mod tasks;
 
 use crate::{
     tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
+        add_consensus_task, add_quorum_vote_task,add_da_task, add_network_event_task, add_network_message_task,
         add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
     traits::{NodeImplementation, Storage},
@@ -526,6 +526,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
+    add_quorum_vote_task(
+        registry.clone(),
+        event_tx.clone(),
+        event_rx.activate_cloned(),
+        &handle,
+    ).await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),

@@ -45,7 +45,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
-    /// Dummy quorum vote to test if the quorum vote dependency works.
+    // TODO: Complete the dependency implementation.
+    // <https://github.com/EspressoSystems/HotShot/issues/2710>
+    /// Dummy quorum vote to test if the quorum vote dependency works. Should be removed and
+    /// replaced by `QuorumVoteSend` once the above TODO is done.
     DummyQuorumVoteSend(TYPES::Time),
     /// A proposal was validated. This means it comes from the correct leader and has a correct QC.
     QuorumProposalValidated(QuorumProposal<TYPES>),
