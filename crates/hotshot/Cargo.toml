@@ -9,9 +9,7 @@ rust-version = { workspace = true }
 
 [features]
 default = ["docs", "doc-images"]
-gpu-vid = [
-    "hotshot-task-impls/gpu-vid",
-]
+gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 # Features required for binaries
 bin-orchestrator = ["clap"]
@@ -23,7 +21,7 @@ hotshot-testing = []
 randomized-leader-election = []
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }

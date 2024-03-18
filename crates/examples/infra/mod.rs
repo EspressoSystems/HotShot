@@ -21,6 +21,7 @@ use hotshot::{
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -427,7 +428,12 @@ pub trait RunDA<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, QuorumNetwork = QUORUMNET, CommitteeNetwork = DANET>,
+    NODE: NodeImplementation<
+        TYPES,
+        QuorumNetwork = QUORUMNET,
+        CommitteeNetwork = DANET,
+        Storage = TestStorage<TYPES>,
+    >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -504,6 +510,7 @@ pub trait RunDA<
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            TestStorage::<TYPES>::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -703,6 +710,7 @@ impl<
             TYPES,
             QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
             CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
+            Storage = TestStorage<TYPES>,
         >,
         NetworkVersion: StaticVersionType,
     >
@@ -784,6 +792,7 @@ impl<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
             CommitteeNetwork = PushCdnNetwork<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -866,6 +875,7 @@ impl<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+            Storage = TestStorage<TYPES>,
         >,
     >
     RunDA<
@@ -935,6 +945,7 @@ impl<
             TYPES,
             QuorumNetwork = CombinedNetworks<TYPES, NetworkVersion>,
             CommitteeNetwork = CombinedNetworks<TYPES, NetworkVersion>,
+            Storage = TestStorage<TYPES>,
         >,
         NetworkVersion: StaticVersionType,
     >
@@ -1028,7 +1039,12 @@ pub async fn main_entry_point<
     >,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, QuorumNetwork = QUORUMCHANNEL, CommitteeNetwork = DACHANNEL>,
+    NODE: NodeImplementation<
+        TYPES,
+        QuorumNetwork = QUORUMCHANNEL,
+        CommitteeNetwork = DACHANNEL,
+        Storage = TestStorage<TYPES>,
+    >,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
     args: ValidatorArgs,

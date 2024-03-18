@@ -1,6 +1,6 @@
 use crate::infra::CombinedDARun;
 use hotshot::traits::implementations::CombinedNetworks;
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
 use hotshot_types::constants::WebServerVersion;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ pub type ViewSyncNetwork = CombinedNetworks<TestTypes, WebServerVersion>;
 impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
+    type Storage = TestStorage<TestTypes>;
 }
 /// convenience type alias
 pub type ThisRun = CombinedDARun<TestTypes, WebServerVersion>;
