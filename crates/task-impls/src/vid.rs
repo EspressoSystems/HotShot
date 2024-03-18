@@ -118,26 +118,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 debug!("publishing VID disperse shares for view {}", *view_number);
                 join_all(broadcast_tasks).await;
-                // let Ok(signature) = TYPES::SignatureKey::sign(
-                //     &self.private_key,
-                //     vid_disperse.payload_commitment.as_ref().as_ref(),
-                // ) else {
-                //     error!("VID: failed to sign dispersal payload");
-                //     return None;
-                // };
-                // debug!("publishing VID disperse for view {}", *view_number);
-                // broadcast_event(
-                //     HotShotEvent::VidDisperseSend(
-                //         Proposal {
-                //             signature,
-                //             data: vid_disperse,
-                //             _pd: PhantomData,
-                //         },
-                //         self.public_key.clone(),
-                //     ),
-                //     &event_stream,
-                // )
-                // .await;
             }
 
             HotShotEvent::ViewChange(view) => {

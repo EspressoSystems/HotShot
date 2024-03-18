@@ -266,14 +266,17 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
-            HotShotEvent::VidDisperseSend(proposal, sender) => (
-                sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
-                    CommitteeConsensusMessage::VidDisperseMsg(proposal),
-                ))), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-                TransmitType::Broadcast, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
-                None,
-            ),
+            HotShotEvent::VidDisperseSend(proposal, sender) => {
+                let recipient_key = proposal.data.recipient_key.clone();
+                (
+                    sender,
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
+                        CommitteeConsensusMessage::VidDisperseMsg(proposal),
+                    ))), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                    TransmitType::Direct, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
+                    Some(recipient_key),
+                )
+            }
             HotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
