@@ -64,7 +64,6 @@ pub async fn build_system_handle(
     let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
 
     let networks = (launcher.resource_generator.channel_generator)(node_id);
-    let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
     let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {}).unwrap();
@@ -118,7 +117,6 @@ pub async fn build_system_handle(
         private_key,
         node_id,
         config,
-        storage,
         memberships,
         networks_bundle,
         initializer,
@@ -382,7 +380,7 @@ pub fn vid_payload_commitment(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -404,7 +402,7 @@ pub fn build_vid_proposal(
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Proposal<TestTypes, VidDisperseShare<TestTypes>> {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     let vid_disperse = VidDisperse::from_membership(
