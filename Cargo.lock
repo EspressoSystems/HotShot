@@ -3464,7 +3464,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.5"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.6#bec79c9c0c9b35174df59d80e3038c93a4e4f937"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=lr/vid-share-dms#95310f1bbdb105134c8698731489a63ced3642ea"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -3534,8 +3534,8 @@ dependencies = [
 
 [[package]]
 name = "hs-builder-api"
-version = "0.1.1"
-source = "git+https://github.com/EspressoSystems/hs-builder-api#44c614da832e74e19539e36adfc60bc9557771fd"
+version = "0.1.2"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?branch=lr/vid-share-dms#c6b393bb1391f20444f12ba2703785cc0cfea28a"
 dependencies = [
  "async-trait",
  "clap",
