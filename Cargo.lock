@@ -917,19 +917,6 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07b30ef0ea5c20caaa54baea49514a206308989c68be7ecd86c7f956e4da6378"
 dependencies = [
- "futures-io",
- "futures-util",
- "log",
- "pin-project-lite 0.2.13",
- "tungstenite 0.13.0",
-]
-
-[[package]]
-name = "async-tungstenite"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "742cc7dcb20b2f84a42f4691aa999070ec7e78f8e7e7438bf14be7017b44907e"
-dependencies = [
  "async-native-tls",
  "async-std",
  "async-tls",
@@ -937,7 +924,7 @@ dependencies = [
  "futures-util",
  "log",
  "pin-project-lite 0.2.13",
- "tungstenite 0.15.0",
+ "tungstenite 0.13.0",
 ]
 
 [[package]]
@@ -3403,7 +3390,7 @@ dependencies = [
  "serde_json",
  "surf-disco",
  "thiserror",
- "tide-disco",
+ "tide-disco 0.4.6",
  "tokio",
  "toml 0.8.11",
  "tracing",
@@ -3502,7 +3489,7 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "snafu 0.8.2",
- "tide-disco",
+ "tide-disco 0.4.6",
  "tokio",
  "tracing",
 ]
@@ -3600,7 +3587,7 @@ dependencies = [
  "futures",
  "hotshot-types",
  "rand 0.8.5",
- "tide-disco",
+ "tide-disco 0.4.6",
  "tokio",
  "toml 0.8.11",
  "tracing",
@@ -3619,7 +3606,7 @@ dependencies = [
  "serde",
  "snafu 0.7.5",
  "tagged-base64",
- "tide-disco",
+ "tide-disco 0.4.6",
  "toml 0.8.11",
 ]
 
@@ -3757,7 +3744,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -7754,19 +7741,19 @@ dependencies = [
 
 [[package]]
 name = "surf-disco"
-version = "0.4.6"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.6#95181bced2719214fc88e8adcac739d86cb1387e"
+version = "0.4.8"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.8#522b160f6fa03793f6b1a920568d93980ab18f19"
 dependencies = [
  "async-std",
- "async-tungstenite 0.15.0",
- "bincode",
+ "async-tungstenite",
  "derivative",
  "futures",
  "hex",
  "serde",
  "serde_json",
  "surf",
- "tide-disco",
+ "tide-disco 0.4.8",
+ "versioned-binary-serialization",
 ]
 
 [[package]]
@@ -8078,6 +8065,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "tide-disco"
+version = "0.4.8"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.8#d0d2bfb8de1fcee6c28362c768efd6a2928d7b56"
+dependencies = [
+ "anyhow",
+ "async-std",
+ "async-trait",
+ "clap",
+ "config",
+ "derivative",
+ "derive_more",
+ "dirs",
+ "edit-distance",
+ "futures",
+ "futures-util",
+ "http 1.1.0",
+ "include_dir",
+ "lazy_static",
+ "libc",
+ "markdown",
+ "maud",
+ "num-derive",
+ "num-traits",
+ "parking_lot",
+ "prometheus",
+ "routefinder",
+ "semver 1.0.22",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "shellexpand",
+ "signal-hook",
+ "signal-hook-async-std",
+ "snafu 0.7.5",
+ "strum",
+ "strum_macros",
+ "surf",
+ "tagged-base64",
+ "tide",
+ "tide-websockets",
+ "toml 0.8.11",
+ "tracing",
+ "tracing-distributed",
+ "tracing-futures",
+ "tracing-log",
+ "tracing-subscriber",
+ "url",
+ "versioned-binary-serialization",
+]
+
+[[package]]
 name = "tide-websockets"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8085,7 +8123,7 @@ checksum = "3592c5cb5cb1b7a2ff3a0e5353170c1bb5b104b2f66dd06f73304169b52cc725"
 dependencies = [
  "async-dup",
  "async-std",
- "async-tungstenite 0.13.1",
+ "async-tungstenite",
  "base64 0.13.1",
  "futures-util",
  "pin-project",
@@ -8544,25 +8582,6 @@ dependencies = [
  "httparse",
  "input_buffer",
  "log",
- "rand 0.8.5",
- "sha-1",
- "thiserror",
- "url",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "983d40747bce878d2fb67d910dcb8bd3eca2b2358540c3cc1b98c027407a3ae3"
-dependencies = [
- "base64 0.13.1",
- "byteorder",
- "bytes 1.5.0",
- "http 0.2.12",
- "httparse",
- "log",
  "native-tls",
  "rand 0.8.5",
  "sha-1",
@@ -8801,6 +8820,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "versioned-binary-serialization"
+version = "0.1.2"
+source = "git+https://github.com/EspressoSystems/versioned-binary-serialization.git?tag=0.1.2#6874f91a3c8d64acc24fe0abe4ad93c35b75eb9d"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "displaydoc",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9029,7 +9060,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core 0.51.1",
+ "windows-core",
  "windows-targets 0.48.5",
 ]
 
@@ -9040,15 +9071,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
-dependencies = [
- "windows-targets 0.52.4",
 ]
 
 [[package]]
