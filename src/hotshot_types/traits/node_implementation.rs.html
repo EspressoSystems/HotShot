@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/git/checkouts/hotshot-types-4bdad6164c162f23/cde4a5e/src/traits/node_implementation.rs`."><title>node_implementation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/git/checkouts/hotshot-types-4bdad6164c162f23/db908cc/src/traits/node_implementation.rs`."><title>node_implementation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
@@ -232,28 +232,6 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -264,15 +242,13 @@
     election::ElectionConfig,
     network::{ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation},
     states::TestableState,
-    storage::{StorageError, StorageState, TestableStorage},
     ValidatedState,
 };
 <span class="kw">use crate</span>::{
     data::{Leaf, TestableLeaf},
     message::Message,
     traits::{
-        election::Membership, signature_key::SignatureKey, states::InstanceState, storage::Storage,
-        BlockPayload,
+        election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
 };
 <span class="kw">use </span>async_trait::async_trait;
@@ -298,9 +274,6 @@
 </span><span class="kw">pub trait </span>NodeImplementation&lt;TYPES: NodeType&gt;:
     Send + Sync + Clone + Eq + Hash + <span class="lifetime">'static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt;
 {
-    <span class="doccomment">/// Storage type for this consensus implementation
-    </span><span class="kw">type </span>Storage: Storage&lt;TYPES&gt; + Clone;
-
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">type </span>QuorumNetwork: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;;
     <span class="doccomment">/// Network for those in the DA committee
@@ -342,15 +315,6 @@
     <span class="doccomment">/// the number of transactions in a block
     </span><span class="kw">fn </span>txn_count(block: <span class="kw-2">&amp;</span>TYPES::BlockPayload) -&gt; u64;
 
-    <span class="doccomment">/// Create ephemeral storage
-    /// Will be deleted/lost immediately after storage is dropped
-    /// # Errors
-    /// Errors if it is not possible to construct temporary storage.
-    </span><span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Storage, StorageError&gt;;
-
-    <span class="doccomment">/// Return the full internal state. This is useful for debugging.
-    </span><span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES&gt;;
-
     <span class="doccomment">/// Generate the communication channels for testing
     </span><span class="kw">fn </span>gen_networks(
         expected_node_count: usize,
@@ -366,7 +330,6 @@
 <span class="kw">where
     </span>TYPES::ValidatedState: TestableState&lt;TYPES&gt;,
     TYPES::BlockPayload: TestableBlock,
-    I::Storage: TestableStorage&lt;TYPES&gt;,
     I::QuorumNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
     I::CommitteeNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
 {
@@ -408,13 +371,6 @@
         &lt;TYPES::BlockPayload <span class="kw">as </span>TestableBlock&gt;::txn_count(block)
     }
 
-    <span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Storage, StorageError&gt; {
-        &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES&gt;&gt;::construct_tmp_storage()
-    }
-
-    <span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES&gt; {
-        &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES&gt;&gt;::get_full_state(storage).<span class="kw">await
-    </span>}
     <span class="kw">fn </span>gen_networks(
         expected_node_count: usize,
         num_bootstrap: usize,

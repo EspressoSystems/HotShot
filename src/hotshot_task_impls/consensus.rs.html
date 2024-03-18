@@ -1422,11 +1422,6 @@
 <a href="#1421" id="1421">1421</a>
 <a href="#1422" id="1422">1422</a>
 <a href="#1423" id="1423">1423</a>
-<a href="#1424" id="1424">1424</a>
-<a href="#1425" id="1425">1425</a>
-<a href="#1426" id="1426">1426</a>
-<a href="#1427" id="1427">1427</a>
-<a href="#1428" id="1428">1428</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -2246,11 +2241,6 @@
                         .metrics
                         .number_of_views_per_decide_event
                         .add_point(cur_number_of_views_per_decide_event <span class="kw">as </span>f64);
-
-                    <span class="comment">// We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.store_leaf(old_anchor_view, leaf).<span class="kw">await </span>{
-                        <span class="macro">error!</span>(<span class="string">"Could not insert new anchor into the storage API: {:?}"</span>, e);
-                    }
 
                     <span class="macro">debug!</span>(<span class="string">"Sending Decide for view {:?}"</span>, consensus.last_decided_view);
                     <span class="macro">debug!</span>(<span class="string">"Decided txns len {:?}"</span>, included_txns_set.len());

@@ -198,7 +198,6 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_runner::HotShotTaskCompleted;
@@ -300,7 +299,7 @@
                                     Left(context) =&gt; context,
                                     <span class="comment">// Node not initialized. Initialize it
                                     // based on the received leaf.
-                                    </span>Right((storage, memberships, config)) =&gt; {
+                                    </span>Right((memberships, config)) =&gt; {
                                         <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
                                             state.last_decided_leaf.clone(),
                                             TestInstanceState {},
@@ -315,7 +314,6 @@
                                         TestRunner::add_node_with_config(
                                             node_id,
                                             node.networks.clone(),
-                                            storage,
                                             memberships,
                                             initializer,
                                             config,

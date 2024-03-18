@@ -172,9 +172,6 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -215,9 +212,6 @@
 
     <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
     </span><span class="kw">pub </span>hotshot: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
-
-    <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
@@ -230,6 +224,7 @@
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Event&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
     }
@@ -239,6 +234,7 @@
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned()
     }
@@ -275,6 +271,7 @@
     ///
     /// # Panics
     /// Panics if internal consensus is in an inconsistent state.
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.hotshot.try_get_decided_leaf()
     }
@@ -294,13 +291,8 @@
         <span class="self">self</span>.hotshot.publish_transaction_async(tx).<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
-    /// historical data
-    </span><span class="kw">pub fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Storage {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.storage
-    }
-
     <span class="doccomment">/// Get the underlying consensus state for this [`SystemContext`]
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.hotshot.get_consensus()
     }
@@ -326,6 +318,7 @@
     }
 
     <span class="doccomment">/// return the timeout for a view of the underlying `SystemContext`
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.hotshot.get_next_view_timeout()
     }
@@ -342,6 +335,7 @@
     <span class="comment">// Below is for testing only:
     </span><span class="doccomment">/// Wrapper to get this node's public key
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+    #[must_use]
     </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot.public_key.clone()
     }

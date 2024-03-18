@@ -439,11 +439,6 @@
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -504,7 +499,6 @@
 </span><span class="kw">pub type </span>LateNodeContext&lt;TYPES, I&gt; = Either&lt;
     Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
     (
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
         Memberships&lt;TYPES&gt;,
         HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, &lt;TYPES <span class="kw">as </span>NodeType&gt;::ElectionConfigType&gt;,
     ),
@@ -773,7 +767,6 @@
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
             <span class="self">self</span>.next_node_id += <span class="number">1</span>;
             <span class="macro">tracing::debug!</span>(<span class="string">"launch node {}"</span>, i);
-            <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
             <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
             <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
@@ -811,7 +804,7 @@
                     node_id,
                     LateStartNode {
                         networks,
-                        context: Right((storage, memberships, config)),
+                        context: Right((memberships, config)),
                     },
                 );
             } <span class="kw">else </span>{
@@ -823,7 +816,6 @@
                 <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
                     node_id,
                     networks.clone(),
-                    storage,
                     memberships,
                     initializer,
                     config,
@@ -858,7 +850,6 @@
     </span><span class="kw">pub async fn </span>add_node_with_config(
         node_id: u64,
         networks: Networks&lt;TYPES, I&gt;,
-        storage: I::Storage,
         memberships: Memberships&lt;TYPES&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
@@ -879,7 +870,6 @@
             private_key,
             node_id,
             config,
-            storage,
             memberships,
             network_bundle,
             initializer,

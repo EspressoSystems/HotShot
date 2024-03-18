@@ -499,8 +499,6 @@
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -566,7 +564,6 @@
     <span class="kw">let </span>launcher = builder.gen_launcher::&lt;TestTypes, MemoryImpl&gt;(node_id);
 
     <span class="kw">let </span>networks = (launcher.resource_generator.channel_generator)(node_id);
-    <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {}).unwrap();
@@ -620,7 +617,6 @@
         private_key,
         node_id,
         config,
-        storage,
         memberships,
         networks_bundle,
         initializer,

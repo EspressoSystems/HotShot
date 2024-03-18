@@ -59,8 +59,6 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
@@ -85,8 +83,6 @@
 </span><span class="kw">pub struct </span>ResourceGenerators&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// generate channels
     </span><span class="kw">pub </span>channel_generator: Generator&lt;Networks&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// generate a new storage for each node
-    </span><span class="kw">pub </span>storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 }

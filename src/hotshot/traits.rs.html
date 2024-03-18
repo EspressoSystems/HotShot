@@ -19,34 +19,24 @@
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
-<a href="#21" id="21">21</a>
-<a href="#22" id="22">22</a>
-<a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Sortition trait
 </span><span class="kw">pub mod </span>election;
 <span class="kw">mod </span>networking;
 <span class="kw">mod </span>node_implementation;
-<span class="kw">mod </span>storage;
 
 <span class="kw">pub use </span>hotshot_types::traits::{BlockPayload, ValidatedState};
 <span class="kw">pub use </span>networking::{NetworkError, NetworkReliability};
 <span class="kw">pub use </span>node_implementation::{NodeImplementation, TestableNodeImplementation};
-<span class="kw">pub use </span>storage::{<span class="prelude-ty">Result </span><span class="kw">as </span>StorageResult, Storage};
 
 <span class="doccomment">/// Module for publicly usable implementations of the traits
 </span><span class="kw">pub mod </span>implementations {
-    <span class="kw">pub use super</span>::{
-        networking::{
-            combined_network::{CombinedNetworks, UnderlyingCombinedNetworks},
-            libp2p_network::{Libp2pNetwork, PeerInfoVec},
-            memory_network::{MasterMap, MemoryNetwork},
-            push_cdn_network::{PushCdnNetwork, WrappedSignatureKey},
-            web_server_network::WebServerNetwork,
-            NetworkingMetricsValue,
-        },
-        storage::memory_storage::MemoryStorage, <span class="comment">// atomic_storage::AtomicStorage,
-    </span>};
+    <span class="kw">pub use </span><span class="kw">super</span>::networking::{
+        combined_network::{CombinedNetworks, UnderlyingCombinedNetworks},
+        libp2p_network::{Libp2pNetwork, PeerInfoVec},
+        memory_network::{MasterMap, MemoryNetwork},
+        push_cdn_network::{PushCdnNetwork, WrappedSignatureKey},
+        web_server_network::WebServerNetwork,
+        NetworkingMetricsValue,
+    };
 }
 </code></pre></div></section></main></body></html>
