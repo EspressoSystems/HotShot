@@ -61,7 +61,7 @@ futures = "0.3.30"
 generic-array = { version = "0.14.7", features = ["serde"] }
 hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", tag = "0.1.6" }
 
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.1" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
