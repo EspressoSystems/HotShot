@@ -16,11 +16,11 @@ use hotshot_task_impls::{
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
+    quorum_vote::QuorumVoteTaskState,
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
-    quorum_vote::QuorumVoteTaskState
 };
 use hotshot_types::{
     message::Message,
@@ -166,10 +166,7 @@ pub async fn inject_consensus_polls<
 }
 
 /// Setup polls for the given `quorum_vote`
-pub async fn inject_quorum_vote_polls<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
->(
+pub async fn inject_quorum_vote_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     quorum_vote_state: &QuorumVoteTaskState<TYPES, I>,
 ) {
     // Poll (forever) for the latest quorum proposal
@@ -184,7 +181,7 @@ pub async fn inject_quorum_vote_polls<
         .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
         .await;
 
-        quorum_vote_state
+    quorum_vote_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
         .await;

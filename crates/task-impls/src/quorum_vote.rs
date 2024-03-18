@@ -27,7 +27,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug,warn,error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 /// Vote dependency types.
 #[derive(PartialEq)]
