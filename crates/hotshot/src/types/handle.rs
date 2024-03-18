@@ -27,6 +27,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The Channel will output all the events.  Subscribers will get an activated
     /// clone of the `Receiver` when they get output stream.
     pub(crate) output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
     pub(crate) internal_event_stream: (
@@ -173,6 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     pub async fn get_cur_view(&self) -> TYPES::Time {
         self.hotshot.consensus.read().await.cur_view
     }
+
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
     #[must_use]

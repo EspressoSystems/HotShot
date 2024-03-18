@@ -1112,7 +1112,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -3300,10 +3300,12 @@ dependencies = [
 name = "hotshot-example-types"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
  "async-std",
+ "async-trait",
  "bincode",
  "bitvec",
  "commit",
@@ -3539,7 +3541,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.10"
-source = "git+https://github.com/EspressoSystems/hotshot-types?branch=bf/attr-action#e56a88133395c865bc0845e68869af14cd376a03"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=bf/attr-action#36edde92ee46fdd44393812d048c0bb51acdd90d"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3758,7 +3760,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -9030,7 +9032,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core",
+ "windows-core 0.51.1",
  "windows-targets 0.48.5",
 ]
 
@@ -9041,6 +9043,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+dependencies = [
+ "windows-targets 0.52.4",
 ]
 
 [[package]]

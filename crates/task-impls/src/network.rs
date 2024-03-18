@@ -4,12 +4,9 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
+use async_lock::RwLock;
 use either::Either::{self, Left, Right};
-use hotshot_types::{
-    constants::VERSION_0_1,
-    event::{Event, EventType, HotShotAction},
-    traits::storage::Storage,
-};
+use hotshot_types::{constants::VERSION_0_1, event::HotShotAction, traits::storage::Storage};
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
@@ -207,7 +204,7 @@ pub struct NetworkEventTaskState<
     /// Filter which returns false for the events that this specific network task cares about
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
-    pub storage: Arc<S>,
+    pub storage: Arc<RwLock<S>>,
 }
 
 impl<
@@ -244,7 +241,7 @@ impl<
 impl<
         TYPES: NodeType,
         COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-        S: Storage<TYPES>,
+        S: Storage<TYPES> + 'static,
     > NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
     /// Handle the given event.
@@ -254,7 +251,6 @@ impl<
     /// Panic sif a direct message event is received with no recipient
     #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
     #[instrument(skip_all, fields(view = *self.view), name = "Network Task", level = "error")]
-
     pub async fn handle_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -410,7 +406,23 @@ impl<
         let view = message.kind.get_view_number();
         let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
+        let storage = self.storage.clone();
         async_spawn(async move {
+            if let Some(action) = maybe_action {
+                match storage
+                    .write()
+                    .await
+                    .record_action(view, action.clone())
+                    .await
+                {
+                    Ok(()) => {}
+                    Err(e) => {
+                        warn!("Not Sending {:?} because of storage error: {:?}", action, e);
+                        return;
+                    }
+                }
+            }
+
             let transmit_result = match transmit_type {
                 TransmitType::Direct => net.direct_message(message, recipient.unwrap()).await,
                 TransmitType::Broadcast => net.broadcast_message(message, committee).await,

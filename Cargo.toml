@@ -38,6 +38,7 @@ async-broadcast = "0.7.0"
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.2", default-features = false, features = [
   "logging-utils",
 ] }
+anyhow = "1.0.81"
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
 async-lock = "2.8"
 async-trait = "0.1.77"
@@ -61,11 +62,13 @@ futures = "0.3.30"
 generic-array = { version = "0.14.7", features = ["serde"] }
 hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", branch = "bf/attr-action" }
 
+
+hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "bf/action" }
+
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
-hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "bf/action" }
 lazy_static = "1.4.0"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }

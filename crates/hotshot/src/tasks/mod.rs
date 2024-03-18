@@ -10,6 +10,7 @@ use crate::types::SystemContextHandle;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 
+use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
@@ -22,7 +23,6 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    event::Event,
     message::Message,
     traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
 };
@@ -89,7 +89,7 @@ pub async fn add_network_message_task<
 pub async fn add_network_event_task<
     TYPES: NodeType,
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    S: Storage<TYPES>,
+    S: Storage<TYPES> + 'static,
 >(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -97,9 +97,9 @@ pub async fn add_network_event_task<
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
-    storage: Arc<S>,
+    storage: Arc<RwLock<S>>,
 ) {
-    let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
+    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
