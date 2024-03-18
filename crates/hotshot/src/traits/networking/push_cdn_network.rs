@@ -15,16 +15,16 @@ use cdn_client::{
     Client, ConfigBuilder as ClientConfigBuilder,
 };
 use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
-use hotshot_types::constants::{Version01, VERSION_0_1};
 #[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::{
     boxed_sync,
+    constants::{Version01, VERSION_0_1},
     data::ViewNumber,
     message::Message,
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, NetworkReliability, PushCdnNetworkError,
-            TestableNetworkingImplementation,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
