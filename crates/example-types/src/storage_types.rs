@@ -39,17 +39,17 @@ impl<TYPES: NodeType> Default for TestStorage<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
-    async fn append_vid(&self, proposal: &Proposal<TYPES, DAProposal<TYPES>>) -> Result<()> {
-        let mut inner = self.inner.write().await;
-        inner
-            .das
-            .insert(proposal.data.view_number, proposal.clone());
-        Ok(())
-    }
-    async fn append_da(&self, proposal: &Proposal<TYPES, VidDisperse<TYPES>>) -> Result<()> {
+    async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperse<TYPES>>) -> Result<()> {
         let mut inner = self.inner.write().await;
         inner
             .vids
+            .insert(proposal.data.view_number, proposal.clone());
+        Ok(())
+    }
+    async fn append_da(&self, proposal: &Proposal<TYPES, DAProposal<TYPES>>) -> Result<()> {
+        let mut inner = self.inner.write().await;
+        inner
+            .das
             .insert(proposal.data.view_number, proposal.clone());
         Ok(())
     }
