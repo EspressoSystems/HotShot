@@ -65,7 +65,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
-hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", tag = "0.1.2" }
+hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "bf/action" }
 lazy_static = "1.4.0"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
@@ -77,7 +77,7 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0.114" }
 sha2 = "0.10"
-snafu = "0.7.5"
+snafu = "0.8.2"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.6" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.6" }

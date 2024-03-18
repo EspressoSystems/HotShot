@@ -7,7 +7,7 @@ use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
 use hotshot_types::{
     constants::VERSION_0_1,
-    event::{EventType, HotShotAction},
+    event::{Event, EventType, HotShotAction},
 };
 use std::sync::Arc;
 
@@ -205,7 +205,7 @@ pub struct NetworkEventTaskState<
     /// Filter which returns false for the events that this specific network task cares about
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Output event Sender
-    pub output_stream: Sender<EventType<TYPES>>,
+    pub output_stream: Sender<Event<TYPES>>,
 }
 
 impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>> TaskState
@@ -416,7 +416,10 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 Ok(()) => {
                     if let Some(action) = maybe_action {
                         broadcast_event(
-                            EventType::AttributableAction { view, action },
+                            Event {
+                                view_number: view,
+                                event: EventType::AttributableAction { view, action },
+                            },
                             &output_stream,
                         )
                         .await;
