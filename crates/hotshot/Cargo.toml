@@ -9,6 +9,8 @@ rust-version = "1.65.0"
 
 [features]
 default = ["docs", "doc-images"]
+example-upgrade = ["hotshot-types/arbitrary-messages", "hotshot-task-impls/example-upgrade"]
+
 
 # Features required for binaries
 bin-orchestrator = ["clap"]

@@ -3456,7 +3456,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems//hotshot-types?branch=ss/arbitrary-messages#964d8f6da9afd0a19cf628c76a002ae3b2a684cd"
+source = "git+https://github.com/EspressoSystems//hotshot-types?branch=ss/arbitrary-messages#269bdc0809d2d0de75376657dc0bec0b528bfd15"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -4163,7 +4163,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#39aa65e52347daa7ded14c00ef3cb4005b319d98"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
 dependencies = [
  "ark-ec",
  "ark-ff",

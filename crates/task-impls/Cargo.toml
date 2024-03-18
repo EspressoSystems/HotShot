@@ -5,6 +5,9 @@ edition = "2021"
 name = "hotshot-task-impls"
 version = "0.1.0"
 
+[features]
+example-upgrade = ["hotshot-types/arbitrary-messages"]
+
 [dependencies]
 async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }

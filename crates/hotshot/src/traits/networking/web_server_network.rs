@@ -331,6 +331,13 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                     return true;
                 }
+                #[cfg(feature = "example-upgrade")]
+                MessagePurpose::Arbitrary => {
+                    tracing::error!(
+                        "Received a raw message at network version major: 0, minor: 1 -- ignoring."
+                    );
+                    return false;
+                }
             }
         }
 
@@ -376,6 +383,13 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
                 MessagePurpose::Upgrade => config::get_upgrade_route(view_number),
+                #[cfg(feature = "example-upgrade")]
+                MessagePurpose::Arbitrary => {
+                    tracing::error!(
+                        "Asked to fetch a raw message from the web server -- ignoring."
+                    );
+                    continue;
+                }
             };
 
             if let MessagePurpose::Data = message_purpose {
@@ -659,6 +673,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
             MessagePurpose::Upgrade => config::post_upgrade_route(*view_number),
+            #[cfg(feature = "example-upgrade")]
+            MessagePurpose::Arbitrary => return Err(WebServerNetworkError::ArbitraryMessageError),
         };
 
         let network_msg: SendMsg<Message<TYPES>> = SendMsg {
