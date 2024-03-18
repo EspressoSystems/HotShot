@@ -27,7 +27,7 @@ async fn test_vid_task() {
     // quorum membership for VID share distribution
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
@@ -77,7 +77,7 @@ async fn test_vid_task() {
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key));
-    input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone(), pub_key));
+    input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone()));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(

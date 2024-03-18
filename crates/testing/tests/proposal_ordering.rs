@@ -23,7 +23,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let vid =
+    let mut vid =
         vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(node_id));
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
@@ -52,7 +52,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),

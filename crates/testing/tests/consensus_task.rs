@@ -36,7 +36,7 @@ async fn test_consensus_task() {
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
@@ -61,7 +61,7 @@ async fn test_consensus_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -140,7 +140,7 @@ async fn test_consensus_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
@@ -192,7 +192,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -204,7 +204,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+        VidDisperseRecv(vids[1].0.clone()),
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
@@ -271,7 +271,7 @@ async fn test_view_sync_finalize_propose() {
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(4));
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(4));
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
@@ -314,7 +314,7 @@ async fn test_view_sync_finalize_propose() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -434,7 +434,7 @@ async fn test_view_sync_finalize_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -538,7 +538,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone(), vids[0].1),
+            VidDisperseRecv(vids[0].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -550,7 +550,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     let view_2 = TestScriptStage {
         inputs: vec![
-            VidDisperseRecv(vids[1].0.clone(), vids[1].1),
+            VidDisperseRecv(vids[1].0.clone()),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             DACRecv(dacs[1].clone()),
         ],
@@ -574,7 +574,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         inputs: vec![
             ViewSyncFinalizeCertificate2Recv(cert),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            VidDisperseRecv(vids[2].0.clone(), vids[2].1),
+            VidDisperseRecv(vids[2].0.clone()),
             DACRecv(dacs[2].clone()),
         ],
         outputs: vec![
