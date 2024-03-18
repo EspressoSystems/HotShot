@@ -884,7 +884,7 @@
     view_number: ViewNumber,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
-    <span class="kw">let </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     <span class="kw">let </span>vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -906,7 +906,7 @@
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt; {
-    <span class="kw">let </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
