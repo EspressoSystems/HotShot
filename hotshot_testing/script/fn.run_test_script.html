@@ -4,7 +4,7 @@
     state: S
 )<div class="where">where
     TYPES: <a class="trait" href="../../hotshot_types/traits/node_implementation/trait.NodeType.html" title="trait hotshot_types::traits::node_implementation::NodeType">NodeType</a>,
-    S: <a class="trait" href="https://doc.rust-lang.org/1.76.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static + TaskState&lt;Event = <a class="struct" href="https://doc.rust-lang.org/1.76.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>run_test_script</code> reads a triple (inputs, outputs, asserts) in a <code>TestScript</code>,
+    S: <a class="trait" href="https://doc.rust-lang.org/1.76.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static + TaskState&lt;Event = <a class="struct" href="https://doc.rust-lang.org/1.76.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="enum" href="../../hotshot_task_impls/events/enum.HotShotEvent.html" title="enum hotshot_task_impls::events::HotShotEvent">HotShotEvent</a>&lt;TYPES&gt;&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>run_test_script</code> reads a triple (inputs, outputs, asserts) in a <code>TestScript</code>,
 It broadcasts all given inputs (in order) and waits to receive all outputs (in order).
 Once the expected outputs have been received, it validates the task state at that stage
 against the given assertions.</p>
