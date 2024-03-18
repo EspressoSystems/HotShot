@@ -510,7 +510,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "synstructure 0.12.6",
+ "synstructure",
 ]
 
 [[package]]
@@ -2024,16 +2024,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89e0ae2c2a42be29595d05c50e3ce6096c0698a97e021c3289790f0750cc8e2"
 dependencies = [
- "custom_debug_derive 0.5.1",
-]
-
-[[package]]
-name = "custom_debug"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14e715bf0e503e909c7076c052e39dd215202e8edeb32f1c194fd630c314d256"
-dependencies = [
- "custom_debug_derive 0.6.1",
+ "custom_debug_derive",
 ]
 
 [[package]]
@@ -2044,21 +2035,7 @@ checksum = "08a9f3941234c9f62ceaa2782974827749de9b0a8a6487275a278da068e1baf7"
 dependencies = [
  "proc-macro2",
  "syn 1.0.109",
- "synstructure 0.12.6",
-]
-
-[[package]]
-name = "custom_debug_derive"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f731440b39c73910e253cb465ec1fac97732b3c7af215639881ec0c2a38f4f69"
-dependencies = [
- "darling 0.20.8",
- "itertools 0.12.1",
- "proc-macro2",
- "quote",
- "syn 2.0.52",
- "synstructure 0.13.1",
+ "synstructure",
 ]
 
 [[package]]
@@ -3268,7 +3245,7 @@ dependencies = [
  "cdn-marshal",
  "clap",
  "commit",
- "custom_debug 0.5.1",
+ "custom_debug",
  "dashmap",
  "derive_more",
  "either",
@@ -3278,7 +3255,7 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
  "libp2p-identity",
@@ -3288,7 +3265,7 @@ dependencies = [
  "portpicker",
  "rand 0.8.5",
  "serde",
- "snafu 0.7.5",
+ "snafu",
  "surf-disco",
  "time 0.3.34",
  "tokio",
@@ -3314,13 +3291,13 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "sha3",
- "snafu 0.7.5",
+ "snafu",
  "time 0.3.34",
  "tokio",
  "tracing",
@@ -3344,7 +3321,7 @@ dependencies = [
  "chrono",
  "clap",
  "commit",
- "custom_debug 0.5.1",
+ "custom_debug",
  "dashmap",
  "derive_more",
  "either",
@@ -3355,7 +3332,7 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "hotshot-web-server",
  "libp2p-identity",
@@ -3365,7 +3342,7 @@ dependencies = [
  "portpicker",
  "rand 0.8.5",
  "serde",
- "snafu 0.7.5",
+ "snafu",
  "surf-disco",
  "time 0.3.34",
  "tokio",
@@ -3395,7 +3372,7 @@ dependencies = [
  "clap",
  "csv",
  "futures",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "libp2p",
  "serde",
@@ -3420,7 +3397,7 @@ dependencies = [
  "ark-std",
  "digest 0.10.7",
  "ethereum-types",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "jf-primitives",
  "jf-utils",
  "rand_chacha 0.3.1",
@@ -3456,14 +3433,14 @@ dependencies = [
  "either",
  "futures",
  "hotshot-task",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "hs-builder-api",
  "jf-primitives",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu 0.7.5",
+ "snafu",
  "surf-disco",
  "tagged-base64",
  "time 0.3.34",
@@ -3492,7 +3469,7 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "hs-builder-api",
  "jf-primitives",
@@ -3501,7 +3478,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "snafu 0.7.5",
+ "snafu",
  "tide-disco",
  "tokio",
  "tracing",
@@ -3524,13 +3501,13 @@ dependencies = [
  "hotshot",
  "hotshot-example-types",
  "hotshot-testing",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "jf-primitives",
  "proc-macro2",
  "quote",
  "rand 0.8.5",
  "serde",
- "snafu 0.7.5",
+ "snafu",
  "syn 2.0.52",
  "tokio",
  "tracing",
@@ -3555,7 +3532,7 @@ dependencies = [
  "bitvec",
  "blake3",
  "commit",
- "custom_debug 0.5.1",
+ "custom_debug",
  "derivative",
  "digest 0.10.7",
  "displaydoc",
@@ -3573,52 +3550,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "serde",
  "sha2 0.10.8",
- "snafu 0.7.5",
- "tagged-base64",
- "time 0.3.34",
- "tokio",
- "tracing",
- "typenum",
-]
-
-[[package]]
-name = "hotshot-types"
-version = "0.1.8"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.8#db908cc340bc9db9ec193c2400ee9594e04c93f0"
-dependencies = [
- "ark-bn254",
- "ark-ec",
- "ark-ed-on-bn254",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.1)",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "bincode",
- "bitvec",
- "blake3",
- "commit",
- "custom_debug 0.6.1",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
- "either",
- "espresso-systems-common 0.4.1",
- "ethereum-types",
- "futures",
- "generic-array",
- "jf-plonk",
- "jf-primitives",
- "jf-utils",
- "lazy_static",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "sha2 0.10.8",
- "snafu 0.8.2",
+ "snafu",
  "tagged-base64",
  "time 0.3.34",
  "tokio",
@@ -3631,7 +3563,7 @@ name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "hotshot-types 0.1.7",
+ "hotshot-types",
 ]
 
 [[package]]
@@ -3643,7 +3575,7 @@ dependencies = [
  "async-std",
  "clap",
  "futures",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "rand 0.8.5",
  "tide-disco",
  "tokio",
@@ -3653,16 +3585,16 @@ dependencies = [
 
 [[package]]
 name = "hs-builder-api"
-version = "0.1.3"
-source = "git+https://github.com/EspressoSystems/hs-builder-api?tag=0.1.3#cf429b2cf97d51c29174e3c44304422f04f4be76"
+version = "0.1.2"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?tag=0.1.2#ee51fe9de4ffe1035fd0ab89e1ed6121517679de"
 dependencies = [
  "async-trait",
  "clap",
  "derive_more",
  "futures",
- "hotshot-types 0.1.8",
+ "hotshot-types",
  "serde",
- "snafu 0.7.5",
+ "snafu",
  "tagged-base64",
  "tide-disco",
  "toml 0.8.11",
@@ -4664,12 +4596,12 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "custom_debug 0.5.1",
+ "custom_debug",
  "dashmap",
  "derive_builder 0.20.0",
  "either",
  "futures",
- "hotshot-types 0.1.7",
+ "hotshot-types",
  "hotshot-utils",
  "lazy_static",
  "libp2p",
@@ -4679,7 +4611,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "snafu 0.7.5",
+ "snafu",
  "tide",
  "tokio",
  "tokio-stream",
@@ -7335,16 +7267,7 @@ checksum = "e4de37ad025c587a29e8f3f5605c00f70b98715ef90b9061a815b9e59e9042d6"
 dependencies = [
  "backtrace",
  "doc-comment",
- "snafu-derive 0.7.5",
-]
-
-[[package]]
-name = "snafu"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75976f4748ab44f6e5332102be424e7c2dc18daeaf7e725f2040c3ebb133512e"
-dependencies = [
- "snafu-derive 0.8.2",
+ "snafu-derive",
 ]
 
 [[package]]
@@ -7357,18 +7280,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "snafu-derive"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4b19911debfb8c2fb1107bc6cb2d61868aaf53a988449213959bb1b5b1ed95f"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "syn 2.0.52",
 ]
 
 [[package]]
@@ -7937,17 +7848,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "synstructure"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.52",
-]
-
-[[package]]
 name = "system-configuration"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7978,7 +7878,7 @@ dependencies = [
  "base64 0.21.7",
  "crc-any",
  "serde",
- "snafu 0.7.5",
+ "snafu",
  "tagged-base64-macros",
  "wasm-bindgen",
 ]
@@ -8110,7 +8010,7 @@ dependencies = [
  "shellexpand",
  "signal-hook",
  "signal-hook-async-std",
- "snafu 0.7.5",
+ "snafu",
  "strum",
  "strum_macros",
  "surf",
