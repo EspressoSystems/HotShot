@@ -10,6 +10,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
+use either::Either;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::constants::Version;
 use hotshot_types::constants::LOOK_AHEAD;
@@ -110,15 +111,12 @@ pub struct ConsensusTaskState<
     /// timeout task handle
     pub timeout_task: Option<JoinHandle<()>>,
 
-    /// last Timeout Certificate this node formed
-    pub timeout_cert: Option<TimeoutCertificate<TYPES>>,
-
     /// last Upgrade Certificate this node formed
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
-    // TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
-    /// last View Sync Certificate this node formed
-    pub view_sync_cert: Option<ViewSyncFinalizeCertificate2<TYPES>>,
+    /// last View Sync Certificate or Timeout Certificate this node formed.
+    pub proposal_cert:
+        Option<Either<TimeoutCertificate<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>>,
 
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -399,20 +397,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             warn!("Timeout certificate for view {} was invalid", *view);
                             return;
                         }
-                    } else if let Some(cert) = &self.view_sync_cert {
-                        // View sync certs _must_ be for the current view.
-                        if cert.view_number != view {
-                            debug!(
+                    } else if let Some(cert) = &self.proposal_cert {
+                        match cert {
+                            either::Left(_) => {
+                                error!("Timeout cert found during proposal recv")
+                            }
+                            either::Right(view_sync) => {
+                                // View sync view_syncs _must_ be for the current view.
+                                if view_sync.view_number != view {
+                                    debug!(
                                 "Cert view number {:?} does not match proposal view number {:?}",
-                                cert.view_number, view
+                                view_sync.view_number, view
                             );
-                            return;
-                        }
+                                    return;
+                                }
 
-                        // View sync certs must also be valid.
-                        if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                            debug!("Invalid ViewSyncFinalize cert provided");
-                            return;
+                                // View sync view_syncs must also be valid.
+                                if !view_sync.is_valid_cert(self.quorum_membership.as_ref()) {
+                                    debug!("Invalid ViewSyncFinalize cert provided");
+                                    return;
+                                }
+                            }
                         }
                     } else {
                         warn!(
@@ -574,7 +579,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 "Attempting to publish proposal after voting; now in view: {}",
                                 *new_view
                             );
-                            self.publish_proposal_if_able(qc.view_number + 1, None, &event_stream)
+                            self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
                                 .await;
                         }
                         if self.vote_if_able(&event_stream).await {
@@ -844,7 +849,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Attempting to publish proposal after voting; now in view: {}",
                         *new_view
                     );
-                    self.publish_proposal_if_able(qc.view_number + 1, None, &event_stream)
+                    self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
                         .await;
                 }
 
@@ -950,7 +955,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 debug!("QC Formed event happened!");
 
                 if let either::Right(qc) = cert.clone() {
-                    self.timeout_cert = Some(qc.clone());
+                    self.proposal_cert = Some(either::Left(qc.clone()));
                     // cancel poll for votes
                     self.quorum_network
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -965,11 +970,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     let view = qc.view_number + 1;
 
-                    if self
-                        .publish_proposal_if_able(view, Some(qc.clone()), &event_stream)
-                        .await
-                    {
-                    } else {
+                    if !self.publish_proposal_if_able(view, &event_stream).await {
                         warn!("Wasn't able to publish proposal");
                     }
                 }
@@ -991,7 +992,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
 
                     if !self
-                        .publish_proposal_if_able(qc.view_number + 1, None, &event_stream)
+                        .publish_proposal_if_able(qc.view_number + 1, &event_stream)
                         .await
                     {
                         debug!(
@@ -1187,25 +1188,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
-                    self.publish_proposal_if_able(view, None, &event_stream)
-                        .await;
+                    self.publish_proposal_if_able(view, &event_stream).await;
                 }
 
-                if let Some(tc) = self.timeout_cert.as_ref() {
-                    if self.quorum_membership.get_leader(tc.get_view_number() + 1)
-                        == self.public_key
-                    {
-                        self.publish_proposal_if_able(
-                            view,
-                            self.timeout_cert.clone(),
-                            &event_stream,
-                        )
-                        .await;
-                    }
-                } else if let Some(vsc) = self.view_sync_cert.as_ref() {
-                    if self.quorum_membership.get_leader(vsc.get_view_number()) == self.public_key {
-                        self.publish_proposal_if_able(view, None, &event_stream)
-                            .await;
+                if let Some(cert) = &self.proposal_cert {
+                    match cert {
+                        either::Left(tc) => {
+                            if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                                == self.public_key
+                            {
+                                self.publish_proposal_if_able(view, &event_stream).await;
+                            }
+                        }
+                        either::Right(vsc) => {
+                            if self.quorum_membership.get_leader(vsc.get_view_number())
+                                == self.public_key
+                            {
+                                self.publish_proposal_if_able(view, &event_stream).await;
+                            }
+                        }
                     }
                 }
             }
@@ -1218,7 +1219,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                self.view_sync_cert = Some(certificate.clone());
+                self.proposal_cert = Some(Either::Right(certificate.clone()));
 
                 // cancel poll for votes
                 self.quorum_network
@@ -1234,8 +1235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
-                    self.publish_proposal_if_able(view, None, &event_stream)
-                        .await;
+                    self.publish_proposal_if_able(view, &event_stream).await;
                 }
             }
             _ => {}
@@ -1247,7 +1247,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,
-        timeout_certificate: Option<TimeoutCertificate<TYPES>>,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
@@ -1354,19 +1353,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 None
             };
 
+            // let proposal_certs = self.proposal_cert.or_else(None);
+
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
-                timeout_certificate: timeout_certificate.or_else(|| None),
+                timeout_certificate: None,
+                view_sync_certificate: None,
                 upgrade_certificate: upgrade_cert,
-                view_sync_certificate: self.view_sync_cert.clone(),
                 proposer_id: leaf.proposer_id,
             };
 
-            self.timeout_cert = None;
-            self.view_sync_cert = None;
+            self.proposal_cert = None;
             let message = Proposal {
                 data: proposal,
                 signature,
