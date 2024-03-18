@@ -8,6 +8,7 @@ use either::Either::{self, Left, Right};
 use hotshot_types::{
     constants::VERSION_0_1,
     event::{Event, EventType, HotShotAction},
+    traits::storage::Storage,
 };
 use std::sync::Arc;
 
@@ -194,6 +195,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
     COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    S: Storage<TYPES>,
 > {
     /// comm channel
     pub channel: Arc<COMMCHANNEL>,
@@ -204,12 +206,15 @@ pub struct NetworkEventTaskState<
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
     /// Filter which returns false for the events that this specific network task cares about
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
-    /// Output event Sender
-    pub output_stream: Sender<Event<TYPES>>,
+    /// Storage to store actionable events
+    pub storage: Arc<S>,
 }
 
-impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>> TaskState
-    for NetworkEventTaskState<TYPES, COMMCHANNEL>
+impl<
+        TYPES: NodeType,
+        COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        S: Storage<TYPES> + 'static,
+    > TaskState for NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
@@ -236,8 +241,11 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
     }
 }
 
-impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>>
-    NetworkEventTaskState<TYPES, COMMCHANNEL>
+impl<
+        TYPES: NodeType,
+        COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        S: Storage<TYPES>,
+    > NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
     /// Handle the given event.
     ///
@@ -402,7 +410,6 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
         let view = message.kind.get_view_number();
         let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
-        let output_stream = self.output_stream.clone();
         async_spawn(async move {
             let transmit_result = match transmit_type {
                 TransmitType::Direct => net.direct_message(message, recipient.unwrap()).await,
@@ -413,19 +420,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             };
 
             match transmit_result {
-                Ok(()) => {
-                    if let Some(action) = maybe_action {
-                        broadcast_event(
-                            Event {
-                                view_number: view,
-                                event: EventType::AttributableAction { view, action },
-                            },
-                            &output_stream,
-                        )
-                        .await;
-                    }
-                }
-
+                Ok(()) => {}
                 Err(e) => error!("Failed to send message from network task: {:?}", e),
             }
         });

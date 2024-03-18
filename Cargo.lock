@@ -1112,7 +1112,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "log",
@@ -3538,9 +3538,10 @@ dependencies = [
 
 [[package]]
 name = "hotshot-types"
-version = "0.1.8"
-source = "git+https://github.com/EspressoSystems/hotshot-types?branch=bf/attr-action#b4061c67437aca32c31ec494a1cf846139980cd4"
+version = "0.1.10"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=bf/attr-action#e56a88133395c865bc0845e68869af14cd376a03"
 dependencies = [
+ "anyhow",
  "ark-bn254",
  "ark-ec",
  "ark-ed-on-bn254",

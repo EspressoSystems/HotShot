@@ -24,7 +24,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     event::Event,
     message::Message,
-    traits::{election::Membership, network::ConnectedNetwork},
+    traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
 };
 use hotshot_types::{
     message::Messages,
@@ -89,6 +89,7 @@ pub async fn add_network_message_task<
 pub async fn add_network_event_task<
     TYPES: NodeType,
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    S: Storage<TYPES>,
 >(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -96,14 +97,14 @@ pub async fn add_network_event_task<
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
-    output_tx: Sender<Event<TYPES>>,
+    storage: Arc<S>,
 ) {
     let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
         filter,
-        output_stream: output_tx,
+        storage,
     };
     let task = Task::new(tx, rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;

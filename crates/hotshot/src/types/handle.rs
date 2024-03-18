@@ -38,6 +38,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
+
+    /// Reference to the internal storage for consensus datum.
+    pub(crate) storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
@@ -169,5 +172,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// Wrapper to get the view number this node is on.
     pub async fn get_cur_view(&self) -> TYPES::Time {
         self.hotshot.consensus.read().await.cur_view
+    }
+    /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
+    /// historical data
+    #[must_use]
+    pub fn get_storage(&self) -> Arc<RwLock<I::Storage>> {
+        self.storage.clone()
     }
 }
