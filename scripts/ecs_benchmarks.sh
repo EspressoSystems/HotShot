@@ -18,8 +18,8 @@ just async_std example orchestrator-webserver -- --config_file ./crates/orchestr
 sleep 1m
 
 # start validators
-docker build . -f ./docker/validator-webserver.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std #Sishan TODO: could be removed maybe
-docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std #Sishan TODO: could be removed maybe
+# docker build . -f ./docker/validator-webserver.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 ecs scale --region us-east-2 hotshot hotshot_centralized 10 --timeout -1
