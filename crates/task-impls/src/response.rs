@@ -34,7 +34,7 @@ use crate::events::HotShotEvent;
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
 /// Type alias for the channel that we receive requests from the network on.
-pub type ReqestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
+pub type RequestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
 
 /// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
@@ -43,7 +43,7 @@ pub struct NetworkResponseState<TYPES: NodeType> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
     /// Receiver for requests
-    receiver: ReqestReceiver<TYPES>,
+    receiver: RequestReceiver<TYPES>,
     /// Quorum membership for checking if requesters have state
     quorum: TYPES::Membership,
     /// This replicas public key
@@ -54,7 +54,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
-        receiver: ReqestReceiver<TYPES>,
+        receiver: RequestReceiver<TYPES>,
         quorum: TYPES::Membership,
         pub_key: TYPES::SignatureKey,
     ) -> Self {

@@ -17,7 +17,7 @@ use hotshot_task_impls::{
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
-    response::{run_response_task, NetworkResponseState, ReqestReceiver},
+    response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
@@ -63,7 +63,7 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
 pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     hs_rx: Receiver<Arc<HotShotEvent<TYPES>>>,
-    rx: ReqestReceiver<TYPES>,
+    rx: RequestReceiver<TYPES>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let state = NetworkResponseState::new(
