@@ -60,13 +60,13 @@ futures = "0.3.30"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
-hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", branch = "jparr721/issue-2621" }
+hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", tag = "0.1.9" }
 
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
-hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "jp/issue-2621" }
+hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", tag = "0.1.4" }
 lazy_static = "1.4.0"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.1.0", default-features = false }
