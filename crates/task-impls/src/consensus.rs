@@ -1074,6 +1074,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return;
                 }
+
+                self.consensus
+                    .write()
+                    .await
+                    .vid_shares
+                    .insert(view, disperse.clone());
+
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }
