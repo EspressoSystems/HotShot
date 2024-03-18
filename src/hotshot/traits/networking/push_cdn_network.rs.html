@@ -418,6 +418,11 @@
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::NetworkError;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>cdn_broker::{
@@ -433,6 +438,7 @@
 };
 <span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>tracing::{error, warn};
 
 <span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
@@ -452,7 +458,7 @@
     },
     BoxSyncFuture,
 };
-<span class="kw">use </span>std::{collections::BTreeSet, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::BTreeSet, path::Path, sync::Arc, time::Duration};
 
 <span class="doccomment">/// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -582,13 +588,17 @@
         </span><span class="kw">let </span>(broker_public_key, broker_private_key) =
             TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">1337</span>);
 
-        <span class="comment">// The broker (peer) discovery endpoint shall be a local SQLite file
-        </span><span class="kw">let </span>discovery_endpoint = <span class="string">"test.sqlite"</span>.to_string();
+        <span class="comment">// Get the OS temporary directory
+        </span><span class="kw">let </span>temp_dir = std::env::temp_dir();
 
-        <span class="comment">// Try to delete the file at the discovery endpoint to maintain consistency between tests
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::remove_file(discovery_endpoint.clone()) {
-            <span class="macro">warn!</span>(<span class="string">"failed to delete pre-existing database: {err}"</span>);
-        };
+        <span class="comment">// Create an SQLite file inside of the temporary directory
+        </span><span class="kw">let </span>discovery_endpoint = temp_dir
+            .join(Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                <span class="string">"test-{}.sqlite"</span>,
+                StdRng::from_entropy().next_u64()
+            )))
+            .to_string_lossy()
+            .into_owned();
 
         <span class="comment">// 2 brokers
         </span><span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
@@ -638,7 +648,7 @@
         </span><span class="kw">let </span>marshal_endpoint = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{marshal_port}"</span>);
         <span class="kw">let </span>marshal_config = MarshalConfigBuilder::default()
             .bind_address(marshal_endpoint.clone())
-            .discovery_endpoint(<span class="string">"test.sqlite"</span>.to_string())
+            .discovery_endpoint(discovery_endpoint)
             .build()
             .expect(<span class="string">"failed to build marshal config"</span>);
 
