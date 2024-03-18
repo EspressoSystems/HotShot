@@ -1,5 +1,5 @@
 use crate::infra::CombinedDARun;
-use hotshot::traits::implementations::{CombinedNetworks, MemoryStorage};
+use hotshot::traits::implementations::CombinedNetworks;
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_types::constants::WebServerVersion;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -20,7 +20,6 @@ pub type QuorumNetwork = CombinedNetworks<TestTypes, WebServerVersion>;
 pub type ViewSyncNetwork = CombinedNetworks<TestTypes, WebServerVersion>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
 }

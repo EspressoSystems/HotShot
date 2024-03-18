@@ -15,7 +15,7 @@ use hotshot::traits::implementations::{
 use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
+        implementations::{Libp2pNetwork, NetworkingMetricsValue, WebServerNetwork},
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
@@ -255,7 +255,7 @@ pub async fn run_orchestrator<
     TYPES: NodeType,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
+    NODE: NodeImplementation<TYPES>,
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
@@ -427,12 +427,7 @@ pub trait RunDA<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<
-        TYPES,
-        QuorumNetwork = QUORUMNET,
-        CommitteeNetwork = DANET,
-        Storage = MemoryStorage<TYPES>,
-    >,
+    NODE: NodeImplementation<TYPES, QuorumNetwork = QUORUMNET, CommitteeNetwork = DANET>,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -505,7 +500,6 @@ pub trait RunDA<
             sk,
             config.node_index,
             config.config,
-            MemoryStorage::empty(),
             memberships,
             networks_bundle,
             initializer,
@@ -709,7 +703,6 @@ impl<
             TYPES,
             QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
             CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
-            Storage = MemoryStorage<TYPES>,
         >,
         NetworkVersion: StaticVersionType,
     >
@@ -791,7 +784,6 @@ impl<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
             CommitteeNetwork = PushCdnNetwork<TYPES>,
-            Storage = MemoryStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -874,7 +866,6 @@ impl<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            Storage = MemoryStorage<TYPES>,
         >,
     >
     RunDA<
@@ -942,7 +933,6 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Storage = MemoryStorage<TYPES>,
             QuorumNetwork = CombinedNetworks<TYPES, NetworkVersion>,
             CommitteeNetwork = CombinedNetworks<TYPES, NetworkVersion>,
         >,
@@ -1038,12 +1028,7 @@ pub async fn main_entry_point<
     >,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<
-        TYPES,
-        QuorumNetwork = QUORUMCHANNEL,
-        CommitteeNetwork = DACHANNEL,
-        Storage = MemoryStorage<TYPES>,
-    >,
+    NODE: NodeImplementation<TYPES, QuorumNetwork = QUORUMCHANNEL, CommitteeNetwork = DACHANNEL>,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
     args: ValidatorArgs,
