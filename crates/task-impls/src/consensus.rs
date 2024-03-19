@@ -515,6 +515,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 };
 
+                if justify_qc.get_view_number() > consensus.high_qc.view_number {
+                    match self
+                        .storage
+                        .write()
+                        .await
+                        .update_high_qc(justify_qc.clone())
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(e) => {
+                            warn!("Failed to store High QC not votine. Error: {:?}", e);
+                            return;
+                        }
+                    }
+                }
+
                 let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
 
                 if justify_qc.get_view_number() > consensus.high_qc.view_number {
@@ -973,6 +989,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
                 if let either::Left(qc) = cert {
+                    match self.storage.write().await.update_high_qc(qc.clone()).await {
+                        Ok(()) => {}
+                        Err(e) => {
+                            warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                        }
+                    }
+
                     let mut consensus = self.consensus.write().await;
                     consensus.high_qc = qc.clone();
 
