@@ -64,11 +64,6 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-
-use chrono::Utc;
-use libp2p_identity::PeerId;
-use std::fmt::Debug;
-use std::{fs, time::Instant};
 use tracing::{debug, error, info, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
