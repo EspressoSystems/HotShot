@@ -21,6 +21,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,12 +46,43 @@ jobs:
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
 
-          #      - name: Unit and integration tests for all crates in workspace
-          #        run: |
-          #          just ${{ matrix.just_variants }} test-ci
-          #        timeout-minutes: 60
-          #        env:
-          #          RUST_BACKTRACE: full
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test-ci
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
+
+
+  test-self-hosted:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+      fail-fast: false
+    runs-on: [self-hosted]
+    container: ghcr.io/espressosystems/devops-rust:stable
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+        name: Install Rust
+        with:
+          components: "clippy, rustfmt"
+
+      - uses: actions/checkout@v4
+        name: Checkout repository
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust caching
+        with:
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test-ci
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
 
   build-release:
     strategy:
@@ -58,6 +90,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +125,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -141,6 +175,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     needs: [test]
     runs-on: [self-hosted, arm64]
     container: ghcr.io/espressosystems/devops-rust:stable
@@ -181,6 +216,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     runs-on: ubuntu-latest
     needs: [build, build-arm]
     steps:
