@@ -50,7 +50,7 @@ bitvec = { version = "1.0.1", default-features = false, features = [
 ] }
 blake3 = "1.5"
 commit = { git = "https://github.com/EspressoSystems/commit" }
-custom_debug = "0.5"
+custom_debug = "0.6"
 digest = "0.10"
 either = "1.10"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
