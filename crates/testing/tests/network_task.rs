@@ -40,6 +40,12 @@ async fn test_network_task() {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
+    let vid_signature =
+        <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
+            handle.private_key(),
+            payload_commitment.as_ref(),
+        )
+        .expect("Failed to sign block commitment");
 
     let da_proposal = Proposal {
         data: DAProposal {
@@ -58,12 +64,16 @@ async fn test_network_task() {
         &quorum_membership.clone().into(),
     );
 
-    let vid_disperse_share =
-        VidDisperseShare::from_vid_disperse(vid_disperse_inner.clone()).swap_remove(0);
-
     // TODO for now reuse the same block payload commitment and signature as DA committee
     // https://github.com/EspressoSystems/jellyfish/issues/369
-    let vid_proposal = vid_disperse_share
+    let vid_proposal = Proposal {
+        data: vid_disperse_inner.clone(),
+        signature: vid_signature,
+        _pd: PhantomData,
+    };
+    let vid_disperse_share =
+        VidDisperseShare::from_vid_disperse(vid_disperse_inner.clone()).swap_remove(0);
+    let vid_share_proposal = vid_disperse_share
         .to_proposal(handle.private_key())
         .expect("Failed to sign block commitment");
 
@@ -127,7 +137,7 @@ async fn test_network_task() {
         HotShotEvent::QuorumProposalRecv(quorum_proposal, pub_key),
         1,
     );
-    output.insert(HotShotEvent::VidDisperseRecv(vid_proposal), 1);
+    output.insert(HotShotEvent::VidDisperseRecv(vid_share_proposal), 1);
     output.insert(HotShotEvent::DAProposalRecv(da_proposal, pub_key), 1);
 
     // let build_fn = |task_runner, _| async { task_runner };

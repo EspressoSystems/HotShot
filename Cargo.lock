@@ -1112,7 +1112,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "log",
@@ -3539,7 +3539,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.8"
-source = "git+https://github.com/EspressoSystems/hotshot-types?branch=lr/vid-share-dms#ce1532ee7d3eb0c8a8ad4cf60f1a16d07c4315d2"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=lr/vid-share-dms#6efbfb8b3dc5a8dd09a78a258d12c3cc43f9d79b"
 dependencies = [
  "ark-bn254",
  "ark-ec",

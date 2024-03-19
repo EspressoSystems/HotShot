@@ -6,19 +6,20 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use either::Either::{self, Left, Right};
 use hotshot_types::constants::VERSION_0_1;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
+    data::{VidDisperse, VidDisperseShare},
     message::{
         CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
-        SequencingMessage,
+        Proposal, SequencingMessage,
     },
     traits::{
         election::Membership,
         network::{ConnectedNetwork, TransmitType, ViewMessage},
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
     },
     vote::{HasViewNumber, Vote},
 };
@@ -267,15 +268,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
             HotShotEvent::VidDisperseSend(proposal, sender) => {
-                let recipient_key = proposal.data.recipient_key.clone();
-                (
-                    sender,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage(Right(
-                        CommitteeConsensusMessage::VidDisperseMsg(proposal),
-                    ))), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-                    TransmitType::Direct, // TODO not a broadcast https://github.com/EspressoSystems/HotShot/issues/1696
-                    Some(recipient_key),
-                )
+                return self.handle_vid_disperse_proposal(proposal, &sender);
             }
             HotShotEvent::DAProposalSend(proposal, sender) => (
                 sender,
@@ -391,6 +384,40 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             };
 
             match transmit_result {
+                Ok(()) => {}
+                Err(e) => error!("Failed to send message from network task: {:?}", e),
+            }
+        });
+
+        None
+    }
+
+    /// handle `VidDisperseSend`
+    fn handle_vid_disperse_proposal(
+        &self,
+        vid_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
+        sender: &<TYPES as NodeType>::SignatureKey,
+    ) -> Option<HotShotTaskCompleted> {
+        let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
+        let messages: HashMap<_, _> = vid_share_proposals
+            .into_iter()
+            .map(|proposal| {
+                (
+                    proposal.data.recipient_key.clone(),
+                    Message {
+                        version: VERSION_0_1,
+                        sender: sender.clone(),
+                        kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage(
+                            Right(CommitteeConsensusMessage::VidDisperseMsg(proposal)),
+                        )), // TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                    },
+                )
+            })
+            .collect();
+
+        let net = self.channel.clone();
+        async_spawn(async move {
+            match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
                 Err(e) => error!("Failed to send message from network task: {:?}", e),
             }

@@ -9,6 +9,7 @@ use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
+    message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -22,8 +23,7 @@ use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 
-use futures::future::join_all;
-use hotshot_types::data::VidDisperseShare;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{debug, error, instrument, warn};
 
@@ -105,19 +105,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             HotShotEvent::BlockReady(vid_disperse, view_number) => {
                 let view_number = *view_number;
-                let mut broadcast_tasks = Vec::new();
-                let vid_disperse_shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
-                for vid_disperse_share in vid_disperse_shares {
-                    broadcast_tasks.push(broadcast_event(
-                        Arc::new(HotShotEvent::VidDisperseSend(
-                            vid_disperse_share.to_proposal(&self.private_key)?,
-                            self.public_key.clone(),
-                        )),
-                        &event_stream,
-                    ));
-                }
-                debug!("publishing VID disperse shares for view {}", *view_number);
-                join_all(broadcast_tasks).await;
+                let Ok(signature) = TYPES::SignatureKey::sign(
+                    &self.private_key,
+                    vid_disperse.payload_commitment.as_ref().as_ref(),
+                ) else {
+                    error!("VID: failed to sign dispersal payload");
+                    return None;
+                };
+                debug!("publishing VID disperse for view {}", *view_number);
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidDisperseSend(
+                        Proposal {
+                            signature,
+                            data: vid_disperse.clone(),
+                            _pd: PhantomData,
+                        },
+                        self.public_key.clone(),
+                    )),
+                    &event_stream,
+                )
+                .await;
             }
 
             HotShotEvent::ViewChange(view) => {

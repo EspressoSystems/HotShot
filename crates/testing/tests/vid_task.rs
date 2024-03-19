@@ -57,7 +57,12 @@ async fn test_vid_task() {
         &quorum_membership.clone().into(),
     );
 
-    let vid_proposal = VidDisperseShare::from_vid_disperse(vid_disperse.clone())
+    let vid_proposal = Proposal {
+        data: vid_disperse.clone(),
+        signature: message.signature.clone(),
+        _pd: PhantomData,
+    };
+    let vid_share_proposal = VidDisperseShare::from_vid_disperse(vid_disperse.clone())
         .swap_remove(0)
         .to_proposal(handle.private_key())
         .expect("Failed to sign block payload!");
@@ -78,7 +83,7 @@ async fn test_vid_task() {
         ViewNumber::new(2),
     ));
     input.push(HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key));
-    input.push(HotShotEvent::VidDisperseRecv(vid_proposal.clone()));
+    input.push(HotShotEvent::VidDisperseRecv(vid_share_proposal.clone()));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(

@@ -114,10 +114,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`HotShotEvent::DAProposalSend`].
-    VidDisperseSend(
-        Proposal<TYPES, VidDisperseShare<TYPES>>,
-        TYPES::SignatureKey,
-    ),
+    VidDisperseSend(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
