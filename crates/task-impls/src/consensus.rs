@@ -404,7 +404,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     } else if let Some(cert) = &self.proposal_cert {
                         match cert {
                             either::Left(_) => {
-                                error!("Timeout cert found during proposal recv")
+                                error!("Timeout cert found during proposal recv");
                             }
                             either::Right(view_sync) => {
                                 // View sync view_syncs _must_ be for the current view.
@@ -1361,15 +1361,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 None
             };
 
-            // let proposal_certs = self.proposal_cert.or_else(None);
+            let proposal_cert = self.proposal_cert.as_ref();
+            let timeout_certificate = proposal_cert.and_then(|either| match either {
+                Either::Left(a) => Some(a.clone()),
+                Either::Right(_) => None,
+            });
+
+            let view_sync_certificate = proposal_cert.and_then(|either| match either {
+                Either::Right(a) => Some(a.clone()),
+                Either::Left(_) => None,
+            });
 
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
-                timeout_certificate: None,
-                view_sync_certificate: None,
+                timeout_certificate,
+                view_sync_certificate,
                 upgrade_certificate: upgrade_cert,
                 proposer_id: leaf.proposer_id,
             };
