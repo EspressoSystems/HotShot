@@ -62,6 +62,11 @@
           inherit system;
         };
 
+        pkgsAllowUnfree = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+
         heapstack_pkgs = import nixpkgs { inherit system; };
 
         tokio-console = pkgs.rustPlatform.buildRustPackage rec {
@@ -266,6 +271,24 @@
           debugShell = pkgs.mkShell {
             inherit CARGO_TARGET_DIR;
             buildInputs = with pkgs; [ fenixStable lldb ] ++ buildDeps;
+          };
+
+          # run with `nix develop .#cudaShell`
+          cudaShell = 
+            let cudatoolkit = pkgsAllowUnfree.cudaPackages_12_3.cudatoolkit;
+            in pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            buildInputs = with pkgs; [ cmake cudatoolkit util-linux gcc11 fenixStable ] ++ buildDeps;
+            shellHook = ''
+              export PATH="${pkgs.gcc11}/bin:${cudatoolkit}/bin:${cudatoolkit}/nvvm/bin:$PATH"
+              export LD_LIBRARY_PATH=${cudatoolkit}/lib
+              export CUDA_PATH=${cudatoolkit}
+              export CPATH="${cudatoolkit}/include"
+              export LIBRARY_PATH="$LIBRARY_PATH:/lib"
+              export CMAKE_CUDA_COMPILER=$CUDA_PATH/bin/nvcc
+              export LIBCLANG_PATH=${pkgs.llvmPackages_15.libclang.lib}/lib
+              export CFLAGS=""
+            '';
           };
 
         };
