@@ -10,7 +10,6 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
-use either::Either;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::constants::Version;
 use hotshot_types::constants::LOOK_AHEAD;
@@ -54,6 +53,15 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     pub commitment: VidCommitment,
     /// Metadata for the block payload
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
+}
+
+/// Helper type to encapsulate the various ways that proposal certificates can be captured and
+/// stored.
+pub enum ViewChangeEvidence<TYPES: NodeType> {
+    /// Holds a timeout certificate.
+    Timeout(TimeoutCertificate<TYPES>),
+    /// Holds a view sync finalized certificate.
+    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
 }
 
 /// Alias for Optional type for Vote Collectors
@@ -116,8 +124,7 @@ pub struct ConsensusTaskState<
     pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// last View Sync Certificate or Timeout Certificate this node formed.
-    pub proposal_cert:
-        Option<Either<TimeoutCertificate<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>>,
+    pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
 
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -403,10 +410,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         }
                     } else if let Some(cert) = &self.proposal_cert {
                         match cert {
-                            either::Left(_) => {
+                            ViewChangeEvidence::Timeout(_) => {
                                 error!("Timeout cert found during proposal recv");
                             }
-                            either::Right(view_sync) => {
+                            ViewChangeEvidence::ViewSync(view_sync) => {
                                 // View sync view_syncs _must_ be for the current view.
                                 if view_sync.view_number != view {
                                     debug!(
@@ -954,7 +961,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 debug!("QC Formed event happened!");
 
                 if let either::Right(qc) = cert.clone() {
-                    self.proposal_cert = Some(either::Left(qc.clone()));
+                    self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
                     // cancel poll for votes
                     self.quorum_network
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -1201,14 +1208,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 if let Some(cert) = &self.proposal_cert {
                     match cert {
-                        either::Left(tc) => {
+                        ViewChangeEvidence::Timeout(tc) => {
                             if self.quorum_membership.get_leader(tc.get_view_number() + 1)
                                 == self.public_key
                             {
                                 self.publish_proposal_if_able(view, &event_stream).await;
                             }
                         }
-                        either::Right(vsc) => {
+                        ViewChangeEvidence::ViewSync(vsc) => {
                             if self.quorum_membership.get_leader(vsc.get_view_number())
                                 == self.public_key
                             {
@@ -1227,7 +1234,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                self.proposal_cert = Some(Either::Right(certificate.clone()));
+                self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                 // cancel poll for votes
                 self.quorum_network
@@ -1363,13 +1370,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             let proposal_cert = self.proposal_cert.as_ref();
             let timeout_certificate = proposal_cert.and_then(|either| match either {
-                Either::Left(a) => Some(a.clone()),
-                Either::Right(_) => None,
+                ViewChangeEvidence::Timeout(tc) => Some(tc.clone()),
+                ViewChangeEvidence::ViewSync(_) => None,
             });
 
             let view_sync_certificate = proposal_cert.and_then(|either| match either {
-                Either::Right(a) => Some(a.clone()),
-                Either::Left(_) => None,
+                ViewChangeEvidence::ViewSync(vsc) => Some(vsc.clone()),
+                ViewChangeEvidence::Timeout(_) => None,
             });
 
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
