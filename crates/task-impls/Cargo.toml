@@ -7,6 +7,10 @@ version = "0.1.0"
 
 [features]
 example-upgrade = ["hotshot-types/arbitrary-messages"]
+gpu-vid = [
+    "hotshot-types/gpu-vid"
+]
+
 
 [dependencies]
 async-compatibility-layer = { workspace = true }
@@ -32,11 +36,6 @@ rand = { workspace = true }
 surf-disco = { workspace = true }
 serde = { workspace = true }
 tagged-base64 = { workspace = true }
-
-[features]
-gpu-vid = [
-    "hotshot-types/gpu-vid"
-]
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
