@@ -44,7 +44,8 @@ struct Args {
     private_bind_port: u16,
 }
 
-#[tokio::main]
+#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
+#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
 async fn main() -> Result<()> {
     // Parse command line arguments
     let args = Args::parse();
