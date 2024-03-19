@@ -101,7 +101,7 @@ jobs:
       matrix:
         just_variants:
           - async-std
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     needs: [build-arm]
     steps:
       - uses: dtolnay/rust-toolchain@stable
