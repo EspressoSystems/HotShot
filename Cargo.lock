@@ -3331,6 +3331,7 @@ dependencies = [
 name = "hotshot-examples"
 version = "0.3.3"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer 1.0.0 (git+https://github.com/EspressoSystems/async-compatibility-layer.git?tag=1.4.2)",
  "async-lock 2.8.0",
@@ -3372,6 +3373,7 @@ dependencies = [
  "tokio",
  "toml 0.8.11",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

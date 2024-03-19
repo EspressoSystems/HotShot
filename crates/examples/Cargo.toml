@@ -9,9 +9,7 @@ rust-version = "1.65.0"
 
 [features]
 default = ["docs", "doc-images"]
-gpu-vid = [
-    "hotshot-task-impls/gpu-vid",
-]
+gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 # Features required for binaries
 bin-orchestrator = ["clap"]
@@ -90,6 +88,14 @@ path = "push-cdn/all.rs"
 name = "validator-push-cdn"
 path = "push-cdn/validator.rs"
 
+[[example]]
+name = "broker-push-cdn"
+path = "push-cdn/broker.rs"
+
+[[example]]
+name = "marshal-push-cdn"
+path = "push-cdn/marshal.rs"
+
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
@@ -123,19 +129,26 @@ hotshot-task = { path = "../task" }
 hotshot = { path = "../hotshot" }
 hotshot-example-types = { path = "../example-types" }
 chrono = "0.4"
-
 tracing = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-tokio"] }
-cdn-broker = { workspace = true, features = ["insecure", "runtime-tokio", "strong_consistency", "local_discovery"] }
+cdn-broker = { workspace = true, features = [
+    "insecure",
+    "runtime-tokio",
+    "strong_consistency",
+] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-async-std"] }
-cdn-broker = { workspace = true, features = ["insecure", "runtime-async-std", "strong_consistency", "local_discovery"] }
+cdn-broker = { workspace = true, features = [
+    "insecure",
+    "runtime-async-std",
+    "strong_consistency",
+] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 
 [dev-dependencies]
@@ -143,6 +156,8 @@ clap = { version = "4.5", features = ["derive", "env"] }
 toml = { workspace = true }
 blake3 = { workspace = true }
 local-ip-address = "0.6.1"
+anyhow.workspace = true
+tracing-subscriber = "0.3.18"
 
 [lints]
 workspace = true
