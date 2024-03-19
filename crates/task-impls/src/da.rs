@@ -5,6 +5,8 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::spawn_blocking;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -26,10 +28,11 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-use tokio::task::spawn_blocking;
 
 use crate::vote::HandleVoteEvent;
 use std::{marker::PhantomData, sync::Arc};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
 
 /// Alias for Optional type for Vote Collectors
