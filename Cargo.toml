@@ -39,16 +39,16 @@ ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7.0"
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.4.2", default-features = false, features = [
-  "logging-utils",
+        "logging-utils",
 ] }
 async-lock = "2.8"
 async-std = { version = "1.12.0", features = ["attributes"] }
 async-trait = "0.1.77"
 bincode = "1.3.3"
 bitvec = { version = "1.0.1", default-features = false, features = [
-  "alloc",
-  "atomic",
-  "serde",
+        "alloc",
+        "atomic",
+        "serde",
 ] }
 blake3 = "1.5"
 commit = { git = "https://github.com/EspressoSystems/commit" }
@@ -90,44 +90,44 @@ typenum = "1.17.0"
 versioned-binary-serialization = { git = "https://github.com/EspressoSystems/versioned-binary-serialization.git", tag = "0.1.2" }
 
 libp2p = { package = "libp2p", version = "0.53.2", features = [
-  "macros",
-  "autonat",
-  "cbor",
-  "dns",
-  "floodsub",
-  "gossipsub",
-  "identify",
-  "kad",
-  "mdns",
-  "noise",
-  "ping",
-  "plaintext",
-  "pnet",
-  "quic",
-  "relay",
-  "request-response",
-  "rendezvous",
-  "secp256k1",
-  "serde",
-  "tcp",
-  "uds",
-  "websocket",
-  "yamux",
+        "macros",
+        "autonat",
+        "cbor",
+        "dns",
+        "floodsub",
+        "gossipsub",
+        "identify",
+        "kad",
+        "mdns",
+        "noise",
+        "ping",
+        "plaintext",
+        "pnet",
+        "quic",
+        "relay",
+        "request-response",
+        "rendezvous",
+        "secp256k1",
+        "serde",
+        "tcp",
+        "uds",
+        "websocket",
+        "yamux",
 ] }
 tokio = { version = "1.36.0", features = [
-  "fs",
-  "io-util",
-  "io-std",
-  "macros",
-  "net",
-  "parking_lot",
-  "process",
-  "rt",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time",
-  "tracing",
+        "fs",
+        "io-util",
+        "io-std",
+        "macros",
+        "net",
+        "parking_lot",
+        "process",
+        "rt",
+        "rt-multi-thread",
+        "signal",
+        "sync",
+        "time",
+        "tracing",
 ] }
 
 # Push CDN imports
