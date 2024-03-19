@@ -130,12 +130,12 @@
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>std::time::{Duration, Instant};
 
+<span class="kw">use </span>hotshot_builder_api::builder::{BuildError, Error <span class="kw">as </span>BuilderApiError};
 <span class="kw">use </span>hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-<span class="kw">use </span>hs_builder_api::builder::{BuildError, Error <span class="kw">as </span>BuilderApiError};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>surf_disco::{client::HealthStatus, Client, Url};

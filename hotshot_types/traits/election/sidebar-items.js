@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ElectionError"],"trait":["ElectionConfig","Membership"]};
+window.SIDEBAR_ITEMS = {"enum":["ElectionError"],"struct":["MathSnafu","StubSnafu"],"trait":["ElectionConfig","Membership"]};
