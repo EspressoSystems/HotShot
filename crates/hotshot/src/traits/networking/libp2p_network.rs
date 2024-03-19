@@ -66,7 +66,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 /// convienence alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -179,6 +179,7 @@ where
         da_committee_size: usize,
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        _secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         assert!(
             da_committee_size <= expected_node_count,
@@ -451,13 +452,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     if bs_addrs.len() >= num_bootstrap {
                         break bs_addrs;
                     }
-                    info!(
-                        "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
-                        id,
-                        bs_addrs.len(),
-                        num_bootstrap
-                    );
                 };
+                debug!("Finished adding bootstrap addresses.");
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
                 handle.begin_bootstrap().await?;

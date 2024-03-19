@@ -55,8 +55,8 @@ pub async fn build_system_handle(
     node_id: u64,
 ) -> (
     SystemContextHandle<TestTypes, MemoryImpl>,
-    Sender<HotShotEvent<TestTypes>>,
-    Receiver<HotShotEvent<TestTypes>>,
+    Sender<Arc<HotShotEvent<TestTypes>>>,
+    Receiver<Arc<HotShotEvent<TestTypes>>>,
 ) {
     let builder = TestMetadata::default_multiple_rounds();
 
@@ -117,11 +117,11 @@ pub async fn build_system_handle(
         private_key,
         node_id,
         config,
-        storage,
         memberships,
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        storage,
     )
     .await
     .expect("Could not init hotshot")
@@ -267,17 +267,17 @@ async fn build_quorum_proposal_and_signature(
         justify_qc: QuorumCertificate::genesis(),
         timeout_certificate: None,
         upgrade_certificate: None,
+        view_sync_certificate: None,
         proposer_id: leaf.proposer_id,
     };
 
     // Only view 2 is tested, higher views are not tested
     for cur_view in 2..=view {
-        let state_new_view = Arc::new(
-            parent_state
-                .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
-                .await
-                .unwrap(),
-        );
+        let (state_new_view, delta_new_view) = parent_state
+            .validate_and_apply_header(&TestInstanceState {}, &parent_leaf, &block_header)
+            .await
+            .unwrap();
+        let state_new_view = Arc::new(state_new_view);
         // save states for the previous view to pass all the qc checks
         // In the long term, we want to get rid of this, do not manually update consensus state
         consensus.validated_state_map.insert(
@@ -286,6 +286,7 @@ async fn build_quorum_proposal_and_signature(
                 view_inner: ViewInner::Leaf {
                     leaf: leaf.commit(),
                     state: state_new_view.clone(),
+                    delta: Some(Arc::new(delta_new_view)),
                 },
             },
         );
@@ -326,6 +327,7 @@ async fn build_quorum_proposal_and_signature(
             justify_qc: created_qc,
             timeout_certificate: None,
             upgrade_certificate: None,
+            view_sync_certificate: None,
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
@@ -379,7 +381,7 @@ pub fn vid_payload_commitment(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -401,7 +403,7 @@ pub fn build_vid_proposal(
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 

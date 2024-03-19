@@ -9,10 +9,14 @@ authors = ["Espresso Systems <hello@espressosys.com>"]
 default = []
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
+gpu-vid = [
+    "hotshot-types/gpu-vid"
+]
 
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
+async-trait = { workspace = true }
 sha3 = "^0.10"
 bincode = { workspace = true }
 commit = { workspace = true }
@@ -21,8 +25,10 @@ futures = { workspace = true }
 hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
 hotshot-types = { workspace = true }
 hotshot-utils = { path = "../utils" }
+hotshot-macros = { path = "../macros" }
 hotshot-orchestrator = { version = "0.1.1", path = "../orchestrator", default-features = false }
 hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
+hs-builder-api = { workspace = true }
 jf-primitives = { workspace = true }
 rand = { workspace = true }
 snafu = { workspace = true }
@@ -34,6 +40,8 @@ bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 hotshot-task = { path = "../task" }
 hotshot-example-types = { path = "../example-types" }
+tide-disco = { workspace = true }
+portpicker = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

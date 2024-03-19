@@ -1,6 +1,6 @@
-rounds = 10
+rounds = 100
 transactions_per_round = 10
-transaction_size = 1749
+transaction_size = 1000
 node_index = 0
 seed = [
     0,
@@ -37,14 +37,15 @@ seed = [
     0,
 ]
 start_delay_seconds = 0
+cdn_marshal_address = "127.0.0.1:9000"
 
 [config]
-num_nodes_with_stake = 10
+num_nodes_with_stake = 100
 num_nodes_without_stake = 0
-staked_committee_nodes = 5
+staked_committee_nodes = 100
 non_staked_committee_nodes = 0
-max_transactions = 100
-min_transactions = 0
+max_transactions = 1
+min_transactions = 1
 next_view_timeout = 30000
 timeout_ratio = [
     11,
@@ -84,6 +85,10 @@ nanos = 100000000 # 10 ms
 
 [config.propose_min_round_time]
 secs = 0
+nanos = 0
+
+[config.view_sync_timeout]
+secs = 2
 nanos = 0
 
 # TODO (Keyao) Clean up configuration parameters.

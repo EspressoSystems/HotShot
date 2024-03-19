@@ -17,7 +17,7 @@ use crate::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
         add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
-    traits::{NodeImplementation, Storage},
+    traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
@@ -35,7 +35,6 @@ use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
-    error::StorageSnafu,
     event::EventType,
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
@@ -46,12 +45,10 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        storage::StoredView,
         BlockPayload,
     },
     HotShotConfig,
 };
-use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -126,9 +123,6 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Configuration items for this hotshot instance
     pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 
-    /// This `HotShot` instance's storage backend
-    storage: I::Storage,
-
     /// Networks used by the instance of hotshot
     pub networks: Arc<Networks<TYPES, I>>,
 
@@ -146,13 +140,17 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
+    #[allow(clippy::type_complexity)]
     internal_event_stream: (
-        Sender<HotShotEvent<TYPES>>,
-        InactiveReceiver<HotShotEvent<TYPES>>,
+        Sender<Arc<HotShotEvent<TYPES>>>,
+        InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
 
     /// uid for instrumentation
     pub id: u64,
+
+    /// Reference to the internal storage for consensus datum.
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
@@ -161,29 +159,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, storage, memberships, networks, initializer, metrics))]
+    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        storage: I::Storage,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
-
-        // insert to storage
-        storage
-            .append(vec![anchored_leaf.clone().into()])
-            .await
-            .context(StorageSnafu)?;
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
@@ -202,6 +194,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
                     state: validated_state,
+                    delta: initializer.state_delta,
                 },
             },
         );
@@ -219,9 +212,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 }
             };
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
-            // View 1 doesn't have DA which is responsible for saving the payloads, so we store the
-            // payload for view 1 manually during the intialization.
-            saved_payloads.insert(TYPES::Time::new(1), encoded_txns);
         }
 
         let start_view = initializer.start_view;
@@ -229,6 +219,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Consensus {
             instance_state,
             validated_state_map,
+            vid_shares: BTreeMap::new(),
             cur_view: start_view,
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
@@ -256,12 +247,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             public_key,
             private_key,
             config,
-            storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
+            storage: Arc::new(RwLock::new(storage)),
         });
 
         Ok(inner)
@@ -275,9 +266,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         debug!("Starting Consensus");
         self.internal_event_stream
             .0
-            .broadcast_direct(HotShotEvent::QCFormed(either::Left(
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(0))))
+            .await
+            .expect("Genesis Broadcast failed");
+        self.internal_event_stream
+            .0
+            .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
                 QuorumCertificate::genesis(),
-            )))
+            ))))
             .await
             .expect("Genesis Broadcast failed");
     }
@@ -392,40 +388,38 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// the `HotShot` instance will log the error and shut down.
     ///
     /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
-    ///
     /// # Errors
     ///
-    /// Will return an error when the storage failed to insert the first `QuorumCertificate`
+    /// Can throw an error if `Self::new` fails.
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        storage: I::Storage,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
-            Sender<HotShotEvent<TYPES>>,
-            Receiver<HotShotEvent<TYPES>>,
+            Sender<Arc<HotShotEvent<TYPES>>>,
+            Receiver<Arc<HotShotEvent<TYPES>>>,
         ),
         HotShotError<TYPES>,
     > {
-        // Save a clone of the storage for the handle
         let hotshot = Self::new(
             public_key,
             private_key,
             node_id,
             config,
-            storage,
             memberships,
             networks,
             initializer,
             metrics,
+            storage,
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
@@ -596,19 +590,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
         &self.hotshot.private_key
     }
-
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
-    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
-        let view_to_insert = StoredView::from(leaf);
-        let storage = &self.hotshot.storage;
-        storage.append_single_view(view_to_insert).await?;
-        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
-        storage.commit().await?;
-        Ok(())
-    }
 }
 
 /// initializer struct for creating starting block
@@ -625,6 +606,11 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// the state from the block header.
     validated_state: Option<Arc<TYPES::ValidatedState>>,
 
+    /// Optional state delta.
+    ///
+    /// If it's given, we'll use it to constrcut the `SystemContext`.
+    state_delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
+
     /// Starting view number that we are confident won't lead to a double vote after restart.
     start_view: TYPES::Time,
 }
@@ -634,11 +620,12 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
-        let validated_state = Some(Arc::new(TYPES::ValidatedState::genesis(&instance_state)));
+        let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         Ok(Self {
             inner: Leaf::genesis(&instance_state),
             instance_state,
-            validated_state,
+            validated_state: Some(Arc::new(validated_state)),
+            state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
         })
     }
@@ -660,6 +647,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             inner: anchor_leaf,
             instance_state,
             validated_state,
+            state_delta: None,
             start_view,
         }
     }
