@@ -72,6 +72,11 @@ jobs:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto
+
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
