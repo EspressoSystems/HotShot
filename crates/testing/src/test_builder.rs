@@ -1,4 +1,5 @@
 use hotshot::traits::NetworkReliability;
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -329,7 +330,7 @@ impl TestMetadata {
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
             },
             metadata: self,
