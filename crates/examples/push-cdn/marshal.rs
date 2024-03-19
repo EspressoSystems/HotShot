@@ -1,5 +1,5 @@
 //! The following is the main `Marshal` binary, which just instantiates and runs
-//! a `Marshal` object with the HotShot types.
+//! a `Marshal` object with the `HotShot` types.
 //!
 use anyhow::{Context, Result};
 use cdn_broker::reexports::connection::protocols::Quic;
