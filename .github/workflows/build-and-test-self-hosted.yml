@@ -104,23 +104,6 @@ jobs:
     runs-on: [self-hosted, arm64]
     needs: [build-arm]
     steps:
-      # - uses: dtolnay/rust-toolchain@stable
-      #   name: Install Current Rust
-      #   with:
-      #     components: "clippy, rustfmt"
-
-      # - name: Install Cap'n'Proto
-      #   run: |
-      #     apt-get update
-      #     apt-get install -y capnproto
-
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
-        with:
-          prefix-key: ${{ matrix.just_variants }}
 
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build

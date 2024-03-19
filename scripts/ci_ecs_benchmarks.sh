@@ -9,7 +9,7 @@ orchestrator_url=http://"$ip":4444
 # start webserver
 just async_std example webserver -- http://0.0.0.0:9000 &
 just async_std example webserver -- http://0.0.0.0:9001 &
-sleep 1m
+sleep 10m
 
 # start orchestrator
 just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url ${webserver_url} --da_webserver_url ${da_webserver_url} &
