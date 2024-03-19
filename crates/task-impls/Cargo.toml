@@ -18,7 +18,7 @@ either = { workspace = true }
 futures = { workspace = true }
 hotshot-task = { path = "../task" }
 hotshot-types = { path = "../types" }
-hs-builder-api = { path = "../builder-api" }
+hotshot-builder-api = { path = "../builder-api" }
 jf-primitives = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }

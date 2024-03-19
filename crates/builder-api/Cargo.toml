@@ -1,5 +1,5 @@
 [package]
-name = "hs-builder-api"
+name = "hotshot-builder-api"
 version = "0.1.6"
 edition = "2021"
 

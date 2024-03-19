@@ -6,7 +6,7 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-use hs_builder_api::builder::{BuildError, Error as BuilderApiError};
+use hotshot_builder_api::builder::{BuildError, Error as BuilderApiError};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use surf_disco::{client::HealthStatus, Client, Url};

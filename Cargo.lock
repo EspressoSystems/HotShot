@@ -3239,6 +3239,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-builder-api"
+version = "0.1.6"
+dependencies = [
+ "async-trait",
+ "clap",
+ "derive_more",
+ "futures",
+ "hotshot-types",
+ "serde",
+ "snafu 0.8.2",
+ "tagged-base64",
+ "tide-disco",
+ "toml",
+ "versioned-binary-serialization",
+]
+
+[[package]]
 name = "hotshot-example-types"
 version = "0.5.26"
 dependencies = [
@@ -3396,9 +3413,9 @@ dependencies = [
  "commit",
  "either",
  "futures",
+ "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "hs-builder-api",
  "jf-primitives",
  "rand 0.8.5",
  "serde",
@@ -3427,13 +3444,13 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-builder-api",
  "hotshot-example-types",
  "hotshot-macros",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "hs-builder-api",
  "jf-primitives",
  "portpicker",
  "rand 0.8.5",
@@ -3539,23 +3556,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "versioned-binary-serialization",
-]
-
-[[package]]
-name = "hs-builder-api"
-version = "0.1.6"
-dependencies = [
- "async-trait",
- "clap",
- "derive_more",
- "futures",
- "hotshot-types",
- "serde",
- "snafu 0.8.2",
- "tagged-base64",
- "tide-disco",
- "toml",
  "versioned-binary-serialization",
 ]
 

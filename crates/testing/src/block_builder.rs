@@ -10,7 +10,7 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-use hs_builder_api::{
+use hotshot_builder_api::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Options},
     data_source::BuilderDataSource,
@@ -111,13 +111,13 @@ impl BuilderDataSource<TestTypes> for TestableBuilderSource {
 /// If constructing and launching the builder fails for any reason
 pub fn run_builder(url: Url) {
     let builder_api =
-        hs_builder_api::builder::define_api::<TestableBuilderSource, TestTypes, Version01>(
+        hotshot_builder_api::builder::define_api::<TestableBuilderSource, TestTypes, Version01>(
             &Options::default(),
         )
         .expect("Failed to construct the builder API");
     let (pub_key, priv_key) =
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed([1; 32], 0);
-    let mut app: App<TestableBuilderSource, hs_builder_api::builder::Error, Version01> =
+    let mut app: App<TestableBuilderSource, hotshot_builder_api::builder::Error, Version01> =
         App::with_state(TestableBuilderSource { priv_key, pub_key });
     app.register_module("/", builder_api)
         .expect("Failed to register the builder API");
