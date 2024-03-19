@@ -80,7 +80,7 @@ serde_json = { version = "1.0.114" }
 sha2 = "0.10"
 snafu = "0.8"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.5.0" }
-tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
+tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "v0.4.0" }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.5.0" }
 time = "0.3.34"
