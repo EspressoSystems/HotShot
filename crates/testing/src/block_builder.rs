@@ -3,17 +3,17 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use hotshot::traits::BlockPayload;
 use hotshot::types::SignatureKey;
+use hotshot_builder_api::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    builder::{BuildError, Options},
+    data_source::BuilderDataSource,
+};
 use hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{block_contents::vid_commitment, node_implementation::NodeType},
     utils::BuilderCommitment,
     vid::VidCommitment,
-};
-use hotshot_builder_api::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::{BuildError, Options},
-    data_source::BuilderDataSource,
 };
 use tide_disco::{method::ReadState, App, Url};
 
