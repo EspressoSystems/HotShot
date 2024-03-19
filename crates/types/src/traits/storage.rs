@@ -1,6 +1,6 @@
 //! Abstract storage type for storing DA proposals and VID shares
 //!
-//! This modules provides the [`BlockStorage`] trait.
+//! This modules provides the [`Storage`] trait.
 //!
 
 use anyhow::Result;
