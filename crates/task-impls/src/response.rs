@@ -9,8 +9,8 @@ use either::Either::Right;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
-    data::VidDisperseShare,
     consensus::Consensus,
+    data::VidDisperseShare,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
     },

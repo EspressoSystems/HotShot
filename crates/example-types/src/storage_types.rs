@@ -55,7 +55,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         let mut inner = self.inner.write().await;
         inner
             .vids
-            .entry(proposal.data.view_number.clone())
+            .entry(proposal.data.view_number)
             .or_default()
             .insert(proposal.data.recipient_key.clone(), proposal.clone());
         Ok(())
