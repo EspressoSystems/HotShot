@@ -29,7 +29,7 @@ use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
+use hotshot_types::constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
@@ -148,6 +148,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// uid for instrumentation
     pub id: u64,
+
+    /// Reference to the internal storage for consensus datum.
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
@@ -156,7 +159,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, memberships, networks, initializer, metrics))]
+    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -166,6 +169,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
@@ -248,6 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
+            storage: Arc::new(RwLock::new(storage)),
         });
 
         Ok(inner)
@@ -305,17 +310,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
-                //
+
+                // version <0, 1> currently fixed; this is the same as VERSION_0_1,
+                // and will be updated to be part of SystemContext. I wanted to use associated
+                // constants in NodeType, but that seems to be unavailable in the current Rust.
                 api
                     .networks
                     .da_network
                     .broadcast_message(
                         Message {
-                            version: VERSION_0_1,
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_whole_committee(view_number),
+                        STATIC_VER_0_1,
                     ),
                 api
                     .send_external_event(Event {
@@ -396,6 +404,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -413,6 +422,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             networks,
             initializer,
             metrics,
+            storage,
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
@@ -459,6 +469,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
+            storage: self.storage.clone(),
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;

@@ -11,7 +11,6 @@ use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::constants::Version;
 use hotshot_types::constants::LOOK_AHEAD;
 use hotshot_types::event::LeafInfo;
 use hotshot_types::{
@@ -31,6 +30,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
+        storage::Storage,
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
@@ -38,6 +38,7 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
+use versioned_binary_serialization::version::Version;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
@@ -142,6 +143,9 @@ pub struct ConsensusTaskState<
     // ED Should replace this with config information since we need it anyway
     /// The node's id
     pub id: u64,
+
+    /// This node's storage ref
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -1070,6 +1074,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         *disperse.data.view_number,
                     ))
                     .await;
+
+                // Add to the storage that we have received the VID disperse for a specific view
+                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
+                    error!(
+                        "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
+                        e
+                    );
+                    return;
+                }
 
                 self.consensus
                     .write()
