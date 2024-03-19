@@ -59,8 +59,8 @@ futures = "0.3.30"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
-hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", tag = "0.1.11" }
-hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", tag = "0.1.6" }
+hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", branch = "lr/vid-share-dms" }
+hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "lr/vid-share-dms" }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }

@@ -1099,7 +1099,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -3558,7 +3558,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/hotshot-types?tag=0.1.11#65a06f75612f529c11e97c4320f1f6d0f49ba81e"
+source = "git+https://github.com/EspressoSystems/hotshot-types?branch=lr/vid-share-dms#7768dd1bc53329cc746aa3252ecdb973b2907103"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -3624,7 +3624,7 @@ dependencies = [
 [[package]]
 name = "hs-builder-api"
 version = "0.1.6"
-source = "git+https://github.com/EspressoSystems/hs-builder-api?tag=0.1.6#ecc3f6e8eaa6f0744084a49ec085cea891a7b2fa"
+source = "git+https://github.com/EspressoSystems/hs-builder-api?branch=lr/vid-share-dms#203f807b43d76ec1f221ea6bd151b68451361199"
 dependencies = [
  "async-trait",
  "clap",

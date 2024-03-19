@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::constants::STATIC_VER_0_1;
-use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
     message::{
@@ -423,7 +422,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
 
         let net = self.channel.clone();
         async_spawn(async move {
-            match net.vid_broadcast_message(messages).await {
+            match net.vid_broadcast_message(messages, STATIC_VER_0_1).await {
                 Ok(()) => {}
                 Err(e) => error!("Failed to send message from network task: {:?}", e),
             }
