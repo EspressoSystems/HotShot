@@ -26,6 +26,7 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
+use tokio::task::spawn_blocking;
 
 use crate::vote::HandleVoteEvent;
 use std::{marker::PhantomData, sync::Arc};
@@ -112,10 +113,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let payload_commitment = vid_commitment(
-                    &proposal.data.encoded_transactions,
-                    self.quorum_membership.total_nodes(),
-                );
+                let txns = proposal.data.encoded_transactions.clone();
+                let num_nodes = self.quorum_membership.total_nodes();
+                let payload_commitment =
+                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                #[cfg(async_executor_impl = "tokio")]
+                let payload_commitment = payload_commitment.unwrap();
+
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
