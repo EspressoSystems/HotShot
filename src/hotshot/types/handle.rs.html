@@ -172,6 +172,17 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
@@ -201,6 +212,7 @@
     /// The Channel will output all the events.  Subscribers will get an activated
     /// clone of the `Receiver` when they get output stream.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) internal_event_stream: (
@@ -212,6 +224,9 @@
 
     <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
     </span><span class="kw">pub </span>hotshot: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
+
+    <span class="doccomment">/// Reference to the internal storage for consensus datum.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
@@ -343,6 +358,13 @@
     <span class="doccomment">/// Wrapper to get the view number this node is on.
     </span><span class="kw">pub async fn </span>get_cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view
+    }
+
+    <span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
+    /// historical data
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>get_storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;I::Storage&gt;&gt; {
+        <span class="self">self</span>.storage.clone()
     }
 }
 </code></pre></div></section></main></body></html>

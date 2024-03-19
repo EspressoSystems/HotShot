@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block_types","node_types","state_types"]};
+window.SIDEBAR_ITEMS = {"mod":["block_types","node_types","state_types","storage_types"]};

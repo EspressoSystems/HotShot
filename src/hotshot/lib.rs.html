@@ -645,6 +645,14 @@
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -795,6 +803,9 @@
 
     <span class="doccomment">/// uid for instrumentation
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// Reference to the internal storage for consensus datum.
+    </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
@@ -803,7 +814,7 @@
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, memberships, networks, initializer, metrics))]
+    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
     </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -813,6 +824,7 @@
         networks: Networks&lt;TYPES, I&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;<span class="self">Self</span>&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">debug!</span>(<span class="string">"Creating a new hotshot"</span>);
 
@@ -895,6 +907,7 @@
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
+            storage: Arc::new(RwLock::new(storage)),
         });
 
         <span class="prelude-val">Ok</span>(inner)
@@ -1043,6 +1056,7 @@
         networks: Networks&lt;TYPES, I&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             SystemContextHandle&lt;TYPES, I&gt;,
@@ -1060,6 +1074,7 @@
             networks,
             initializer,
             metrics,
+            storage,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>handle = hotshot.clone().run_tasks().<span class="kw">await</span>;
@@ -1106,6 +1121,7 @@
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: <span class="self">self</span>.clone().into(),
+            storage: <span class="self">self</span>.storage.clone(),
         };
 
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).<span class="kw">await</span>;

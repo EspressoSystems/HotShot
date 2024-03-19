@@ -1129,6 +1129,22 @@
 <a href="#1128" id="1128">1128</a>
 <a href="#1129" id="1129">1129</a>
 <a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1151,6 +1167,7 @@
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -1560,7 +1577,12 @@
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
     DANET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     QUORUMNET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
-    NODE: NodeImplementation&lt;TYPES, QuorumNetwork = QUORUMNET, CommitteeNetwork = DANET&gt;,
+    NODE: NodeImplementation&lt;
+        TYPES,
+        QuorumNetwork = QUORUMNET,
+        CommitteeNetwork = DANET,
+        Storage = TestStorage&lt;TYPES&gt;,
+    &gt;,
 &gt; <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
@@ -1637,6 +1659,7 @@
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            TestStorage::&lt;TYPES&gt;::default(),
         )
         .<span class="kw">await
         </span>.expect(<span class="string">"Could not init hotshot"</span>)
@@ -1836,6 +1859,7 @@
             TYPES,
             QuorumNetwork = WebServerNetwork&lt;TYPES&gt;,
             CommitteeNetwork = WebServerNetwork&lt;TYPES&gt;,
+            Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
     &gt; RunDA&lt;TYPES, WebServerNetwork&lt;TYPES&gt;, WebServerNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>WebServerDARun&lt;TYPES&gt;
 <span class="kw">where
@@ -1909,6 +1933,7 @@
             TYPES,
             QuorumNetwork = PushCdnNetwork&lt;TYPES&gt;,
             CommitteeNetwork = PushCdnNetwork&lt;TYPES&gt;,
+            Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
     &gt; RunDA&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
@@ -1991,6 +2016,7 @@
             TYPES,
             QuorumNetwork = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
             CommitteeNetwork = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+            Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
     &gt;
     RunDA&lt;
@@ -2060,6 +2086,7 @@
             TYPES,
             QuorumNetwork = CombinedNetworks&lt;TYPES&gt;,
             CommitteeNetwork = CombinedNetworks&lt;TYPES&gt;,
+            Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
     &gt; RunDA&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDARun&lt;TYPES&gt;
 <span class="kw">where
@@ -2145,7 +2172,12 @@
     &gt;,
     DACHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     QUORUMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
-    NODE: NodeImplementation&lt;TYPES, QuorumNetwork = QUORUMCHANNEL, CommitteeNetwork = DACHANNEL&gt;,
+    NODE: NodeImplementation&lt;
+        TYPES,
+        QuorumNetwork = QUORUMCHANNEL,
+        CommitteeNetwork = DACHANNEL,
+        Storage = TestStorage&lt;TYPES&gt;,
+    &gt;,
     RUNDA: RunDA&lt;TYPES, DACHANNEL, QUORUMCHANNEL, NODE&gt;,
 &gt;(
     args: ValidatorArgs,

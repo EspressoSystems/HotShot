@@ -439,6 +439,16 @@
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -456,7 +466,7 @@
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot::{types::SystemContextHandle, Memberships};
-<span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
+<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
@@ -499,6 +509,7 @@
 </span><span class="kw">pub type </span>LateNodeContext&lt;TYPES, I&gt; = Either&lt;
     Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
     (
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
         Memberships&lt;TYPES&gt;,
         HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, &lt;TYPES <span class="kw">as </span>NodeType&gt;::ElectionConfigType&gt;,
     ),
@@ -560,7 +571,12 @@
     &gt; TestRunner&lt;TYPES, I, N&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
-    I: NodeImplementation&lt;TYPES, QuorumNetwork = N, CommitteeNetwork = N&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        QuorumNetwork = N,
+        CommitteeNetwork = N,
+        Storage = TestStorage&lt;TYPES&gt;,
+    &gt;,
 {
     <span class="doccomment">/// excecute test
     ///
@@ -798,13 +814,14 @@
                 ),
             };
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id);
+            <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
 
             <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {
                 <span class="self">self</span>.late_start.insert(
                     node_id,
                     LateStartNode {
                         networks,
-                        context: Right((memberships, config)),
+                        context: Right((storage, memberships, config)),
                     },
                 );
             } <span class="kw">else </span>{
@@ -820,6 +837,7 @@
                     initializer,
                     config,
                     validator_config,
+                    storage,
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
@@ -854,6 +872,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
+        storage: I::Storage,
     ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
         <span class="comment">// Get key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
@@ -874,6 +893,7 @@
             network_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            storage,
         )
         .<span class="kw">await
         </span>.expect(<span class="string">"Could not init hotshot"</span>)

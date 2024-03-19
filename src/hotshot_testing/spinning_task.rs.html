@@ -198,6 +198,13 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_runner::HotShotTaskCompleted;
@@ -205,6 +212,7 @@
 <span class="kw">use </span>either::{Left, Right};
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer};
 <span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
+<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{data::Leaf, ValidatorConfig};
 <span class="kw">use </span>hotshot_types::{
@@ -264,7 +272,12 @@
     &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
-    I: NodeImplementation&lt;TYPES, QuorumNetwork = N, CommitteeNetwork = N&gt;,
+    I: NodeImplementation&lt;
+        TYPES,
+        QuorumNetwork = N,
+        CommitteeNetwork = N,
+        Storage = TestStorage&lt;TYPES&gt;,
+    &gt;,
 {
     <span class="kw">type </span>Message = Event&lt;TYPES&gt;;
 
@@ -299,7 +312,7 @@
                                     Left(context) =&gt; context,
                                     <span class="comment">// Node not initialized. Initialize it
                                     // based on the received leaf.
-                                    </span>Right((memberships, config)) =&gt; {
+                                    </span>Right((storage, memberships, config)) =&gt; {
                                         <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
                                             state.last_decided_leaf.clone(),
                                             TestInstanceState {},
@@ -318,6 +331,7 @@
                                             initializer,
                                             config,
                                             validator_config,
+                                            storage,
                                         )
                                         .<span class="kw">await
                                     </span>}
