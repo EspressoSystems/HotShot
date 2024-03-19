@@ -117,11 +117,11 @@ pub async fn build_system_handle(
         private_key,
         node_id,
         config,
-        storage,
         memberships,
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        storage,
     )
     .await
     .expect("Could not init hotshot")
@@ -381,7 +381,7 @@ pub fn vid_payload_commitment(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -403,7 +403,7 @@ pub fn build_vid_proposal(
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 

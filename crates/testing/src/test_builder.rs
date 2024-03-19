@@ -1,4 +1,5 @@
 use hotshot::traits::NetworkReliability;
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -291,12 +292,12 @@ impl TestMetadata {
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
+            data_request_delay: Duration::from_millis(200),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 num_nodes_with_stake as u64,
                 0,
             )),
-            data_request_delay: Duration::from_millis(200),
         };
         let TimingData {
             next_view_timeout,
@@ -329,7 +330,7 @@ impl TestMetadata {
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
             },
             metadata: self,
