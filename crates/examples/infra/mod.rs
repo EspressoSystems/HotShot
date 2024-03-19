@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use cdn_broker::reexports::crypto::signature::KeyPair;
 use cdn_broker::reexports::message::Topic;
+use chrono::Utc;
 use clap::Parser;
 use clap::{Arg, Command};
 use futures::StreamExt;
@@ -14,12 +15,13 @@ use hotshot::traits::implementations::{
 use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
+        implementations::{Libp2pNetwork, NetworkingMetricsValue, WebServerNetwork},
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -30,22 +32,21 @@ use hotshot_orchestrator::{
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
-use hotshot_types::message::Message;
-use hotshot_types::traits::network::ConnectedNetwork;
-use hotshot_types::PeerConfig;
-use hotshot_types::ValidatorConfig;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
+    message::Message,
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
-    HotShotConfig,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
+use libp2p_identity::PeerId;
 use libp2p_identity::{
     ed25519::{self, SecretKey},
     Keypair,
@@ -56,17 +57,15 @@ use libp2p_networking::{
 };
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::{collections::BTreeSet, sync::Arc};
+use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-
-use chrono::Utc;
-use libp2p_identity::PeerId;
-use std::fmt::Debug;
-use std::{fs, time::Instant};
 use tracing::{error, info, warn};
+use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -257,7 +256,7 @@ pub async fn run_orchestrator<
     TYPES: NodeType,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
+    NODE: NodeImplementation<TYPES>,
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
@@ -286,10 +285,10 @@ fn calculate_num_tx_per_round(
 /// create a web server network from a config file + public key
 /// # Panics
 /// Panics if the web server config doesn't exist in `config`
-fn webserver_network_from_config<TYPES: NodeType>(
+fn webserver_network_from_config<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>(
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     pub_key: TYPES::SignatureKey,
-) -> WebServerNetwork<TYPES> {
+) -> WebServerNetwork<TYPES, NetworkVersion> {
     // Get the configuration for the web server
     let WebServerConfig {
         url,
@@ -433,7 +432,7 @@ pub trait RunDA<
         TYPES,
         QuorumNetwork = QUORUMNET,
         CommitteeNetwork = DANET,
-        Storage = MemoryStorage<TYPES>,
+        Storage = TestStorage<TYPES>,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -507,11 +506,11 @@ pub trait RunDA<
             sk,
             config.node_index,
             config.config,
-            MemoryStorage::empty(),
             memberships,
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            TestStorage::<TYPES>::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -690,13 +689,13 @@ pub trait RunDA<
 // WEB SERVER
 
 /// Represents a web server-based run
-pub struct WebServerDARun<TYPES: NodeType> {
+pub struct WebServerDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: WebServerNetwork<TYPES>,
+    quorum_channel: WebServerNetwork<TYPES, NetworkVersion>,
     /// data availability channel
-    da_channel: WebServerNetwork<TYPES>,
+    da_channel: WebServerNetwork<TYPES, NetworkVersion>,
 }
 
 #[async_trait]
@@ -709,20 +708,28 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = WebServerNetwork<TYPES>,
-            CommitteeNetwork = WebServerNetwork<TYPES>,
-            Storage = MemoryStorage<TYPES>,
+            QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
+            CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
+            Storage = TestStorage<TYPES>,
         >,
-    > RunDA<TYPES, WebServerNetwork<TYPES>, WebServerNetwork<TYPES>, NODE> for WebServerDARun<TYPES>
+        NetworkVersion: StaticVersionType,
+    >
+    RunDA<
+        TYPES,
+        WebServerNetwork<TYPES, NetworkVersion>,
+        WebServerNetwork<TYPES, NetworkVersion>,
+        NODE,
+    > for WebServerDARun<TYPES, NetworkVersion>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
+    NetworkVersion: 'static,
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> WebServerDARun<TYPES> {
+    ) -> WebServerDARun<TYPES, NetworkVersion> {
         // Get our own key
         let pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -734,11 +741,11 @@ where
 
         // create and wait for underlying network
         let underlying_quorum_network =
-            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
+            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
 
         underlying_quorum_network.wait_for_ready().await;
 
-        let da_channel: WebServerNetwork<TYPES> =
+        let da_channel: WebServerNetwork<TYPES, NetworkVersion> =
             WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true);
 
         WebServerDARun {
@@ -748,11 +755,11 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> WebServerNetwork<TYPES> {
+    fn get_da_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> WebServerNetwork<TYPES> {
+    fn get_quorum_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
         self.quorum_channel.clone()
     }
 
@@ -785,7 +792,7 @@ impl<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
             CommitteeNetwork = PushCdnNetwork<TYPES>,
-            Storage = MemoryStorage<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -868,7 +875,7 @@ impl<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            Storage = MemoryStorage<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     >
     RunDA<
@@ -917,13 +924,13 @@ where
 // Combined network
 
 /// Represents a combined-network-based run
-pub struct CombinedDARun<TYPES: NodeType> {
+pub struct CombinedDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: CombinedNetworks<TYPES>,
+    quorum_channel: CombinedNetworks<TYPES, NetworkVersion>,
     /// data availability channel
-    da_channel: CombinedNetworks<TYPES>,
+    da_channel: CombinedNetworks<TYPES, NetworkVersion>,
 }
 
 #[async_trait]
@@ -936,20 +943,28 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Storage = MemoryStorage<TYPES>,
-            QuorumNetwork = CombinedNetworks<TYPES>,
-            CommitteeNetwork = CombinedNetworks<TYPES>,
+            QuorumNetwork = CombinedNetworks<TYPES, NetworkVersion>,
+            CommitteeNetwork = CombinedNetworks<TYPES, NetworkVersion>,
+            Storage = TestStorage<TYPES>,
         >,
-    > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
+        NetworkVersion: StaticVersionType,
+    >
+    RunDA<
+        TYPES,
+        CombinedNetworks<TYPES, NetworkVersion>,
+        CombinedNetworks<TYPES, NetworkVersion>,
+        NODE,
+    > for CombinedDARun<TYPES, NetworkVersion>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
+    NetworkVersion: 'static,
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> CombinedDARun<TYPES> {
+    ) -> CombinedDARun<TYPES, NetworkVersion> {
         // Get our own key
         let pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -970,7 +985,7 @@ where
 
         // Create and wait for underlying webserver network
         let web_quorum_network =
-            webserver_network_from_config::<TYPES>(config.clone(), pub_key.clone());
+            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
 
         let web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, true);
 
@@ -999,11 +1014,11 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> CombinedNetworks<TYPES> {
+    fn get_da_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES> {
+    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
         self.quorum_channel.clone()
     }
 
@@ -1028,7 +1043,7 @@ pub async fn main_entry_point<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
         CommitteeNetwork = DACHANNEL,
-        Storage = MemoryStorage<TYPES>,
+        Storage = TestStorage<TYPES>,
     >,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(

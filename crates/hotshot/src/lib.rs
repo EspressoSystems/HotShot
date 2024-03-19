@@ -17,7 +17,7 @@ use crate::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
         add_transaction_task, add_upgrade_task, add_view_sync_task,
     },
-    traits::{NodeImplementation, Storage},
+    traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
@@ -29,13 +29,12 @@ use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
+use hotshot_types::constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     data::Leaf,
-    error::StorageSnafu,
     event::EventType,
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
@@ -46,12 +45,10 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        storage::StoredView,
         BlockPayload,
     },
     HotShotConfig,
 };
-use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -126,9 +123,6 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Configuration items for this hotshot instance
     pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 
-    /// This `HotShot` instance's storage backend
-    storage: I::Storage,
-
     /// Networks used by the instance of hotshot
     pub networks: Arc<Networks<TYPES, I>>,
 
@@ -154,6 +148,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// uid for instrumentation
     pub id: u64,
+
+    /// Reference to the internal storage for consensus datum.
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
@@ -162,29 +159,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, storage, memberships, networks, initializer, metrics))]
+    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        storage: I::Storage,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
-
-        // insert to storage
-        storage
-            .append(vec![anchored_leaf.clone().into()])
-            .await
-            .context(StorageSnafu)?;
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
@@ -256,12 +247,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             public_key,
             private_key,
             config,
-            storage,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
+            storage: Arc::new(RwLock::new(storage)),
         });
 
         Ok(inner)
@@ -319,17 +310,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
-                //
+
+                // version <0, 1> currently fixed; this is the same as VERSION_0_1,
+                // and will be updated to be part of SystemContext. I wanted to use associated
+                // constants in NodeType, but that seems to be unavailable in the current Rust.
                 api
                     .networks
                     .da_network
                     .broadcast_message(
                         Message {
-                            version: VERSION_0_1,
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_whole_committee(view_number),
+                        STATIC_VER_0_1,
                     ),
                 api
                     .send_external_event(Event {
@@ -397,21 +391,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// the `HotShot` instance will log the error and shut down.
     ///
     /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
-    ///
     /// # Errors
     ///
-    /// Will return an error when the storage failed to insert the first `QuorumCertificate`
+    /// Can throw an error if `Self::new` fails.
     #[allow(clippy::too_many_arguments)]
     pub async fn init(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        storage: I::Storage,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
+        storage: I::Storage,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -420,17 +413,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         ),
         HotShotError<TYPES>,
     > {
-        // Save a clone of the storage for the handle
         let hotshot = Self::new(
             public_key,
             private_key,
             node_id,
             config,
-            storage,
             memberships,
             networks,
             initializer,
             metrics,
+            storage,
         )
         .await?;
         let handle = hotshot.clone().run_tasks().await;
@@ -600,19 +592,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
 
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
         &self.hotshot.private_key
-    }
-
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
-    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
-        let view_to_insert = StoredView::from(leaf);
-        let storage = &self.hotshot.storage;
-        storage.append_single_view(view_to_insert).await?;
-        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
-        storage.commit().await?;
-        Ok(())
     }
 }
 

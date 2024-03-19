@@ -5,15 +5,17 @@ use hotshot::traits::{
 use crate::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
 };
 
 use hotshot::traits::{
     election::static_committee::{StaticCommittee, StaticElectionConfig},
-    implementations::{
-        CombinedNetworks, Libp2pNetwork, MemoryNetwork, MemoryStorage, WebServerNetwork,
-    },
+    implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, WebServerNetwork},
     NodeImplementation,
 };
+
+use hotshot_types::constants::WebServerVersion;
+
 use hotshot_types::{
     data::ViewNumber, message::Message, signature_key::BLSPubKey,
     traits::node_implementation::NodeType,
@@ -83,10 +85,10 @@ pub type StaticMemoryDAComm =
 type StaticLibp2pDAComm = Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server network communication channel
-type StaticWebDAComm = WebServerNetwork<TestTypes>;
+type StaticWebDAComm = WebServerNetwork<TestTypes, WebServerVersion>;
 
 /// combined network
-type StaticCombinedDAComm = CombinedNetworks<TestTypes>;
+type StaticCombinedDAComm = CombinedNetworks<TestTypes, WebServerVersion>;
 
 /// memory comm channel
 pub type StaticMemoryQuorumComm =
@@ -97,37 +99,37 @@ type StaticLibp2pQuorumComm =
     Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeType>::SignatureKey>;
 
 /// web server comm channel
-type StaticWebQuorumComm = WebServerNetwork<TestTypes>;
+type StaticWebQuorumComm = WebServerNetwork<TestTypes, WebServerVersion>;
 
 /// combined network (libp2p + web server)
-type StaticCombinedQuorumComm = CombinedNetworks<TestTypes>;
+type StaticCombinedQuorumComm = CombinedNetworks<TestTypes, WebServerVersion>;
 
 impl NodeImplementation<TestTypes> for PushCdnImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticPushCdnQuorumComm;
     type CommitteeNetwork = StaticPushCdnDAComm;
+    type Storage = TestStorage<TestTypes>;
 }
 
 impl NodeImplementation<TestTypes> for Libp2pImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticLibp2pQuorumComm;
     type CommitteeNetwork = StaticLibp2pDAComm;
+    type Storage = TestStorage<TestTypes>;
 }
 
 impl NodeImplementation<TestTypes> for MemoryImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticMemoryQuorumComm;
     type CommitteeNetwork = StaticMemoryDAComm;
+    type Storage = TestStorage<TestTypes>;
 }
 
 impl NodeImplementation<TestTypes> for WebImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticWebQuorumComm;
     type CommitteeNetwork = StaticWebDAComm;
+    type Storage = TestStorage<TestTypes>;
 }
 
 impl NodeImplementation<TestTypes> for CombinedImpl {
-    type Storage = MemoryStorage<TestTypes>;
     type QuorumNetwork = StaticCombinedQuorumComm;
     type CommitteeNetwork = StaticCombinedDAComm;
+    type Storage = TestStorage<TestTypes>;
 }
