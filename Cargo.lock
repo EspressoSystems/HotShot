@@ -1322,7 +1322,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.7#1eec12b6ef6f7da5d328af2305758baf70753062"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.9#8f9cc2d56e725a6cc29a792c6ed67e2e9efee756"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1346,7 +1346,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.7#1eec12b6ef6f7da5d328af2305758baf70753062"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.9#8f9cc2d56e725a6cc29a792c6ed67e2e9efee756"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1362,7 +1362,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.7#1eec12b6ef6f7da5d328af2305758baf70753062"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.9#8f9cc2d56e725a6cc29a792c6ed67e2e9efee756"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1377,7 +1377,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.7#1eec12b6ef6f7da5d328af2305758baf70753062"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.9#8f9cc2d56e725a6cc29a792c6ed67e2e9efee756"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -1391,6 +1391,7 @@ dependencies = [
  "lazy_static",
  "mnemonic",
  "mockall",
+ "parking_lot",
  "pem",
  "prometheus",
  "quinn",
