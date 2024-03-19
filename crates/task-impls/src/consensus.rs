@@ -31,6 +31,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
+        storage::Storage,
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
@@ -137,6 +138,9 @@ pub struct ConsensusTaskState<
     // ED Should replace this with config information since we need it anyway
     /// The node's id
     pub id: u64,
+
+    /// This node's storage ref
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -818,11 +822,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .number_of_views_per_decide_event
                         .add_point(cur_number_of_views_per_decide_event as f64);
 
-                    // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-                    if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
-                        error!("Could not insert new anchor into the storage API: {:?}", e);
-                    }
-
                     debug!("Sending Decide for view {:?}", consensus.last_decided_view);
                     debug!("Decided txns len {:?}", included_txns_set.len());
                     decide_sent.await;
@@ -1068,11 +1067,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // Add to the storage that we have received the VID disperse for a specific view
+                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
+                    error!(
+                        "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
+                        e
+                    );
+                    return;
+                }
+
                 self.consensus
                     .write()
                     .await
                     .vid_shares
                     .insert(view, disperse.clone());
+
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }

@@ -14,12 +14,13 @@ use hotshot::traits::implementations::{
 use hotshot::traits::BlockPayload;
 use hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, MemoryStorage, NetworkingMetricsValue, WebServerNetwork},
+        implementations::{Libp2pNetwork, NetworkingMetricsValue, WebServerNetwork},
         NodeImplementation,
     },
     types::{SignatureKey, SystemContextHandle},
     Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestInstanceState,
@@ -257,7 +258,7 @@ pub async fn run_orchestrator<
     TYPES: NodeType,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES, Storage = MemoryStorage<TYPES>>,
+    NODE: NodeImplementation<TYPES>,
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
@@ -433,7 +434,7 @@ pub trait RunDA<
         TYPES,
         QuorumNetwork = QUORUMNET,
         CommitteeNetwork = DANET,
-        Storage = MemoryStorage<TYPES>,
+        Storage = TestStorage<TYPES>,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -507,11 +508,11 @@ pub trait RunDA<
             sk,
             config.node_index,
             config.config,
-            MemoryStorage::empty(),
             memberships,
             networks_bundle,
             initializer,
             ConsensusMetricsValue::default(),
+            TestStorage::<TYPES>::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -711,7 +712,7 @@ impl<
             TYPES,
             QuorumNetwork = WebServerNetwork<TYPES>,
             CommitteeNetwork = WebServerNetwork<TYPES>,
-            Storage = MemoryStorage<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, WebServerNetwork<TYPES>, WebServerNetwork<TYPES>, NODE> for WebServerDARun<TYPES>
 where
@@ -785,7 +786,7 @@ impl<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
             CommitteeNetwork = PushCdnNetwork<TYPES>,
-            Storage = MemoryStorage<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -868,7 +869,7 @@ impl<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            Storage = MemoryStorage<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     >
     RunDA<
@@ -936,9 +937,9 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Storage = MemoryStorage<TYPES>,
             QuorumNetwork = CombinedNetworks<TYPES>,
             CommitteeNetwork = CombinedNetworks<TYPES>,
+            Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
 where
@@ -1028,7 +1029,7 @@ pub async fn main_entry_point<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
         CommitteeNetwork = DACHANNEL,
-        Storage = MemoryStorage<TYPES>,
+        Storage = TestStorage<TYPES>,
     >,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
