@@ -397,6 +397,12 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -404,10 +410,10 @@
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>hotshot_types::constants::VERSION_0_1;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="kw">use </span>hotshot_types::constants::STATIC_VER_0_1;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     message::{
@@ -770,7 +776,6 @@
             }
         };
         <span class="kw">let </span>message = Message {
-            version: VERSION_0_1,
             sender,
             kind: message_kind,
         };
@@ -779,10 +784,17 @@
         <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {
-                TransmitType::Direct =&gt; net.direct_message(message, recipient.unwrap()).<span class="kw">await</span>,
-                TransmitType::Broadcast =&gt; net.broadcast_message(message, committee).<span class="kw">await</span>,
+                TransmitType::Direct =&gt; {
+                    net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
+                        .<span class="kw">await
+                </span>}
+                TransmitType::Broadcast =&gt; {
+                    net.broadcast_message(message, committee, STATIC_VER_0_1)
+                        .<span class="kw">await
+                </span>}
                 TransmitType::DACommitteeBroadcast =&gt; {
-                    net.da_broadcast_message(message, committee).<span class="kw">await
+                    net.da_broadcast_message(message, committee, STATIC_VER_0_1)
+                        .<span class="kw">await
                 </span>}
             };
 

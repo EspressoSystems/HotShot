@@ -92,6 +92,12 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the web server
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -113,8 +119,10 @@
 <span class="kw">use </span>async_compatibility_layer::{art::async_spawn, channel::oneshot};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main)]
 #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
@@ -134,9 +142,11 @@
     async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+            WebServerVersion,
         &gt;(
             <span class="prelude-val">Some</span>(server_shutdown_cdn),
             Url::parse(<span class="string">"http://localhost:9000"</span>).unwrap(),
+            WebServerVersion::instance(),
         )
         .<span class="kw">await
         </span>{
@@ -146,9 +156,11 @@
     async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
             &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
+            WebServerVersion,
         &gt;(
             <span class="prelude-val">Some</span>(server_shutdown_da),
             Url::parse(<span class="string">"http://localhost:9001"</span>).unwrap(),
+            WebServerVersion::instance(),
         )
         .<span class="kw">await
         </span>{

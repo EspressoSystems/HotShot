@@ -1448,7 +1448,6 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::constants::Version;
 <span class="kw">use </span>hotshot_types::constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
@@ -1476,6 +1475,7 @@
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tracing::warn;
+<span class="kw">use </span>versioned_binary_serialization::version::Version;
 
 <span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;

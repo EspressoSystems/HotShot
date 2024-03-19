@@ -176,18 +176,15 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Receiver;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>either::Either::Right;
 <span class="kw">use </span>futures::{channel::mpsc, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
-<span class="kw">use </span>hotshot_types::constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::VidDisperse,
@@ -200,8 +197,8 @@
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    utils::bincode_opts,
 };
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
@@ -322,7 +319,6 @@
     /// in the surrounding feilds and creating the `MessageKind`
     </span><span class="kw">fn </span>make_msg(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ResponseMessage&lt;TYPES&gt;) -&gt; Message&lt;TYPES&gt; {
         Message {
-            version: VERSION_0_1,
             sender: <span class="self">self</span>.pub_key.clone(),
             kind: MessageKind::Data(DataMessage::DataResponse(msg)),
         }

@@ -131,6 +131,9 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::{
     election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork,
 };
@@ -146,6 +149,9 @@
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, WebServerNetwork},
     NodeImplementation,
 };
+
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
+
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber, message::Message, signature_key::BLSPubKey,
     traits::node_implementation::NodeType,
@@ -215,10 +221,10 @@
 </span><span class="kw">type </span>StaticLibp2pDAComm = Libp2pNetwork&lt;Message&lt;TestTypes&gt;, &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
 
 <span class="doccomment">/// web server network communication channel
-</span><span class="kw">type </span>StaticWebDAComm = WebServerNetwork&lt;TestTypes&gt;;
+</span><span class="kw">type </span>StaticWebDAComm = WebServerNetwork&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="doccomment">/// combined network
-</span><span class="kw">type </span>StaticCombinedDAComm = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">type </span>StaticCombinedDAComm = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="doccomment">/// memory comm channel
 </span><span class="kw">pub type </span>StaticMemoryQuorumComm =
@@ -229,10 +235,10 @@
     Libp2pNetwork&lt;Message&lt;TestTypes&gt;, &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
 
 <span class="doccomment">/// web server comm channel
-</span><span class="kw">type </span>StaticWebQuorumComm = WebServerNetwork&lt;TestTypes&gt;;
+</span><span class="kw">type </span>StaticWebQuorumComm = WebServerNetwork&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="doccomment">/// combined network (libp2p + web server)
-</span><span class="kw">type </span>StaticCombinedQuorumComm = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">type </span>StaticCombinedQuorumComm = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>PushCdnImpl {
     <span class="kw">type </span>QuorumNetwork = StaticPushCdnQuorumComm;

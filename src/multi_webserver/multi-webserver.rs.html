@@ -54,6 +54,19 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A multi web server
 </span><span class="kw">use </span>std::sync::Arc;
 
@@ -64,8 +77,11 @@
 };
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// Arguments to run multiple web servers
 </span><span class="attr">#[derive(Parser, Debug)]
@@ -90,8 +106,13 @@
 
     <span class="kw">let </span>consensus_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_cdn), args.consensus_url)
+            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
+            WebServerVersion,
+        &gt;(
+            <span class="prelude-val">Some</span>(server_shutdown_cdn),
+            args.consensus_url,
+            WebServerVersion::instance(),
+        )
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">"Problem starting cdn web server: {:?}"</span>, e);
@@ -99,8 +120,13 @@
     });
     <span class="kw">let </span>da_server = async_spawn(<span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-        &gt;(<span class="prelude-val">Some</span>(server_shutdown_da), args.da_url)
+            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
+            WebServerVersion,
+        &gt;(
+            <span class="prelude-val">Some</span>(server_shutdown_da),
+            args.da_url,
+            WebServerVersion::instance(),
+        )
         .<span class="kw">await
         </span>{
             <span class="macro">error!</span>(<span class="string">"Problem starting da web server: {:?}"</span>, e);

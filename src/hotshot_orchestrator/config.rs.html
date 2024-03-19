@@ -678,6 +678,9 @@
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -1224,6 +1227,8 @@
     </span><span class="kw">pub </span>propose_min_round_time: Duration,
     <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// Time to wait until we request data associated with a proposal
+    </span><span class="kw">pub </span>data_request_delay: Duration,
 }
 
 <span class="doccomment">/// Holds configuration for a validator node
@@ -1299,8 +1304,8 @@
             num_bootstrap: val.num_bootstrap,
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
+            data_request_delay: val.data_request_delay,
             election_config: <span class="prelude-val">None</span>,
-            data_request_delay: Duration::from_millis(<span class="number">200</span>),
         }
     }
 }
@@ -1351,9 +1356,10 @@
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">1</span>,
             start_delay: <span class="number">1</span>,
+            num_bootstrap: <span class="number">5</span>,
             propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
             propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
-            num_bootstrap: <span class="number">5</span>,
+            data_request_delay: Duration::from_millis(<span class="number">200</span>),
         }
     }
 }

@@ -454,6 +454,27 @@
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
@@ -506,6 +527,7 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// Helper function to calculate a hash of a type that implements Hash
 </span><span class="kw">pub fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
@@ -520,9 +542,9 @@
 <span class="doccomment">/// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
     <span class="doccomment">/// The two networks we'll use for send/recv
-    </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;,
+    </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES, NetworkVersion&gt;&gt;,
 
     <span class="doccomment">/// Last n seen messages to prevent processing duplicates
     </span>message_cache: Arc&lt;RwLock&lt;LruCache&lt;u64, ()&gt;&gt;&gt;,
@@ -537,14 +559,17 @@
     </span>delay_duration: Arc&lt;RwLock&lt;Duration&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; CombinedNetworks&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
     <span class="doccomment">/// Constructor
     ///
     /// # Panics
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;, delay_duration: Duration) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(
+        networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES, NetworkVersion&gt;&gt;,
+        delay_duration: Duration,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -558,7 +583,7 @@
 
     <span class="doccomment">/// Get a ref to the primary network
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WebServerNetwork&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networks.<span class="number">0
     </span>}
 
@@ -629,13 +654,15 @@
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType&gt;(
-    <span class="kw">pub </span>WebServerNetwork&lt;TYPES&gt;,
+</span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt;(
+    <span class="kw">pub </span>WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
     <span class="kw">pub </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
 );
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>&gt;
+    TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedNetworks&lt;TYPES, NetworkVersion&gt;
+{
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -646,9 +673,7 @@
         secondary_network_delay: Duration,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
         <span class="kw">let </span>generators = (
-            &lt;WebServerNetwork&lt;
-                TYPES,
-            &gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
+            &lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -671,11 +696,11 @@
             <span class="kw">let </span>(quorum_web, da_web) = generators.<span class="number">0</span>(node_id);
             <span class="kw">let </span>(quorum_p2p, da_p2p) = generators.<span class="number">1</span>(node_id);
             <span class="kw">let </span>da_networks = UnderlyingCombinedNetworks(
-                Arc::&lt;WebServerNetwork&lt;TYPES&gt;&gt;::into_inner(da_web).unwrap(),
+                Arc::&lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt;&gt;::into_inner(da_web).unwrap(),
                 Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(da_p2p),
             );
             <span class="kw">let </span>quorum_networks = UnderlyingCombinedNetworks(
-                Arc::&lt;WebServerNetwork&lt;TYPES&gt;&gt;::into_inner(quorum_web).unwrap(),
+                Arc::&lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt;&gt;::into_inner(quorum_web).unwrap(),
                 Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(
                     quorum_p2p,
                 ),
@@ -711,21 +736,28 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
-    <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: <span class="lifetime">'static </span>+ StaticVersionType&gt;
+    ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
+    <span class="kw">for </span>CombinedNetworks&lt;TYPES, NetworkVersion&gt;
 {
-    <span class="kw">async fn </span>request_data&lt;T: NodeType&gt;(
+    <span class="kw">async fn </span>request_data&lt;T: NodeType, VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: Message&lt;TYPES&gt;,
         recipient: TYPES::SignatureKey,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;T&gt;, NetworkError&gt; {
-        <span class="self">self</span>.secondary().request_data(request, recipient).<span class="kw">await
+        <span class="self">self</span>.secondary()
+            .request_data(request, recipient, bind_version)
+            .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>spawn_request_receiver_task(
+    <span class="kw">async fn </span>spawn_request_receiver_task&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Message&lt;TYPES&gt;, ResponseChannel&lt;Message&lt;TYPES&gt;&gt;)&gt;&gt; {
-        <span class="self">self</span>.secondary().spawn_request_receiver_task().<span class="kw">await
+        <span class="self">self</span>.secondary()
+            .spawn_request_receiver_task(bind_version)
+            .<span class="kw">await
     </span>}
 
     <span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -758,10 +790,11 @@
         boxed_sync(closure)
     }
 
-    <span class="kw">async fn </span>broadcast_message(
+    <span class="kw">async fn </span>broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>primary = <span class="self">self</span>.primary().clone();
         <span class="kw">let </span>secondary = <span class="self">self</span>.secondary().clone();
@@ -772,22 +805,23 @@
             message,
             <span class="kw">async move </span>{
                 primary
-                    .broadcast_message(primary_message, primary_recipients)
+                    .broadcast_message(primary_message, primary_recipients, bind_version)
                     .<span class="kw">await
             </span>},
             <span class="kw">async move </span>{
                 secondary
-                    .broadcast_message(secondary_message, recipients)
+                    .broadcast_message(secondary_message, recipients, bind_version)
                     .<span class="kw">await
             </span>},
         )
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>da_broadcast_message(
+    <span class="kw">async fn </span>da_broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>primary = <span class="self">self</span>.primary().clone();
         <span class="kw">let </span>secondary = <span class="self">self</span>.secondary().clone();
@@ -798,22 +832,23 @@
             message,
             <span class="kw">async move </span>{
                 primary
-                    .da_broadcast_message(primary_message, primary_recipients)
+                    .da_broadcast_message(primary_message, primary_recipients, bind_version)
                     .<span class="kw">await
             </span>},
             <span class="kw">async move </span>{
                 secondary
-                    .da_broadcast_message(secondary_message, recipients)
+                    .da_broadcast_message(secondary_message, recipients, bind_version)
                     .<span class="kw">await
             </span>},
         )
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>direct_message(
+    <span class="kw">async fn </span>direct_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         recipient: TYPES::SignatureKey,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>primary = <span class="self">self</span>.primary().clone();
         <span class="kw">let </span>secondary = <span class="self">self</span>.secondary().clone();
@@ -824,10 +859,14 @@
             message,
             <span class="kw">async move </span>{
                 primary
-                    .direct_message(primary_message, primary_recipient)
+                    .direct_message(primary_message, primary_recipient, bind_version)
                     .<span class="kw">await
             </span>},
-            <span class="kw">async move </span>{ secondary.direct_message(secondary_message, recipient).<span class="kw">await </span>},
+            <span class="kw">async move </span>{
+                secondary
+                    .direct_message(secondary_message, recipient, bind_version)
+                    .<span class="kw">await
+            </span>},
         )
         .<span class="kw">await
     </span>}
@@ -879,8 +918,11 @@
     </span>}
 
     <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
-        &lt;WebServerNetwork&lt;<span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;Message&lt;TYPES&gt;,TYPES::SignatureKey&gt;&gt;::
-            inject_consensus_info(<span class="self">self</span>.primary(), event.clone()).<span class="kw">await</span>;
+        &lt;WebServerNetwork&lt;<span class="kw">_</span>, NetworkVersion&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+            Message&lt;TYPES&gt;,
+            TYPES::SignatureKey,
+        &gt;&gt;::inject_consensus_info(<span class="self">self</span>.primary(), event.clone())
+        .<span class="kw">await</span>;
 
         &lt;Libp2pNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;Message&lt;TYPES&gt;,TYPES::SignatureKey&gt;&gt;::
             inject_consensus_info(<span class="self">self</span>.secondary(), event).<span class="kw">await</span>;

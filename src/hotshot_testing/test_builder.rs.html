@@ -633,12 +633,12 @@
             <span class="comment">// TODO do we use these fields??
             </span>propose_min_round_time: Duration::from_millis(<span class="number">0</span>),
             propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
+            data_request_delay: Duration::from_millis(<span class="number">200</span>),
             <span class="comment">// TODO what's the difference between this and the second config?
             </span>election_config: <span class="prelude-val">Some</span>(TYPES::Membership::default_election_config(
                 num_nodes_with_stake <span class="kw">as </span>u64,
                 <span class="number">0</span>,
             )),
-            data_request_delay: Duration::from_millis(<span class="number">200</span>),
         };
         <span class="kw">let </span>TimingData {
             next_view_timeout,

@@ -26,9 +26,11 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::CombinedDARun;
 <span class="kw">use </span>hotshot::traits::implementations::CombinedNetworks;
 <span class="kw">use </span>hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::fmt::Debug;
@@ -38,13 +40,13 @@
 </span><span class="kw">pub struct </span>NodeImpl {}
 
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>DANetwork = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>DANetwork = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>VIDNetwork = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>VIDNetwork = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>QuorumNetwork = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>QuorumNetwork = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>ViewSyncNetwork = CombinedNetworks&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>ViewSyncNetwork = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>NodeImpl {
     <span class="kw">type </span>QuorumNetwork = QuorumNetwork;
@@ -52,5 +54,5 @@
     <span class="kw">type </span>Storage = TestStorage&lt;TestTypes&gt;;
 }
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>ThisRun = CombinedDARun&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>ThisRun = CombinedDARun&lt;TestTypes, WebServerVersion&gt;;
 </code></pre></div></section></main></body></html>

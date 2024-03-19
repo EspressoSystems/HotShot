@@ -375,6 +375,10 @@
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -387,12 +391,12 @@
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
+    constants::Version01,
     message::Message,
     traits::{
         network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
@@ -401,7 +405,6 @@
     },
     BoxSyncFuture,
 };
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
@@ -413,6 +416,7 @@
     },
 };
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+<span class="kw">use </span>versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///
@@ -502,7 +506,7 @@
                 <span class="kw">while let </span><span class="prelude-val">Some</span>(vec) = task_stream.next().<span class="kw">await </span>{
                     <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming message"</span>);
                     <span class="comment">// Attempt to decode message
-                    </span><span class="kw">let </span>x = bincode_opts().deserialize(<span class="kw-2">&amp;</span>vec);
+                    </span><span class="kw">let </span>x = Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>vec);
                     <span class="kw">match </span>x {
                         <span class="prelude-val">Ok</span>(x) =&gt; {
                             <span class="kw">let </span>ts = task_send.clone();
@@ -619,16 +623,15 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::broadcast_message"</span>)]
-    </span><span class="kw">async fn </span>broadcast_message(
+    </span><span class="kw">async fn </span>broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: M,
         recipients: BTreeSet&lt;K&gt;,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="macro">trace!</span>(<span class="question-mark">?</span>message, <span class="string">"Broadcasting message"</span>);
         <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>vec = bincode_opts()
-            .serialize(<span class="kw-2">&amp;</span>message)
-            .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>vec = Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">"Message bincoded, sending"</span>);
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.master_map.map {
             <span class="comment">// TODO delay/drop etc here
@@ -671,21 +674,26 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::da_broadcast_message"</span>)]
-    </span><span class="kw">async fn </span>da_broadcast_message(
+    </span><span class="kw">async fn </span>da_broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: M,
         recipients: BTreeSet&lt;K&gt;,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, recipients).<span class="kw">await
+        <span class="self">self</span>.broadcast_message(message, recipients, bind_version)
+            .<span class="kw">await
     </span>}
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::direct_message"</span>)]
-    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: M,
+        recipient: K,
+        <span class="kw">_</span>: VER,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
-        </span><span class="kw">let </span>vec = bincode_opts()
-            .serialize(<span class="kw-2">&amp;</span>message)
-            .context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>vec = Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">"Message bincoded, finding recipient"</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.inner.master_map.map.get(<span class="kw-2">&amp;</span>recipient) {
             <span class="kw">let </span>node = node.value().clone();

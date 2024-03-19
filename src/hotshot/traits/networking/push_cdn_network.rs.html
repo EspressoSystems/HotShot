@@ -423,8 +423,36 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::NetworkError;
-<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
+<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::{
     reexports::connection::protocols::Tcp, Broker, Config, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder,
 };
@@ -437,28 +465,31 @@
     Client, ConfigBuilder <span class="kw">as </span>ClientConfigBuilder,
 };
 <span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
-<span class="kw">use </span>tracing::{error, warn};
-
-<span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
-<span class="kw">use </span>async_trait::async_trait;
-
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
+</span><span class="kw">use </span>hotshot_types::traits::network::TestableNetworkingImplementation;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
+    constants::{Version01, VERSION_0_1},
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, PushCdnNetworkError},
+        network::{
+            ConnectedNetwork, ConsensusIntentEvent, NetworkReliability, PushCdnNetworkError,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    utils::bincode_opts,
     BoxSyncFuture,
 };
+<span class="kw">use </span>rand::rngs::StdRng;
+<span class="kw">use </span>rand::{RngCore, SeedableRng};
 <span class="kw">use </span>std::{collections::BTreeSet, path::Path, sync::Arc, time::Duration};
+<span class="kw">use </span>tracing::{error, warn};
+<span class="kw">use </span>versioned_binary_serialization::{
+    version::{StaticVersionType, Version},
+    BinarySerializer, Serializer,
+};
 
 <span class="doccomment">/// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -471,13 +502,15 @@
     <span class="doccomment">/// Sign a message of arbitrary data and return the serialized signature
     </span><span class="kw">fn </span>sign(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey, message: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;Vec&lt;u8&gt;&gt; {
         <span class="kw">let </span>signature = T::sign(private_key, message)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(bincode_opts().serialize(<span class="kw-2">&amp;</span>signature)<span class="question-mark">?</span>)
+        <span class="comment">// TODO: replace with rigorously defined serialization scheme...
+        // why did we not make `PureAssembledSignatureType` be `CanonicalSerialize + CanonicalDeserialize`?
+        </span><span class="prelude-val">Ok</span>(bincode_opts().serialize(<span class="kw-2">&amp;</span>signature)<span class="question-mark">?</span>)
     }
 
     <span class="doccomment">/// Verify a message of arbitrary data and return the result
     </span><span class="kw">fn </span>verify(public_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicKey, message: <span class="kw-2">&amp;</span>[u8], signature: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-        <span class="kw">let </span>signature: T::PureAssembledSignatureType = <span class="kw">match </span>bincode_opts().deserialize(signature) {
+        <span class="comment">// TODO: replace with rigorously defined signing scheme
+        </span><span class="kw">let </span>signature: T::PureAssembledSignatureType = <span class="kw">match </span>bincode_opts().deserialize(signature) {
             <span class="prelude-val">Ok</span>(key) =&gt; key,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
         };
@@ -540,13 +573,14 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>broadcast_message(
+    </span><span class="kw">async fn </span>broadcast_message&lt;Ver: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         topic: Topic,
+        <span class="kw">_</span>: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>bincode_opts().serialize(<span class="kw-2">&amp;</span>message) {
+        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>message) {
             <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
@@ -743,12 +777,14 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>broadcast_message(
+    </span><span class="kw">async fn </span>broadcast_message&lt;Ver: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        bind_version: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Global).<span class="kw">await
+        <span class="self">self</span>.broadcast_message(message, Topic::Global, bind_version)
+            .<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Broadcast a message to all members of the DA committee.
@@ -756,25 +792,28 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>da_broadcast_message(
+    </span><span class="kw">async fn </span>da_broadcast_message&lt;Ver: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        bind_version: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::DA).<span class="kw">await
+        <span class="self">self</span>.broadcast_message(message, Topic::DA, bind_version)
+            .<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Send a direct message to a node with a particular key. Does not retry.
     ///
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
-    </span><span class="kw">async fn </span>direct_message(
+    </span><span class="kw">async fn </span>direct_message&lt;Ver: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES&gt;,
         recipient: TYPES::SignatureKey,
+        <span class="kw">_</span>: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>bincode_opts().serialize(<span class="kw-2">&amp;</span>message) {
+        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>message) {
             <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
@@ -826,13 +865,24 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[]);
         };
 
-        <span class="comment">// Deserialize it
-        </span><span class="kw">let </span>result: Message&lt;TYPES&gt; = bincode_opts()
-            .deserialize(<span class="kw-2">&amp;</span>message)
-            .map_err(|e| NetworkError::FailedToSerialize { source: e })<span class="question-mark">?</span>;
+        <span class="kw">let </span>message_version = Version::deserialize(<span class="kw-2">&amp;</span>message)
+            .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
+        <span class="kw">if </span>message_version.<span class="number">0 </span>== VERSION_0_1 {
+            <span class="kw">let </span>result: Message&lt;TYPES&gt; = Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>message)
+                .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
 
-        <span class="comment">// Return it
-        </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[result])
+            <span class="comment">// Deserialize it
+            // Return it
+            </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[result])
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(NetworkError::FailedToDeserialize {
+                source: <span class="macro">anyhow::format_err!</span>(
+                    <span class="string">"version mismatch, expected {}, got {}"</span>,
+                    VERSION_0_1,
+                    message_version.<span class="number">0
+                </span>),
+            })
+        }
     }
 
     <span class="doccomment">/// Do nothing here, as we don't need to look up nodes.

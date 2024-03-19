@@ -957,6 +957,17 @@
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
 
 /// Configuration for the webserver
@@ -982,6 +993,7 @@
     Api, App, StatusCode, Url,
 };
 <span class="kw">use </span>tracing::{debug, info};
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline
@@ -1708,22 +1720,28 @@
 }
 
 <span class="doccomment">/// Sets up all API routes
+/// This web server incorporates the protocol version within each message.
+/// Transport versioning (generic params here) only changes when the web-CDN itself changes.
+/// When transport versioning changes, the application itself must update its version.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
-</span><span class="kw">fn </span>define_api&lt;State, KEY&gt;(options: <span class="kw-2">&amp;</span>Options) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error&gt;, ApiError&gt;
+</span><span class="kw">fn </span>define_api&lt;State, KEY, NetworkVersion: StaticVersionType&gt;(
+    options: <span class="kw-2">&amp;</span>Options,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error, NetworkVersion&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + WebServerDataSource&lt;KEY&gt;,
     KEY: SignatureKey,
+    NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = <span class="kw">match </span><span class="kw-2">&amp;</span>options.api_path {
-        <span class="prelude-val">Some</span>(path) =&gt; Api::&lt;State, Error&gt;::from_file(path)<span class="question-mark">?</span>,
+        <span class="prelude-val">Some</span>(path) =&gt; Api::&lt;State, Error, NetworkVersion&gt;::from_file(path)<span class="question-mark">?</span>,
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>toml: toml::Value = toml::from_str(<span class="macro">include_str!</span>(<span class="string">"../api.toml"</span>)).map_err(|err| {
                 ApiError::CannotReadToml {
                     reason: err.to_string(),
                 }
             })<span class="question-mark">?</span>;
-            Api::&lt;State, Error&gt;::new(toml)<span class="question-mark">?
+            Api::&lt;State, Error, NetworkVersion&gt;::new(toml)<span class="question-mark">?
         </span>}
     };
     api.get(<span class="string">"getproposal"</span>, |req, state| {
@@ -1899,19 +1917,23 @@
 /// this looks like it will panic not error
 /// # Panics
 /// on errors creating or registering the tide disco api
-</span><span class="kw">pub async fn </span>run_web_server&lt;KEY: SignatureKey + <span class="lifetime">'static</span>&gt;(
+</span><span class="kw">pub async fn </span>run_web_server&lt;
+    KEY: SignatureKey + <span class="lifetime">'static</span>,
+    NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>,
+&gt;(
     shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;,
     url: Url,
+    bind_version: NetworkVersion,
 ) -&gt; io::Result&lt;()&gt; {
     <span class="kw">let </span>options = Options::default();
 
     <span class="kw">let </span>web_api = define_api(<span class="kw-2">&amp;</span>options).unwrap();
     <span class="kw">let </span>state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error&gt;::with_state(state);
+    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error, NetworkVersion&gt;::with_state(state);
 
     app.register_module(<span class="string">"api"</span>, web_api).unwrap();
 
-    <span class="kw">let </span>app_future = app.serve(url);
+    <span class="kw">let </span>app_future = app.serve(url, bind_version);
 
     app_future.<span class="kw">await
 </span>}

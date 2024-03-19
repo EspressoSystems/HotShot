@@ -1145,6 +1145,20 @@
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1152,6 +1166,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>cdn_broker::reexports::message::Topic;
+<span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>clap::{Arg, Command};
 <span class="kw">use </span>futures::StreamExt;
@@ -1178,22 +1193,21 @@
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
-<span class="kw">use </span>hotshot_types::message::Message;
-<span class="kw">use </span>hotshot_types::traits::network::ConnectedNetwork;
-<span class="kw">use </span>hotshot_types::PeerConfig;
-<span class="kw">use </span>hotshot_types::ValidatorConfig;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
+    message::Message,
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
-    HotShotConfig,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>libp2p_identity::{
     ed25519::{<span class="self">self</span>, SecretKey},
     Keypair,
@@ -1204,17 +1218,15 @@
 };
 <span class="kw">use </span>rand::rngs::StdRng;
 <span class="kw">use </span>rand::SeedableRng;
+<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>std::{collections::BTreeSet, sync::Arc};
+<span class="kw">use </span>std::{fs, time::Instant};
 <span class="kw">use </span>std::{num::NonZeroUsize, str::FromStr};
 <span class="kw">use </span>surf_disco::Url;
-
-<span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::{fs, time::Instant};
 <span class="kw">use </span>tracing::{error, info, warn};
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="doccomment">/// Arguments passed to the orchestrator
@@ -1434,10 +1446,10 @@
 <span class="doccomment">/// create a web server network from a config file + public key
 /// # Panics
 /// Panics if the web server config doesn't exist in `config`
-</span><span class="kw">fn </span>webserver_network_from_config&lt;TYPES: NodeType&gt;(
+</span><span class="kw">fn </span>webserver_network_from_config&lt;TYPES: NodeType, NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>&gt;(
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     pub_key: TYPES::SignatureKey,
-) -&gt; WebServerNetwork&lt;TYPES&gt; {
+) -&gt; WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
     <span class="comment">// Get the configuration for the web server
     </span><span class="kw">let </span>WebServerConfig {
         url,
@@ -1838,13 +1850,13 @@
 <span class="comment">// WEB SERVER
 
 </span><span class="doccomment">/// Represents a web server-based run
-</span><span class="kw">pub struct </span>WebServerDARun&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>WebServerDARun&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
     <span class="doccomment">/// the network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     <span class="doccomment">/// quorum channel
-    </span>quorum_channel: WebServerNetwork&lt;TYPES&gt;,
+    </span>quorum_channel: WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
     <span class="doccomment">/// data availability channel
-    </span>da_channel: WebServerNetwork&lt;TYPES&gt;,
+    </span>da_channel: WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1857,20 +1869,28 @@
         &gt;,
         NODE: NodeImplementation&lt;
             TYPES,
-            QuorumNetwork = WebServerNetwork&lt;TYPES&gt;,
-            CommitteeNetwork = WebServerNetwork&lt;TYPES&gt;,
+            QuorumNetwork = WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
+            CommitteeNetwork = WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDA&lt;TYPES, WebServerNetwork&lt;TYPES&gt;, WebServerNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>WebServerDARun&lt;TYPES&gt;
+        NetworkVersion: StaticVersionType,
+    &gt;
+    RunDA&lt;
+        TYPES,
+        WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
+        WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
+        NODE,
+    &gt; <span class="kw">for </span>WebServerDARun&lt;TYPES, NetworkVersion&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
+    NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    ) -&gt; WebServerDARun&lt;TYPES&gt; {
+    ) -&gt; WebServerDARun&lt;TYPES, NetworkVersion&gt; {
         <span class="comment">// Get our own key
         </span><span class="kw">let </span>pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -1882,11 +1902,11 @@
 
         <span class="comment">// create and wait for underlying network
         </span><span class="kw">let </span>underlying_quorum_network =
-            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone());
+            webserver_network_from_config::&lt;TYPES, NetworkVersion&gt;(config.clone(), pub_key.clone());
 
         underlying_quorum_network.wait_for_ready().<span class="kw">await</span>;
 
-        <span class="kw">let </span>da_channel: WebServerNetwork&lt;TYPES&gt; =
+        <span class="kw">let </span>da_channel: WebServerNetwork&lt;TYPES, NetworkVersion&gt; =
             WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), <span class="bool-val">true</span>);
 
         WebServerDARun {
@@ -1896,11 +1916,11 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebServerNetwork&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebServerNetwork&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 
@@ -2065,13 +2085,13 @@
 <span class="comment">// Combined network
 
 </span><span class="doccomment">/// Represents a combined-network-based run
-</span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
     <span class="doccomment">/// the network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     <span class="doccomment">/// quorum channel
-    </span>quorum_channel: CombinedNetworks&lt;TYPES&gt;,
+    </span>quorum_channel: CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
     <span class="doccomment">/// data availability channel
-    </span>da_channel: CombinedNetworks&lt;TYPES&gt;,
+    </span>da_channel: CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -2084,20 +2104,28 @@
         &gt;,
         NODE: NodeImplementation&lt;
             TYPES,
-            QuorumNetwork = CombinedNetworks&lt;TYPES&gt;,
-            CommitteeNetwork = CombinedNetworks&lt;TYPES&gt;,
+            QuorumNetwork = CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+            CommitteeNetwork = CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDA&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDARun&lt;TYPES&gt;
+        NetworkVersion: StaticVersionType,
+    &gt;
+    RunDA&lt;
+        TYPES,
+        CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+        CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+        NODE,
+    &gt; <span class="kw">for </span>CombinedDARun&lt;TYPES, NetworkVersion&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
+    NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    ) -&gt; CombinedDARun&lt;TYPES&gt; {
+    ) -&gt; CombinedDARun&lt;TYPES, NetworkVersion&gt; {
         <span class="comment">// Get our own key
         </span><span class="kw">let </span>pub_key = config.config.my_own_validator_config.public_key.clone();
 
@@ -2118,7 +2146,7 @@
 
         <span class="comment">// Create and wait for underlying webserver network
         </span><span class="kw">let </span>web_quorum_network =
-            webserver_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone());
+            webserver_network_from_config::&lt;TYPES, NetworkVersion&gt;(config.clone(), pub_key.clone());
 
         <span class="kw">let </span>web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">true</span>);
 
@@ -2147,11 +2175,11 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
+    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 

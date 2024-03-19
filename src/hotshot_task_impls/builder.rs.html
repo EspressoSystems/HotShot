@@ -126,6 +126,7 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>std::time::{Duration, Instant};
 
@@ -139,6 +140,7 @@
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>surf_disco::{client::HealthStatus, Client, Url};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
 </span><span class="doccomment">/// Represents errors thant builder client may return
@@ -180,14 +182,14 @@
 }
 
 <span class="doccomment">/// Client for builder API
-</span><span class="kw">pub struct </span>BuilderClient&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>BuilderClient&lt;TYPES: NodeType, Ver: StaticVersionType&gt; {
     <span class="doccomment">/// Underlying surf_disco::Client
-    </span>inner: Client&lt;BuilderApiError&gt;,
+    </span>inner: Client&lt;BuilderApiError, Ver&gt;,
     <span class="doccomment">/// Marker for [`NodeType`] used here
     </span>_marker: std::marker::PhantomData&lt;TYPES&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderClient&lt;TYPES&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, Ver: StaticVersionType&gt; BuilderClient&lt;TYPES, Ver&gt;
 <span class="kw">where
     </span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType:
         <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt; + Into&lt;TaggedBase64&gt;,

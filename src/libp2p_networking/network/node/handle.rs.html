@@ -603,6 +603,9 @@
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     behaviours::request_response::{Request, Response},
     error::{CancelledRequestSnafu, DHTError},
@@ -613,11 +616,9 @@
     art::{async_sleep, async_timeout, future::to},
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>futures::channel::oneshot;
 
 <span class="kw">use </span>hotshot_types::traits::network::NetworkError <span class="kw">as </span>HotshotNetworkError;
-<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -628,6 +629,7 @@
     time::{Duration, Instant},
 };
 <span class="kw">use </span>tracing::{debug, info, instrument};
+<span class="kw">use </span>versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
 
 <span class="doccomment">/// A handle containing:
 /// - A reference to the state
@@ -789,15 +791,14 @@
     ///
     /// Will retrun a networking error if the channel closes before the result
     /// can be sent back
-    </span><span class="kw">pub async fn </span>request_data(
+    </span><span class="kw">pub async fn </span>request_data&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         peer: PeerId,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Response&gt;, NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(tx, rx) = oneshot::channel();
-        <span class="kw">let </span>serialized_msg = bincode_opts()
-            .serialize(request)
-            .context(SerializationSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>serialized_msg = Serializer::&lt;VER&gt;::serialize(request).context(SerializationSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>req = ClientRequest::DataRequest {
             request: Request(serialized_msg),
             peer,
@@ -812,14 +813,13 @@
     <span class="doccomment">/// Send a response to a request with the response channel
     /// # Errors
     /// Will error if the client request channel is closed, or serialization fails.
-    </span><span class="kw">pub async fn </span>respond_data(
+    </span><span class="kw">pub async fn </span>respond_data&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         response: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         chan: ResponseChannel&lt;Response&gt;,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>serialized_msg = bincode_opts()
-            .serialize(response)
-            .context(SerializationSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>serialized_msg = Serializer::&lt;VER&gt;::serialize(response).context(SerializationSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>req = ClientRequest::DataResponse {
             response: Response(serialized_msg),
             chan,
@@ -841,13 +841,16 @@
     <span class="doccomment">/// Looks up a node's `PeerId` and attempts to validate routing
     /// # Errors
     /// if the peer was unable to be looked up (did not provide a response, DNE)
-    </span><span class="kw">pub async fn </span>lookup_node&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; + Serialize&gt;(
+    </span><span class="kw">pub async fn </span>lookup_node&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; + Serialize, VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: V,
         dht_timeout: Duration,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PeerId, NetworkNodeHandleError&gt; {
         <span class="comment">// get record (from DHT)
-        </span><span class="kw">let </span>pid = <span class="self">self</span>.get_record_timeout::&lt;PeerId&gt;(<span class="kw-2">&amp;</span>key, dht_timeout).<span class="kw">await</span><span class="question-mark">?</span>;
+        </span><span class="kw">let </span>pid = <span class="self">self
+            </span>.get_record_timeout::&lt;PeerId, VER&gt;(<span class="kw-2">&amp;</span>key, dht_timeout, bind_version)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// pid lookup for routing
         // self.lookup_pid(pid).await?;
@@ -859,17 +862,16 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
-    </span><span class="kw">pub async fn </span>put_record(
+    </span><span class="kw">pub async fn </span>put_record&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         value: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::PutDHT {
-            key: bincode_opts().serialize(key).context(SerializationSnafu)<span class="question-mark">?</span>,
-            value: bincode_opts()
-                .serialize(value)
-                .context(SerializationSnafu)<span class="question-mark">?</span>,
+            key: Serializer::&lt;VER&gt;::serialize(key).context(SerializationSnafu)<span class="question-mark">?</span>,
+            value: Serializer::&lt;VER&gt;::serialize(value).context(SerializationSnafu)<span class="question-mark">?</span>,
             notify: s,
         };
 
@@ -884,23 +886,22 @@
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
+    </span><span class="kw">pub async fn </span>get_record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         retry_count: u8,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V, NetworkNodeHandleError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetDHT {
-            key: bincode_opts().serialize(key).context(SerializationSnafu)<span class="question-mark">?</span>,
+            key: Serializer::&lt;VER&gt;::serialize(key).context(SerializationSnafu)<span class="question-mark">?</span>,
             notify: s,
             retry_count,
         };
         <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">match </span>r.<span class="kw">await</span>.context(CancelledRequestSnafu) {
-            <span class="prelude-val">Ok</span>(result) =&gt; bincode_opts()
-                .deserialize(<span class="kw-2">&amp;</span>result)
-                .context(DeserializationSnafu),
+            <span class="prelude-val">Ok</span>(result) =&gt; Serializer::&lt;VER&gt;::deserialize(<span class="kw-2">&amp;</span>result).context(DeserializationSnafu),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e).context(DHTSnafu),
         }
     }
@@ -911,12 +912,13 @@
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
+    </span><span class="kw">pub async fn </span>get_record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         timeout: Duration,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V, NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.get_record(key, <span class="number">3</span>)).<span class="kw">await</span>;
+        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.get_record(key, <span class="number">3</span>, bind_version)).<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e).context(TimeoutSnafu),
             <span class="prelude-val">Ok</span>(r) =&gt; r,
@@ -929,13 +931,14 @@
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    </span><span class="kw">pub async fn </span>put_record_timeout(
+    </span><span class="kw">pub async fn </span>put_record_timeout&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         value: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         timeout: Duration,
+        bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.put_record(key, value)).<span class="kw">await</span>;
+        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.put_record(key, value, bind_version)).<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e).context(TimeoutSnafu),
             <span class="prelude-val">Ok</span>(r) =&gt; r,
@@ -975,12 +978,13 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>direct_request(
+    </span><span class="kw">pub async fn </span>direct_request&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pid: PeerId,
         msg: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>serialized_msg = Serializer::&lt;VER&gt;::serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
         <span class="self">self</span>.direct_request_no_serialize(pid, serialized_msg).<span class="kw">await
     </span>}
 
@@ -1005,12 +1009,13 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>direct_response(
+    </span><span class="kw">pub async fn </span>direct_response&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;,
         msg: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>serialized_msg = Serializer::&lt;VER&gt;::serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>req = ClientRequest::DirectResponse(chan, serialized_msg);
         <span class="self">self</span>.send_request(req).<span class="kw">await
     </span>}
@@ -1031,12 +1036,13 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>gossip(
+    </span><span class="kw">pub async fn </span>gossip&lt;VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         topic: String,
         msg: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
+        <span class="kw">_</span>: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>serialized_msg = Serializer::&lt;VER&gt;::serialize(msg).context(SerializationSnafu)<span class="question-mark">?</span>;
         <span class="self">self</span>.gossip_no_serialize(topic, serialized_msg).<span class="kw">await
     </span>}
 
@@ -1137,12 +1143,12 @@
     <span class="doccomment">/// Failure to serialize a message
     </span>SerializationError {
         <span class="doccomment">/// source of error
-        </span>source: Box&lt;bincode::ErrorKind&gt;,
+        </span>source: anyhow::Error,
     },
     <span class="doccomment">/// Failure to deserialize a message
     </span>DeserializationError {
         <span class="doccomment">/// source of error
-        </span>source: Box&lt;bincode::ErrorKind&gt;,
+        </span>source: anyhow::Error,
     },
     <span class="doccomment">/// Error sending request to network
     </span>SendError,

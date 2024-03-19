@@ -123,19 +123,22 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>hotshot::traits::BlockPayload;
 <span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
-<span class="kw">use </span>hotshot_types::traits::block_contents::vid_commitment;
-<span class="kw">use </span>hotshot_types::utils::BuilderCommitment;
-<span class="kw">use </span>hotshot_types::{traits::node_implementation::NodeType, vid::VidCommitment};
-<span class="kw">use </span>hs_builder_api::block_info::{
-    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
+<span class="kw">use </span>hotshot_types::{
+    constants::{Version01, STATIC_VER_0_1},
+    traits::{block_contents::vid_commitment, node_implementation::NodeType},
+    utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 <span class="kw">use </span>hs_builder_api::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Options},
     data_source::BuilderDataSource,
 };
@@ -234,17 +237,18 @@
 /// # Panics
 /// If constructing and launching the builder fails for any reason
 </span><span class="kw">pub fn </span>run_builder(url: Url) {
-    <span class="kw">let </span>builder_api = hs_builder_api::builder::define_api::&lt;TestableBuilderSource, TestTypes&gt;(
-        <span class="kw-2">&amp;</span>Options::default(),
-    )
-    .expect(<span class="string">"Failed to construct the builder API"</span>);
+    <span class="kw">let </span>builder_api =
+        hs_builder_api::builder::define_api::&lt;TestableBuilderSource, TestTypes, Version01&gt;(
+            <span class="kw-2">&amp;</span>Options::default(),
+        )
+        .expect(<span class="string">"Failed to construct the builder API"</span>);
     <span class="kw">let </span>(pub_key, priv_key) =
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
-    <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;TestableBuilderSource, hs_builder_api::builder::Error&gt; =
+    <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;TestableBuilderSource, hs_builder_api::builder::Error, Version01&gt; =
         App::with_state(TestableBuilderSource { priv_key, pub_key });
     app.register_module(<span class="string">"/"</span>, builder_api)
         .expect(<span class="string">"Failed to register the builder API"</span>);
 
-    async_spawn(app.serve(url));
+    async_spawn(app.serve(url, STATIC_VER_0_1));
 }
 </code></pre></div></section></main></body></html>

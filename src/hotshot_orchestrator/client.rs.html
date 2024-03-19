@@ -340,7 +340,7 @@
 <a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
 
-<span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
+<span class="kw">use crate</span>::{config::NetworkConfig, OrchestratorVersion};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
@@ -354,7 +354,7 @@
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     <span class="doccomment">/// the client
-    </span>client: surf_disco::Client&lt;ClientError&gt;,
+    </span>client: surf_disco::Client&lt;ClientError, OrchestratorVersion&gt;,
     <span class="doccomment">/// the identity
     </span><span class="kw">pub </span>identity: String,
 }
@@ -520,7 +520,7 @@
     <span class="doccomment">/// Creates the client that will connect to the orchestrator
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(args: ValidatorArgs, identity: String) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>client = surf_disco::Client::&lt;ClientError&gt;::new(args.url);
+        <span class="kw">let </span>client = surf_disco::Client::&lt;ClientError, OrchestratorVersion&gt;::new(args.url);
         <span class="comment">// TODO ED: Add healthcheck wait here
         </span>OrchestratorClient { client, identity }
     }
@@ -538,7 +538,7 @@
     ) -&gt; NetworkConfig&lt;K, E&gt; {
         <span class="comment">// get the node index
         </span><span class="kw">let </span>identity = identity.as_str();
-        <span class="kw">let </span>identity = |client: Client&lt;ClientError&gt;| {
+        <span class="kw">let </span>identity = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/identity/{identity}"</span>))
@@ -551,7 +551,7 @@
         <span class="kw">let </span>node_index = <span class="self">self</span>.wait_for_fn_from_orchestrator(identity).<span class="kw">await</span>;
 
         <span class="comment">// get the corresponding config
-        </span><span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
+        </span><span class="kw">let </span>f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;K, E&gt;, ClientError&gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/config/{node_index}"</span>))
@@ -573,7 +573,7 @@
     /// # Panics
     /// if unable to post
     </span><span class="kw">pub async fn </span>get_node_index_for_init_validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u16 {
-        <span class="kw">let </span>cur_node_index = |client: Client&lt;ClientError&gt;| {
+        <span class="kw">let </span>cur_node_index = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>cur_node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; =
                     client.post(<span class="string">"api/get_tmp_node_index"</span>).send().<span class="kw">await</span>;
@@ -604,7 +604,7 @@
             .<span class="kw">await</span>;
 
         <span class="comment">// wait for all nodes' public keys
-        </span><span class="kw">let </span>wait_for_all_nodes_pub_key = |client: Client&lt;ClientError&gt;| {
+        </span><span class="kw">let </span>wait_for_all_nodes_pub_key = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{ client.get(<span class="string">"api/peer_pub_ready"</span>).send().<span class="kw">await </span>}.boxed()
         };
         <span class="self">self</span>.wait_for_fn_from_orchestrator::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ()&gt;(wait_for_all_nodes_pub_key)
@@ -623,7 +623,7 @@
     /// # Panics
     /// Panics if unable to post.
     </span><span class="kw">pub async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, node_index: u64) -&gt; bool {
-        <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError&gt;| {
+        <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, ClientError&gt; = client
                     .post(<span class="string">"api/ready"</span>)
@@ -638,7 +638,7 @@
         <span class="self">self</span>.wait_for_fn_from_orchestrator::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ()&gt;(send_ready_f)
             .<span class="kw">await</span>;
 
-        <span class="kw">let </span>wait_for_all_nodes_ready_f = |client: Client&lt;ClientError&gt;| {
+        <span class="kw">let </span>wait_for_all_nodes_ready_f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{ client.get(<span class="string">"api/start"</span>).send().<span class="kw">await </span>}.boxed()
         };
         <span class="self">self</span>.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
@@ -662,7 +662,7 @@
     /// Returns whatever type the given function returns
     </span><span class="kw">async fn </span>wait_for_fn_from_orchestrator&lt;F, Fut, GEN&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; GEN
     <span class="kw">where
-        </span>F: Fn(Client&lt;ClientError&gt;) -&gt; Fut,
+        </span>F: Fn(Client&lt;ClientError, OrchestratorVersion&gt;) -&gt; Fut,
         Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;GEN, ClientError&gt;&gt;,
     {
         <span class="kw">loop </span>{

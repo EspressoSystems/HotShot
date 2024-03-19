@@ -30,10 +30,19 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! web server example
 </span><span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>surf_disco::Url;
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="kw">use </span>async_compatibility_layer::{
     channel::oneshot,
@@ -58,7 +67,12 @@
     <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender);
     <span class="kw">let </span>_result = hotshot_web_server::run_web_server::&lt;
         &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-    &gt;(<span class="prelude-val">Some</span>(server_shutdown), args.url)
+        WebServerVersion,
+    &gt;(
+        <span class="prelude-val">Some</span>(server_shutdown),
+        args.url,
+        WebServerVersion::instance(),
+    )
     .<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

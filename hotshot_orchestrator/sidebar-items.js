@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["define_api","libp2p_generate_indexed_identity","run_orchestrator"],"mod":["client","config"],"struct":["OrchestratorState"],"trait":["OrchestratorApi"]};
+window.SIDEBAR_ITEMS = {"constant":["ORCHESTRATOR_MAJOR_VERSION","ORCHESTRATOR_MINOR_VERSION","ORCHESTRATOR_VERSION"],"fn":["define_api","libp2p_generate_indexed_identity","run_orchestrator"],"mod":["client","config"],"struct":["OrchestratorState"],"trait":["OrchestratorApi"],"type":["OrchestratorVersion"]};
