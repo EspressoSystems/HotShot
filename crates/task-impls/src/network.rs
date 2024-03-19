@@ -37,6 +37,17 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
     )
 }
 
+/// upgrade filter
+pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
+    !matches!(
+        event.as_ref(),
+        HotShotEvent::UpgradeProposalSend(_)
+            | HotShotEvent::UpgradeVoteSend(_)
+            | HotShotEvent::Shutdown
+            | HotShotEvent::ViewChange(_)
+    )
+}
+
 /// committee filter
 pub fn committee_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(

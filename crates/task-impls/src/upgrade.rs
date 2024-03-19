@@ -192,6 +192,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 self.cur_view = view;
 
+                #[cfg(feature = "example-upgrade")]
+                {
+                    use hotshot_types::{constants::Version, data::UpgradeProposal};
+
+                    if *view == 5 && self.quorum_membership.get_leader(view + 5) == self.public_key
+                    {
+                        let upgrade_proposal_data = UpgradeProposalData {
+                            old_version: Version { major: 0, minor: 1 },
+                            new_version: Version { major: 1, minor: 0 },
+                            new_version_hash: vec![1, 1, 0, 0, 1],
+                            old_version_last_block: TYPES::Time::new(15),
+                            new_version_first_block: TYPES::Time::new(18),
+                        };
+
+                        let upgrade_proposal = UpgradeProposal {
+                            upgrade_proposal: upgrade_proposal_data,
+                            view_number: view + 5,
+                        };
+                        broadcast_event(
+                            Arc::new(HotShotEvent::UpgradeProposalSend(upgrade_proposal)),
+                            &tx,
+                        )
+                        .await;
+                    }
+                }
+
                 return None;
             }
             HotShotEvent::Shutdown => {

@@ -488,8 +488,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_tx.clone(),
             event_rx.activate_cloned(),
             quorum_network.clone(),
-            quorum_membership,
+            quorum_membership.clone(),
             network::quorum_filter,
+        )
+        .await;
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            quorum_network.clone(),
+            quorum_membership,
+            network::upgrade_filter,
         )
         .await;
         add_network_event_task(

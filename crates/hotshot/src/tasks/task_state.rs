@@ -39,7 +39,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             cur_view: handle.get_cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
+            #[cfg(not(feature = "upgrade-test"))]
             should_vote: |_upgrade_proposal| false,
+            #[cfg(feature = "upgrade-test")]
+            should_vote: |_upgrade_proposal| true,
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
