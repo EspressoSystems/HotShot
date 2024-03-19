@@ -101,18 +101,18 @@ jobs:
       matrix:
         just_variants:
           - async-std
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, arm64]
     needs: [build-arm]
     steps:
-      - uses: dtolnay/rust-toolchain@stable
-        name: Install Current Rust
-        with:
-          components: "clippy, rustfmt"
+      # - uses: dtolnay/rust-toolchain@stable
+      #   name: Install Current Rust
+      #   with:
+      #     components: "clippy, rustfmt"
 
-      - name: Install Cap'n'Proto
-        run: |
-          apt-get update
-          apt-get install -y capnproto
+      # - name: Install Cap'n'Proto
+      #   run: |
+      #     apt-get update
+      #     apt-get install -y capnproto
 
       - uses: actions/checkout@v4
         name: Checkout Repository
@@ -183,5 +183,5 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Benchmark runs
-        run: ./scripts/ecs_benchmarks.sh
+        run: ./scripts/ci_ecs_benchmarks.sh
 
