@@ -49,3 +49,4 @@ jobs:
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
+          
