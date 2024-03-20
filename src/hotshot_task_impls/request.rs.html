@@ -290,6 +290,8 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use crate</span>::{
@@ -324,13 +326,13 @@
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
 /// shares.
-</span><span class="kw">pub struct </span>NetworkResponseState&lt;
+</span><span class="kw">pub struct </span>NetworkRequestState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
     Ver: StaticVersionType,
 &gt; {
     <span class="doccomment">/// Network to send requests over
-    </span><span class="kw">pub </span>network: I::QuorumNetwork,
+    </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
     <span class="doccomment">/// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     </span><span class="kw">pub </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
@@ -347,7 +349,7 @@
     <span class="doccomment">/// This nodes private/signign key, used to sign requests.
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// Version discrimination
-    </span>_phantom: PhantomData&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>Ver)&gt;,
+    </span><span class="kw">pub </span>_phantom: PhantomData&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>Ver)&gt;,
 }
 
 <span class="doccomment">/// Alias for a signature
@@ -355,9 +357,9 @@
     &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType;
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt; TaskState
-    <span class="kw">for </span>NetworkResponseState&lt;TYPES, I, Ver&gt;
+    <span class="kw">for </span>NetworkRequestState&lt;TYPES, I, Ver&gt;
 {
-    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="kw">type </span>Output = HotShotTaskCompleted;
 
@@ -365,7 +367,7 @@
         event: <span class="self">Self</span>::Event,
         task: <span class="kw-2">&amp;mut </span>hotshot_task::task::Task&lt;<span class="self">Self</span>&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="kw">match </span>event {
+        <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
                 <span class="kw">let </span>state = task.state();
                 <span class="kw">let </span>prop_view = proposal.get_view_number();
@@ -377,6 +379,7 @@
                 <span class="prelude-val">None
             </span>}
             HotShotEvent::ViewChange(view) =&gt; {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span>view &gt; task.state().view {
                     task.state_mut().view = view;
                 }
@@ -388,11 +391,12 @@
     }
 
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event, HotShotEvent::Shutdown)
+        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
+
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         !<span class="macro">matches!</span>(
-            event,
+            event.as_ref(),
             HotShotEvent::Shutdown
                 | HotShotEvent::QuorumProposalValidated(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
@@ -401,13 +405,13 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;
-    NetworkResponseState&lt;TYPES, I, Ver&gt;
+    NetworkRequestState&lt;TYPES, I, Ver&gt;
 {
     <span class="doccomment">/// Spawns tasks for a given view to retrieve any data needed.
     </span><span class="kw">async fn </span>spawn_requests(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::Time,
-        sender: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         bind_version: Ver,
     ) {
         <span class="kw">let </span>requests = <span class="self">self</span>.build_requests(view, bind_version).<span class="kw">await</span>;
@@ -434,7 +438,7 @@
     </span><span class="kw">fn </span>run_delay(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
-        sender: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         view: TYPES::Time,
         <span class="kw">_</span>: Ver,
     ) {
@@ -471,11 +475,11 @@
 /// the view has moved beyond the view we are requesting, the task will completed.
 </span><span class="kw">struct </span>DelayedRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Network to send requests
-    </span>network: I::QuorumNetwork,
+    </span>network: Arc&lt;I::QuorumNetwork&gt;,
     <span class="doccomment">/// Shared state to check if the data go populated
     </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Channel to send the event when we receive a response
-    </span>sender: Sender&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Duration to delay sending the first request
     </span>delay: Duration,
     <span class="doccomment">/// The peers we will request in a random order
@@ -557,7 +561,7 @@
     </span><span class="kw">async fn </span>handle_response_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: SequencingMessage&lt;TYPES&gt;) {
         <span class="kw">let </span>event = <span class="kw">match </span>message.<span class="number">0 </span>{
             Either::Right(CommitteeConsensusMessage::VidDisperseMsg(prop)) =&gt; {
-                HotShotEvent::VidDisperseRecv(prop)
+                Arc::new(HotShotEvent::VidDisperseRecv(prop))
             }
             <span class="kw">_ </span>=&gt; <span class="kw">return</span>,
         };

@@ -243,6 +243,34 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -261,12 +289,15 @@
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
+    request::NetworkRequestState,
+    response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::{
+    constants::Version01,
     message::Message,
     traits::{election::Membership, network::ConnectedNetwork},
 };
@@ -289,6 +320,34 @@
     </span>Dummy,
 }
 
+<span class="doccomment">/// Add tasks for network requests and responses
+</span><span class="kw">pub async fn </span>add_request_network_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+    task_reg: Arc&lt;TaskRegistry&gt;,
+    tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+) {
+    <span class="kw">let </span>state = NetworkRequestState::&lt;TYPES, I, Version01&gt;::create_from(handle).<span class="kw">await</span>;
+
+    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), state);
+    task_reg.run_task(task).<span class="kw">await</span>;
+}
+
+<span class="doccomment">/// Add a task which responds to requests on the network.
+</span><span class="kw">pub async fn </span>add_response_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+    task_reg: Arc&lt;TaskRegistry&gt;,
+    hs_rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    rx: RequestReceiver&lt;TYPES&gt;,
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+) {
+    <span class="kw">let </span>state = NetworkResponseState::new(
+        handle.hotshot.get_consensus(),
+        rx,
+        handle.hotshot.memberships.quorum_membership.clone(),
+        handle.public_key().clone(),
+    );
+    task_reg.register(run_response_task(state, hs_rx)).<span class="kw">await</span>;
+}
 <span class="doccomment">/// Add the network task to handle messages and publish events.
 </span><span class="kw">pub async fn </span>add_network_message_task&lt;
     TYPES: NodeType,
@@ -303,10 +362,7 @@
         event_stream: event_stream.clone(),
     };
 
-    <span class="comment">// TODO we don't need two async tasks for this, we should combine the
-    // by getting rid of `TransmitType`
-    // https://github.com/EspressoSystems/HotShot/issues/2377
-    </span><span class="kw">let </span>network = net.clone();
+    <span class="kw">let </span>network = net.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
     <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
         <span class="kw">loop </span>{

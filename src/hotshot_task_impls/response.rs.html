@@ -176,11 +176,17 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Receiver;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>either::Either::Right;
 <span class="kw">use </span>futures::{channel::mpsc, FutureExt, StreamExt};
@@ -200,6 +206,8 @@
     utils::bincode_opts,
 };
 <span class="kw">use </span>sha2::{Digest, Sha256};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 
@@ -207,27 +215,27 @@
 </span><span class="kw">type </span>LockedConsensusState&lt;TYPES&gt; = Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;;
 
 <span class="doccomment">/// Type alias for the channel that we receive requests from the network on.
-</span><span class="kw">type </span>ReqestReceiver&lt;TYPES&gt; = mpsc::Receiver&lt;(Message&lt;TYPES&gt;, ResponseChannel&lt;Message&lt;TYPES&gt;&gt;)&gt;;
+</span><span class="kw">pub type </span>RequestReceiver&lt;TYPES&gt; = mpsc::Receiver&lt;(Message&lt;TYPES&gt;, ResponseChannel&lt;Message&lt;TYPES&gt;&gt;)&gt;;
 
 <span class="doccomment">/// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
 /// parse the request, and try to find the data request in the consensus stores.
-</span><span class="kw">pub struct </span>NetworkRequestState&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>NetworkResponseState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Locked consensus state
     </span>consensus: LockedConsensusState&lt;TYPES&gt;,
     <span class="doccomment">/// Receiver for requests
-    </span>receiver: ReqestReceiver&lt;TYPES&gt;,
+    </span>receiver: RequestReceiver&lt;TYPES&gt;,
     <span class="doccomment">/// Quorum membership for checking if requesters have state
     </span>quorum: TYPES::Membership,
     <span class="doccomment">/// This replicas public key
     </span>pub_key: TYPES::SignatureKey,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkRequestState&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkResponseState&lt;TYPES&gt; {
     <span class="doccomment">/// Create the network request state with the info it needs
     </span><span class="kw">pub fn </span>new(
         consensus: LockedConsensusState&lt;TYPES&gt;,
-        receiver: ReqestReceiver&lt;TYPES&gt;,
+        receiver: RequestReceiver&lt;TYPES&gt;,
         quorum: TYPES::Membership,
         pub_key: TYPES::SignatureKey,
     ) -&gt; <span class="self">Self </span>{
@@ -241,7 +249,7 @@
 
     <span class="doccomment">/// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    </span><span class="kw">async fn </span>run_loop(<span class="kw-2">mut </span><span class="self">self</span>, shutdown: EventDependency&lt;HotShotEvent&lt;TYPES&gt;&gt;) {
+    </span><span class="kw">async fn </span>run_loop(<span class="kw-2">mut </span><span class="self">self</span>, shutdown: EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>shutdown = Box::pin(shutdown.completed().fuse());
         <span class="kw">loop </span>{
             <span class="macro">futures::select! </span>{
@@ -340,17 +348,17 @@
     sender.validate(<span class="kw-2">&amp;</span>req.signature, <span class="kw-2">&amp;</span>Sha256::digest(data))
 }
 
-<span class="doccomment">/// Spawn the network request task to handle incoming request for data
+<span class="doccomment">/// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-</span><span class="kw">pub fn </span>run_request_task&lt;TYPES: NodeType&gt;(
-    task_state: NetworkRequestState&lt;TYPES&gt;,
-    event_stream: Receiver&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-) {
+</span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType&gt;(
+    task_state: NetworkResponseState&lt;TYPES&gt;,
+    event_stream: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+) -&gt; JoinHandle&lt;()&gt; {
     <span class="kw">let </span>dep = EventDependency::new(
         event_stream,
-        Box::new(|e| <span class="macro">matches!</span>(e, HotShotEvent::Shutdown)),
+        Box::new(|e| <span class="macro">matches!</span>(e.as_ref(), HotShotEvent::Shutdown)),
     );
-    async_spawn(task_state.run_loop(dep));
+    async_spawn(task_state.run_loop(dep))
 }
 </code></pre></div></section></main></body></html>

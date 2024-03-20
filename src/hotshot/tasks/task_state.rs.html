@@ -186,12 +186,36 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task_impls::{
-    consensus::ConsensusTaskState, da::DATaskState, transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState, vid::VIDTaskState, view_sync::ViewSyncTaskState,
+    consensus::ConsensusTaskState, da::DATaskState, request::NetworkRequestState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
+    view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_types::traits::{
@@ -203,6 +227,7 @@
     marker::PhantomData,
     sync::Arc,
 };
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// Trait for creating task states.
 </span><span class="attr">#[async_trait]
@@ -213,6 +238,27 @@
 {
     <span class="doccomment">/// Function to create the task state from a given `SystemContextHandle`.
     </span><span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; <span class="self">Self</span>;
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: StaticVersionType&gt; CreateTaskState&lt;TYPES, I&gt;
+    <span class="kw">for </span>NetworkRequestState&lt;TYPES, I, V&gt;
+{
+    <span class="kw">async fn </span>create_from(
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+    ) -&gt; NetworkRequestState&lt;TYPES, I, V&gt; {
+        NetworkRequestState {
+            network: handle.hotshot.networks.quorum_network.clone(),
+            state: handle.hotshot.get_consensus(),
+            view: handle.get_cur_view().<span class="kw">await</span>,
+            delay: handle.hotshot.config.data_request_delay,
+            da_membership: handle.hotshot.memberships.da_membership.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 <span class="attr">#[async_trait]

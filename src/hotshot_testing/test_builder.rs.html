@@ -339,6 +339,11 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
@@ -376,6 +381,8 @@
     </span><span class="kw">pub </span>propose_min_round_time: Duration,
     <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// time to wait until we request data associated with a proposal
+    </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Delay before sending through the secondary network in CombinedNetworks
     </span><span class="kw">pub </span>secondary_network_delay: Duration,
     <span class="doccomment">/// view sync timeout
@@ -427,6 +434,7 @@
             start_delay: <span class="number">100</span>,
             propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
             propose_max_round_time: Duration::from_millis(<span class="number">100</span>),
+            data_request_delay: Duration::from_millis(<span class="number">200</span>),
             secondary_network_delay: Duration::from_millis(<span class="number">1000</span>),
             view_sync_timeout: Duration::from_millis(<span class="number">2000</span>),
         }
@@ -647,6 +655,7 @@
             start_delay,
             propose_min_round_time,
             propose_max_round_time,
+            data_request_delay,
             secondary_network_delay,
             view_sync_timeout,
         } = timing_data;
@@ -659,6 +668,7 @@
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;
+                a.data_request_delay = data_request_delay;
                 a.view_sync_timeout = view_sync_timeout;
             };
 

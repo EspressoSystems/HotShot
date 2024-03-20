@@ -681,6 +681,10 @@
 <a href="#680" id="680">680</a>
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -826,6 +830,8 @@
     </span><span class="kw">pub </span>propose_min_round_time: Duration,
     <span class="doccomment">/// maximum time to wait for a view
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// time to wait until we request data associated with a proposal
+    </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// global index of node (for testing purposes a uid)
     </span><span class="kw">pub </span>node_index: u64,
     <span class="doccomment">/// unique seed (for randomness? TODO)
@@ -1091,6 +1097,7 @@
             num_bootrap: <span class="number">5</span>,
             propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
             propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
+            data_request_delay: Duration::from_millis(<span class="number">2500</span>),
             commit_sha: String::new(),
         }
     }
@@ -1150,6 +1157,7 @@
             view_sync_timeout: val.config.view_sync_timeout,
             propose_max_round_time: val.config.propose_max_round_time,
             propose_min_round_time: val.config.propose_min_round_time,
+            data_request_delay: val.config.data_request_delay,
             seed: val.seed,
             transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {

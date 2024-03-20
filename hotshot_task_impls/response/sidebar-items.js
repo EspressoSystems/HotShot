@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["run_request_task","valid_signature"],"struct":["NetworkRequestState"],"type":["LockedConsensusState","ReqestReceiver"]};
+window.SIDEBAR_ITEMS = {"fn":["run_response_task","valid_signature"],"struct":["NetworkResponseState"],"type":["LockedConsensusState","RequestReceiver"]};
