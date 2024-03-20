@@ -153,6 +153,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get upgrade proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_upgrade_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get latest quanrum proposal
     /// # Errors
     /// Error if unable to serve.
@@ -275,6 +279,25 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Return the proposal the server has received for a particular view
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        match self.proposals.get(&view_number) {
+            Some(proposal) => {
+                if proposal.1.is_empty() {
+                    Err(ServerError {
+                        status: StatusCode::NotImplemented,
+                        message: format!("Proposal empty for view {view_number}"),
+                    })
+                } else {
+                    Ok(Some(vec![proposal.1.clone()]))
+                }
+            }
+            None => Err(ServerError {
+                status: StatusCode::NotImplemented,
+                message: format!("Proposal not found for view {view_number}"),
+            }),
+        }
+    }
+    /// Return the proposal the server has received for a particular view
+    fn get_upgrade_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposal) => {
                 if proposal.1.is_empty() {
@@ -795,6 +818,13 @@ where
         }
         .boxed()
     })?
+    .get("getupgradeproposal", |req, state| {
+        async move {
+            // let view_number: u64 = req.integer_param("view_number")?;
+            state.get_upgrade_proposal(0)
+        }
+        .boxed()
+    })?
     .get("getviddisperse", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -874,9 +904,9 @@ where
     })?
     .post("postupgradeproposal", |req, state| {
         async move {
-            let view_number: u64 = req.integer_param("view_number")?;
+            // let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
-            state.post_upgrade_proposal(view_number, proposal)
+            state.post_upgrade_proposal(0, proposal)
         }
         .boxed()
     })?
