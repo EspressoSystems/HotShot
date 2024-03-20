@@ -57,8 +57,6 @@ jobs:
           hotshot-web-server = { path = "${GITHUB_WORKSPACE}/hotshot/crates/web_server" }
           hotshot-task-impls = { path = "${GITHUB_WORKSPACE}/hotshot/crates/task-impls" }
           hotshot-testing = { path = "${GITHUB_WORKSPACE}/hotshot/crates/testing" }
-          hotshot-types = { path = "${GITHUB_WORKSPACE}/hotshot/crates/types" }
-          hotshot-utils = { path = "${GITHUB_WORKSPACE}/hotshot/crates/utils" }
           libp2p-networking = { path = "${GITHUB_WORKSPACE}/hotshot/crates/libp2p-networking" }
           EOF
 

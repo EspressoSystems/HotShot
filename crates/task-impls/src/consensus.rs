@@ -11,7 +11,6 @@ use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::constants::Version;
 use hotshot_types::constants::LOOK_AHEAD;
 use hotshot_types::event::LeafInfo;
 use hotshot_types::{
@@ -39,6 +38,7 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use tracing::warn;
+use versioned_binary_serialization::version::Version;
 
 use crate::vote::HandleVoteEvent;
 use chrono::Utc;
@@ -1097,6 +1097,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return;
                 }
+
+                self.consensus
+                    .write()
+                    .await
+                    .vid_shares
+                    .insert(view, disperse.clone());
+
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }

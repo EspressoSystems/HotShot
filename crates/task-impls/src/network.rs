@@ -10,6 +10,7 @@ use hotshot_types::{constants::VERSION_0_1, event::HotShotAction, traits::storag
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::constants::STATIC_VER_0_1;
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     message::{
@@ -399,7 +400,6 @@ impl<
             }
         };
         let message = Message {
-            version: VERSION_0_1,
             sender,
             kind: message_kind,
         };
@@ -424,10 +424,17 @@ impl<
             }
 
             let transmit_result = match transmit_type {
-                TransmitType::Direct => net.direct_message(message, recipient.unwrap()).await,
-                TransmitType::Broadcast => net.broadcast_message(message, committee).await,
+                TransmitType::Direct => {
+                    net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
+                        .await
+                }
+                TransmitType::Broadcast => {
+                    net.broadcast_message(message, committee, STATIC_VER_0_1)
+                        .await
+                }
                 TransmitType::DACommitteeBroadcast => {
-                    net.da_broadcast_message(message, committee).await
+                    net.da_broadcast_message(message, committee, STATIC_VER_0_1)
+                        .await
                 }
             };
 
