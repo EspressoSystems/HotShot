@@ -72,10 +72,10 @@ impl<
         vote: &VOTE,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
-        if vote.get_leader(&self.membership) != self.public_key {
-            error!("Received vote for a view in which we were not the leader.");
-            return None;
-        }
+        // if vote.get_leader(&self.membership) != self.public_key {
+        //     error!("Received vote for a view in which we were not the leader.");
+        //     return None;
+        // }
 
         if vote.get_view_number() != self.view {
             error!(
@@ -272,6 +272,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
         certificate: UpgradeCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
+        tracing::error!("Upgrade certificate formed!");
         HotShotEvent::UpgradeCertificateFormed(certificate)
     }
 }

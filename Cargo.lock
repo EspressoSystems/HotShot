@@ -3542,7 +3542,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.10"
-source = "git+https://github.com/EspressoSystems//hotshot-types?branch=ss/arbitrary-messages#649bbb549fc14dc31b04e0f2a6c3b8a9f94edf6a"
+source = "git+https://github.com/EspressoSystems//hotshot-types?branch=ss/arbitrary-messages#cd9acd5a7cf562765ff915623f29c2b634229079"
 dependencies = [
  "anyhow",
  "ark-bn254",

@@ -123,6 +123,18 @@ pub async fn inject_consensus_polls<
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
         .await;
 
+    // Poll (forever) for upgrade proposals
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeProposal(0))
+        .await;
+
+    // Poll (forever) for upgrade votes
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeVotes(0))
+        .await;
+
     // See if we're in the DA committee
     // This will not work for epochs (because dynamic subscription
     // With the Push CDN, we are _always_ polling for latest anyway.

@@ -154,6 +154,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::UpgradeProposalRecv(message, sender)
                             }
                             GeneralConsensusMessage::UpgradeVote(message) => {
+                                error!("Received upgrade vote!");
                                 HotShotEvent::UpgradeVoteRecv(message)
                             }
                         },
@@ -384,6 +385,14 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 TransmitType::Broadcast,
                 None
             ),
+            HotShotEvent::UpgradeVoteSend(vote) => { error!("Sending upgrade vote!"); (
+                vote.get_signing_key(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::UpgradeVote(vote.clone()),
+                )),
+                TransmitType::Direct,
+                Some(membership.get_leader(vote.get_view_number())),
+            )},
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
                 self.channel.update_view(self.view.get_u64());

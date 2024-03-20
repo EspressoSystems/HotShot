@@ -52,14 +52,20 @@ struct WebServerState<KEY> {
     oldest_certificate: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    /// view number -> Vec(index, vote)
+    upgrade_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view sync: view number -> Vec(relay, vote)
     view_sync_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> highest vote index for that view number
     vote_index: HashMap<u64, u64>,
+    /// view number -> highest vote index for that view number
+    upgrade_vote_index: HashMap<u64, u64>,
     /// view_sync: view number -> highest vote index for that view number
     view_sync_vote_index: HashMap<u64, u64>,
     /// view number of oldest votes in memory
     oldest_vote: u64,
+    /// view number of oldest votes in memory
+    oldest_upgrade_vote: u64,
     /// view sync: view number of oldest votes in memory
     oldest_view_sync_vote: u64,
     /// view number -> (secret, string)
@@ -116,6 +122,9 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             view_sync_certificates: BTreeMap::new(),
             view_sync_votes: HashMap::new(),
             view_sync_vote_index: HashMap::new(),
+            upgrade_votes: HashMap::new(),
+            oldest_upgrade_vote: 0,
+            upgrade_vote_index: HashMap::new(),
 
             vid_disperses: HashMap::new(),
             oldest_vid_disperse: 0,
@@ -178,6 +187,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get upgrade votes
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_upgrade_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get view sync votes
     /// # Errors
     /// Error if unable to serve.
@@ -200,6 +213,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    /// Post upgrade vote
+    /// # Errors
+    /// Error if unable to serve.
+    fn post_upgrade_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     /// Post view sync vote
     /// # Errors
     /// Error if unable to serve.
@@ -298,7 +315,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Return the proposal the server has received for a particular view
     fn get_upgrade_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        match self.proposals.get(&view_number) {
+        match self.upgrade_proposals.get(&view_number) {
             Some(proposal) => {
                 if proposal.1.is_empty() {
                     Err(ServerError {
@@ -306,6 +323,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                         message: format!("Proposal empty for view {view_number}"),
                     })
                 } else {
+                    tracing::error!("found proposal");
                     Ok(Some(vec![proposal.1.clone()]))
                 }
             }
@@ -369,6 +387,22 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
+                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
+            }
+        }
+        if ret_votes.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(ret_votes))
+        }
+    }
+
+    /// Return all votes the server has received for a particular view from provided index to most recent
+    fn get_upgrade_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        let votes = self.upgrade_votes.get(&view_number);
+        let mut ret_votes = vec![];
+        if let Some(votes) = votes {
+            for i in index..*self.upgrade_vote_index.get(&view_number).unwrap() {
                 ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
             }
         }
@@ -518,6 +552,35 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .and_modify(|current_votes| current_votes.push((*next_index, vote.clone())))
             .or_insert_with(|| vec![(*next_index, vote)]);
         self.vote_index
+            .entry(view_number)
+            .and_modify(|index| *index += 1);
+        Ok(())
+    }
+
+    /// Stores a received vote in the `WebServerState`
+    fn post_upgrade_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
+        // Only keep vote history for MAX_VIEWS number of views
+        if self.upgrade_votes.len() >= MAX_VIEWS {
+            self.upgrade_votes.remove(&self.oldest_upgrade_vote);
+            while !self.upgrade_votes.contains_key(&self.oldest_upgrade_vote) {
+                self.oldest_upgrade_vote += 1;
+            }
+        }
+
+        // don't accept the vote if it is too old
+        if self.oldest_upgrade_vote > view_number {
+            return Err(ServerError {
+                status: StatusCode::Gone,
+                message: "Posted vote is too old".to_string(),
+            });
+        }
+
+        let next_index = self.upgrade_vote_index.entry(view_number).or_insert(0);
+        self.upgrade_votes
+            .entry(view_number)
+            .and_modify(|current_votes| current_votes.push((*next_index, vote.clone())))
+            .or_insert_with(|| vec![(*next_index, vote)]);
+        self.upgrade_vote_index
             .entry(view_number)
             .and_modify(|index| *index += 1);
         Ok(())
@@ -818,10 +881,10 @@ where
         }
         .boxed()
     })?
-    .get("getupgradeproposal", |req, state| {
+    .get("get_upgrade_proposal", |req, state| {
         async move {
-            // let view_number: u64 = req.integer_param("view_number")?;
-            state.get_upgrade_proposal(0)
+            let view_number: u64 = req.integer_param("view_number")?;
+            state.get_upgrade_proposal(view_number)
         }
         .boxed()
     })?
@@ -861,6 +924,14 @@ where
         }
         .boxed()
     })?
+    .get("get_upgrade_votes", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let index: u64 = req.integer_param("index")?;
+            state.get_upgrade_votes(view_number, index)
+        }
+        .boxed()
+    })?
     .get("getviewsyncvotes", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -885,6 +956,15 @@ where
         }
         .boxed()
     })?
+    .post("post_upgrade_vote", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
+            let vote = req.body_bytes();
+            state.post_upgrade_vote(view_number, vote)
+        }
+        .boxed()
+    })?
     .post("postviewsyncvote", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -902,11 +982,11 @@ where
         }
         .boxed()
     })?
-    .post("postupgradeproposal", |req, state| {
+    .post("post_upgrade_proposal", |req, state| {
         async move {
-            // let view_number: u64 = req.integer_param("view_number")?;
+            let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
-            state.post_upgrade_proposal(0, proposal)
+            state.post_upgrade_proposal(view_number, proposal)
         }
         .boxed()
     })?

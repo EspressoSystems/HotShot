@@ -75,10 +75,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 error!("Received upgrade proposal!");
                 let should_vote = self.should_vote;
                 // If the proposal does not match our upgrade target, we immediately exit.
-                if !should_vote(proposal.data.upgrade_proposal.clone()) {
-                    warn!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
-                    return None;
-                }
+//                if !should_vote(proposal.data.upgrade_proposal.clone()) {
+//                    error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
+//                    return None;
+//                }
 
                 // If we have an upgrade target, we validate that the proposal is relevant for the current view.
 
@@ -140,17 +140,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), &tx).await;
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
-                debug!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
+                error!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
                 // Check if we are the leader.
                 let view = vote.get_view_number();
-                if self.quorum_membership.get_leader(view) != self.public_key {
-                    error!(
-                        "We are not the leader for view {} are we leader for next view? {}",
-                        *view,
-                        self.quorum_membership.get_leader(view + 1) == self.public_key
-                    );
-                    return None;
-                }
+//                if self.quorum_membership.get_leader(view) != self.public_key {
+//                    error!(
+//                        "We are not the leader for view {} are we leader for next view? {}",
+//                        *view,
+//                        self.quorum_membership.get_leader(view + 1) == self.public_key
+//                    );
+//                    return None;
+//                }
                 let mut collector = self.vote_collector.write().await;
 
                 if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view

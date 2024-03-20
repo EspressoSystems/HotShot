@@ -200,6 +200,10 @@ struct Inner<TYPES: NodeType> {
     #[allow(clippy::type_complexity)]
     /// A handle on the task polling for latest quorum propsal
     latest_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    /// A handle on the task polling for an upgrade propsal
+    upgrade_proposal_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
+    /// A handle on the task polling for an upgrade vote
+    upgrade_vote_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
     #[allow(clippy::type_complexity)]
     /// A handle on the task polling for the latest view sync certificate
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
@@ -249,6 +253,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
         view_number: u64,
         message_purpose: MessagePurpose,
         vote_index: &mut u64,
+        upgrade_vote_index: &mut u64,
         seen_proposals: &mut LruCache<u64, ()>,
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
@@ -296,6 +301,13 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
                     return false;
                 }
+                MessagePurpose::UpgradeVote => {
+                    let vote = deserialized_message.clone();
+                    *upgrade_vote_index += 1;
+                    poll_queue.write().await.push(vote);
+
+                    return false;
+                }
                 MessagePurpose::DAC => {
                     debug!(
                         "Received DAC from web server for view {} {}",
@@ -326,7 +338,12 @@ impl<TYPES: NodeType> Inner<TYPES> {
                     return false;
                 }
 
-                MessagePurpose::Upgrade => {
+                MessagePurpose::UpgradeProposal => {
+                    poll_queue.write().await.push(deserialized_message.clone());
+
+                    return true;
+                }
+                MessagePurpose::UpgradeVote => {
                     poll_queue.write().await.push(deserialized_message.clone());
 
                     return true;
@@ -354,6 +371,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
     ) -> Result<(), NetworkError> {
         let mut vote_index = 0;
         let mut tx_index = 0;
+        let mut upgrade_vote_index = 0;
         let mut seen_proposals = LruCache::new(NonZeroUsize::new(100).unwrap());
         let mut seen_view_sync_certificates = LruCache::new(NonZeroUsize::new(100).unwrap());
 
@@ -382,7 +400,8 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 }
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
-                MessagePurpose::Upgrade => config::get_upgrade_route(view_number),
+                MessagePurpose::UpgradeProposal => config::get_upgrade_proposal_route(0),
+                MessagePurpose::UpgradeVote => config::get_upgrade_vote_route(0, upgrade_vote_index),
                 #[cfg(feature = "example-upgrade")]
                 MessagePurpose::Arbitrary => {
                     tracing::error!(
@@ -483,6 +502,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
                                                 view_number,
                                                 message_purpose,
                                                 &mut vote_index,
+                                                &mut upgrade_vote_index,
                                                 &mut seen_proposals,
                                                 &mut seen_view_sync_certificates,
                                             )
@@ -638,6 +658,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             view_sync_vote_task_map: Arc::default(),
             txn_task_map: Arc::default(),
             latest_proposal_task: Arc::default(),
+            upgrade_proposal_task: Arc::default(),
+            upgrade_vote_task: Arc::default(),
             latest_view_sync_certificate_task: Arc::default(),
         });
 
@@ -672,7 +694,8 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
             MessagePurpose::ViewSyncVote => config::post_view_sync_vote_route(*view_number),
             MessagePurpose::DAC => config::post_da_certificate_route(*view_number),
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
-            MessagePurpose::Upgrade => config::post_upgrade_route(*view_number),
+            MessagePurpose::UpgradeProposal => config::post_upgrade_proposal_route(0),
+            MessagePurpose::UpgradeVote => config::post_upgrade_vote_route(0),
             #[cfg(feature = "example-upgrade")]
             MessagePurpose::Arbitrary => return Err(WebServerNetworkError::ArbitraryMessageError),
         };
@@ -981,6 +1004,68 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     });
                 }
             }
+            ConsensusIntentEvent::PollForUpgradeProposal(view_number)=> {
+                // Only start this task if we haven't already started it.
+                let mut cancel_handle = self.inner.upgrade_proposal_task.write().await;
+                if cancel_handle.is_none() {
+                    error!("Starting poll for upgrade proposals!");
+                    let inner = self.inner.clone();
+
+                    // Create sender and receiver for cancelling the task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
+                    // Create the new task
+                    async_spawn(async move {
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::UpgradeProposal,
+                                view_number,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
+                                "Background receive latest upgrade proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        } else { error!("Poll successful!"); }
+
+                    });
+                }
+            }
+            ConsensusIntentEvent::PollForUpgradeVotes(view_number)=> {
+                // Only start this task if we haven't already started it.
+                let mut cancel_handle = self.inner.upgrade_vote_task.write().await;
+                if cancel_handle.is_none() {
+                    error!("Starting poll for upgrade proposals!");
+                    let inner = self.inner.clone();
+
+                    // Create sender and receiver for cancelling the task
+                    let (sender, receiver) = unbounded();
+                    *cancel_handle = Some(sender);
+
+                    // Create the new task
+                    async_spawn(async move {
+                        if let Err(e) = inner
+                            .poll_web_server(
+                                receiver,
+                                MessagePurpose::UpgradeVote,
+                                view_number,
+                                Duration::from_millis(500),
+                            )
+                            .await
+                        {
+                            warn!(
+                                "Background receive latest upgrade proposal polling encountered an error: {:?}",
+                                e
+                            );
+                        } else { error!("Poll successful!"); }
+
+                    });
+                }
+            }
             ConsensusIntentEvent::PollForLatestViewSyncCertificate => {
                 // Only start this task if we haven't already started it.
                 let mut cancel_handle = self.inner.latest_view_sync_certificate_task.write().await;
@@ -1115,8 +1200,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
-                            }
-                        }
+                            }                        }
                     });
                 } else {
                     debug!("Somehow task already existed!");
