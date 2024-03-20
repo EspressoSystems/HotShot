@@ -12,16 +12,18 @@ repository = "https://github.com/EspressoSystems/HotShot"
 # when implementing traits externally
 [workspace]
 members = [
-        "crates/hotshot",
-        "crates/hotshot-stake-table",
-        "crates/libp2p-networking",
-        "crates/macros",
-        "crates/testing-macros",
-        "crates/task",
-        "crates/task-impls",
-        "crates/testing",
-        "crates/examples",
-        "crates/example-types",
+  "crates/hotshot",
+  "crates/hotshot-stake-table",
+  "crates/libp2p-networking",
+  "crates/macros",
+  "crates/testing-macros",
+  "crates/task",
+  "crates/task-impls",
+  "crates/testing",
+  "crates/examples",
+  "crates/example-types",
+  "crates/types",
+  "crates/builder-api",
 ]
 resolver = "2"
 
@@ -59,9 +61,9 @@ futures = "0.3.30"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
-hotshot-types = { git = "https://github.com/EspressoSystems/hotshot-types", branch = "lr/vid-share-dms" }
-hs-builder-api = { git = "https://github.com/EspressoSystems/hs-builder-api", branch = "lr/vid-share-dms" }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2", features = [
+  "test-srs",
+] }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
