@@ -11,13 +11,13 @@ use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
+use std::fs::OpenOptions;
 use std::{
     collections::HashSet,
     io,
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
-use std::fs::OpenOptions;
 use tide_disco::{Api, App, RequestError};
 
 use surf_disco::Url;
@@ -129,7 +129,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
         // Open the CSV file in append mode
         let results_csv_file = OpenOptions::new()
             .create(true)
-            .write(true)
             .append(true) // Open in append mode
             .open("scripts/benchmarks_results/results.csv")
             .unwrap();
