@@ -96,6 +96,10 @@ path = "push-cdn/broker.rs"
 name = "marshal-push-cdn"
 path = "push-cdn/marshal.rs"
 
+[[example]]
+name = "whitelist-push-cdn"
+path = "push-cdn/whitelist-adapter.rs"
+
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
@@ -138,7 +142,6 @@ cdn-broker = { workspace = true, features = [
   "insecure",
   "runtime-tokio",
   "strong_consistency",
-  "local_discovery",
 ] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 
@@ -149,7 +152,6 @@ cdn-broker = { workspace = true, features = [
   "insecure",
   "runtime-async-std",
   "strong_consistency",
-  "local_discovery",
 ] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 

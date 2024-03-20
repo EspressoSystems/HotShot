@@ -185,30 +185,35 @@ impl OrchestratorClient {
         OrchestratorClient { client, identity }
     }
 
-    /// Sends an identify message to the orchestrator and attempts to get its config
-    /// Returns both the `node_index` and the run configuration without peer's public config from the orchestrator
-    /// Will block until both are returned
+    /// Get the config from the orchestrator.
+    /// If the identity is provided, register the identity with the orchestrator.
+    /// If not, just retrieving the config (for passive observers)
+    ///
     /// # Panics
     /// if unable to convert the node index from usize into u64
     /// (only applicable on 32 bit systems)
     #[allow(clippy::type_complexity)]
-    pub async fn get_config_without_peer<K: SignatureKey, E: ElectionConfig>(
+    pub async fn get_config<K: SignatureKey, E: ElectionConfig>(
         &self,
-        identity: String,
+        identity: Option<String>,
     ) -> NetworkConfig<K, E> {
-        // get the node index
-        let identity = identity.as_str();
-        let identity = |client: Client<ClientError, OrchestratorVersion>| {
-            async move {
-                let node_index: Result<u16, ClientError> = client
-                    .post(&format!("api/identity/{identity}"))
-                    .send()
-                    .await;
-                node_index
-            }
-            .boxed()
+        let node_index = if let Some(identity) = identity {
+            // get the node index
+            let identity = identity.as_str();
+            let identity = |client: Client<ClientError, OrchestratorVersion>| {
+                async move {
+                    let node_index: Result<u16, ClientError> = client
+                        .post(&format!("api/identity/{identity}"))
+                        .send()
+                        .await;
+                    node_index
+                }
+                .boxed()
+            };
+            self.wait_for_fn_from_orchestrator(identity).await
+        } else {
+            0
         };
-        let node_index = self.wait_for_fn_from_orchestrator(identity).await;
 
         // get the corresponding config
         let f = |client: Client<ClientError, OrchestratorVersion>| {

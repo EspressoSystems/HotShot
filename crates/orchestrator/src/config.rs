@@ -224,9 +224,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
                     // fallback to orchestrator
                     error!("{e}, falling back to orchestrator");
 
-                    let config = client
-                        .get_config_without_peer(client.identity.clone())
-                        .await;
+                    let config = client.get_config(Some(client.identity.clone())).await;
 
                     // save to file if we fell back
                     if let Err(e) = config.to_file(file) {
@@ -241,9 +239,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
 
             // otherwise just get from orchestrator
             (
-                client
-                    .get_config_without_peer(client.identity.clone())
-                    .await,
+                client.get_config(Some(client.identity.clone())).await,
                 NetworkConfigSource::Orchestrator,
             )
         }
