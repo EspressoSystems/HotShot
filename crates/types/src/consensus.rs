@@ -26,7 +26,7 @@ use tracing::error;
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
-/// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>
+/// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
