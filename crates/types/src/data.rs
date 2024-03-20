@@ -170,6 +170,17 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     }
 }
 
+/// Helper type to encapsulate the various ways that proposal certificates can be captured and
+/// stored.
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewChangeEvidence<TYPES: NodeType> {
+    /// Holds a timeout certificate.
+    Timeout(TimeoutCertificate<TYPES>),
+    /// Holds a view sync finalized certificate.
+    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+}
+
 /// Proposal to append a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -183,15 +194,14 @@ pub struct QuorumProposal<TYPES: NodeType> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
 
-    /// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
-    pub timeout_certificate: Option<TimeoutCertificate<TYPES>>,
-
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// Possible view sync certificate. Only present if the justify_qc and timeout_cert are not
+    /// Possible timeout or view sync certificate.
+    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
+    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
     /// present.
-    pub view_sync_certificate: Option<ViewSyncFinalizeCertificate2<TYPES>>,
+    pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 
     /// the propser id
     pub proposer_id: TYPES::SignatureKey,
