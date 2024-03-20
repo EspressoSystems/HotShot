@@ -266,8 +266,8 @@ where
         }
         self.pub_posted.insert(node_index);
 
-        // The guess is the first extra 8 bytes are from orchestrator serialization
-        pubkey.drain(..8);
+        // The guess is the first extra 12 bytes are from orchestrator serialization
+        pubkey.drain(..12);
         let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
         self.config.config.known_nodes_with_stake[node_index as usize] =
             register_pub_key_with_stake;
