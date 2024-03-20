@@ -3452,6 +3452,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "jf-primitives",
+ "lru",
  "portpicker",
  "rand 0.8.5",
  "serde",
