@@ -388,12 +388,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         match proposal_cert {
                             ViewChangeEvidence::Timeout(timeout_cert) => {
                                 if timeout_cert.get_data().view != view - 1 {
-                                    warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                                    warn!("Internal timeout certificate for view {} was not for the immediately preceding view", *view);
                                     return;
                                 }
 
                                 if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                                    warn!("Timeout certificate for view {} was invalid", *view);
+                                    warn!(
+                                        "Internal timeout certificate for view {} was invalid",
+                                        *view
+                                    );
                                     return;
                                 }
                             }
@@ -412,6 +415,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     debug!("Invalid ViewSyncFinalize cert provided");
                                     return;
                                 }
+                            }
+                        }
+                    }
+                    if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone()
+                    {
+                        match received_proposal_cert {
+                            ViewChangeEvidence::Timeout(timeout_cert) => {
+                                if timeout_cert.get_data().view != view - 1 {
+                                    warn!("Proposal timeout certificate for view {} was not for the immediately preceding view", *view);
+                                    return;
+                                }
+
+                                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                                    warn!(
+                                        "Proposal timeout certificate for view {} was invalid",
+                                        *view
+                                    );
+                                    return;
+                                }
+
+                                // Take the provided cert so that way it's usable in the propose
+                                // step.
+                                self.proposal_cert =
+                                    Some(ViewChangeEvidence::Timeout(timeout_cert));
+                            }
+                            ViewChangeEvidence::ViewSync(_) => {
+                                warn!("Erroneously received a view sync finalized certificate within a quorum proposal!");
                             }
                         }
                     } else {
