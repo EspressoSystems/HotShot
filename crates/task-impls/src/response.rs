@@ -166,7 +166,7 @@ fn valid_signature<TYPES: NodeType>(
     sender.validate(&req.signature, &Sha256::digest(data))
 }
 
-/// Spawn the network request task to handle incoming request for data
+/// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
 pub fn run_response_task<TYPES: NodeType>(
