@@ -50,6 +50,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Dummy quorum vote to test if the quorum vote dependency works. Should be removed and
     /// replaced by `QuorumVoteSend` once the above TODO is done.
     DummyQuorumVoteSend(TYPES::Time),
+    /// All dependencies for the quorum vote are validated.
+    QuorumVoteDependenciesValidated(TYPES::Time),
     /// A proposal was validated. This means it comes from the correct leader and has a correct QC.
     QuorumProposalValidated(QuorumProposal<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
