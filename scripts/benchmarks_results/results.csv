@@ -1,2 +1,6 @@
 commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size,rounds,leader_election_type,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
-test,50,10,100,528,100,hotshot::traits::election::static_committee::StaticElectionConfig,11,3,31,4371,414,50,99,0
+,10,10,10,1016,10,hotshot::traits::election::static_committee::StaticElectionConfig,3,1,5,2177,15,7,9,0
+commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size,rounds,leader_election_type,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+test,10,10,100,528,100,hotshot::traits::election::static_committee::StaticElectionConfig,3,2,6,3605,280,41,99,0
+commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size,rounds,leader_election_type,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+test,50,10,100,528,100,hotshot::traits::election::static_committee::StaticElectionConfig,11,3,30,4514,419,50,99,0

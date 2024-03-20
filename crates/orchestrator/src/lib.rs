@@ -17,6 +17,7 @@ use std::{
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
 };
+use std::fs::OpenOptions;
 use tide_disco::{Api, App, RequestError};
 
 use surf_disco::Url;
@@ -125,8 +126,15 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             total_num_views: self.bench_results.total_num_views,
             failed_num_views: self.bench_results.failed_num_views,
         };
+        // Open the CSV file in append mode
+        let results_csv_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true) // Open in append mode
+            .open("scripts/benchmarks_results/results.csv")
+            .unwrap();
         // Open a file for writing
-        let mut wtr = Writer::from_path("scripts/benchmarks_results/results.csv").unwrap();
+        let mut wtr = Writer::from_writer(results_csv_file);
         let _ = wtr.serialize(output_csv);
         let _ = wtr.flush();
         println!("Results successfully saved in scripts/benchmarks_results/results.csv");

@@ -22,6 +22,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 
 for total_nodes in 10 50
 do
+    rounds=100
     # start webserver
     just async_std example webserver -- http://0.0.0.0:9000 &
     just async_std example webserver -- http://0.0.0.0:9001 &
@@ -36,13 +37,13 @@ do
                                                     --da_committee_size 10 \
                                                     --transactions_per_round 100 \
                                                     --transaction_size 512 \
-                                                    --rounds 100 \
+                                                    --rounds ${rounds} \
                                                     --commit_sha test &
-    sleep 1m
+    sleep 30
 
     # start validators
     ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
-    sleep 3m #rethink about this
+    sleep $(($rounds + $total_nodes))
 
     # kill them
     ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1

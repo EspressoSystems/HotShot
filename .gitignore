@@ -13,3 +13,5 @@
 **/*.bkp
 *.sqlite
 results.csv
+.github/workflows/preserve-build-and-test-self-hosted.yml
+config/ValidatorConfigOutput
