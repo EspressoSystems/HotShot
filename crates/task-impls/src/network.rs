@@ -6,7 +6,7 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use either::Either::{self, Left, Right};
-use hotshot_types::{constants::VERSION_0_1, event::HotShotAction, traits::storage::Storage};
+use hotshot_types::{event::HotShotAction, traits::storage::Storage};
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
