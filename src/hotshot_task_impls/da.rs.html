@@ -382,7 +382,7 @@
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
@@ -411,7 +411,7 @@
 };
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
-<span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
+<span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;

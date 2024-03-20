@@ -1438,7 +1438,7 @@
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -1477,7 +1477,7 @@
 <span class="kw">use </span>tracing::warn;
 <span class="kw">use </span>versioned_binary_serialization::version::Version;
 
-<span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
+<span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]

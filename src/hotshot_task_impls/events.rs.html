@@ -130,6 +130,14 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -171,10 +179,16 @@
     </span>DAVoteRecv(DAVote&lt;TYPES&gt;),
     <span class="doccomment">/// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
     </span>DACRecv(DACertificate&lt;TYPES&gt;),
+    <span class="doccomment">/// A DAC is validated.
+    </span>DACValidated(DACertificate&lt;TYPES&gt;),
     <span class="doccomment">/// Send a quorum proposal to the network; emitted by the leader in the consensus task
     </span>QuorumProposalSend(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     </span>QuorumVoteSend(QuorumVote&lt;TYPES&gt;),
+    <span class="doccomment">/// Dummy quorum vote to test if the quorum vote dependency works.
+    </span>DummyQuorumVoteSend(TYPES::Time),
+    <span class="doccomment">/// All dependencies for the quorum vote are validated.
+    </span>QuorumVoteDependenciesValidated(TYPES::Time),
     <span class="doccomment">/// A proposal was validated. This means it comes from the correct leader and has a correct QC.
     </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
@@ -250,6 +264,8 @@
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
     </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// A VID disperse data is validated.
+    </span>VidDisperseValidated(VidDisperse&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network

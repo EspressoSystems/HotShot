@@ -241,7 +241,7 @@
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
-    vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
@@ -260,7 +260,7 @@
     vote::HasViewNumber,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::vote::HandleVoteEvent;
+<span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 

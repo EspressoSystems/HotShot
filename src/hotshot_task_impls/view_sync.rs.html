@@ -887,11 +887,15 @@
 <a href="#886" id="886">886</a>
 <a href="#887" id="887">887</a>
 <a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
-    vote::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
 };
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
