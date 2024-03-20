@@ -6,8 +6,8 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use either::Either::{self, Left, Right};
-use std::collections::HashMap;
 use hotshot_types::{event::HotShotAction, traits::storage::Storage};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
@@ -284,8 +284,12 @@ impl<
                     Some(membership.get_leader(vote.get_view_number() + 1)),
                 )
             }
-            HotShotEvent::VidDisperseSend(proposal, sender) => { );
-                return self.handle_vid_disperse_proposal(proposal, &sender, Some(HotShotAction::VidDisperse));
+            HotShotEvent::VidDisperseSend(proposal, sender) => {
+                return self.handle_vid_disperse_proposal(
+                    proposal,
+                    &sender,
+                    Some(HotShotAction::VidDisperse),
+                );
             }
             HotShotEvent::DAProposalSend(proposal, sender) => {
                 maybe_action = Some(HotShotAction::DAPropose);
@@ -401,7 +405,14 @@ impl<
         let net = self.channel.clone();
         let storage = self.storage.clone();
         async_spawn(async move {
-            if let Err(_) = NetworkEventTaskState::maybe_record_action(maybe_action, storage, view) {
+            if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
+                maybe_action,
+                storage,
+                view,
+            )
+            .await
+            .is_err()
+            {
                 return;
             }
 
@@ -456,7 +467,14 @@ impl<
         let net = self.channel.clone();
         let storage = self.storage.clone();
         async_spawn(async move {
-            if let Err(_) = NetworkEventTaskState::maybe_record_action(maybe_action, storage, view).await {
+            if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
+                maybe_action,
+                storage,
+                view,
+            )
+            .await
+            .is_err()
+            {
                 return;
             }
             match net.vid_broadcast_message(messages, STATIC_VER_0_1).await {
@@ -468,11 +486,12 @@ impl<
         None
     }
 
+    /// Record `HotShotAction` if available
     async fn maybe_record_action(
-        maybe_action: Option<HotShotAction>, storage:
-        Arc<RwLock<S>>,
+        maybe_action: Option<HotShotAction>,
+        storage: Arc<RwLock<S>>,
         view: <TYPES as NodeType>::Time,
-    ) -> Result<(), Err()>{
+    ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
             match storage
                 .write()
@@ -486,6 +505,8 @@ impl<
                     Err(())
                 }
             }
+        } else {
+            Ok(())
         }
     }
 }

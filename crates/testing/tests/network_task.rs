@@ -10,10 +10,11 @@ use hotshot_task_impls::network::{self, NetworkEventTaskState};
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_testing::view_generator::TestViewGenerator;
 use hotshot_types::{
-    data::{VidDisperseShare, ViewNumber},
-    traits::{consensus_api::ConsensusApi, election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType},
+    data::ViewNumber,
+    traits::{
+        election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
+    },
 };
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
