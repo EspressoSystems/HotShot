@@ -72,6 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
+                error!("Received upgrade proposal!");
                 let should_vote = self.should_vote;
                 // If the proposal does not match our upgrade target, we immediately exit.
                 if !should_vote(proposal.data.upgrade_proposal.clone()) {
@@ -194,7 +195,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 #[cfg(feature = "example-upgrade")]
                 {
-                    use hotshot_types::{constants::Version, data::UpgradeProposal};
+                    use commit::Committable;
+                    use std::marker::PhantomData;
+
+                    use hotshot_types::{
+                        constants::Version, data::UpgradeProposal, message::Proposal,
+                    };
 
                     if *view == 5 && self.quorum_membership.get_leader(view + 5) == self.public_key
                     {
@@ -207,11 +213,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         };
 
                         let upgrade_proposal = UpgradeProposal {
-                            upgrade_proposal: upgrade_proposal_data,
+                            upgrade_proposal: upgrade_proposal_data.clone(),
                             view_number: view + 5,
                         };
+
+                        let signature = TYPES::SignatureKey::sign(
+                            &self.private_key,
+                            upgrade_proposal_data.commit().as_ref(),
+                        )
+                        .expect("Failed to sign upgrade proposal commitment!");
+
+                        let message = Proposal {
+                            data: upgrade_proposal,
+                            signature,
+                            _pd: PhantomData,
+                        };
+
                         broadcast_event(
-                            Arc::new(HotShotEvent::UpgradeProposalSend(upgrade_proposal)),
+                            Arc::new(HotShotEvent::UpgradeProposalSend(
+                                message,
+                                self.public_key.clone(),
+                            )),
                             &tx,
                         )
                         .await;

@@ -4,7 +4,7 @@ use crate::{
     vote::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -723,6 +723,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
                                     info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
+                                    async_block_on(broadcast_event(
+                                        Arc::new(HotShotEvent::UpgradeDecided(upgrade_cert.data.new_version, upgrade_cert.data.new_version_first_block)),
+                                        &event_stream,
+                                    ));
                                 }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.

@@ -42,6 +42,15 @@ DOC = """
 Post the proposal for a given view_number
 """
 
+# POST an upgrade proposal, where the view is passed as an argument
+[route.postupgradeproposal]
+PATH = ["upgrade/:view_number"]
+METHOD = "POST"
+":view_number" = "Integer"
+DOC = """
+Post the proposal for a given view_number
+"""
+
 # POST a VID disperse, where the view is passed as an argument
 [route.postviddisperse]
 PATH = ["vid_disperse/:view_number"]

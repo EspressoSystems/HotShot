@@ -4,12 +4,12 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
-use hotshot_types::constants::VERSION_0_1;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
+    constants::Version,
     message::{
         CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
         SequencingMessage,
@@ -41,7 +41,7 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
 pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::UpgradeProposalSend(_)
+        HotShotEvent::UpgradeProposalSend(_, _)
             | HotShotEvent::UpgradeVoteSend(_)
             | HotShotEvent::Shutdown
             | HotShotEvent::ViewChange(_)
@@ -213,6 +213,10 @@ pub struct NetworkEventTaskState<
     pub channel: Arc<COMMCHANNEL>,
     /// view number
     pub view: TYPES::Time,
+    /// version
+    pub version: Version,
+    /// decided upgrade
+    pub decided_upgrade: Option<(Version, TYPES::Time)>,
     /// membership for the channel
     pub membership: TYPES::Membership,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
@@ -244,7 +248,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
     }
 
     fn filter(&self, event: &Self::Event) -> bool {
-        (self.filter)(event)
+        (self.filter)(event) || matches!(event.as_ref(), HotShotEvent::UpgradeDecided(_, _))
     }
 }
 
@@ -356,7 +360,6 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 TransmitType::Broadcast,
                 None,
             ),
-
             HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) => (
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -373,9 +376,26 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
                 TransmitType::Direct,
                 Some(membership.get_leader(vote.get_view_number() + 1)),
             ),
+            HotShotEvent::UpgradeProposalSend(proposal, sender) => (
+                sender,
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::UpgradeProposal(proposal),
+                )),
+                TransmitType::Broadcast,
+                None
+            ),
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
                 self.channel.update_view(self.view.get_u64());
+                if let Some((new_version, starting_view)) = self.decided_upgrade {
+                    if view >= starting_view {
+                        self.version = new_version;
+                    }
+                }
+                return None;
+            }
+            HotShotEvent::UpgradeDecided(version, view) => {
+                self.decided_upgrade = Some((version, view));
                 return None;
             }
             HotShotEvent::Shutdown => {
@@ -388,7 +408,7 @@ impl<TYPES: NodeType, COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::Signa
             }
         };
         let message = Message {
-            version: VERSION_0_1,
+            version: self.version,
             sender,
             kind: message_kind,
         };

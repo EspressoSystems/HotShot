@@ -25,6 +25,7 @@ use hotshot_types::{
     message::Message,
     traits::{election::Membership, network::ConnectedNetwork},
 };
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     message::Messages,
     traits::{
@@ -99,6 +100,8 @@ pub async fn add_network_event_task<
     let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
+        version: VERSION_0_1,
+        decided_upgrade: None,
         membership,
         filter,
     };

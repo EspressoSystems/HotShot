@@ -40,9 +40,9 @@ start_delay_seconds = 0
 cdn_marshal_address = "127.0.0.1:9000"
 
 [config]
-num_nodes_with_stake = 100
+num_nodes_with_stake = 10
 num_nodes_without_stake = 0
-staked_committee_nodes = 100
+staked_committee_nodes = 10
 non_staked_committee_nodes = 0
 max_transactions = 1
 min_transactions = 1

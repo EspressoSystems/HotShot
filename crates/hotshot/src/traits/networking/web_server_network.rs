@@ -84,9 +84,9 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
             .send()
             .await;
         // error!("POST message error for endpoint {} is {:?}", &message.get_endpoint(), result.clone());
-        result.map_err(|_e| NetworkError::WebServer {
+        result.map_err(|_e| { error!("{}", &message.get_endpoint()); NetworkError::WebServer {
             source: WebServerNetworkError::ClientError,
-        })
+        }})
     }
 }
 

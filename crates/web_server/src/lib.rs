@@ -36,6 +36,8 @@ type Error = ServerError;
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: BTreeMap<u64, (String, Vec<u8>)>,
+    /// view number -> (secret, proposal)
+    upgrade_proposals: BTreeMap<u64, (String, Vec<u8>)>,
     /// for view sync: view number -> (relay, certificate)
     view_sync_certificates: BTreeMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> relay
@@ -97,6 +99,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
             proposals: BTreeMap::new(),
+            upgrade_proposals: BTreeMap::new(),
             da_certificates: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
@@ -202,6 +205,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
+    /// Post upgrade proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn post_upgrade_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     /// Post view sync certificate
     /// # Errors
     /// Error if unable to serve.
@@ -571,6 +578,20 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
+    fn post_upgrade_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
+        tracing::error!("Received upgrade proposal for view {}", view_number);
+
+        if self.upgrade_proposals.len() >= MAX_VIEWS {
+            self.upgrade_proposals.pop_first();
+        }
+
+        self.upgrade_proposals
+          .entry(view_number)
+          .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
+          .or_insert_with(|| (String::new(), proposal));
+        Ok(())
+    }
+
     fn post_vid_disperse(&mut self, view_number: u64, mut disperse: Vec<u8>) -> Result<(), Error> {
         info!("Received VID disperse for view {}", view_number);
         if view_number > self.recent_vid_disperse {
@@ -848,6 +869,14 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
+        }
+        .boxed()
+    })?
+    .post("postupgradeproposal", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let proposal = req.body_bytes();
+            state.post_upgrade_proposal(view_number, proposal)
         }
         .boxed()
     })?

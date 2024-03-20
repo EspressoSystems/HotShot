@@ -2,6 +2,7 @@ use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
 use hotshot_types::{
+    constants::Version,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
     simple_certificate::{
@@ -121,11 +122,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
-    UpgradeProposalSend(UpgradeProposal<TYPES>),
+    UpgradeProposalSend(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade vote has been received from the network
     UpgradeVoteRecv(UpgradeVote<TYPES>),
     /// Upgrade vote has been sent to the network
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+    /// Upgrade was decided, and scheduled for a future view.
+    UpgradeDecided(Version, TYPES::Time),
 }
