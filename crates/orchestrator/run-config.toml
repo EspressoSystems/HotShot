@@ -77,11 +77,11 @@ url = "http://localhost:9001"
 
 [web_server_config.wait_between_polls]
 secs = 0
-nanos = 100000000 # 10 ms
+nanos = 10000000 # 10 ms
 
 [da_web_server_config.wait_between_polls]
 secs = 0
-nanos = 100000000 # 10 ms
+nanos = 10000000 # 10 ms
 
 [config.view_sync_timeout]
 secs = 2
@@ -89,7 +89,7 @@ nanos = 0
 
 [config.data_request_delay]
 secs = 0
-nanos = 20000000000 # 200 ms
+nanos = 200000000 # 200 ms
 
 [config.propose_min_round_time]
 secs = 0
