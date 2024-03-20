@@ -20,7 +20,7 @@ def get_launch_json_examples(input: str, crate: str) -> list[dict]:
             "cargo" : {
                 "args" : [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",,
                     "--package={}".format(crate),
                 ],
                 "filter": {
@@ -53,7 +53,7 @@ def get_launch_json_tests(input: str, crate: str) -> list[dict]:
                 "args" : [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",,
                     "--package={}".format(crate),
                 ],
                 "filter": {

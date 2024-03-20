@@ -5,6 +5,8 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::spawn_blocking;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -21,6 +23,7 @@ use hotshot_types::{
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
+        storage::Storage,
     },
     utils::ViewInner,
     vote::HasViewNumber,
@@ -29,6 +32,8 @@ use sha2::{Digest, Sha256};
 
 use crate::vote::HandleVoteEvent;
 use std::{marker::PhantomData, sync::Arc};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
 
 /// Alias for Optional type for Vote Collectors
@@ -71,6 +76,9 @@ pub struct DATaskState<
 
     /// This state's ID
     pub id: u64,
+
+    /// This node's storage ref
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -112,10 +120,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let payload_commitment = vid_commitment(
-                    &proposal.data.encoded_transactions,
-                    self.quorum_membership.total_nodes(),
-                );
+                let txns = proposal.data.encoded_transactions.clone();
+                let num_nodes = self.quorum_membership.total_nodes();
+                let payload_commitment =
+                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                #[cfg(async_executor_impl = "tokio")]
+                let payload_commitment = payload_commitment.unwrap();
+
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
@@ -148,6 +159,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return None;
                 }
+
+                if let Err(e) = self.storage.write().await.append_da(proposal).await {
+                    error!(
+                        "Failed to store DA Proposal with error {:?}, aborting vote",
+                        e
+                    );
+                    return None;
+                }
+
                 // Generate and send vote
                 let Ok(vote) = DAVote::create_signed_vote(
                     DAData {

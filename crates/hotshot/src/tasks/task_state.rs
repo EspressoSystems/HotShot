@@ -16,6 +16,7 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
+use versioned_binary_serialization::version::StaticVersionType;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -29,10 +30,12 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for NetworkRequestState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> CreateTaskState<TYPES, I>
+    for NetworkRequestState<TYPES, I, V>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I>,
+    ) -> NetworkRequestState<TYPES, I, V> {
         NetworkRequestState {
             network: handle.hotshot.networks.quorum_network.clone(),
             state: handle.hotshot.get_consensus(),
@@ -42,6 +45,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -106,6 +110,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
+            storage: handle.storage.clone(),
         }
     }
 }
@@ -199,6 +204,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
+            storage: handle.storage.clone(),
         }
     }
 }

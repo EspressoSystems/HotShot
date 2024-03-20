@@ -548,7 +548,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
-    /// time to wait until we request data associated with a proposal
+    /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
 }
 
@@ -677,10 +677,10 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
+            num_bootstrap: 5,
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
-            data_request_delay: Duration::from_millis(2500),
-            num_bootstrap: 5,
+            data_request_delay: Duration::from_millis(200),
         }
     }
 }

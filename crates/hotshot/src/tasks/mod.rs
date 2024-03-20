@@ -24,6 +24,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
+    constants::Version01,
     message::Message,
     traits::{election::Membership, network::ConnectedNetwork},
 };
@@ -53,7 +54,7 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let state = NetworkRequestState::create_from(handle).await;
+    let state = NetworkRequestState::<TYPES, I, Version01>::create_from(handle).await;
 
     let task = Task::new(tx, rx, task_reg.clone(), state);
     task_reg.run_task(task).await;
