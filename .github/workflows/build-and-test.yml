@@ -248,7 +248,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
 
-  build-docker-and-run-benchmarks:
+  run-benchmarks:
     strategy:
       matrix:
         just_variants:
@@ -279,7 +279,7 @@ jobs:
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
 
-      # Sishan TODO
+      # Sishan TODO for auto bench
       # - name: Benchmark runs
       #   run: ./scripts/ci_ecs_benchmarks.sh
 
