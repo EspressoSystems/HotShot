@@ -3289,6 +3289,7 @@ dependencies = [
 name = "hotshot-examples"
 version = "0.5.26"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -3328,6 +3329,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tracing-subscriber",
  "versioned-binary-serialization",
 ]
 
