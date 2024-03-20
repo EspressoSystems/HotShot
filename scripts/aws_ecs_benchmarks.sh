@@ -20,34 +20,46 @@ docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
-for total_nodes in 10 50
+for total_nodes in 10 50 100
 do
-    rounds=100
-    # start webserver
-    just async_std example webserver -- http://0.0.0.0:9000 &
-    just async_std example webserver -- http://0.0.0.0:9001 &
-    sleep 1m
+    for da_committee_size in 10 50 100
+    do
+        if [ $da_committee_size -lt $total_nodes ]
+        then
+            for transactions_per_round in 1 10 50 100
+            do
+                for transaction_size in 512 4096
+                do
+                    rounds=100
+                    # start webserver
+                    just async_std example webserver -- http://0.0.0.0:9000 &
+                    just async_std example webserver -- http://0.0.0.0:9001 &
+                    sleep 1m
 
-    # start orchestrator
-    just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
-                                                    --orchestrator_url http://0.0.0.0:4444 \
-                                                    --webserver_url ${webserver_url} \
-                                                    --da_webserver_url ${da_webserver_url} \
-                                                    --total_nodes ${total_nodes} \
-                                                    --da_committee_size 10 \
-                                                    --transactions_per_round 100 \
-                                                    --transaction_size 512 \
-                                                    --rounds ${rounds} \
-                                                    --commit_sha test &
-    sleep 30
+                    # start orchestrator
+                    just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
+                                                                    --orchestrator_url http://0.0.0.0:4444 \
+                                                                    --webserver_url ${webserver_url} \
+                                                                    --da_webserver_url ${da_webserver_url} \
+                                                                    --total_nodes ${total_nodes} \
+                                                                    --da_committee_size ${da_committee_size} \
+                                                                    --transactions_per_round ${transactions_per_round} \
+                                                                    --transaction_size ${transaction_size} \
+                                                                    --rounds ${rounds} \
+                                                                    --commit_sha test &
+                    sleep 30
 
-    # start validators
-    ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
-    sleep $(($rounds + $total_nodes))
+                    # start validators
+                    ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
+                    sleep $(($rounds + $total_nodes))
 
-    # kill them
-    ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
-    sleep 1m
-    for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
-    for pid in $(ps -ef | grep "webserver" | awk '{print $2}'); do kill -9 $pid; done
+                    # kill them
+                    ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                    sleep 1m
+                    for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
+                    for pid in $(ps -ef | grep "webserver" | awk '{print $2}'); do kill -9 $pid; done
+                done
+            done
+        fi
+    done
 done
