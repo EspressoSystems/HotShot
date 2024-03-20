@@ -3,16 +3,17 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use hotshot::traits::BlockPayload;
 use hotshot::types::SignatureKey;
-use hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
-use hotshot_types::traits::block_contents::vid_commitment;
-use hotshot_types::utils::BuilderCommitment;
-use hotshot_types::{traits::node_implementation::NodeType, vid::VidCommitment};
-use hs_builder_api::block_info::{
-    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
-};
-use hs_builder_api::{
+use hotshot_builder_api::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Options},
     data_source::BuilderDataSource,
+};
+use hotshot_example_types::{block_types::TestBlockPayload, node_types::TestTypes};
+use hotshot_types::{
+    constants::{Version01, STATIC_VER_0_1},
+    traits::{block_contents::vid_commitment, node_implementation::NodeType},
+    utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use tide_disco::{method::ReadState, App, Url};
 
@@ -109,16 +110,17 @@ impl BuilderDataSource<TestTypes> for TestableBuilderSource {
 /// # Panics
 /// If constructing and launching the builder fails for any reason
 pub fn run_builder(url: Url) {
-    let builder_api = hs_builder_api::builder::define_api::<TestableBuilderSource, TestTypes>(
-        &Options::default(),
-    )
-    .expect("Failed to construct the builder API");
+    let builder_api =
+        hotshot_builder_api::builder::define_api::<TestableBuilderSource, TestTypes, Version01>(
+            &Options::default(),
+        )
+        .expect("Failed to construct the builder API");
     let (pub_key, priv_key) =
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed([1; 32], 0);
-    let mut app: App<TestableBuilderSource, hs_builder_api::builder::Error> =
+    let mut app: App<TestableBuilderSource, hotshot_builder_api::builder::Error, Version01> =
         App::with_state(TestableBuilderSource { priv_key, pub_key });
     app.register_module("/", builder_api)
         .expect("Failed to register the builder API");
 
-    async_spawn(app.serve(url));
+    async_spawn(app.serve(url, STATIC_VER_0_1));
 }
