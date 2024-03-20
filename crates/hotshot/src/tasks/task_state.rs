@@ -193,7 +193,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> QuorumVoteTaskState<TYPES, I> {
         QuorumVoteTaskState {
-            next_vote_view: handle.get_cur_view().await,
+            latest_voted_view: handle.get_cur_view().await,
             vote_dependencies: HashMap::new(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
             committee_network: handle.hotshot.networks.da_network.clone(),

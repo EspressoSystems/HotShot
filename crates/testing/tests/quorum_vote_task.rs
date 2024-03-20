@@ -36,10 +36,11 @@ async fn test_quorum_vote_task_success() {
             VidDisperseRecv(view.vid_proposal.0.clone()),
         ],
         outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
             exact(QuorumProposalValidated(view.quorum_proposal.data.clone())),
             exact(DACValidated(view.da_certificate.clone())),
             exact(VidDisperseValidated(view.vid_proposal.0.data.clone())),
-            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
             exact(DummyQuorumVoteSend(ViewNumber::new(1))),
         ],
         asserts: vec![],
@@ -101,6 +102,7 @@ async fn test_quorum_vote_task_miss_dependency() {
             VidDisperseRecv(vids[1].0.clone()),
         ],
         outputs: vec![
+            exact(ViewChange(ViewNumber::new(3))),
             exact(QuorumProposalValidated(proposals[1].data.clone())),
             exact(VidDisperseValidated(vids[1].0.data.clone())),
         ],
@@ -112,6 +114,7 @@ async fn test_quorum_vote_task_miss_dependency() {
             DACRecv(dacs[2].clone()),
         ],
         outputs: vec![
+            exact(ViewChange(ViewNumber::new(4))),
             exact(QuorumProposalValidated(proposals[2].data.clone())),
             exact(DACValidated(dacs[2].clone())),
         ],
