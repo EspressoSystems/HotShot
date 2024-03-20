@@ -3,6 +3,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["all_libp2p",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["all_push_cdn",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["all_webserver",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
+["broker_push_cdn",["",[],["broker.rs"]]],\
 ["hotshot",["",[["tasks",[],["mod.rs","task_state.rs"]],["traits",[["election",[],["static_committee.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","push_cdn_network.rs","web_server_network.rs"]]],["election.rs","networking.rs","node_implementation.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
 ["hotshot_builder_api",["",[],["api.rs","block_info.rs","builder.rs","data_source.rs","lib.rs","query_data.rs"]]],\
 ["hotshot_example_types",["",[],["block_types.rs","lib.rs","node_types.rs","state_types.rs","storage_types.rs"]]],\
@@ -16,6 +17,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["hotshot_types",["",[["traits",[],["block_contents.rs","consensus_api.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","qc.rs","signature_key.rs","stake_table.rs","states.rs","storage.rs"]]],["consensus.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","light_client.rs","message.rs","qc.rs","signature_key.rs","simple_certificate.rs","simple_vote.rs","stake_table.rs","traits.rs","utils.rs","vid.rs","vote.rs"]]],\
 ["hotshot_web_server",["",[],["config.rs","lib.rs"]]],\
 ["libp2p_networking",["",[["network",[["behaviours",[["dht",[],["mod.rs"]]],["direct_message.rs","exponential_backoff.rs","mod.rs","request_response.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs"]]],\
+["marshal_push_cdn",["",[],["marshal.rs"]]],\
 ["multi_validator_combined",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["multi_validator_libp2p",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["multi_validator_webserver",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
