@@ -3,7 +3,6 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot_task::{
@@ -85,7 +84,8 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     async fn handle_dep_result(self, res: Self::Output) {
         // Add this commitment check to test if the handler works, but this isn't the only thing
-        // that we'll need to check.
+        // that we'll need to check. E.g., we also need to check that VID commitment matches
+        // `payload_commitment`.
         // TODO: Complete the dependency implementation.
         // <https://github.com/EspressoSystems/HotShot/issues/2710>
         let mut payload_commitment = None;
@@ -221,16 +221,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 sender: event_sender,
             },
         );
-        self.vote_dependencies.insert(
-            view_number,
-            async_spawn(async move {
-                #[cfg(async_executor_impl = "async-std")]
-                dependency_task.run().await;
-                // Allow `unwrap()` for tokio.
-                #[cfg(async_executor_impl = "tokio")]
-                dependency_task.run().await.unwrap();
-            }),
-        );
+        self.vote_dependencies
+            .insert(view_number, dependency_task.run());
     }
 
     /// Update the latest voted view number.
@@ -290,6 +282,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             HotShotEvent::DACRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
+                if view <= self.latest_voted_view {
+                    return;
+                }
 
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
@@ -311,6 +306,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VidDisperseRecv(disperse) => {
                 let view = disperse.data.get_view_number();
+                if view <= self.latest_voted_view {
+                    return;
+                }
 
                 // stop polling for the received disperse after verifying it's valid
                 self.quorum_network
