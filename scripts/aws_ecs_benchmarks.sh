@@ -24,7 +24,7 @@ for total_nodes in 10 50 100
 do
     for da_committee_size in 10 50 100
     do
-        if [ $da_committee_size -lt $total_nodes ]
+        if [ $da_committee_size -le $total_nodes ]
         then
             for transactions_per_round in 1 10 50 100
             do
