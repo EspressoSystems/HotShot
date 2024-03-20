@@ -87,6 +87,10 @@ nanos = 100000000 # 10 ms
 secs = 2
 nanos = 0
 
+[config.data_request_delay]
+secs = 0
+nanos = 20000000000 # 200 ms
+
 [config.propose_min_round_time]
 secs = 0
 nanos = 0

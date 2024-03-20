@@ -8,6 +8,10 @@ webserver_url=http://"$ip":9000
 da_webserver_url=http://"$ip":9001
 orchestrator_url=http://"$ip":4444
 
+# build
+just async_std build
+sleep 30s
+
 # start webserver
 just async_std example webserver -- http://0.0.0.0:9000 &
 just async_std example webserver -- http://0.0.0.0:9001 &
