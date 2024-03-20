@@ -20,6 +20,10 @@
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstract storage type for storing DA proposals and VID shares
 //!
 //! This modules provides the [`Storage`] trait.
@@ -30,7 +34,9 @@
 
 <span class="kw">use crate</span>::{
     data::{DAProposal, VidDisperse},
+    event::HotShotAction,
     message::Proposal,
+    simple_certificate::QuorumCertificate,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
@@ -40,5 +46,7 @@
 </span><span class="kw">pub trait </span>Storage&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
     <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 </code></pre></div></section></main></body></html>

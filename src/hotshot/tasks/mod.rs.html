@@ -271,6 +271,10 @@
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -283,6 +287,7 @@
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState,
@@ -299,7 +304,7 @@
 <span class="kw">use </span>hotshot_types::{
     constants::Version01,
     message::Message,
-    traits::{election::Membership, network::ConnectedNetwork},
+    traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
 };
 <span class="kw">use </span>hotshot_types::{
     message::Messages,
@@ -389,6 +394,7 @@
 </span><span class="kw">pub async fn </span>add_network_event_task&lt;
     TYPES: NodeType,
     NET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    S: Storage&lt;TYPES&gt; + <span class="lifetime">'static</span>,
 &gt;(
     task_reg: Arc&lt;TaskRegistry&gt;,
     tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -396,12 +402,14 @@
     channel: Arc&lt;NET&gt;,
     membership: TYPES::Membership,
     filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool,
+    storage: Arc&lt;RwLock&lt;S&gt;&gt;,
 ) {
-    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
+    <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
         filter,
+        storage,
     };
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), network_state);
     task_reg.run_task(task).<span class="kw">await</span>;
