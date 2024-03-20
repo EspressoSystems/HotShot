@@ -142,5 +142,5 @@ async fn test_network_storage_fail() {
     .await
     .unwrap();
     let res = async_timeout(Duration::from_millis(100), out_rx.recv_direct()).await;
-    assert!(matches!(res.as_ref(), Err(_),));
+    assert!(res.is_err());
 }
