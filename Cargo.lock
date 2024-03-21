@@ -2402,18 +2402,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embed-doc-image"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af36f591236d9d822425cb6896595658fa558fcebf5ee8accac1d4b92c47166e"
-dependencies = [
- "base64 0.13.1",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3214,17 +3202,14 @@ dependencies = [
  "dashmap",
  "derive_more",
  "either",
- "embed-doc-image",
  "ethereum-types",
  "futures",
- "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-web-server",
  "libp2p-identity",
  "libp2p-networking",
- "local-ip-address 0.6.1",
  "lru",
  "portpicker",
  "rand 0.8.5",
@@ -3271,7 +3256,6 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
- "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -3307,7 +3291,6 @@ dependencies = [
  "dashmap",
  "derive_more",
  "either",
- "embed-doc-image",
  "futures",
  "hotshot",
  "hotshot-example-types",
@@ -3337,8 +3320,6 @@ dependencies = [
 name = "hotshot-macros"
 version = "0.1.0"
 dependencies = [
- "async-lock 2.8.0",
- "derive_builder 0.20.0",
  "proc-macro2",
  "quote",
  "syn 2.0.53",
@@ -4558,7 +4539,6 @@ dependencies = [
  "async-trait",
  "blake3",
  "custom_debug",
- "dashmap",
  "derive_builder 0.20.0",
  "either",
  "futures",
