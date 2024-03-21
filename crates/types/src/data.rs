@@ -181,6 +181,15 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
     ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
 }
 
+impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
+    pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
+        match self {
+            ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.get_data().view == *view - 1,
+            ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
+        }
+    }
+}
+
 /// Proposal to append a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]

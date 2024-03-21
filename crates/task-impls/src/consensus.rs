@@ -384,35 +384,38 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Verify a timeout certificate OR a view sync certificate exists and is valid.
                 if proposal.data.justify_qc.get_view_number() != view - 1 {
-                    // Do we have a timeout certificate at all?
-                    if let Some(ViewChangeEvidence::Timeout(timeout_cert)) =
-                        proposal.data.proposal_certificate.clone()
+                    if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone()
                     {
-                        if timeout_cert.get_data().view != view - 1 {
-                            warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                            return;
-                        }
+                        match received_proposal_cert {
+                            ViewChangeEvidence::Timeout(timeout_cert) => {
+                                if timeout_cert.get_data().view != view - 1 {
+                                    warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                                    return;
+                                }
 
-                        if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                            warn!("Timeout certificate for view {} was invalid", *view);
-                            return;
-                        }
+                                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                                    warn!("Timeout certificate for view {} was invalid", *view);
+                                    return;
+                                }
 
-                        self.proposal_cert = Some(ViewChangeEvidence::Timeout(timeout_cert));
-                    } else if let Some(ViewChangeEvidence::ViewSync(cert)) = &self.proposal_cert {
-                        // View sync certs _must_ be for the current view.
-                        if cert.view_number != view {
-                            debug!(
-                                "Cert view number {:?} does not match proposal view number {:?}",
-                                cert.view_number, view
-                            );
-                            return;
-                        }
+                                self.proposal_cert =
+                                    Some(ViewChangeEvidence::Timeout(timeout_cert));
+                            }
+                            ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                                if view_sync_cert.view_number != view {
+                                    debug!(
+                                        "Cert view number {:?} does not match proposal view number {:?}",
+                                        view_sync_cert.view_number, view
+                                    );
+                                    return;
+                                }
 
-                        // View sync certs must also be valid.
-                        if !cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                            debug!("Invalid ViewSyncFinalize cert provided");
-                            return;
+                                // View sync certs must also be valid.
+                                if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                                    debug!("Invalid ViewSyncFinalize cert provided");
+                                    return;
+                                }
+                            }
                         }
                     } else {
                         warn!(
@@ -1350,12 +1353,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 None
             };
 
+            // We only want to proposal to be attached if any of them are valid.
+            let proposal_certificate = self
+                .proposal_cert
+                .as_ref()
+                .filter(|cert| cert.is_valid_for_view(&view))
+                .cloned();
+
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
-                proposal_certificate: self.proposal_cert.clone(),
+                proposal_certificate,
                 upgrade_certificate: upgrade_cert,
                 proposer_id: leaf.proposer_id,
             };
