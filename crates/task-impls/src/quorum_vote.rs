@@ -101,7 +101,7 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                         payload_commitment = Some(proposal_payload_comm);
                     }
                 }
-                HotShotEvent::DACValidated(cert) => {
+                HotShotEvent::DACertificateValidated(cert) => {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
@@ -175,14 +175,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         }
                     }
                     VoteDependency::Dac => {
-                        if let HotShotEvent::DACValidated(cert) = event {
+                        if let HotShotEvent::DACertificateValidated(cert) = event {
                             cert.view_number
                         } else {
                             return false;
                         }
                     }
                     VoteDependency::Vid => {
-                        if let HotShotEvent::VidDisperseValidated(disperse) = event {
+                        if let HotShotEvent::VIDShareValidated(disperse) = event {
                             disperse.view_number
                         } else {
                             return false;
@@ -196,6 +196,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
     /// given view number if it doesn't exist.
+    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -260,6 +261,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
                 let view = proposal.data.view_number;
+                debug!("Received Quorum Proposal for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -281,8 +283,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, event_sender);
             }
             HotShotEvent::DACRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
+                debug!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -299,7 +301,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
                 broadcast_event(
-                    Arc::new(HotShotEvent::DACValidated(cert.clone())),
+                    Arc::new(HotShotEvent::DACertificateValidated(cert.clone())),
                     &event_sender.clone(),
                 )
                 .await;
@@ -307,6 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VidDisperseRecv(disperse) => {
                 let view = disperse.data.get_view_number();
+                debug!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -322,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidDisperseValidated(disperse.data.clone())),
+                    Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
                     &event_sender.clone(),
                 )
                 .await;
@@ -336,7 +339,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
-                debug!("View Change event for view {} in consensus task", *new_view);
+                debug!("View Change event for view {} in quorum vote task", *new_view);
 
                 let old_voted_view = self.latest_voted_view;
 
