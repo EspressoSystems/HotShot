@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["EMPTY_BLOCK"],"fn":["run_builder"],"struct":["TestableBuilderSource"]};
+window.SIDEBAR_ITEMS = {"fn":["run_random_builder"],"struct":["BlockEntry","RandomBuilderOptions","RandomBuilderSource"]};
