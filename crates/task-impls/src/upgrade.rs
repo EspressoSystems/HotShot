@@ -73,12 +73,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
                 error!("Received upgrade proposal!");
+
                 let should_vote = self.should_vote;
-                // If the proposal does not match our upgrade target, we immediately exit.
-                //                if !should_vote(proposal.data.upgrade_proposal.clone()) {
-                //                    error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
-                //                    return None;
-                //                }
+
+                // // If the proposal does not match our upgrade target, we immediately exit.
+                // if !should_vote(proposal.data.upgrade_proposal.clone()) {
+                //     error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
+                //     return None;
+                // }
 
                 // If we have an upgrade target, we validate that the proposal is relevant for the current view.
 
@@ -142,7 +144,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
                 error!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
                 // Check if we are the leader.
-                let view = vote.get_view_number();
+                // let view = vote.get_view_number();
                 //                if self.quorum_membership.get_leader(view) != self.public_key {
                 //                    error!(
                 //                        "We are not the leader for view {} are we leader for next view? {}",

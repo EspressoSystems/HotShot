@@ -352,11 +352,6 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVer
 
                         return true;
                     }
-                    MessagePurpose::UpgradeVote => {
-                        poll_queue.write().await.push(deserialized_message.clone());
-
-                        return true;
-                    }
                     #[cfg(feature = "example-upgrade")]
                     MessagePurpose::Arbitrary => {
                         tracing::error!(

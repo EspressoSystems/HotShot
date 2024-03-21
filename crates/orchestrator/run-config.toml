@@ -54,6 +54,8 @@ timeout_ratio = [
 round_start_delay = 1
 start_delay = 1
 num_bootstrap = 5
+data_request_delay.secs = 0
+data_request_delay.nanos = 0
 
 [libp2p_config]
 index_ports = true
