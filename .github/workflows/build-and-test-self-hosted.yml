@@ -18,7 +18,7 @@ jobs:
           - async-std
           #- tokio
     runs-on: [self-hosted]
-    container: ghcr.io/espressosystems/devops-rust:stable
+    container: ubuntu-latest
     steps:
       - uses: dtolnay/rust-toolchain@stable
         name: Install Current Rust
