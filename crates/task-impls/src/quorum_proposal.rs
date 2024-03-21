@@ -44,7 +44,7 @@ enum ProposalDependency {
     PayloadAndMetadata,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
-    ViewSynce,
+    ViewSync,
 
     /// For the `QuorumProposalRecv` event.
     QuorumProposal,
@@ -133,7 +133,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
         let deps = vec![self.create_event_dependency(
-            ProposalDependency::QuorumProposalRecv,
+            ProposalDependency::QuorumProposal,
             view_number,
             event_receiver.clone(),
         )];
