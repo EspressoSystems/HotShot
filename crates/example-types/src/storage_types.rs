@@ -77,9 +77,17 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         Ok(())
     }
 
+    async fn update_high_qc(
+        &self,
+        _high_qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to update high qc to storage");
+        }
+        Ok(())
+    }
     async fn update_undecided_state(
         &self,
-        _qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
         _leafs: CommitmentMap<Leaf<TYPES>>,
         _state: BTreeMap<TYPES::Time, View<TYPES>>,
     ) -> Result<()> {

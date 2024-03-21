@@ -24,11 +24,11 @@ pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
     async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperse<TYPES>>) -> Result<()>;
     async fn append_da(&self, proposal: &Proposal<TYPES, DAProposal<TYPES>>) -> Result<()>;
     async fn record_action(&self, view: TYPES::Time, action: HotShotAction) -> Result<()>;
+    async fn update_high_qc(&self, high_qc: QuorumCertificate<TYPES>) -> Result<()>;
     /// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
-    /// the undecided state, and the current high qc.
+    /// and the undecided state.
     async fn update_undecided_state(
         &self,
-        high_qc: QuorumCertificate<TYPES>,
         leafs: CommitmentMap<Leaf<TYPES>>,
         state: BTreeMap<TYPES::Time, View<TYPES>>,
     ) -> Result<()>;
