@@ -11,6 +11,7 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
     traits::{
+        block_contents::BlockHeader,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
@@ -24,6 +25,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, instrument};
 
 use crate::{
+    consensus::CommitmentAndMetadata,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
@@ -65,11 +67,47 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
     async fn handle_dep_result(self, res: Self::Output) {
+        let mut proposal = None;
+        let mut commit_and_metadata = None;
+        let mut timeout_cert = None;
         for event in res {
             match event.as_ref() {
+                HotShotEvent::QuorumProposalValidated(validated_proposal) => {
+                    let proposal_payload_comm =
+                        validated_proposal.block_header.payload_commitment();
+                    proposal = Some(validated_proposal.clone())
+                }
+                HotShotEvent::SendPayloadCommitmentAndMetadata(
+                    payload_commitment,
+                    metadata,
+                    view,
+                ) => {
+                    debug!("Got commit and meta {:?}", payload_commitment);
+                    commit_and_metadata = Some(CommitmentAndMetadata {
+                        commitment: *payload_commitment,
+                        metadata: metadata.clone(),
+                    });
+                }
+                HotShotEvent::Timeout(cert) => {
+                    timeout_cert = Some(cert);
+                }
                 _ => {}
             }
         }
+
+        broadcast_event(
+            Arc::new(HotShotEvent::QuorumProposalValidated(self.view_number)),
+            &self.sender,
+        )
+        .await;
+        broadcast_event(
+            Arc::new(HotShotEvent::QuorumProposalSend(
+                proposal.unwrap(),
+                self.view_number,
+            )),
+            &self.sender,
+        )
+        .await;
     }
 }
 
