@@ -202,6 +202,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+        for leaf in initializer.undecided_leafs {
+            saved_leaves.insert(leaf.commit(), leaf.clone());
+        }
         if let Some(payload) = anchored_leaf.get_block_payload() {
             let encoded_txns: Vec<u8> = match payload.encode() {
                 // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
@@ -641,6 +644,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     high_qc: QuorumCertificate<TYPES>,
+    /// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
+    /// to vote and propose right away if they didn't miss anything while down.
+    undecided_leafs: Vec<Leaf<TYPES>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -656,6 +662,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
             high_qc: QuorumCertificate::genesis(),
+            undecided_leafs: Vec::new(),
         })
     }
 
@@ -672,6 +679,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         validated_state: Option<Arc<TYPES::ValidatedState>>,
         start_view: TYPES::Time,
         high_qc: QuorumCertificate<TYPES>,
+        undecided_leafs: Vec<Leaf<TYPES>>,
     ) -> Self {
         Self {
             inner: anchor_leaf,
@@ -680,6 +688,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             state_delta: None,
             start_view,
             high_qc,
+            undecided_leafs,
         }
     }
 }
