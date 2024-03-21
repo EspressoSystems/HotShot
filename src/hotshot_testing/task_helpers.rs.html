@@ -494,8 +494,6 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -764,9 +762,8 @@
         block_header: block_header.clone(),
         view_number: ViewNumber::new(<span class="number">1</span>),
         justify_qc: QuorumCertificate::genesis(),
-        timeout_certificate: <span class="prelude-val">None</span>,
         upgrade_certificate: <span class="prelude-val">None</span>,
-        view_sync_certificate: <span class="prelude-val">None</span>,
+        proposal_certificate: <span class="prelude-val">None</span>,
         proposer_id: leaf.proposer_id,
     };
 
@@ -824,9 +821,8 @@
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
-            timeout_certificate: <span class="prelude-val">None</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
-            view_sync_certificate: <span class="prelude-val">None</span>,
+            proposal_certificate: <span class="prelude-val">None</span>,
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;

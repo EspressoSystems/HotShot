@@ -208,7 +208,6 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -400,9 +399,8 @@
             vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_task: <span class="prelude-val">None</span>,
-            timeout_cert: <span class="prelude-val">None</span>,
             upgrade_cert: <span class="prelude-val">None</span>,
-            view_sync_cert: <span class="prelude-val">None</span>,
+            proposal_cert: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
             current_network_version: VERSION_0_1,
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),

@@ -474,6 +474,10 @@
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData};
 
 <span class="kw">use </span>hotshot_example_types::{
@@ -491,7 +495,7 @@
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 <span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewNumber},
+    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -566,9 +570,8 @@
             block_header: block_header.clone(),
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(),
-            timeout_certificate: <span class="prelude-val">None</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
-            view_sync_certificate: <span class="prelude-val">None</span>,
+            proposal_certificate: <span class="prelude-val">None</span>,
             proposer_id: public_key,
         };
 
@@ -742,6 +745,12 @@
             <span class="prelude-val">None
         </span>};
 
+        <span class="kw">let </span>proposal_certificate = <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = timeout_certificate {
+            <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(tc))
+        } <span class="kw">else </span>{
+            view_sync_certificate.map(ViewChangeEvidence::ViewSync)
+        };
+
         <span class="kw">let </span>block_header = TestBlockHeader {
             block_number: <span class="kw-2">*</span>next_view,
             timestamp: <span class="kw-2">*</span>next_view,
@@ -768,9 +777,8 @@
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
-            timeout_certificate,
             upgrade_certificate,
-            view_sync_certificate,
+            proposal_certificate,
             proposer_id: public_key,
         };
 

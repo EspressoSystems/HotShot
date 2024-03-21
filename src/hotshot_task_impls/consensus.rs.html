@@ -1439,13 +1439,6 @@
 <a href="#1438" id="1438">1438</a>
 <a href="#1439" id="1439">1439</a>
 <a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
-<a href="#1446" id="1446">1446</a>
-<a href="#1447" id="1447">1447</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1459,16 +1452,13 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::constants::LOOK_AHEAD;
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{
-        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
-    },
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
@@ -1485,6 +1475,7 @@
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
 <span class="kw">use </span>tracing::warn;
 <span class="kw">use </span>versioned_binary_serialization::version::Version;
 
@@ -1564,15 +1555,11 @@
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
 
-    <span class="doccomment">/// last Timeout Certificate this node formed
-    </span><span class="kw">pub </span>timeout_cert: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// last Upgrade Certificate this node formed
     </span><span class="kw">pub </span>upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
-    <span class="comment">// TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
-    </span><span class="doccomment">/// last View Sync Certificate this node formed
-    </span><span class="kw">pub </span>view_sync_cert: <span class="prelude-ty">Option</span>&lt;ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// last View Sync Certificate or Timeout Certificate this node formed.
+    </span><span class="kw">pub </span>proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// most recent decided upgrade certificate
     </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
@@ -1822,8 +1809,6 @@
                     <span class="kw-2">*</span>proposal.data.view_number
                 );
 
-                <span class="macro">debug!</span>(<span class="string">"Received proposal {:?}"</span>, proposal);
-
                 <span class="comment">// stop polling for the received proposal
                 </span><span class="self">self</span>.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
@@ -1845,31 +1830,35 @@
 
                 <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
                 </span><span class="kw">if </span>proposal.data.justify_qc.get_view_number() != view - <span class="number">1 </span>{
-                    <span class="comment">// Do we have a timeout certificate at all?
-                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_cert) = proposal.data.timeout_certificate.clone() {
-                        <span class="kw">if </span>timeout_cert.get_data().view != view - <span class="number">1 </span>{
-                            <span class="macro">warn!</span>(<span class="string">"Timeout certificate for view {} was not for the immediately preceding view"</span>, <span class="kw-2">*</span>view);
-                            <span class="kw">return</span>;
-                        }
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(received_proposal_cert) = proposal.data.proposal_certificate.clone()
+                    {
+                        <span class="kw">match </span>received_proposal_cert {
+                            ViewChangeEvidence::Timeout(timeout_cert) =&gt; {
+                                <span class="kw">if </span>timeout_cert.get_data().view != view - <span class="number">1 </span>{
+                                    <span class="macro">warn!</span>(<span class="string">"Timeout certificate for view {} was not for the immediately preceding view"</span>, <span class="kw-2">*</span>view);
+                                    <span class="kw">return</span>;
+                                }
 
-                        <span class="kw">if </span>!timeout_cert.is_valid_cert(<span class="self">self</span>.timeout_membership.as_ref()) {
-                            <span class="macro">warn!</span>(<span class="string">"Timeout certificate for view {} was invalid"</span>, <span class="kw-2">*</span>view);
-                            <span class="kw">return</span>;
-                        }
-                    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.view_sync_cert {
-                        <span class="comment">// View sync certs _must_ be for the current view.
-                        </span><span class="kw">if </span>cert.view_number != view {
-                            <span class="macro">debug!</span>(
-                                <span class="string">"Cert view number {:?} does not match proposal view number {:?}"</span>,
-                                cert.view_number, view
-                            );
-                            <span class="kw">return</span>;
-                        }
+                                <span class="kw">if </span>!timeout_cert.is_valid_cert(<span class="self">self</span>.timeout_membership.as_ref()) {
+                                    <span class="macro">warn!</span>(<span class="string">"Timeout certificate for view {} was invalid"</span>, <span class="kw-2">*</span>view);
+                                    <span class="kw">return</span>;
+                                }
+                            }
+                            ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; {
+                                <span class="kw">if </span>view_sync_cert.view_number != view {
+                                    <span class="macro">debug!</span>(
+                                        <span class="string">"Cert view number {:?} does not match proposal view number {:?}"</span>,
+                                        view_sync_cert.view_number, view
+                                    );
+                                    <span class="kw">return</span>;
+                                }
 
-                        <span class="comment">// View sync certs must also be valid.
-                        </span><span class="kw">if </span>!cert.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
-                            <span class="macro">debug!</span>(<span class="string">"Invalid ViewSyncFinalize cert provided"</span>);
-                            <span class="kw">return</span>;
+                                <span class="comment">// View sync certs must also be valid.
+                                </span><span class="kw">if </span>!view_sync_cert.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
+                                    <span class="macro">debug!</span>(<span class="string">"Invalid ViewSyncFinalize cert provided"</span>);
+                                    <span class="kw">return</span>;
+                                }
+                            }
                         }
                     } <span class="kw">else </span>{
                         <span class="macro">warn!</span>(
@@ -1877,9 +1866,7 @@
                             <span class="kw-2">*</span>view);
                         <span class="kw">return</span>;
                     };
-
-                    <span class="comment">// If we have a ViewSyncFinalize cert, only vote if it is valid.
-                </span>}
+                }
 
                 <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
@@ -2031,7 +2018,7 @@
                                 <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
                                 <span class="kw-2">*</span>new_view
                             );
-                            <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
+                            <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="kw-2">&amp;</span>event_stream)
                                 .<span class="kw">await</span>;
                         }
                         <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
@@ -2300,7 +2287,7 @@
                         <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
                         <span class="kw-2">*</span>new_view
                     );
-                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
+                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await</span>;
                 }
 
@@ -2406,7 +2393,7 @@
                 <span class="macro">debug!</span>(<span class="string">"QC Formed event happened!"</span>);
 
                 <span class="kw">if let </span>either::Right(qc) = cert.clone() {
-                    <span class="self">self</span>.timeout_cert = <span class="prelude-val">Some</span>(qc.clone());
+                    <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(qc.clone()));
                     <span class="comment">// cancel poll for votes
                     </span><span class="self">self</span>.quorum_network
                         .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -2421,11 +2408,7 @@
 
                     <span class="kw">let </span>view = qc.view_number + <span class="number">1</span>;
 
-                    <span class="kw">if </span><span class="self">self
-                        </span>.publish_proposal_if_able(view, <span class="prelude-val">Some</span>(qc.clone()), <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await
-                    </span>{
-                    } <span class="kw">else </span>{
+                    <span class="kw">if </span>!<span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                         <span class="macro">warn!</span>(<span class="string">"Wasn't able to publish proposal"</span>);
                     }
                 }
@@ -2447,7 +2430,7 @@
                     );
 
                     <span class="kw">if </span>!<span class="self">self
-                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
+                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await
                     </span>{
                         <span class="macro">debug!</span>(
@@ -2654,25 +2637,25 @@
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
                 {
-                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
+                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 }
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = <span class="self">self</span>.timeout_cert.as_ref() {
-                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
-                        == <span class="self">self</span>.public_key
-                    {
-                        <span class="self">self</span>.publish_proposal_if_able(
-                            view,
-                            <span class="self">self</span>.timeout_cert.clone(),
-                            <span class="kw-2">&amp;</span>event_stream,
-                        )
-                        .<span class="kw">await</span>;
-                    }
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(vsc) = <span class="self">self</span>.view_sync_cert.as_ref() {
-                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(vsc.get_view_number()) == <span class="self">self</span>.public_key {
-                        <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
-                            .<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.proposal_cert {
+                    <span class="kw">match </span>cert {
+                        ViewChangeEvidence::Timeout(tc) =&gt; {
+                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
+                                == <span class="self">self</span>.public_key
+                            {
+                                <span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                            }
+                        }
+                        ViewChangeEvidence::ViewSync(vsc) =&gt; {
+                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(vsc.get_view_number())
+                                == <span class="self">self</span>.public_key
+                            {
+                                <span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                            }
+                        }
                     }
                 }
             }
@@ -2685,7 +2668,7 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="self">self</span>.view_sync_cert = <span class="prelude-val">Some</span>(certificate.clone());
+                <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                 <span class="comment">// cancel poll for votes
                 </span><span class="self">self</span>.quorum_network
@@ -2701,8 +2684,7 @@
                         <span class="string">"Attempting to publish proposal after forming a View Sync Finalized Cert for view {}"</span>,
                         <span class="kw-2">*</span>certificate.view_number
                     );
-                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
+                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 }
             }
             <span class="kw">_ </span>=&gt; {}
@@ -2714,7 +2696,6 @@
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
-        timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
@@ -2821,19 +2802,24 @@
                 </span><span class="prelude-val">None
             </span>};
 
+            <span class="comment">// We only want to proposal to be attached if any of them are valid.
+            </span><span class="kw">let </span>proposal_certificate = <span class="self">self
+                </span>.proposal_cert
+                .as_ref()
+                .filter(|cert| cert.is_valid_for_view(<span class="kw-2">&amp;</span>view))
+                .cloned();
+
             <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             </span><span class="kw">let </span>proposal = QuorumProposal {
                 block_header,
                 view_number: leaf.view_number,
                 justify_qc: consensus.high_qc.clone(),
-                timeout_certificate: timeout_certificate.or_else(|| <span class="prelude-val">None</span>),
+                proposal_certificate,
                 upgrade_certificate: upgrade_cert,
-                view_sync_certificate: <span class="self">self</span>.view_sync_cert.clone(),
                 proposer_id: leaf.proposer_id,
             };
 
-            <span class="self">self</span>.timeout_cert = <span class="prelude-val">None</span>;
-            <span class="self">self</span>.view_sync_cert = <span class="prelude-val">None</span>;
+            <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;
             <span class="kw">let </span>message = Proposal {
                 data: proposal,
                 signature,

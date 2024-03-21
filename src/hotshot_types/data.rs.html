@@ -587,6 +587,25 @@
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -762,6 +781,26 @@
     }
 }
 
+<span class="doccomment">/// Helper type to encapsulate the various ways that proposal certificates can be captured and
+/// stored.
+</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = <span class="string">""</span>))]
+</span><span class="kw">pub enum </span>ViewChangeEvidence&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Holds a timeout certificate.
+    </span>Timeout(TimeoutCertificate&lt;TYPES&gt;),
+    <span class="doccomment">/// Holds a view sync finalized certificate.
+    </span>ViewSync(ViewSyncFinalizeCertificate2&lt;TYPES&gt;),
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewChangeEvidence&lt;TYPES&gt; {
+    <span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.get_data().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
+            ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; view_sync_cert.view_number == <span class="kw-2">*</span>view,
+        }
+    }
+}
+
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>VidDisperseShare&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
@@ -871,15 +910,14 @@
     <span class="doccomment">/// Per spec, justification
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES&gt;,
 
-    <span class="doccomment">/// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
-    </span><span class="kw">pub </span>timeout_certificate: <span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// Possible upgrade certificate, which the leader may optionally attach.
     </span><span class="kw">pub </span>upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// Possible view sync certificate. Only present if the justify_qc and timeout_cert are not
+    <span class="doccomment">/// Possible timeout or view sync certificate.
+    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
+    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
     /// present.
-    </span><span class="kw">pub </span>view_sync_certificate: <span class="prelude-ty">Option</span>&lt;ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>proposal_certificate: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: TYPES::SignatureKey,
