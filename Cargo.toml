@@ -70,8 +70,9 @@ lazy_static = "1.4.0"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5.26", default-features = false }
 libp2p-swarm-derive = { version = "0.34.1" }
+lru = "0.12.2"
 portpicker = "0.1.1"
-rand = "0.8.5"
+rand = { version = "0.8.5", features = ["small_rng"] }
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_bytes = { version = "0.11" }
@@ -183,6 +184,7 @@ pedantic = "warn"
 missing_docs_in_private_items = "warn"
 panic = "warn"
 # allows
+doc_markdown = "allow"
 module_name_repetitions = "allow"
 
 [workspace.lints.rust]
