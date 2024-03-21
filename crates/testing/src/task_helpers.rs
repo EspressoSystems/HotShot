@@ -45,6 +45,7 @@ use hotshot_types::vote::Vote;
 
 use jf_primitives::vid::VidScheme;
 
+use hotshot_types::data::VidDisperseShare;
 use serde::Serialize;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
 
@@ -265,9 +266,8 @@ async fn build_quorum_proposal_and_signature(
         block_header: block_header.clone(),
         view_number: ViewNumber::new(1),
         justify_qc: QuorumCertificate::genesis(),
-        timeout_certificate: None,
         upgrade_certificate: None,
-        view_sync_certificate: None,
+        proposal_certificate: None,
         proposer_id: leaf.proposer_id,
     };
 
@@ -325,9 +325,8 @@ async fn build_quorum_proposal_and_signature(
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
-            timeout_certificate: None,
             upgrade_certificate: None,
-            view_sync_certificate: None,
+            proposal_certificate: None,
             proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
@@ -397,32 +396,26 @@ pub fn da_payload_commitment(
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
+/// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 pub fn build_vid_proposal(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
+) -> Proposal<TestTypes, VidDisperseShare<TestTypes>> {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
-    let payload_commitment = vid_disperse.commit;
-
-    let vid_signature =
-        <TestTypes as NodeType>::SignatureKey::sign(private_key, payload_commitment.as_ref())
-            .expect("Failed to sign payload commitment");
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(&encoded_transactions).unwrap(),
+        vid.disperse(encoded_transactions).unwrap(),
         &quorum_membership.clone().into(),
     );
 
-    Proposal {
-        data: vid_disperse.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    }
+    VidDisperseShare::from_vid_disperse(vid_disperse)
+        .swap_remove(0)
+        .to_proposal(private_key)
+        .expect("Failed to sign payload commitment")
 }
 
 pub fn build_da_certificate(
