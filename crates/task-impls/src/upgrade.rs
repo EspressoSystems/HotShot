@@ -75,10 +75,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 error!("Received upgrade proposal!");
                 let should_vote = self.should_vote;
                 // If the proposal does not match our upgrade target, we immediately exit.
-//                if !should_vote(proposal.data.upgrade_proposal.clone()) {
-//                    error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
-//                    return None;
-//                }
+                //                if !should_vote(proposal.data.upgrade_proposal.clone()) {
+                //                    error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
+                //                    return None;
+                //                }
 
                 // If we have an upgrade target, we validate that the proposal is relevant for the current view.
 
@@ -143,14 +143,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 error!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
                 // Check if we are the leader.
                 let view = vote.get_view_number();
-//                if self.quorum_membership.get_leader(view) != self.public_key {
-//                    error!(
-//                        "We are not the leader for view {} are we leader for next view? {}",
-//                        *view,
-//                        self.quorum_membership.get_leader(view + 1) == self.public_key
-//                    );
-//                    return None;
-//                }
+                //                if self.quorum_membership.get_leader(view) != self.public_key {
+                //                    error!(
+                //                        "We are not the leader for view {} are we leader for next view? {}",
+                //                        *view,
+                //                        self.quorum_membership.get_leader(view + 1) == self.public_key
+                //                    );
+                //                    return None;
+                //                }
                 let mut collector = self.vote_collector.write().await;
 
                 if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view
@@ -198,9 +198,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     use commit::Committable;
                     use std::marker::PhantomData;
 
-                    use hotshot_types::{
-                        constants::Version, data::UpgradeProposal, message::Proposal,
-                    };
+                    use hotshot_types::{data::UpgradeProposal, message::Proposal};
+                    use versioned_binary_serialization::version::Version;
 
                     if *view == 5 && self.quorum_membership.get_leader(view + 5) == self.public_key
                     {

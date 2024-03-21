@@ -474,6 +474,7 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVer
                                         view_number,
                                         message_purpose,
                                         &mut vote_index,
+                                        &mut upgrade_vote_index,
                                         &mut seen_proposals,
                                         &mut seen_view_sync_certificates,
                                     )

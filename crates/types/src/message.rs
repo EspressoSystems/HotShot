@@ -24,7 +24,6 @@ use crate::{
     },
 };
 use derivative::Derivative;
-use either::Either::{self, Left, Right};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -272,6 +271,8 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                 }
             }
+            #[cfg(feature = "arbitrary-messages")]
+            SequencingMessage::Arbitrary(message) => message.view_number,
         }
     }
 

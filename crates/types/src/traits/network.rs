@@ -74,6 +74,9 @@ pub enum WebServerNetworkError {
     EndpointError,
     /// Client disconnected
     ClientDisconnected,
+#[cfg(feature = "arbitrary-messages")]
+    /// Attempted to post a raw message to the webserver
+    ArbitraryMessageError,
 }
 
 /// the type of transmission

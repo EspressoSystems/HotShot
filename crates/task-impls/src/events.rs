@@ -2,8 +2,8 @@ use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
 use hotshot_types::data::VidDisperseShare;
+use versioned_binary_serialization::version::Version;
 use hotshot_types::{
-    constants::Version,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
     simple_certificate::{

@@ -270,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             }
             _ => return,
         };
-        broadcast_event(event, &self.sender).await;
+        broadcast_event(Arc::new(event), &self.sender).await;
     }
 }
 
