@@ -229,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
-            high_qc: anchored_leaf.get_justify_qc(),
+            high_qc: initializer.high_qc,
             metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
@@ -637,6 +637,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
     start_view: TYPES::Time,
+    /// Highest QC that was seen, for genesis it's the genesis QC.  It shoudl be for a view greater
+    /// than `inner`s view number for the non genesis case.
+    high_qc: QuorumCertificate<TYPES>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -651,6 +654,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
+            high_qc: QuorumCertificate::genesis(),
         })
     }
 
@@ -666,6 +670,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         instance_state: TYPES::InstanceState,
         validated_state: Option<Arc<TYPES::ValidatedState>>,
         start_view: TYPES::Time,
+        high_qc: QuorumCertificate<TYPES>,
     ) -> Self {
         Self {
             inner: anchor_leaf,
@@ -673,6 +678,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state,
             state_delta: None,
             start_view,
+            high_qc,
         }
     }
 }
