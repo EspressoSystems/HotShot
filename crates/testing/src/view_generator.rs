@@ -15,7 +15,7 @@ use commit::Committable;
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 use hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence, ViewNumber},
+    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
