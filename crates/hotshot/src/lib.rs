@@ -637,8 +637,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
     start_view: TYPES::Time,
-    /// Highest QC that was seen, for genesis it's the genesis QC.  It shoudl be for a view greater
-    /// than `inner`s view number for the non genesis case.
+    /// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
+    /// than `inner`s view number for the non genesis case because we must have seen higher QCs
+    /// to decide on the leaf.
     high_qc: QuorumCertificate<TYPES>,
 }
 
