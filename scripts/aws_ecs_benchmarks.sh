@@ -28,7 +28,7 @@ do
         then
             for transactions_per_round in 1 10 50 100
             do
-                for transaction_size in 1000000 20000000
+                for transaction_size in 512 4096 #1000000 20000000
                 do
                     rounds=100
                     # start webserver
