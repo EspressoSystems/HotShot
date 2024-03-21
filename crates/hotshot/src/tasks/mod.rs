@@ -10,20 +10,24 @@ use crate::types::SystemContextHandle;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 
+use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
+    request::NetworkRequestState,
+    response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
+    constants::Version01,
     message::Message,
-    traits::{election::Membership, network::ConnectedNetwork},
+    traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
 };
 use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
@@ -45,6 +49,34 @@ pub enum GlobalEvent {
     Dummy,
 }
 
+/// Add tasks for network requests and responses
+pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let state = NetworkRequestState::<TYPES, I, Version01>::create_from(handle).await;
+
+    let task = Task::new(tx, rx, task_reg.clone(), state);
+    task_reg.run_task(task).await;
+}
+
+/// Add a task which responds to requests on the network.
+pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    hs_rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    rx: RequestReceiver<TYPES>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let state = NetworkResponseState::new(
+        handle.hotshot.get_consensus(),
+        rx,
+        handle.hotshot.memberships.quorum_membership.clone(),
+        handle.public_key().clone(),
+    );
+    task_reg.register(run_response_task(state, hs_rx)).await;
+}
 /// Add the network task to handle messages and publish events.
 pub async fn add_network_message_task<
     TYPES: NodeType,
@@ -59,9 +91,6 @@ pub async fn add_network_message_task<
         event_stream: event_stream.clone(),
     };
 
-    // TODO we don't need two async tasks for this, we should combine the
-    // by getting rid of `TransmitType`
-    // https://github.com/EspressoSystems/HotShot/issues/2377
     let network = net.clone();
     let mut state = network_state.clone();
     let handle = async_spawn(async move {
@@ -89,6 +118,7 @@ pub async fn add_network_message_task<
 pub async fn add_network_event_task<
     TYPES: NodeType,
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    S: Storage<TYPES> + 'static,
 >(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -96,14 +126,16 @@ pub async fn add_network_event_task<
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
+    storage: Arc<RwLock<S>>,
 ) {
-    let network_state: NetworkEventTaskState<_, _> = NetworkEventTaskState {
+    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         version: VERSION_0_1,
         decided_upgrade: None,
         membership,
         filter,
+        storage,
     };
     let task = Task::new(tx, rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;

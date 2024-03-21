@@ -1,17 +1,15 @@
 [package]
-authors = ["Espresso Systems <hello@espressosys.com>"]
+authors = { workspace = true }
 description = "HotShot Examples and binaries"
-edition = "2021"
+edition = { workspace = true }
 name = "hotshot-examples"
 readme = "README.md"
-version = "0.3.3"
+version = { workspace = true }
 rust-version = "1.65.0"
 
 [features]
 default = ["docs", "doc-images"]
-gpu-vid = [
-    "hotshot-task-impls/gpu-vid",
-]
+gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 # Features required for binaries
 bin-orchestrator = ["clap"]
@@ -90,25 +88,30 @@ path = "push-cdn/all.rs"
 name = "validator-push-cdn"
 path = "push-cdn/validator.rs"
 
+[[example]]
+name = "broker-push-cdn"
+path = "push-cdn/broker.rs"
+
+[[example]]
+name = "marshal-push-cdn"
+path = "push-cdn/marshal.rs"
+
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bimap = "0.6.3"
-bincode = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"], optional = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
 dashmap = "5.5.1"
 either = { workspace = true }
-embed-doc-image = "0.1.4"
 futures = { workspace = true }
-hotshot-web-server = { version = "0.1.1", path = "../web_server", default-features = false }
-hotshot-orchestrator = { version = "0.1.1", path = "../orchestrator", default-features = false }
-hotshot-types = { workspace = true }
-hotshot-utils = { path = "../utils" }
-hotshot-task-impls = { path = "../task-impls", version = "0.1.0", default-features = false }
+hotshot-web-server = { version = "0.5.26", path = "../web_server", default-features = false }
+hotshot-orchestrator = { version = "0.5.26", path = "../orchestrator", default-features = false }
+hotshot-types = { path = "../types" }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.26", default-features = false }
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }
 rand = { workspace = true }
@@ -123,19 +126,30 @@ hotshot-task = { path = "../task" }
 hotshot = { path = "../hotshot" }
 hotshot-example-types = { path = "../example-types" }
 chrono = "0.4"
+versioned-binary-serialization = { workspace = true }
 
 tracing = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-tokio"] }
-cdn-broker = { workspace = true, features = ["insecure", "runtime-tokio", "strong_consistency", "local_discovery"] }
+cdn-broker = { workspace = true, features = [
+  "insecure",
+  "runtime-tokio",
+  "strong_consistency",
+  "local_discovery",
+] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-async-std"] }
-cdn-broker = { workspace = true, features = ["insecure", "runtime-async-std", "strong_consistency", "local_discovery"] }
+cdn-broker = { workspace = true, features = [
+  "insecure",
+  "runtime-async-std",
+  "strong_consistency",
+  "local_discovery",
+] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 
 [dev-dependencies]
@@ -143,6 +157,8 @@ clap = { version = "4.5", features = ["derive", "env"] }
 toml = { workspace = true }
 blake3 = { workspace = true }
 local-ip-address = "0.6.1"
+anyhow.workspace = true
+tracing-subscriber = "0.3.18"
 
 [lints]
 workspace = true

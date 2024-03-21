@@ -1,15 +1,16 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use bincode::Options;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
-use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     consensus::Consensus,
-    data::VidDisperse,
+    data::VidDisperseShare,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
     },
@@ -19,9 +20,11 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    utils::bincode_opts,
 };
-use hotshot_utils::bincode::bincode_opts;
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 use crate::events::HotShotEvent;
 
@@ -29,27 +32,27 @@ use crate::events::HotShotEvent;
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
 /// Type alias for the channel that we receive requests from the network on.
-type ReqestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
+pub type RequestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
 
 /// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
 /// parse the request, and try to find the data request in the consensus stores.
-pub struct NetworkRequestState<TYPES: NodeType> {
+pub struct NetworkResponseState<TYPES: NodeType> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
     /// Receiver for requests
-    receiver: ReqestReceiver<TYPES>,
+    receiver: RequestReceiver<TYPES>,
     /// Quorum membership for checking if requesters have state
     quorum: TYPES::Membership,
     /// This replicas public key
     pub_key: TYPES::SignatureKey,
 }
 
-impl<TYPES: NodeType> NetworkRequestState<TYPES> {
+impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
-        receiver: ReqestReceiver<TYPES>,
+        receiver: RequestReceiver<TYPES>,
         quorum: TYPES::Membership,
         pub_key: TYPES::SignatureKey,
     ) -> Self {
@@ -63,7 +66,7 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
 
     /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    async fn run_loop(mut self, shutdown: EventDependency<HotShotEvent<TYPES>>) {
+    async fn run_loop(mut self, shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         loop {
             futures::select! {
@@ -112,10 +115,10 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
         match req.request {
             RequestKind::VID(view, pub_key) => {
                 let state = self.consensus.read().await;
-                let Some(shares) = state.vid_shares.get(&view) else {
+                let Some(proposals_map) = state.vid_shares.get(&view) else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
-                self.handle_vid(shares.clone(), pub_key)
+                self.handle_vid(proposals_map, &pub_key)
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
             RequestKind::DAProposal(_view) => self.make_msg(ResponseMessage::NotFound),
@@ -126,10 +129,10 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     /// build the response and return it
     fn handle_vid(
         &self,
-        mut vid: Proposal<TYPES, VidDisperse<TYPES>>,
-        key: TYPES::SignatureKey,
+        proposals_map: &HashMap<TYPES::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+        key: &TYPES::SignatureKey,
     ) -> Message<TYPES> {
-        let Some(share) = vid.data.shares.get(&key) else {
+        if !proposals_map.contains_key(key) {
             return self.make_msg(ResponseMessage::NotFound);
         };
         vid.data.shares = BTreeMap::from([(key, share.clone())]);
@@ -141,7 +144,6 @@ impl<TYPES: NodeType> NetworkRequestState<TYPES> {
     /// in the surrounding feilds and creating the `MessageKind`
     fn make_msg(&self, msg: ResponseMessage<TYPES>) -> Message<TYPES> {
         Message {
-            version: VERSION_0_1,
             sender: self.pub_key.clone(),
             kind: MessageKind::Data(DataMessage::DataResponse(msg)),
         }
@@ -163,16 +165,16 @@ fn valid_signature<TYPES: NodeType>(
     sender.validate(&req.signature, &Sha256::digest(data))
 }
 
-/// Spawn the network request task to handle incoming request for data
+/// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-pub fn run_request_task<TYPES: NodeType>(
-    task_state: NetworkRequestState<TYPES>,
-    event_stream: Receiver<HotShotEvent<TYPES>>,
-) {
+pub fn run_response_task<TYPES: NodeType>(
+    task_state: NetworkResponseState<TYPES>,
+    event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
+) -> JoinHandle<()> {
     let dep = EventDependency::new(
         event_stream,
-        Box::new(|e| matches!(e, HotShotEvent::Shutdown)),
+        Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
     );
-    async_spawn(task_state.run_loop(dep));
+    async_spawn(task_state.run_loop(dep))
 }

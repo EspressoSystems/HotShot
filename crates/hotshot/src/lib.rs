@@ -29,7 +29,7 @@ use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, VERSION_0_1};
+use hotshot_types::constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
@@ -56,7 +56,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tasks::add_vid_task;
+use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 
 // -- Rexports
@@ -310,17 +310,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
                 // (and not hang instead)
-                //
+
+                // version <0, 1> currently fixed; this is the same as VERSION_0_1,
+                // and will be updated to be part of SystemContext. I wanted to use associated
+                // constants in NodeType, but that seems to be unavailable in the current Rust.
                 api
                     .networks
                     .da_network
                     .broadcast_message(
                         Message {
-                            version: VERSION_0_1,
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
                         da_membership.get_whole_committee(view_number),
+                        STATIC_VER_0_1,
                     ),
                 api
                     .send_external_event(Event {
@@ -472,6 +475,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;
         add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).await;
 
+        if let Some(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await {
+            add_response_task(
+                registry.clone(),
+                event_rx.activate_cloned(),
+                request_rx,
+                &handle,
+            )
+            .await;
+        }
+        add_request_network_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
@@ -479,6 +499,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             quorum_network.clone(),
             quorum_membership.clone(),
             network::quorum_filter,
+            handle.get_storage().clone(),
         )
         .await;
         add_network_event_task(
@@ -497,6 +518,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             da_network.clone(),
             da_membership,
             network::committee_filter,
+            handle.get_storage().clone(),
         )
         .await;
         add_network_event_task(
@@ -506,6 +528,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             quorum_network.clone(),
             view_sync_membership,
             network::view_sync_filter,
+            handle.get_storage().clone(),
         )
         .await;
         add_network_event_task(
@@ -515,6 +538,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             quorum_network.clone(),
             vid_membership,
             network::vid_filter,
+            handle.get_storage().clone(),
         )
         .await;
         add_consensus_task(

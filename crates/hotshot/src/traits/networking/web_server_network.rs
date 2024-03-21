@@ -12,31 +12,27 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use derive_more::{Deref, DerefMut};
-use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     boxed_sync,
+    constants::{Version01, VERSION_0_1},
     message::{Message, MessagePurpose},
     traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, WebServerNetworkError,
+            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg, NetworkReliability,
+            TestableNetworkingImplementation, ViewMessage, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
 };
-use hotshot_utils::version::read_version;
 use hotshot_web_server::{self, config};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
-use surf_disco::Url;
-
-use hotshot_types::traits::network::{NetworkReliability, ViewMessage};
-use std::collections::BTreeMap;
 use std::{
     collections::{btree_map::Entry, BTreeSet},
     sync::{
@@ -46,7 +42,12 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
+use surf_disco::Url;
 use tracing::{debug, error, info, warn};
+use versioned_binary_serialization::{
+    version::{StaticVersionType, Version},
+    BinarySerializer, Serializer,
+};
 
 /// convenience alias alias for the result of getting transactions from the web server
 pub type TxnResult = Result<Option<(u64, Vec<Vec<u8>>)>, ClientError>;
@@ -62,19 +63,21 @@ fn hash<T: Hash>(t: &T) -> u64 {
 
 /// The web server network state
 #[derive(Clone, Debug)]
-pub struct WebServerNetwork<TYPES: NodeType> {
+pub struct WebServerNetwork<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// The inner, core state of the web server network
-    inner: Arc<Inner<TYPES>>,
+    inner: Arc<Inner<TYPES, NetworkVersion>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeType> WebServerNetwork<TYPES> {
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> WebServerNetwork<TYPES, NetworkVersion> {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(
         &self,
         message: SendMsg<Message<TYPES>>,
     ) -> Result<(), NetworkError> {
+        // Note: it should be possible to get the version of Message and choose client_initial or (if available)
+        // client_new_ver based on Message. But we do always know
         let result: Result<(), ClientError> = self
             .inner
             .client
@@ -84,9 +87,12 @@ impl<TYPES: NodeType> WebServerNetwork<TYPES> {
             .send()
             .await;
         // error!("POST message error for endpoint {} is {:?}", &message.get_endpoint(), result.clone());
-        result.map_err(|_e| { error!("{}", &message.get_endpoint()); NetworkError::WebServer {
-            source: WebServerNetworkError::ClientError,
-        }})
+        result.map_err(|_e| {
+            error!("{}", &message.get_endpoint());
+            NetworkError::WebServer {
+                source: WebServerNetworkError::ClientError,
+            }
+        })
     }
 }
 
@@ -166,7 +172,7 @@ impl<K: SignatureKey> TaskMap<K> {
 
 /// Represents the core of web server networking
 #[derive(Debug)]
-struct Inner<TYPES: NodeType> {
+struct Inner<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// Our own key
     _own_key: TYPES::SignatureKey,
     /// Queue for messages
@@ -175,8 +181,8 @@ struct Inner<TYPES: NodeType> {
     running: AtomicBool,
     /// The web server connection is ready
     connected: AtomicBool,
-    /// The connectioni to the web server
-    client: surf_disco::Client<ClientError>,
+    /// The connection to the web server
+    client: surf_disco::Client<ClientError, NetworkVersion>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
     /// Whether we are connecting to a DA server
@@ -209,7 +215,7 @@ struct Inner<TYPES: NodeType> {
     latest_view_sync_certificate_task: Arc<RwLock<Option<TaskChannel<TYPES::SignatureKey>>>>,
 }
 
-impl<TYPES: NodeType> Inner<TYPES> {
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVersion> {
     #![allow(clippy::too_many_lines)]
 
     /// Handle version 0.1 transactions
@@ -229,7 +235,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
 
         *tx_index += 1;
 
-        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&tx) {
+        if let Ok(Some(deserialized_message_inner)) =
+            Serializer::<Version01>::deserialize::<Option<Message<TYPES>>>(&tx)
+        {
             let deserialized_message = RecvMsg {
                 message: Some(deserialized_message_inner),
             };
@@ -258,110 +266,112 @@ impl<TYPES: NodeType> Inner<TYPES> {
         seen_view_sync_certificates: &mut LruCache<u64, ()>,
     ) -> bool {
         let poll_queue = &self.poll_queue_0_1;
-        if let Ok(deserialized_message_inner) = bincode::deserialize::<Message<TYPES>>(&message) {
-            let deserialized_message = RecvMsg {
-                message: Some(deserialized_message_inner),
-            };
-            match message_purpose {
-                MessagePurpose::Data => {
-                    error!("We should not receive transactions in this function");
-                }
-                MessagePurpose::Proposal => {
-                    let proposal = deserialized_message.clone();
-                    poll_queue.write().await.push(proposal);
-
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-                MessagePurpose::LatestProposal => {
-                    let proposal = deserialized_message.clone();
-                    let hash = hash(&proposal);
-                    // Only allow unseen proposals to be pushed to the queue
-                    if seen_proposals.put(hash, ()).is_none() {
+        match Serializer::<Version01>::deserialize::<Option<Message<TYPES>>>(&message) {
+            Ok(Some(deserialized_message_inner)) => {
+                let deserialized_message = RecvMsg {
+                    message: Some(deserialized_message_inner),
+                };
+                match message_purpose {
+                    MessagePurpose::Data => {
+                        error!("We should not receive transactions in this function");
+                    }
+                    MessagePurpose::Proposal => {
+                        let proposal = deserialized_message.clone();
                         poll_queue.write().await.push(proposal);
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
+                    }
+                    MessagePurpose::LatestProposal => {
+                        let proposal = deserialized_message.clone();
+                        let hash = hash(&proposal);
+                        // Only allow unseen proposals to be pushed to the queue
+                        if seen_proposals.put(hash, ()).is_none() {
+                            poll_queue.write().await.push(proposal);
+                        }
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
+                    }
+                    MessagePurpose::LatestViewSyncCertificate => {
+                        let cert = deserialized_message.clone();
+                        let hash = hash(&cert);
+                        if seen_view_sync_certificates.put(hash, ()).is_none() {
+                            poll_queue.write().await.push(cert);
+                        }
+                        return false;
+                    }
+                    MessagePurpose::Vote
+                    | MessagePurpose::ViewSyncVote
+                    | MessagePurpose::ViewSyncCertificate => {
+                        let vote = deserialized_message.clone();
+                        *vote_index += 1;
+                        poll_queue.write().await.push(vote);
+
+                        return false;
+                    }
+                    MessagePurpose::UpgradeVote => {
+                        let vote = deserialized_message.clone();
+                        *upgrade_vote_index += 1;
+                        poll_queue.write().await.push(vote);
+
+                        return false;
+                    }
+                    MessagePurpose::DAC => {
+                        debug!(
+                            "Received DAC from web server for view {} {}",
+                            view_number, self.is_da
+                        );
+                        poll_queue.write().await.push(deserialized_message.clone());
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        // return if we found a DAC, since there will only be 1 per view
+                        // In future we should check to make sure DAC is valid
+                        return true;
+                    }
+                    MessagePurpose::VidDisperse => {
+                        // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
+
+                        self.poll_queue_0_1
+                            .write()
+                            .await
+                            .push(deserialized_message.clone());
+
+                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                        return true;
                     }
 
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-                MessagePurpose::LatestViewSyncCertificate => {
-                    let cert = deserialized_message.clone();
-                    let hash = hash(&cert);
-                    if seen_view_sync_certificates.put(hash, ()).is_none() {
-                        poll_queue.write().await.push(cert);
+                    MessagePurpose::Internal => {
+                        error!("Received internal message in web server network");
+
+                        return false;
                     }
-                    return false;
-                }
-                MessagePurpose::Vote
-                | MessagePurpose::ViewSyncVote
-                | MessagePurpose::ViewSyncCertificate => {
-                    let vote = deserialized_message.clone();
-                    *vote_index += 1;
-                    poll_queue.write().await.push(vote);
 
-                    return false;
-                }
-                MessagePurpose::UpgradeVote => {
-                    let vote = deserialized_message.clone();
-                    *upgrade_vote_index += 1;
-                    poll_queue.write().await.push(vote);
+                    MessagePurpose::UpgradeProposal => {
+                        poll_queue.write().await.push(deserialized_message.clone());
 
-                    return false;
-                }
-                MessagePurpose::DAC => {
-                    debug!(
-                        "Received DAC from web server for view {} {}",
-                        view_number, self.is_da
-                    );
-                    poll_queue.write().await.push(deserialized_message.clone());
+                        return true;
+                    }
+                    MessagePurpose::UpgradeVote => {
+                        poll_queue.write().await.push(deserialized_message.clone());
 
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    // return if we found a DAC, since there will only be 1 per view
-                    // In future we should check to make sure DAC is valid
-                    return true;
-                }
-                MessagePurpose::VidDisperse => {
-                    // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
-                    self.poll_queue_0_1
-                        .write()
-                        .await
-                        .push(deserialized_message.clone());
-
-                    // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                    return true;
-                }
-
-                MessagePurpose::Internal => {
-                    error!("Received internal message in web server network");
-
-                    return false;
-                }
-
-                MessagePurpose::UpgradeProposal => {
-                    poll_queue.write().await.push(deserialized_message.clone());
-
-                    return true;
-                }
-                MessagePurpose::UpgradeVote => {
-                    poll_queue.write().await.push(deserialized_message.clone());
-
-                    return true;
-                }
-                #[cfg(feature = "example-upgrade")]
-                MessagePurpose::Arbitrary => {
-                    tracing::error!(
+                        return true;
+                    }
+                    #[cfg(feature = "example-upgrade")]
+                    MessagePurpose::Arbitrary => {
+                        tracing::error!(
                         "Received a raw message at network version major: 0, minor: 1 -- ignoring."
                     );
-                    return false;
+                        return false;
+                    }
                 }
             }
+            Ok(None) | Err(_) => {}
         }
-
         false
     }
 
-    /// Pull a web server.
+    /// Poll a web server.
     async fn poll_web_server(
         &self,
         receiver: UnboundedReceiver<ConsensusIntentEvent<TYPES::SignatureKey>>,
@@ -401,7 +411,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
                 MessagePurpose::DAC => config::get_da_certificate_route(view_number),
                 MessagePurpose::VidDisperse => config::get_vid_disperse_route(view_number), // like `Proposal`
                 MessagePurpose::UpgradeProposal => config::get_upgrade_proposal_route(0),
-                MessagePurpose::UpgradeVote => config::get_upgrade_vote_route(0, upgrade_vote_index),
+                MessagePurpose::UpgradeVote => {
+                    config::get_upgrade_vote_route(0, upgrade_vote_index)
+                }
                 #[cfg(feature = "example-upgrade")]
                 MessagePurpose::Arbitrary => {
                     tracing::error!(
@@ -412,54 +424,32 @@ impl<TYPES: NodeType> Inner<TYPES> {
             };
 
             if let MessagePurpose::Data = message_purpose {
+                // Note: this should also be polling on client_
                 let possible_message: TxnResult = self.client.get(&endpoint).send().await;
                 // Deserialize and process transactions from the server.
                 // If something goes wrong at any point, we sleep for wait_between_polls
                 // then try again next time.
                 if let Ok(Some((first_tx_index, txs))) = possible_message {
                     for tx_raw in txs {
-                        // This is very hacky.
-                        //
-                        // Fundamentally, tx_raw is a serialized Option(Message<TYPES>).
-                        // The problem is, we want to extract the serialized Message<TYPES>
-                        // *without* deserializing the entire tx_raw
-                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
-                        // which we have not yet read at this point).
-                        //
-                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
-                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
-                        //
-                        // It would be nice to do this with serde primitives, but I'm not sure how.
+                        let tx_version = Version::deserialize(&tx_raw);
 
-                        match tx_raw.first() {
-                            Some(0) => {
-                                continue;
+                        match tx_version {
+                            Ok((VERSION_0_1, _)) => {
+                                self.handle_tx_0_1(tx_raw, first_tx_index, &mut tx_index)
+                                    .await;
                             }
-                            Some(1) => {
-                                let tx = tx_raw[1..].to_vec();
-                                let tx_version = read_version(&tx);
-
-                                match tx_version {
-                                    Some(VERSION_0_1) => {
-                                        self.handle_tx_0_1(tx, first_tx_index, &mut tx_index).await;
-                                    }
-                                    Some(version) => {
-                                        warn!(
-                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                      version,
-                                      tx
-                                  );
-                                    }
-                                    _ => {
-                                        warn!(
-                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
-                                      tx
-                                  );
-                                    }
-                                }
+                            Ok((version, _)) => {
+                                warn!(
+                                    "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                    version,
+                                    tx_raw
+                                );
                             }
-                            _ => {
-                                warn!("Could not deserialize transaction: {:?}", tx_raw);
+                            Err(e) => {
+                                warn!(
+                                    "Error {:?}, could not read version number.\n\nPayload:\n\n{:?}",
+                                    e, tx_raw
+                                );
                             }
                         }
                     }
@@ -469,66 +459,36 @@ impl<TYPES: NodeType> Inner<TYPES> {
             } else {
                 let possible_message: Result<Option<Vec<Vec<u8>>>, ClientError> =
                     self.client.get(&endpoint).send().await;
+
                 if let Ok(Some(messages)) = possible_message {
-                    for message_raw in messages {
-                        // This is very hacky.
-                        //
-                        // Fundamentally, message_raw is a serialized Option(Message<TYPES>).
-                        // The problem is, we want to extract the serialized Message<TYPES>
-                        // *without* deserializing the entire message_raw
-                        // (because, a priori, the serialization of Message<TYPES> might depend on the version number,
-                        // which we have not yet read at this point).
-                        //
-                        // So we use the fact that the bincode serialization of Option(_) is a single leading byte
-                        // (0 for None and 1 for Some). Dropping the first byte then yields the serialized Message<TYPES>.
-                        //
-                        // It would be nice to do this with serde primitives, but I'm not sure how.
+                    for message in messages {
+                        let message_version = Version::deserialize(&message);
 
-                        match message_raw.first() {
-                            Some(0) => {
-                                continue;
-                            }
-                            Some(1) => {
-                                let message = message_raw[1..].to_vec();
-                                let message_version = read_version(&message);
+                        let should_return;
 
-                                let should_return;
+                        match message_version {
+                            Ok((VERSION_0_1, _)) => {
+                                should_return = self
+                                    .handle_message_0_1(
+                                        message,
+                                        view_number,
+                                        message_purpose,
+                                        &mut vote_index,
+                                        &mut seen_proposals,
+                                        &mut seen_view_sync_certificates,
+                                    )
+                                    .await;
 
-                                match message_version {
-                                    Some(VERSION_0_1) => {
-                                        should_return = self
-                                            .handle_message_0_1(
-                                                message,
-                                                view_number,
-                                                message_purpose,
-                                                &mut vote_index,
-                                                &mut upgrade_vote_index,
-                                                &mut seen_proposals,
-                                                &mut seen_view_sync_certificates,
-                                            )
-                                            .await;
-
-                                        if should_return {
-                                            return Ok(());
-                                        }
-                                    }
-                                    Some(version) => {
-                                        warn!(
-                                      "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                      version,
-                                      message
-                                  );
-                                    }
-                                    _ => {
-                                        warn!(
-                                      "Received message with unreadable version number.\n\nPayload:\n\n{:?}",
-                                      message
-                                  );
-                                    }
+                                if should_return {
+                                    return Ok(());
                                 }
                             }
-                            _ => {
-                                warn!("Could not deserialize message: {:?}", message_raw);
+                            Ok((version, _)) => {
+                                warn!(
+                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}", version, message);
+                            }
+                            Err(e) => {
+                                warn!("Error {:?}, could not read version number.\n\nPayload:\n\n{:?}", e, message);
                             }
                         }
                     }
@@ -626,7 +586,9 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
 impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
-impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
+impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
+    WebServerNetwork<TYPES, NetworkVersion>
+{
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
@@ -639,7 +601,7 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         info!("Connecting to web server at {url:?} is da: {is_da_server}");
 
         // TODO ED Wait for healthcheck
-        let client = surf_disco::Client::<ClientError>::new(url);
+        let client = surf_disco::Client::<ClientError, NetworkVersion>::new(url);
 
         let inner = Arc::new(Inner {
             poll_queue_0_1: Arc::default(),
@@ -726,9 +688,10 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
         info!("Launching web server on port {port}");
         // Start web server
         async_spawn(async {
-            match hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+            match hotshot_web_server::run_web_server::<TYPES::SignatureKey, NetworkVersion>(
                 Some(server_shutdown),
                 url,
+                NetworkVersion::instance(),
             )
             .await
             {
@@ -763,8 +726,9 @@ impl<TYPES: NodeType + 'static> WebServerNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for WebServerNetwork<TYPES>
+impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
+    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for WebServerNetwork<TYPES, NetworkVersion>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -815,10 +779,11 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
 
     /// broadcast message to some subset of nodes
     /// blocking
-    async fn broadcast_message(
+    async fn broadcast_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
+        _: VER,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -837,20 +802,23 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
 
     /// broadcast a message only to a DA committee
     /// blocking
-    async fn da_broadcast_message(
+    async fn da_broadcast_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients).await
+        self.broadcast_message(message, recipients, bind_version)
+            .await
     }
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(
+    async fn direct_message<VER: 'static + StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipient: TYPES::SignatureKey,
+        _: VER,
     ) -> Result<(), NetworkError> {
         // short circuit if we are shut down
         #[cfg(feature = "hotshot-testing")]
@@ -1004,7 +972,7 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                     });
                 }
             }
-            ConsensusIntentEvent::PollForUpgradeProposal(view_number)=> {
+            ConsensusIntentEvent::PollForUpgradeProposal(view_number) => {
                 // Only start this task if we haven't already started it.
                 let mut cancel_handle = self.inner.upgrade_proposal_task.write().await;
                 if cancel_handle.is_none() {
@@ -1030,12 +998,13 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                 "Background receive latest upgrade proposal polling encountered an error: {:?}",
                                 e
                             );
-                        } else { error!("Poll successful!"); }
-
+                        } else {
+                            error!("Poll successful!");
+                        }
                     });
                 }
             }
-            ConsensusIntentEvent::PollForUpgradeVotes(view_number)=> {
+            ConsensusIntentEvent::PollForUpgradeVotes(view_number) => {
                 // Only start this task if we haven't already started it.
                 let mut cancel_handle = self.inner.upgrade_vote_task.write().await;
                 if cancel_handle.is_none() {
@@ -1061,8 +1030,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                 "Background receive latest upgrade proposal polling encountered an error: {:?}",
                                 e
                             );
-                        } else { error!("Poll successful!"); }
-
+                        } else {
+                            error!("Poll successful!");
+                        }
                     });
                 }
             }
@@ -1200,7 +1170,8 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
                                     "Background receive proposal polling encountered an error: {:?}",
                                     e
                                 );
-                            }                        }
+                            }
+                        }
                     });
                 } else {
                     debug!("Somehow task already existed!");
@@ -1334,7 +1305,9 @@ impl<TYPES: NodeType + 'static> ConnectedNetwork<Message<TYPES>, TYPES::Signatur
     }
 }
 
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for WebServerNetwork<TYPES> {
+impl<TYPES: NodeType, NetworkVersion: 'static + StaticVersionType>
+    TestableNetworkingImplementation<TYPES> for WebServerNetwork<TYPES, NetworkVersion>
+{
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
