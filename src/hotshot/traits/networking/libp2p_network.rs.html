@@ -1010,8 +1010,6 @@
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
 <a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1729,9 +1727,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         bind_version: VER,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(M, network::ResponseChannel&lt;M&gt;)&gt;&gt; {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>internal_rx) = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
+        <span class="kw">let </span><span class="kw-2">mut </span>internal_rx = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take()<span class="question-mark">?</span>;
         <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
         <span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = mpsc::channel(<span class="number">100</span>);
         async_spawn(<span class="kw">async move </span>{
