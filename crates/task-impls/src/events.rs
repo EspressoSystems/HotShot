@@ -1,6 +1,7 @@
 use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
+use hotshot_types::data::VidDisperseShare;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
@@ -39,10 +40,16 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DAVoteRecv(DAVote<TYPES>),
     /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
     DACRecv(DACertificate<TYPES>),
+    /// A DAC is validated.
+    DACValidated(DACertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
+    /// Dummy quorum vote to test if the quorum vote dependency works.
+    DummyQuorumVoteSend(TYPES::Time),
+    /// All dependencies for the quorum vote are validated.
+    QuorumVoteDependenciesValidated(TYPES::Time),
     /// A proposal was validated. This means it comes from the correct leader and has a correct QC.
     QuorumProposalValidated(QuorumProposal<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
@@ -117,7 +124,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
-    VidDisperseRecv(Proposal<TYPES, VidDisperse<TYPES>>),
+    VidDisperseRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    /// A VID disperse data is validated.
+    VidDisperseValidated(VidDisperseShare<TYPES>),
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
