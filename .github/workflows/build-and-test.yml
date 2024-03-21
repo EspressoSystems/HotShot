@@ -84,10 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
-
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
-
+        
       - name: Install Cap'n'Proto
         run: |
           apt-get update

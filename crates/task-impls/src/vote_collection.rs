@@ -87,12 +87,7 @@ impl<
             return None;
         }
 
-        // Clippy suggests code that doesn't work to fix this.
-        // Maybe there is some way to make this work with the ?
-        // operator but I don't see it
-        let Some(ref mut accumulator) = self.accumulator else {
-            return None;
-        };
+        let accumulator = self.accumulator.as_mut()?;
         match accumulator.accumulate(vote, &self.membership) {
             Either::Left(()) => None,
             Either::Right(cert) => {
