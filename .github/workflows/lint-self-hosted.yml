@@ -19,11 +19,6 @@ jobs:
     runs-on: [self-hosted]
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:
-      - name: Install Cap'n'Proto
-        run: |
-          apt-get update
-          apt-get install -y capnproto
-
       - uses: actions/checkout@v4
         name: Checkout Repository
 
