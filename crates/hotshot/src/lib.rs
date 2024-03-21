@@ -198,6 +198,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 },
             },
         );
+        for (view_num, inner) in initializer.undecided_state {
+            validated_state_map.insert(view_num, inner);
+        }
 
         let mut saved_leaves = HashMap::new();
         let mut saved_payloads = BTreeMap::new();
@@ -647,6 +650,8 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
     undecided_leafs: Vec<Leaf<TYPES>>,
+    /// Not yet decided state
+    undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -663,6 +668,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             start_view: TYPES::Time::new(0),
             high_qc: QuorumCertificate::genesis(),
             undecided_leafs: Vec::new(),
+            undecided_state: BTreeMap::new(),
         })
     }
 
@@ -680,6 +686,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         start_view: TYPES::Time,
         high_qc: QuorumCertificate<TYPES>,
         undecided_leafs: Vec<Leaf<TYPES>>,
+        undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
     ) -> Self {
         Self {
             inner: anchor_leaf,
@@ -689,6 +696,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             start_view,
             high_qc,
             undecided_leafs,
+            undecided_state,
         }
     }
 }

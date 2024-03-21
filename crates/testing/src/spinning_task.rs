@@ -128,6 +128,7 @@ where
                                             view_number,
                                             state.high_qc.clone(),
                                             Vec::new(),
+                                            BTreeMap::new(),
                                         );
                                         // We assign node's public key and stake value rather than read from config file since it's a test
                                         let validator_config =
