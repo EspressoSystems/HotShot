@@ -247,7 +247,6 @@ jobs:
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
-
   test-crypto:
     strategy:
       matrix:
