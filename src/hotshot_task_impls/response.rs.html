@@ -180,7 +180,10 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::Receiver;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
@@ -193,7 +196,7 @@
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    data::VidDisperse,
+    data::VidDisperseShare,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
     },
@@ -298,10 +301,10 @@
         <span class="kw">match </span>req.request {
             RequestKind::VID(view, pub_key) =&gt; {
                 <span class="kw">let </span>state = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                <span class="kw">let </span><span class="prelude-val">Some</span>(shares) = state.vid_shares.get(<span class="kw-2">&amp;</span>view) <span class="kw">else </span>{
+                <span class="kw">let </span><span class="prelude-val">Some</span>(proposals_map) = state.vid_shares.get(<span class="kw-2">&amp;</span>view) <span class="kw">else </span>{
                     <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
                 };
-                <span class="self">self</span>.handle_vid(shares.clone(), pub_key)
+                <span class="self">self</span>.handle_vid(proposals_map, <span class="kw-2">&amp;</span>pub_key)
             }
             <span class="comment">// TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
             </span>RequestKind::DAProposal(_view) =&gt; <span class="self">self</span>.make_msg(ResponseMessage::NotFound),
@@ -312,14 +315,15 @@
     /// build the response and return it
     </span><span class="kw">fn </span>handle_vid(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>vid: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
-        key: TYPES::SignatureKey,
+        proposals_map: <span class="kw-2">&amp;</span>HashMap&lt;TYPES::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
+        key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; Message&lt;TYPES&gt; {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(share) = vid.data.shares.get(<span class="kw-2">&amp;</span>key) <span class="kw">else </span>{
+        <span class="kw">if </span>!proposals_map.contains_key(key) {
             <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
-        };
-        vid.data.shares = BTreeMap::from([(key, share.clone())]);
-        <span class="kw">let </span>seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(vid)));
+        }
+        <span class="kw">let </span>seq_msg = SequencingMessage(Right(CommitteeConsensusMessage::VidDisperseMsg(
+            proposals_map.get(key).unwrap().clone(),
+        )));
         <span class="self">self</span>.make_msg(ResponseMessage::Found(seq_msg))
     }
 

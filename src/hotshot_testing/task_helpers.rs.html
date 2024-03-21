@@ -496,11 +496,6 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -548,6 +543,7 @@
 
 <span class="kw">use </span>jf_primitives::vid::VidScheme;
 
+<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>std::{fmt::Debug, hash::Hash, sync::Arc};
 
@@ -900,32 +896,26 @@
     vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes())
 }
 
-<span class="kw">pub fn </span>build_vid_proposal(
+<span class="doccomment">/// TODO: &lt;https://github.com/EspressoSystems/HotShot/issues/2821&gt;
+</span><span class="kw">pub fn </span>build_vid_proposal(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     view_number: ViewNumber,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-) -&gt; Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt; {
+) -&gt; Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
-    <span class="kw">let </span>payload_commitment = vid_disperse.commit;
-
-    <span class="kw">let </span>vid_signature =
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(private_key, payload_commitment.as_ref())
-            .expect(<span class="string">"Failed to sign payload commitment"</span>);
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap(),
+        vid.disperse(encoded_transactions).unwrap(),
         <span class="kw-2">&amp;</span>quorum_membership.clone().into(),
     );
 
-    Proposal {
-        data: vid_disperse.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    }
+    VidDisperseShare::from_vid_disperse(vid_disperse)
+        .swap_remove(<span class="number">0</span>)
+        .to_proposal(private_key)
+        .expect(<span class="string">"Failed to sign payload commitment"</span>)
 }
 
 <span class="kw">pub fn </span>build_da_certificate(

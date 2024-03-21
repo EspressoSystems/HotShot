@@ -1435,6 +1435,17 @@
 <a href="#1434" id="1434">1434</a>
 <a href="#1435" id="1435">1435</a>
 <a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1479,7 +1490,12 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
+<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
+};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument};
@@ -2172,10 +2188,14 @@
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                <span class="kw">let </span>vid = consensus
-                                    .vid_shares
-                                    .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
-                                    .map(|vid_proposal| vid_proposal.data.clone());
+                                <span class="kw">let </span>vid = VidDisperseShare::to_vid_disperse(
+                                    consensus
+                                        .vid_shares
+                                        .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
+                                        .unwrap_or(<span class="kw-2">&amp;</span>HashMap::new())
+                                        .iter()
+                                        .map(|(_key, proposal)| <span class="kw-2">&amp;</span>proposal.data)
+                                );
 
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
@@ -2516,7 +2536,9 @@
                     .write()
                     .<span class="kw">await
                     </span>.vid_shares
-                    .insert(view, disperse.clone());
+                    .entry(view)
+                    .or_default()
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
 
                 <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;

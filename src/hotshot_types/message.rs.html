@@ -315,12 +315,14 @@
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::data::{QuorumProposal, UpgradeProposal};
+</span><span class="kw">use </span><span class="kw">crate</span>::data::{QuorumProposal, UpgradeProposal, VidDisperseShare};
 <span class="kw">use </span><span class="kw">crate</span>::simple_certificate::{
     DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
     ViewSyncPreCommitCertificate2,
@@ -333,7 +335,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
 <span class="kw">use </span><span class="kw">crate</span>::vote::HasViewNumber;
 <span class="kw">use crate</span>::{
-    data::{DAProposal, VidDisperse},
+    data::DAProposal,
     simple_vote::QuorumVote,
     traits::{
         network::{DataRequest, NetworkMsg, ViewMessage},
@@ -501,9 +503,9 @@
 
     <span class="doccomment">/// Initiate VID dispersal.
     ///
-    /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from [`VidDisperse`].
+    /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
     /// TODO this variant should not be a [`CommitteeConsensusMessage`] because &lt;https://github.com/EspressoSystems/HotShot/issues/1696&gt;
-    </span>VidDisperseMsg(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;),
+    </span>VidDisperseMsg(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
 }
 
 <span class="doccomment">/// Messages for sequencing consensus.
@@ -606,7 +608,9 @@
 
 <span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
-</span><span class="doccomment">/// Messages related to sending data between nodes
+#[allow(clippy::large_enum_variant)]
+</span><span class="doccomment">/// TODO: Put `DataResponse` content in a `Box` to make enum smaller
+/// Messages related to sending data between nodes
 </span><span class="kw">pub enum </span>DataMessage&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Contains a transaction to be submitted
     /// TODO rethink this when we start to send these messages

@@ -393,7 +393,7 @@
     task::{Task, TaskState},
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{QuorumProposal, VidDisperse},
+    data::{QuorumProposal, VidDisperseShare},
     event::Event,
     message::Proposal,
     simple_certificate::DACertificate,
@@ -449,7 +449,7 @@
 // &lt;https://github.com/EspressoSystems/HotShot/issues/2710&gt;
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
 </span><span class="kw">fn </span>validate_vid&lt;TYPES: NodeType&gt;(
-    _disperse: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
+    _disperse: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     _event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; bool {
     <span class="bool-val">true

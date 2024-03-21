@@ -33,7 +33,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 
 <span class="kw">use crate</span>::{
-    data::{DAProposal, VidDisperse},
+    data::{DAProposal, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -44,7 +44,7 @@
 <span class="doccomment">/// Abstraction for storing a variety of consensus payload datum.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>Storage&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
-    <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;

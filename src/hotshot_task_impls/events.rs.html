@@ -138,9 +138,11 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
+<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
@@ -263,9 +265,9 @@
     <span class="doccomment">/// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
-    </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;),
+    </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// A VID disperse data is validated.
-    </span>VidDisperseValidated(VidDisperse&lt;TYPES&gt;),
+    </span>VidDisperseValidated(VidDisperseShare&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network

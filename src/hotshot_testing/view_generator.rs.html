@@ -491,7 +491,7 @@
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 <span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperse, ViewNumber},
+    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -518,7 +518,7 @@
     <span class="kw">pub </span>view_number: ViewNumber,
     <span class="kw">pub </span>quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>vid_proposal: (
-        Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
+        Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,

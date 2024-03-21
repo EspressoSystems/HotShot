@@ -296,6 +296,9 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -430,13 +433,16 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;ToSwarm&lt;DMEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.failed_rr.pop_front() {
+        <span class="kw">let </span><span class="kw-2">mut </span>retry_req_indices = Vec::new();
+        <span class="kw">for </span>(idx, req) <span class="kw">in </span><span class="self">self</span>.failed_rr.iter().enumerate() {
             <span class="kw">if </span>req.backoff.is_expired() {
-                <span class="self">self</span>.add_direct_request(req);
-            } <span class="kw">else </span>{
-                <span class="self">self</span>.failed_rr.push_back(req);
+                retry_req_indices.push(idx);
             }
         }
+        <span class="kw">let _ </span>= retry_req_indices.into_iter().map(|idx| {
+            <span class="kw">let </span>req = <span class="self">self</span>.failed_rr.remove(idx).unwrap();
+            <span class="self">self</span>.add_direct_request(req);
+        });
         <span class="kw">while let </span>Poll::Ready(ready) = NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, cx) {
             <span class="kw">match </span>ready {
                 <span class="comment">// NOTE: this generates request
