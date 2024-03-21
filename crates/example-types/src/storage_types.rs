@@ -69,6 +69,9 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _view: <TYPES as NodeType>::Time,
         _action: hotshot_types::event::HotShotAction,
     ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to append Action to storage");
+        }
         Ok(())
     }
 
@@ -76,6 +79,9 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         &self,
         _qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
     ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to update high qc to storage");
+        }
         Ok(())
     }
 }

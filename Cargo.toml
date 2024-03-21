@@ -28,9 +28,6 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-
-
-anyhow = "1.0"
 ark-bls12-381 = "0.4"
 ark-bn254 = "0.4"
 ark-ec = "0.4"
@@ -130,6 +127,8 @@ tokio = { version = "1.36.0", features = [
   "time",
   "tracing",
 ] }
+anyhow = "1.0.81"
+
 
 # Push CDN imports
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.9" }
@@ -164,6 +163,7 @@ incremental = true
 # CI uses this profile. To run it locally, add `--profile=release-lto` to `cargo build` or `cargo
 # test`.
 [profile.release-lto]
+debug = 0
 inherits = "release"
 # Enable "thin" LTO to optimize performance.
 lto = "thin"
