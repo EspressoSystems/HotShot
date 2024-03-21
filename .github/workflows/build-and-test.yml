@@ -74,7 +74,7 @@ jobs:
         just_variants:
           - async-std
           - tokio
-    runs-on: [self-hosted, arm64]
+    runs-on: [arm64]
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: actions/checkout@v4
