@@ -25,11 +25,9 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::PushCdnDaRun;
-<span class="kw">use </span>hotshot::traits::implementations::PushCdnNetwork;
+<span class="kw">use </span>hotshot::traits::{implementations::PushCdnNetwork, NodeImplementation};
 <span class="kw">use </span>hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="attr">#[derive(Clone, Deserialize, Serialize, Hash, PartialEq, Eq)]

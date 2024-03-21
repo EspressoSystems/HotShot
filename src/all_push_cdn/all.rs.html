@@ -130,12 +130,6 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
@@ -143,11 +137,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs};
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>cdn_broker::reexports::connection::protocols::{Quic, Tcp};
 <span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>cdn_broker::Broker;
 <span class="kw">use </span>cdn_marshal::Marshal;
-<span class="kw">use </span>hotshot::traits::implementations::WrappedSignatureKey;
+<span class="kw">use </span>hotshot::traits::implementations::{TestingDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
@@ -217,12 +210,8 @@
 
         <span class="comment">// Create and spawn the broker
         </span>async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>broker: Broker&lt;
-                WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-                WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-                Tcp,
-                Quic,
-            &gt; = Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
+            <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TestTypes&gt;&gt; =
+                Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
 
             <span class="comment">// Error if we stopped unexpectedly
             </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = broker.start().<span class="kw">await </span>{
@@ -244,10 +233,9 @@
 
     <span class="comment">// Spawn the marshal
     </span>async_spawn(<span class="kw">async move </span>{
-        <span class="kw">let </span>marshal: Marshal&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;, Quic&gt; =
-            Marshal::new(marshal_config)
-                .<span class="kw">await
-                </span>.expect(<span class="string">"failed to spawn marshal"</span>);
+        <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TestTypes&gt;&gt; = Marshal::new(marshal_config)
+            .<span class="kw">await
+            </span>.expect(<span class="string">"failed to spawn marshal"</span>);
 
         <span class="comment">// Error if we stopped unexpectedly
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = marshal.start().<span class="kw">await </span>{

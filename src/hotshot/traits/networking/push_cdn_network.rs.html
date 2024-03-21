@@ -448,11 +448,45 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::NetworkError;
 <span class="kw">use </span>async_compatibility_layer::art::{async_block_on, async_spawn};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::config::Options;
+<span class="kw">use </span>cdn_broker::reexports::def::RunDef;
+<span class="kw">use </span>cdn_broker::reexports::discovery::{Embedded, Redis};
 <span class="kw">use </span>cdn_broker::{
     reexports::connection::protocols::Tcp, Broker, Config, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder,
 };
@@ -484,6 +518,7 @@
 };
 <span class="kw">use </span>rand::rngs::StdRng;
 <span class="kw">use </span>rand::{RngCore, SeedableRng};
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::{collections::BTreeSet, path::Path, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{error, warn};
 <span class="kw">use </span>versioned_binary_serialization::{
@@ -529,6 +564,40 @@
     <span class="kw">fn </span>deserialize(serialized: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="prelude-val">Ok</span>(WrappedSignatureKey(T::from_bytes(serialized)<span class="question-mark">?</span>))
     }
+}
+
+<span class="doccomment">/// The testing run definition for the Push CDN.
+/// Uses the real protocols, but with an embedded discovery client.
+</span><span class="kw">pub struct </span>TestingDef&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Phantom data to hold the type
+    </span>pd: PhantomData&lt;TYPES&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>TestingDef&lt;TYPES&gt; {
+    <span class="kw">type </span>BrokerScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>BrokerProtocol = Tcp;
+
+    <span class="kw">type </span>UserScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>UserProtocol = Quic;
+
+    <span class="kw">type </span>DiscoveryClientType = Embedded;
+}
+
+<span class="doccomment">/// The production run definition for the Push CDN.
+/// Uses the real protocols and a Redis discovery client.
+</span><span class="kw">pub struct </span>ProductionDef&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Phantom data to hold the type
+    </span>pd: PhantomData&lt;TYPES&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>ProductionDef&lt;TYPES&gt; {
+    <span class="kw">type </span>BrokerScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>BrokerProtocol = Tcp;
+
+    <span class="kw">type </span>UserScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>UserProtocol = Quic;
+
+    <span class="kw">type </span>DiscoveryClientType = Redis;
 }
 
 <span class="doccomment">/// A communication channel to the Push CDN, which is a collection of brokers and a marshal
@@ -661,12 +730,8 @@
 
             <span class="comment">// Create and spawn the broker
             </span>async_spawn(<span class="kw">async move </span>{
-                <span class="kw">let </span>broker: Broker&lt;
-                    WrappedSignatureKey&lt;TYPES::SignatureKey&gt;,
-                    WrappedSignatureKey&lt;TYPES::SignatureKey&gt;,
-                    Tcp,
-                    Quic,
-                &gt; = Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
+                <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TYPES&gt;&gt; =
+                    Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
 
                 <span class="comment">// Error if we stopped unexpectedly
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = broker.start().<span class="kw">await </span>{
@@ -688,10 +753,9 @@
 
         <span class="comment">// Spawn the marshal
         </span>async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>marshal: Marshal&lt;WrappedSignatureKey&lt;TYPES::SignatureKey&gt;, Quic&gt; =
-                Marshal::new(marshal_config)
-                    .<span class="kw">await
-                    </span>.expect(<span class="string">"failed to spawn marshal"</span>);
+            <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TYPES&gt;&gt; = Marshal::new(marshal_config)
+                .<span class="kw">await
+                </span>.expect(<span class="string">"failed to spawn marshal"</span>);
 
             <span class="comment">// Error if we stopped unexpectedly
             </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = marshal.start().<span class="kw">await </span>{

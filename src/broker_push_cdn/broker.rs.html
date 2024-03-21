@@ -87,21 +87,13 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 
 </span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>cdn_broker::reexports::connection::protocols::{Quic, Tcp};
 <span class="kw">use </span>cdn_broker::{reexports::crypto::signature::KeyPair, Broker, Config, ConfigBuilder};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::traits::implementations::WrappedSignatureKey;
+<span class="kw">use </span>hotshot::traits::implementations::{ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
@@ -176,13 +168,7 @@
 
     <span class="comment">// Create new `Broker`
     // Uses TCP from broker connections and Quic for user connections.
-    </span><span class="kw">let </span>broker = Broker::&lt;
-        WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-        WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-        Tcp,
-        Quic,
-    &gt;::new(broker_config)
-    .<span class="kw">await</span><span class="question-mark">?</span>;
+    </span><span class="kw">let </span>broker = Broker::&lt;ProductionDef&lt;TestTypes&gt;&gt;::new(broker_config).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Start the main loop, consuming it
     </span>broker.start().<span class="kw">await</span><span class="question-mark">?</span>;

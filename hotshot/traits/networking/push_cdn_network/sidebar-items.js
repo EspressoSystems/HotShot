@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PushCdnNetwork","WrappedSignatureKey"]};
+window.SIDEBAR_ITEMS = {"struct":["ProductionDef","PushCdnNetwork","TestingDef","WrappedSignatureKey"]};

@@ -29,6 +29,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["validator_libp2p",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
 ["validator_push_cdn",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
 ["validator_webserver",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
-["webserver",["",[],["webserver.rs"]]]\
+["webserver",["",[],["webserver.rs"]]],\
+["whitelist_push_cdn",["",[],["whitelist-adapter.rs"]]]\
 ]'));
 createSrcSidebar();

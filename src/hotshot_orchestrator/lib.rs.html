@@ -740,7 +740,7 @@
         <span class="self">self</span>.pub_posted.insert(node_index);
 
         <span class="comment">// The guess is the first extra 8 bytes are from orchestrator serialization
-        </span>pubkey.drain(..<span class="number">8</span>);
+        </span>pubkey.drain(..<span class="number">12</span>);
         <span class="kw">let </span>register_pub_key_with_stake = PeerConfig::&lt;KEY&gt;::from_bytes(pubkey).unwrap();
         <span class="self">self</span>.config.config.known_nodes_with_stake[node_index <span class="kw">as </span>usize] =
             register_pub_key_with_stake;

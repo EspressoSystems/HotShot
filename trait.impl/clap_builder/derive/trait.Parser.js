@@ -17,5 +17,6 @@
 "validator_libp2p":[["impl Parser for <a class=\"struct\" href=\"validator_libp2p/infra/struct.ConfigArgs.html\" title=\"struct validator_libp2p::infra::ConfigArgs\">ConfigArgs</a>"]],
 "validator_push_cdn":[["impl Parser for <a class=\"struct\" href=\"validator_push_cdn/infra/struct.ConfigArgs.html\" title=\"struct validator_push_cdn::infra::ConfigArgs\">ConfigArgs</a>"]],
 "validator_webserver":[["impl Parser for <a class=\"struct\" href=\"validator_webserver/infra/struct.ConfigArgs.html\" title=\"struct validator_webserver::infra::ConfigArgs\">ConfigArgs</a>"]],
-"webserver":[["impl Parser for <a class=\"struct\" href=\"webserver/struct.WebServerArgs.html\" title=\"struct webserver::WebServerArgs\">WebServerArgs</a>"]]
+"webserver":[["impl Parser for <a class=\"struct\" href=\"webserver/struct.WebServerArgs.html\" title=\"struct webserver::WebServerArgs\">WebServerArgs</a>"]],
+"whitelist_push_cdn":[["impl Parser for <a class=\"struct\" href=\"whitelist_push_cdn/struct.Args.html\" title=\"struct whitelist_push_cdn::Args\">Args</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
