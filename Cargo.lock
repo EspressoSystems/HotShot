@@ -1289,20 +1289,18 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.10#b29798b102de5a6a71509ac9113380a818bcfc90"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
  "dashmap",
- "delegate",
  "derivative",
  "derive_builder 0.13.1",
  "jf-primitives",
  "lazy_static",
  "local-ip-address 0.5.7",
  "parking_lot",
- "paste",
  "prometheus",
  "rkyv",
  "tokio",
@@ -1313,7 +1311,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.10#b29798b102de5a6a71509ac9113380a818bcfc90"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1329,7 +1327,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.10#b29798b102de5a6a71509ac9113380a818bcfc90"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1344,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.10#b29798b102de5a6a71509ac9113380a818bcfc90"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -2107,17 +2105,6 @@ checksum = "0047d07f2c89b17dd631c80450d69841a6b5d7fb17278cbc43d7e4cfcf2576f3"
 dependencies = [
  "data-encoding",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "delegate"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e018fccbeeb50ff26562ece792ed06659b9c2dae79ece77c4456bb10d9bf79b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.53",
 ]
 
 [[package]]
