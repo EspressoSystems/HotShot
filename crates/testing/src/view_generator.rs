@@ -42,7 +42,7 @@ pub struct TestView {
     pub view_number: ViewNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
     pub vid_proposal: (
-        Proposal<TestTypes, VidDisperse<TestTypes>>,
+        Proposal<TestTypes, VidDisperseShare<TestTypes>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
