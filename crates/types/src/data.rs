@@ -4,6 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
+    message::Proposal,
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
@@ -34,8 +35,10 @@ use std::{
     collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
+    marker::PhantomData,
     sync::Arc,
 };
+use tracing::error;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -170,6 +173,122 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     }
 }
 
+/// Helper type to encapsulate the various ways that proposal certificates can be captured and
+/// stored.
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewChangeEvidence<TYPES: NodeType> {
+    /// Holds a timeout certificate.
+    Timeout(TimeoutCertificate<TYPES>),
+    /// Holds a view sync finalized certificate.
+    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+}
+
+impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
+    pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
+        match self {
+            ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.get_data().view == *view - 1,
+            ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+pub struct VidDisperseShare<TYPES: NodeType> {
+    /// The view number for which this VID data is intended
+    pub view_number: TYPES::Time,
+    /// Block payload commitment
+    pub payload_commitment: VidCommitment,
+    /// A storage node's key and its corresponding VID share
+    pub share: VidShare,
+    /// VID common data sent to all storage nodes
+    pub common: VidCommon,
+    /// a public key of the share recipient
+    pub recipient_key: TYPES::SignatureKey,
+}
+
+impl<TYPES: NodeType> VidDisperseShare<TYPES> {
+    /// Create a vector of `VidDisperseShare` from `VidDisperse`
+    pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
+        vid_disperse
+            .shares
+            .into_iter()
+            .map(|(recipient_key, share)| VidDisperseShare {
+                share,
+                recipient_key,
+                view_number: vid_disperse.view_number,
+                common: vid_disperse.common.clone(),
+                payload_commitment: vid_disperse.payload_commitment,
+            })
+            .collect()
+    }
+
+    /// Consume `self` and return a `Proposal`
+    pub fn to_proposal(
+        self,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Option<Proposal<TYPES, Self>> {
+        let Ok(signature) =
+            TYPES::SignatureKey::sign(private_key, self.payload_commitment.as_ref().as_ref())
+        else {
+            error!("VID: failed to sign dispersal share payload");
+            return None;
+        };
+        Some(Proposal {
+            signature,
+            _pd: PhantomData,
+            data: self,
+        })
+    }
+
+    /// Create `VidDisperse` out of an iterator to `VidDisperseShare`s
+    pub fn to_vid_disperse<'a, I>(mut it: I) -> Option<VidDisperse<TYPES>>
+    where
+        I: Iterator<Item = &'a VidDisperseShare<TYPES>>,
+    {
+        let first_vid_disperse_share = it.next()?.clone();
+        let mut share_map = BTreeMap::new();
+        share_map.insert(
+            first_vid_disperse_share.recipient_key,
+            first_vid_disperse_share.share,
+        );
+        let mut vid_disperse = VidDisperse {
+            view_number: first_vid_disperse_share.view_number,
+            payload_commitment: first_vid_disperse_share.payload_commitment,
+            common: first_vid_disperse_share.common,
+            shares: share_map,
+        };
+        let _ = it.map(|vid_disperse_share| {
+            vid_disperse.shares.insert(
+                vid_disperse_share.recipient_key.clone(),
+                vid_disperse_share.share.clone(),
+            )
+        });
+        Some(vid_disperse)
+    }
+
+    pub fn to_vid_share_proposals(
+        vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
+    ) -> Vec<Proposal<TYPES, VidDisperseShare<TYPES>>> {
+        vid_disperse_proposal
+            .data
+            .shares
+            .into_iter()
+            .map(|(recipient_key, share)| Proposal {
+                data: VidDisperseShare {
+                    share,
+                    recipient_key,
+                    view_number: vid_disperse_proposal.data.view_number,
+                    common: vid_disperse_proposal.data.common.clone(),
+                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
+                },
+                signature: vid_disperse_proposal.signature.clone(),
+                _pd: vid_disperse_proposal._pd,
+            })
+            .collect()
+    }
+}
+
 /// Proposal to append a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -183,15 +302,14 @@ pub struct QuorumProposal<TYPES: NodeType> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
 
-    /// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
-    pub timeout_certificate: Option<TimeoutCertificate<TYPES>>,
-
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// Possible view sync certificate. Only present if the justify_qc and timeout_cert are not
+    /// Possible timeout or view sync certificate.
+    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
+    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
     /// present.
-    pub view_sync_certificate: Option<ViewSyncFinalizeCertificate2<TYPES>>,
+    pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 
     /// the propser id
     pub proposer_id: TYPES::SignatureKey,
@@ -204,6 +322,12 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for DAProposal<TYPES> {
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperse<TYPES> {
+    fn get_view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperseShare<TYPES> {
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
     }
