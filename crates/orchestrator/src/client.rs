@@ -193,27 +193,23 @@ impl OrchestratorClient {
     /// if unable to convert the node index from usize into u64
     /// (only applicable on 32 bit systems)
     #[allow(clippy::type_complexity)]
-    pub async fn get_config<K: SignatureKey, E: ElectionConfig>(
+    pub async fn get_config_without_peer<K: SignatureKey, E: ElectionConfig>(
         &self,
-        identity: Option<String>,
+        identity: String,
     ) -> NetworkConfig<K, E> {
-        let node_index = if let Some(identity) = identity {
-            // get the node index
-            let identity = identity.as_str();
-            let identity = |client: Client<ClientError, OrchestratorVersion>| {
-                async move {
-                    let node_index: Result<u16, ClientError> = client
-                        .post(&format!("api/identity/{identity}"))
-                        .send()
-                        .await;
-                    node_index
-                }
-                .boxed()
-            };
-            self.wait_for_fn_from_orchestrator(identity).await
-        } else {
-            0
+        // get the node index
+        let identity = identity.as_str();
+        let identity = |client: Client<ClientError, OrchestratorVersion>| {
+            async move {
+                let node_index: Result<u16, ClientError> = client
+                    .post(&format!("api/identity/{identity}"))
+                    .send()
+                    .await;
+                node_index
+            }
+            .boxed()
         };
+        let node_index = self.wait_for_fn_from_orchestrator(identity).await;
 
         // get the corresponding config
         let f = |client: Client<ClientError, OrchestratorVersion>| {
@@ -249,6 +245,29 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator(cur_node_index).await
     }
 
+    /// Requests the configuration from the orchestrator with the stipulation that
+    /// a successful call requires all nodes to be registered.
+    ///
+    /// Does not fail, retries internally until success.
+    pub async fn get_config_after_collection<K: SignatureKey, E: ElectionConfig>(
+        &self,
+    ) -> NetworkConfig<K, E> {
+        // Define the request for post-register configurations
+        let get_config_after_collection = |client: Client<ClientError, OrchestratorVersion>| {
+            async move {
+                client
+                    .get("api/get_config_after_peer_collected")
+                    .send()
+                    .await
+            }
+            .boxed()
+        };
+
+        // Loop until successful
+        self.wait_for_fn_from_orchestrator(get_config_after_collection)
+            .await
+    }
+
     /// Sends my public key to the orchestrator so that it can collect all public keys
     /// And get the updated config
     /// Blocks until the orchestrator collects all peer's public keys/configs
@@ -275,12 +294,7 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
 
-        // get the newest updated config
-        self.client
-            .get("api/get_config_after_peer_collected")
-            .send()
-            .await
-            .expect("Unable to get the updated config")
+        self.get_config_after_collection().await
     }
 
     /// Tells the orchestrator this validator is ready to start

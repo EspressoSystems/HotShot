@@ -13,6 +13,7 @@ use clap::Parser;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_orchestrator::client::OrchestratorClient;
 use hotshot_orchestrator::client::ValidatorArgs;
+use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use surf_disco::Url;
@@ -57,8 +58,10 @@ async fn main() -> Result<()> {
 
     // Attempt to get the config from the orchestrator.
     // Loops internally until the config is received.
-    let config = orchestrator_client
-        .get_config::<<TestTypes as NodeType>::SignatureKey, <TestTypes as NodeType>::ElectionConfigType>(None).await;
+    let config: NetworkConfig<
+        <TestTypes as NodeType>::SignatureKey,
+        <TestTypes as NodeType>::ElectionConfigType,
+    > = orchestrator_client.get_config_after_collection().await;
 
     tracing::info!("Received config from orchestrator");
 
