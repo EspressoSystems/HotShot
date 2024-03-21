@@ -83,6 +83,7 @@ nanos = 10_000_000
 secs = 0
 nanos = 10_000_000
 
+
 [config.view_sync_timeout]
 secs = 2
 nanos = 0
