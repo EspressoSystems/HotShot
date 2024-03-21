@@ -80,7 +80,13 @@ pub enum MessagePurpose {
     /// VID disperse, like [`Proposal`].
     VidDisperse,
     /// Message with an upgrade proposal.
-    Upgrade,
+    UpgradeProposal,
+    /// Upgrade vote.
+    UpgradeVote,
+
+    #[cfg(feature = "arbitrary-messages")]
+    /// Arbitrary message with raw bytes. Primarily available for testing.
+    Arbitrary,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -192,17 +198,32 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
 /// Messages for sequencing consensus.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
-pub struct SequencingMessage<TYPES: NodeType>(
-    pub Either<GeneralConsensusMessage<TYPES>, CommitteeConsensusMessage<TYPES>>,
-);
+pub enum SequencingMessage<TYPES: NodeType> {
+    /// Messages related to validating and sequencing consensus
+    General(GeneralConsensusMessage<TYPES>),
+
+    /// Messages related to the sequencing consensus protocol for the DA committee.
+    Committee(CommitteeConsensusMessage<TYPES>),
+
+    #[cfg(feature = "arbitrary-messages")]
+    /// Arbitrary messages with raw bytes.
+    Arbitrary(ArbitraryData<TYPES>),
+}
+
+#[cfg(feature = "arbitrary-messages")]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(bound(deserialize = "", serialize = ""))]
+/// Arbitrary message data. Mostly intended to be used in testing.
+pub struct ArbitraryData<TYPES: NodeType> {
+    /// View number this message originated in
+    pub view_number: TYPES::Time,
+}
 
 impl<TYPES: NodeType> SequencingMessage<TYPES> {
-    // TODO: Disable panic after the `ViewSync` case is implemented.
     /// Get the view number this message relates to
-    #[allow(clippy::panic)]
     fn view_number(&self) -> TYPES::Time {
-        match &self.0 {
-            Left(general_message) => {
+        match &self {
+            SequencingMessage::General(general_message) => {
                 match general_message {
                     GeneralConsensusMessage::Proposal(p) => {
                         // view of leader in the leaf when proposal
@@ -235,7 +256,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
             }
-            Right(committee_message) => {
+            SequencingMessage::Committee(committee_message) => {
                 match committee_message {
                     CommitteeConsensusMessage::DAProposal(p) => {
                         // view of leader in the leaf when proposal
@@ -258,8 +279,8 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
     /// Get the message purpos
     #[allow(clippy::panic)]
     fn purpose(&self) -> MessagePurpose {
-        match &self.0 {
-            Left(general_message) => match general_message {
+        match &self {
+            SequencingMessage::General(general_message) => match general_message {
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) | GeneralConsensusMessage::TimeoutVote(_) => {
                     MessagePurpose::Vote
@@ -274,15 +295,17 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     MessagePurpose::ViewSyncCertificate
                 }
 
-                GeneralConsensusMessage::UpgradeProposal(_)
-                | GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::Upgrade,
+                GeneralConsensusMessage::UpgradeProposal(_) => MessagePurpose::UpgradeProposal,
+                GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::UpgradeVote,
             },
-            Right(committee_message) => match committee_message {
+            SequencingMessage::Committee(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
             },
+            #[cfg(feature = "arbitrary-messages")]
+            SequencingMessage::Arbitrary(_) => MessagePurpose::Arbitrary,
         }
     }
 }

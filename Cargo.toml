@@ -191,6 +191,3 @@ rust_2018_idioms = "warn"
 # TODO cahnge to deny
 missing_docs = "warn"
 warnings = "warn"
-
-[patch."https://github.com/EspressoSystems/hotshot-types"]
-hotshot-types = { git = "https://github.com/EspressoSystems//hotshot-types", branch = "ss/arbitrary-messages" }
