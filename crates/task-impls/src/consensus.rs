@@ -397,9 +397,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     warn!("Timeout certificate for view {} was invalid", *view);
                                     return;
                                 }
-
-                                self.proposal_cert =
-                                    Some(ViewChangeEvidence::Timeout(timeout_cert));
                             }
                             ViewChangeEvidence::ViewSync(view_sync_cert) => {
                                 if view_sync_cert.view_number != view {
