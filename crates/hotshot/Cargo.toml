@@ -34,13 +34,11 @@ custom_debug = { workspace = true }
 dashmap = "5.5.1"
 derive_more = "0.99.17"
 either = { workspace = true }
-embed-doc-image = "0.1.4"
 ethereum-types = { workspace = true }
 futures = { workspace = true }
-hotshot-orchestrator = { version = "0.5.26", path = "../orchestrator", default-features = false }
 hotshot-task = { path = "../task" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.26", default-features = false }
-hotshot-types = { workspace = true }
+hotshot-types = { path = "../types" }
 hotshot-web-server = { version = "0.5.26", path = "../web_server", default-features = false }
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }
@@ -58,10 +56,10 @@ versioned-binary-serialization = { workspace = true }
 tokio = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-tokio"] }
 cdn-broker = { workspace = true, features = [
-    "insecure",
-    "runtime-tokio",
-    "strong_consistency",
-    "local_discovery",
+  "insecure",
+  "runtime-tokio",
+  "strong_consistency",
+  "local_discovery",
 ] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 
@@ -69,10 +67,10 @@ cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
 async-std = { workspace = true }
 cdn-client = { workspace = true, features = ["insecure", "runtime-async-std"] }
 cdn-broker = { workspace = true, features = [
-    "insecure",
-    "runtime-async-std",
-    "strong_consistency",
-    "local_discovery",
+  "insecure",
+  "runtime-async-std",
+  "strong_consistency",
+  "local_discovery",
 ] }
 cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 
@@ -80,7 +78,6 @@ cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
 [dev-dependencies]
 blake3 = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
-local-ip-address = "0.6.1"
 toml = { workspace = true }
 
 [lints]
