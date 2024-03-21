@@ -398,6 +398,7 @@ pub fn da_payload_commitment(
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
+/// TODO: https://github.com/EspressoSystems/HotShot/issues/2821
 pub fn build_vid_proposal(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,

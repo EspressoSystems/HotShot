@@ -285,11 +285,7 @@ impl<
                 )
             }
             HotShotEvent::VidDisperseSend(proposal, sender) => {
-                return self.handle_vid_disperse_proposal(
-                    proposal,
-                    &sender,
-                    Some(HotShotAction::VidDisperse),
-                );
+                return self.handle_vid_disperse_proposal(proposal, &sender);
             }
             HotShotEvent::DAProposalSend(proposal, sender) => {
                 maybe_action = Some(HotShotAction::DAPropose);
@@ -445,7 +441,6 @@ impl<
         &self,
         vid_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
         sender: &<TYPES as NodeType>::SignatureKey,
-        maybe_action: Option<HotShotAction>,
     ) -> Option<HotShotTaskCompleted> {
         let view = vid_proposal.data.view_number;
         let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
@@ -468,7 +463,7 @@ impl<
         let storage = self.storage.clone();
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
-                maybe_action,
+                Some(HotShotAction::VidDisperse),
                 storage,
                 view,
             )
