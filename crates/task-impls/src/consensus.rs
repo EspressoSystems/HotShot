@@ -516,18 +516,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 if justify_qc.get_view_number() > consensus.high_qc.view_number {
-                    match self
+                    if let Err(e) = self
                         .storage
                         .write()
                         .await
                         .update_high_qc(justify_qc.clone())
                         .await
                     {
-                        Ok(()) => {}
-                        Err(e) => {
-                            warn!("Failed to store High QC not votine. Error: {:?}", e);
-                            return;
-                        }
+                        warn!("Failed to store High QC not voting. Error: {:?}", e);
+                        return;
                     }
                 }
 
@@ -989,11 +986,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
                 if let either::Left(qc) = cert {
-                    match self.storage.write().await.update_high_qc(qc.clone()).await {
-                        Ok(()) => {}
-                        Err(e) => {
-                            warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
-                        }
+                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
+                        warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
                     }
 
                     let mut consensus = self.consensus.write().await;
