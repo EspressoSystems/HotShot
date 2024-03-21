@@ -67,6 +67,7 @@ impl<
 {
     /// Take one vote and accumultate it. Returns either the cert or the updated state
     /// after the vote is accumulated
+    #[allow(clippy::question_mark)]
     pub async fn accumulate_vote(
         &mut self,
         vote: &VOTE,
@@ -85,6 +86,10 @@ impl<
             );
             return None;
         }
+
+        // Clippy suggests code that doesn't work to fix this.
+        // Maybe there is some way to make this work with the ?
+        // operator but I don't see it
         let Some(ref mut accumulator) = self.accumulator else {
             return None;
         };
