@@ -188,7 +188,7 @@ pub enum NetworkEventInternal {
     /// a gossip  event
     GossipEvent(Box<GossipEvent>),
     /// a direct message event
-    DMEvent(DMEvent),
+    DMEvent(libp2p::request_response::Event<Vec<u8>, Vec<u8>>),
     /// a request response event
     RequestResponseEvent(libp2p::request_response::Event<Request, Response>),
 }

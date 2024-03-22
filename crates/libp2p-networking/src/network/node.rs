@@ -87,6 +87,8 @@ pub struct NetworkNode {
     listener_id: Option<ListenerId>,
     /// Handler for requests and response behavior events.
     request_response_state: RequestResponseState,
+    /// Handler for direct messages
+    direct_message_state: DMBehaviour,
 }
 
 impl NetworkNode {
@@ -301,7 +303,7 @@ impl NetworkNode {
                         .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
                 ),
                 identify,
-                DMBehaviour::new(direct_message),
+                direct_message,
                 request_response,
             );
 
@@ -334,6 +336,7 @@ impl NetworkNode {
             config,
             listener_id: None,
             request_response_state: RequestResponseState::default(),
+            direct_message_state: DMBehaviour::default(),
         })
     }
 
@@ -603,14 +606,9 @@ impl NetworkNode {
                             None
                         }
                     },
-                    NetworkEventInternal::DMEvent(e) => Some(match e {
-                        DMEvent::DirectRequest(data, pid, chan) => {
-                            NetworkEvent::DirectRequest(data, pid, chan)
-                        }
-                        DMEvent::DirectResponse(data, pid) => {
-                            NetworkEvent::DirectResponse(data, pid)
-                        }
-                    }),
+                    NetworkEventInternal::DMEvent(e) => {
+                        self.direct_message_state.handle_dm_event(e)
+                    }
                     NetworkEventInternal::RequestResponseEvent(e) => {
                         self.request_response_state.handle_request_response(e)
                     }
