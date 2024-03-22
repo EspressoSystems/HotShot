@@ -1,21 +1,23 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
+use async_lock::RwLock;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
 };
 use hotshot_types::{
-    data::QuorumProposal,
+    consensus::Consensus,
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::Event,
     message::Proposal,
-    simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2},
     traits::{
         block_contents::BlockHeader,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 #[cfg(async_executor_impl = "async-std")]
@@ -34,6 +36,24 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 fn validate_quorum_proposal<TYPES: NodeType>(
     _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+) -> bool {
+    true
+}
+
+/// Validate a quorum proposal.
+#[allow(clippy::needless_pass_by_value)]
+fn validate_proposal_certificate<TYPES: NodeType>(
+    _certificate: ViewChangeEvidence<TYPES>,
+    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+) -> bool {
+    true
+}
+
+/// Validate a quorum proposal.
+#[allow(clippy::needless_pass_by_value)]
+fn validate_quorum_certificate<TYPES: NodeType>(
+    _certificate: QuorumCertificate<TYPES>,
     _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> bool {
     true
@@ -61,6 +81,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// The event sender.
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
+
+    /// Reference to consensus. The replica will require a write lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -68,14 +91,11 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     async fn handle_dep_result(self, res: Self::Output) {
         let mut proposal = None;
-        let mut commit_and_metadata = None;
-        let mut timeout_cert = None;
+        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
         for event in res {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(validated_proposal) => {
-                    let proposal_payload_comm =
-                        validated_proposal.block_header.payload_commitment();
-                    proposal = Some(validated_proposal.clone())
+                    proposal = Some(validated_proposal.clone());
                 }
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
                     payload_commitment,
@@ -88,21 +108,12 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         metadata: metadata.clone(),
                     });
                 }
-                HotShotEvent::Timeout(cert) => {
-                    timeout_cert = Some(cert);
-                }
                 _ => {}
             }
         }
 
         broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalValidated(self.view_number)),
-            &self.sender,
-        )
-        .await;
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalSend(
-                proposal.unwrap(),
+            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
                 self.view_number,
             )),
             &self.sender,
@@ -128,12 +139,17 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
-    /// last Timeout Certificate this node formed
-    pub timeout_cert: Option<TimeoutCertificate<TYPES>>,
+    /// last View Sync Certificate or Timeout Certificate this node formed.
+    pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
 
-    // TODO: Merge view sync and timeout certs: https://github.com/EspressoSystems/HotShot/issues/2767
-    /// last View Sync Certificate this node formed
-    pub view_sync_cert: Option<ViewSyncFinalizeCertificate2<TYPES>>,
+    /// Reference to consensus. The replica will require a write lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// Membership for Timeout votes/certs
+    pub timeout_membership: Arc<TYPES::Membership>,
+
+    /// Membership for Quorum Certs/votes
+    pub quorum_membership: Arc<TYPES::Membership>,
 
     /// The node's id
     pub id: u64,
@@ -170,6 +186,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         if self.propose_dependencies.get(&view_number).is_some() {
             return;
         }
+
         let deps = vec![self.create_event_dependency(
             ProposalDependency::QuorumProposal,
             view_number,
@@ -181,6 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ProposalDependencyHandle {
                 view_number,
                 sender: event_sender,
+                consensus: self.consensus.clone(),
             },
         );
         self.propose_dependencies
@@ -220,7 +238,52 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::QCFormed(cert) => {}
+            HotShotEvent::QCFormed(cert) => {
+                if let either::Right(view_change_evidence) = cert.clone() {
+                    let proposal_cert = ViewChangeEvidence::Timeout(view_change_evidence.clone());
+
+                    // cancel poll for votes
+                    self.quorum_network
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *view_change_evidence.view_number,
+                        ))
+                        .await;
+
+                    let view = view_change_evidence.view_number + 1;
+
+                    // Now that we're sure this is the right thing, validate the certificate
+                    if !validate_proposal_certificate(proposal_cert, event_sender.clone()) {
+                        return;
+                    }
+
+                    self.create_dependency_task_if_new(
+                        self.view_number,
+                        event_receiver,
+                        event_sender,
+                    );
+                }
+                if let either::Left(qc) = cert {
+                    let mut consensus = self.consensus.write().await;
+                    consensus.high_qc = qc.clone();
+
+                    // cancel poll for votes
+                    self.quorum_network
+                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                            *qc.view_number,
+                        ))
+                        .await;
+
+                    if !validate_quorum_certificate(qc, event_sender.clone()) {
+                        return;
+                    }
+
+                    self.create_dependency_task_if_new(
+                        self.view_number,
+                        event_receiver,
+                        event_sender,
+                    );
+                }
+            }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {}
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_finalize_cert) => {}
             HotShotEvent::QuorumProposalRecv(proposal, _sender) => {

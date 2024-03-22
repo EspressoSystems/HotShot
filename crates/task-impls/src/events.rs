@@ -44,6 +44,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DACValidated(DACertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
+    /// Dummy quorum proposal to test if the quorum proposal dependency works.
+    DummyQuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
+    /// Dummy quorum proposal to test if the quorum proposal dependency works.
+    QuorumProposalDependenciesValidated(TYPES::Time),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
     /// Dummy quorum vote to test if the quorum vote dependency works.
