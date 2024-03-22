@@ -22,7 +22,6 @@ use hotshot_types::{
 use std::time::Duration;
 use tide_disco::Url;
 
-#[ignore]
 #[cfg(test)]
 #[cfg_attr(
     async_executor_impl = "tokio",
@@ -38,6 +37,7 @@ async fn test_random_block_builder() {
     let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 
+    // Wait for at least one block to be built
     async_sleep(Duration::from_millis(30)).await;
 
     // Test getting blocks
@@ -98,9 +98,9 @@ async fn test_simple_block_builder() {
     // Before block-building task is spun up, should only have an empty block
     {
         let mut blocks = client
-            .get_avaliable_blocks(vid_commitment(&vec![], 1))
+            .get_available_blocks(vid_commitment(&vec![], 1))
             .await
-            .expect("Failed to get avaliable blocks");
+            .expect("Failed to get available blocks");
 
         assert_eq!(blocks.len(), 1);
 
@@ -138,9 +138,9 @@ async fn test_simple_block_builder() {
 
         // Test getting blocks
         let mut blocks = client
-            .get_avaliable_blocks(vid_commitment(&vec![], 1))
+            .get_available_blocks(vid_commitment(&vec![], 1))
             .await
-            .expect("Failed to get avaliable blocks");
+            .expect("Failed to get available blocks");
 
         assert!(!blocks.is_empty());
 

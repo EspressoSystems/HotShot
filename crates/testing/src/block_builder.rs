@@ -48,7 +48,7 @@ pub struct RandomBuilderOptions {
     /// How many transactions to include in a block
     pub txn_in_block: u64,
     /// How many blocks to generate per second
-    pub blocks_per_second: u64,
+    pub blocks_per_second: u32,
     /// Range of how big a transaction can be (in bytes)
     pub txn_size: Range<u32>,
     /// Number of storage nodes for VID commitment
@@ -105,7 +105,7 @@ impl RandomBuilderSource {
         let (priv_key, pub_key) = (self.priv_key.clone(), self.pub_key);
         async_spawn(async move {
             let mut rng = SmallRng::from_entropy();
-            let time_per_block = Duration::from_millis(1000 / options.blocks_per_second);
+            let time_per_block = Duration::from_secs(1) / options.blocks_per_second;
             loop {
                 let start = std::time::Instant::now();
                 let transactions: Vec<TestTransaction> = (0..options.txn_in_block)
