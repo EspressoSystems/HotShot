@@ -41,7 +41,7 @@ fn validate_quorum_proposal<TYPES: NodeType>(
     true
 }
 
-/// Validate a quorum proposal.
+/// Validate a view sync cert or a timeout cert.
 #[allow(clippy::needless_pass_by_value)]
 fn validate_view_change_evidence<TYPES: NodeType>(
     _certificate: ViewChangeEvidence<TYPES>,
@@ -50,7 +50,7 @@ fn validate_view_change_evidence<TYPES: NodeType>(
     true
 }
 
-/// Validate a quorum proposal.
+/// Validate a quorum certificate.
 #[allow(clippy::needless_pass_by_value)]
 fn validate_quorum_certificate<TYPES: NodeType>(
     _certificate: QuorumCertificate<TYPES>,
@@ -59,7 +59,7 @@ fn validate_quorum_certificate<TYPES: NodeType>(
     true
 }
 
-/// Validate a quorum proposal.
+/// Validate payload and metadata.
 #[allow(clippy::needless_pass_by_value)]
 fn validate_payload_and_metadata<TYPES: NodeType>(
     _payload_commitment_and_metadata: CommitmentAndMetadata<<TYPES as NodeType>::BlockPayload>,
@@ -191,7 +191,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
     /// Create an event dependency
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum vote create event dependency", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal create event dependency", level = "error")]
     fn create_event_dependency(
         &self,
         dependency_type: ProposalDependency,
@@ -322,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Update the latest proposed view number.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum vote update latest proposed view", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
             debug!(
@@ -346,7 +346,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum vote handle", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal handle", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
