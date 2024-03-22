@@ -472,12 +472,6 @@
 <a href="#471" id="471">471</a>
 <a href="#472" id="472">472</a>
 <a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData};
 
 <span class="kw">use </span>hotshot_example_types::{
@@ -572,7 +566,6 @@
             justify_qc: QuorumCertificate::genesis(),
             upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_certificate: <span class="prelude-val">None</span>,
-            proposer_id: public_key,
         };
 
         <span class="kw">let </span>transactions = <span class="macro">vec!</span>[TestTransaction(<span class="macro">vec!</span>[<span class="number">0</span>])];
@@ -603,8 +596,6 @@
             </span>block_payload: <span class="prelude-val">Some</span>(TestBlockPayload {
                 transactions: transactions.clone(),
             }),
-            <span class="comment">// Note: this field is not relevant in calculating the leaf commitment.
-            </span>proposer_id: public_key,
         };
 
         <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
@@ -766,8 +757,6 @@
             </span>block_payload: <span class="prelude-val">Some</span>(TestBlockPayload {
                 transactions: transactions.clone(),
             }),
-            <span class="comment">// Note: this field is not relevant in calculating the leaf commitment.
-            </span>proposer_id: public_key,
         };
 
         <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
@@ -779,7 +768,6 @@
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate,
             proposal_certificate,
-            proposer_id: public_key,
         };
 
         <span class="kw">let </span>quorum_proposal = Proposal {

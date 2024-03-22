@@ -1434,11 +1434,6 @@
 <a href="#1433" id="1433">1433</a>
 <a href="#1434" id="1434">1434</a>
 <a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1642,7 +1637,6 @@
                     parent_commitment,
                     block_header: proposal.block_header.clone(),
                     block_payload: <span class="prelude-val">None</span>,
-                    proposer_id: <span class="self">self</span>.quorum_membership.get_leader(view),
                 };
 
                 <span class="comment">// Validate the DAC.
@@ -1974,7 +1968,6 @@
                         parent_commitment: justify_qc.get_data().leaf_commit,
                         block_header: proposal.data.block_header.clone(),
                         block_payload: <span class="prelude-val">None</span>,
-                        proposer_id: sender,
                     };
                     <span class="kw">let </span>state = Arc::new(
                         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(
@@ -2049,7 +2042,6 @@
                     parent_commitment,
                     block_header: proposal.data.block_header.clone(),
                     block_payload: <span class="prelude-val">None</span>,
-                    proposer_id: sender.clone(),
                 };
                 <span class="kw">let </span>leaf_commitment = leaf.commit();
 
@@ -2777,7 +2769,6 @@
                 parent_commitment: parent_leaf.commit(),
                 block_header: block_header.clone(),
                 block_payload: <span class="prelude-val">None</span>,
-                proposer_id: <span class="self">self</span>.api.public_key().clone(),
             };
 
             <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
@@ -2816,7 +2807,6 @@
                 justify_qc: consensus.high_qc.clone(),
                 proposal_certificate,
                 upgrade_certificate: upgrade_cert,
-                proposer_id: leaf.proposer_id,
             };
 
             <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;

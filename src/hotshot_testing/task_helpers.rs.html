@@ -488,12 +488,6 @@
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -753,7 +747,6 @@
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: <span class="prelude-val">None</span>,
-        proposer_id: <span class="kw-2">*</span>handle.public_key(),
     };
 
     <span class="kw">let </span><span class="kw-2">mut </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf.commit().as_ref())
@@ -764,7 +757,6 @@
         justify_qc: QuorumCertificate::genesis(),
         upgrade_certificate: <span class="prelude-val">None</span>,
         proposal_certificate: <span class="prelude-val">None</span>,
-        proposer_id: leaf.proposer_id,
     };
 
     <span class="comment">// Only view 2 is tested, higher views are not tested
@@ -812,7 +804,6 @@
             parent_commitment: parent_leaf.commit(),
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">None</span>,
-            proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
         };
         <span class="kw">let </span>signature_new_view =
             &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, leaf_new_view.commit().as_ref())
@@ -823,7 +814,6 @@
             justify_qc: created_qc,
             upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_certificate: <span class="prelude-val">None</span>,
-            proposer_id: leaf_new_view.clone().proposer_id,
         };
         proposal = proposal_new_view;
         signature = signature_new_view;
@@ -945,7 +935,6 @@
 ) -&gt; GeneralConsensusMessage&lt;TestTypes&gt; {
     <span class="kw">let </span>consensus_lock = handle.get_consensus();
     <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
-    <span class="kw">let </span>membership = handle.hotshot.memberships.quorum_membership.clone();
 
     <span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
     <span class="kw">let </span>view = ViewNumber::new(<span class="kw-2">*</span>proposal.view_number);
@@ -976,7 +965,6 @@
         parent_commitment,
         block_header: proposal.block_header,
         block_payload: <span class="prelude-val">None</span>,
-        proposer_id: membership.get_leader(view),
     };
     <span class="kw">let </span>vote = QuorumVote::&lt;TestTypes&gt;::create_signed_vote(
         QuorumData {
