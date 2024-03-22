@@ -21,10 +21,5 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler capnproto
-
       - name: Audit Dependencies
         run: cargo audit
