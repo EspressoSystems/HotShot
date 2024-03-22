@@ -560,7 +560,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     drop(consensus);
 
-
                     if liveness_check {
                         self.current_proposal = Some(proposal.data.clone());
                         let new_view = proposal.data.view_number + 1;
