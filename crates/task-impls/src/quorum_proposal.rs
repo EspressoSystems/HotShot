@@ -8,23 +8,23 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{QuorumProposal, ViewChangeEvidence},
     event::Event,
     message::Proposal,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2},
+    simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::{Certificate, HasViewNumber},
+    vote::HasViewNumber,
 };
 
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::{
     consensus::CommitmentAndMetadata,
@@ -93,23 +93,35 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
 
     /// Reference to consensus. The replica will require a write lock on this.
+    #[allow(dead_code)]
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 }
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
+    #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let mut proposal = None;
+        let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
+        let mut _quorum_certificate = None;
+        let mut _timeout_certificate = None;
+        let mut _view_sync_finalize_cert = None;
         for event in res {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(validated_proposal) => {
-                    proposal = Some(validated_proposal.clone());
+                HotShotEvent::QuorumProposalValidated(proposal) => {
+                    let proposal_payload_comm = proposal.block_header.payload_commitment();
+                    if let Some(comm) = payload_commitment {
+                        if proposal_payload_comm != comm {
+                            return;
+                        }
+                    } else {
+                        payload_commitment = Some(proposal_payload_comm);
+                    }
                 }
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
                     payload_commitment,
                     metadata,
-                    view,
+                    _view,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
@@ -117,9 +129,24 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         metadata: metadata.clone(),
                     });
                 }
-                HotShotEvent::QCFormed(qc) => {}
+                HotShotEvent::QCFormed(cert) => match cert {
+                    either::Right(timeout) => {
+                        _timeout_certificate = Some(ViewChangeEvidence::Timeout(timeout.clone()));
+                    }
+                    either::Left(qc) => _quorum_certificate = Some(qc),
+                },
+                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                    _view_sync_finalize_cert = Some(cert);
+                }
                 _ => {}
             }
+        }
+
+        if commit_and_metadata.is_none() {
+            error!(
+                "Somehow completed the proposal dependency task without a commitment and metadata"
+            );
+            return;
         }
 
         broadcast_event(
