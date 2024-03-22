@@ -1159,6 +1159,38 @@
 <a href="#1158" id="1158">1158</a>
 <a href="#1159" id="1159">1159</a>
 <a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1225,7 +1257,7 @@
 <span class="kw">use </span>std::{fs, time::Instant};
 <span class="kw">use </span>std::{num::NonZeroUsize, str::FromStr};
 <span class="kw">use </span>surf_disco::Url;
-<span class="kw">use </span>tracing::{error, info, warn};
+<span class="kw">use </span>tracing::{debug, error, info, warn};
 <span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -1333,6 +1365,22 @@
                 .help(<span class="string">"Sets the url of the orchestrator"</span>)
                 .required(<span class="bool-val">false</span>),
         )
+        .arg(
+            Arg::new(<span class="string">"webserver_url"</span>)
+                .short(<span class="string">'w'</span>)
+                .long(<span class="string">"webserver_url"</span>)
+                .value_name(<span class="string">"URL"</span>)
+                .help(<span class="string">"Sets the url of the webserver"</span>)
+                .required(<span class="bool-val">false</span>),
+        )
+        .arg(
+            Arg::new(<span class="string">"da_webserver_url"</span>)
+                .short(<span class="string">'a'</span>)
+                .long(<span class="string">"da_webserver_url"</span>)
+                .value_name(<span class="string">"URL"</span>)
+                .help(<span class="string">"Sets the url of the da webserver"</span>)
+                .required(<span class="bool-val">false</span>),
+        )
         .get_matches();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(config_file_string) = matches.get_one::&lt;String&gt;(<span class="string">"config_file"</span>) {
@@ -1372,6 +1420,20 @@
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(orchestrator_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"orchestrator_url"</span>) {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(webserver_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"webserver_url"</span>) {
+        <span class="kw">let </span>updated_web_server_config = WebServerConfig {
+            url: Url::parse(webserver_url_string).unwrap(),
+            wait_between_polls: config.web_server_config.unwrap().wait_between_polls,
+        };
+        config.web_server_config = <span class="prelude-val">Some</span>(updated_web_server_config);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(da_webserver_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"da_webserver_url"</span>) {
+        <span class="kw">let </span>updated_da_web_server_config = WebServerConfig {
+            url: Url::parse(da_webserver_url_string).unwrap(),
+            wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
+        };
+        config.da_web_server_config = <span class="prelude-val">Some</span>(updated_da_web_server_config);
     }
 
     (config, orchestrator_url)
@@ -1421,7 +1483,7 @@
 &gt;(
     OrchestratorArgs { url, config }: OrchestratorArgs&lt;TYPES&gt;,
 ) {
-    <span class="macro">error!</span>(<span class="string">"Starting orchestrator"</span>,);
+    <span class="macro">println!</span>(<span class="string">"Starting orchestrator"</span>,);
     <span class="kw">let </span>_result = hotshot_orchestrator::run_orchestrator::&lt;
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -1701,10 +1763,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>total_latency = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>num_latency = <span class="number">0</span>;
 
-        <span class="macro">error!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
         async_sleep(Duration::from_secs(start_delay_seconds)).<span class="kw">await</span>;
 
-        <span class="macro">error!</span>(<span class="string">"Starting HotShot example!"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Starting HotShot example!"</span>);
         <span class="kw">let </span>start = Instant::now();
 
         <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
@@ -1799,8 +1861,8 @@
                             failed_num_views += <span class="number">1</span>;
                             <span class="macro">warn!</span>(<span class="string">"Timed out in view {:?}"</span>, view_number);
                         }
-                        <span class="kw">_ </span>=&gt; {}
-                    }
+                        <span class="kw">_ </span>=&gt; {} <span class="comment">// mostly DA proposal
+                    </span>}
                 }
             }
         }
@@ -1808,19 +1870,21 @@
         <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
         <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         <span class="comment">// When posting to the orchestrator, note that the total number of views also include un-finalized views.
-        </span><span class="macro">error!</span>(<span class="string">"Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}"</span>);
+        </span><span class="macro">println!</span>(<span class="string">"[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}"</span>);
         <span class="comment">// +2 is for uncommitted views
         </span><span class="macro">assert!</span>(total_num_views &lt;= (failed_num_views + num_successful_commits + <span class="number">2</span>));
         <span class="comment">// Output run results
         </span><span class="kw">let </span>total_time_elapsed = start.elapsed(); <span class="comment">// in seconds
-        </span><span class="macro">error!</span>(<span class="string">"[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}"</span>);
+        </span><span class="macro">println!</span>(<span class="string">"[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}"</span>);
         <span class="kw">if </span>total_transactions_committed != <span class="number">0 </span>{
             <span class="comment">// extra 8 bytes for timestamp
             </span><span class="kw">let </span>throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + <span class="number">8</span>)
                 / total_time_elapsed.as_secs();
+            <span class="kw">let </span>avg_latency_in_sec = total_latency / num_latency;
+            <span class="macro">println!</span>(<span class="string">"[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec."</span>);
             BenchResults {
-                avg_latency_in_sec: total_latency / num_latency,
+                avg_latency_in_sec,
                 num_latency,
                 minimum_latency_in_sec: minimum_latency,
                 maximum_latency_in_sec: maximum_latency,
@@ -2217,7 +2281,7 @@
     setup_logging();
     setup_backtrace();
 
-    <span class="macro">error!</span>(<span class="string">"Starting validator"</span>);
+    <span class="macro">debug!</span>(<span class="string">"Starting validator"</span>);
 
     <span class="comment">// see what our public identity will be
     </span><span class="kw">let </span>public_ip = <span class="kw">match </span>args.public_ip {
@@ -2289,13 +2353,13 @@
     }
 
     <span class="kw">if let </span>NetworkConfigSource::Orchestrator = source {
-        <span class="macro">error!</span>(<span class="string">"Waiting for the start command from orchestrator"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Waiting for the start command from orchestrator"</span>);
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .<span class="kw">await</span>;
     }
 
-    <span class="macro">error!</span>(<span class="string">"Starting HotShot"</span>);
+    <span class="macro">println!</span>(<span class="string">"Starting HotShot"</span>);
     <span class="kw">let </span>bench_results = run
         .run_hotshot(
             hotshot,
