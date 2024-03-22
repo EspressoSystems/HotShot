@@ -19,7 +19,6 @@ pub use self::{
 
 use self::behaviours::{
     dht::DHTEvent,
-    direct_message::DMEvent,
     request_response::{Request, Response},
 };
 use futures::channel::oneshot::{self, Sender};

@@ -1,17 +1,11 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    task::Poll,
-};
-
-use libp2p::request_response::cbor::Behaviour;
-use libp2p::{
-    request_response::{Event, Message, OutboundRequestId, ResponseChannel},
-    Multiaddr,
-};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::channel::UnboundedSender;
+use libp2p::request_response::{Event, Message, OutboundRequestId, ResponseChannel};
 use libp2p_identity::PeerId;
+use std::collections::HashMap;
 use tracing::{error, info};
 
-use crate::network::NetworkEvent;
+use crate::network::{ClientRequest, NetworkEvent};
 
 use super::exponential_backoff::ExponentialBackoff;
 
@@ -50,6 +44,7 @@ impl DMBehaviour {
     pub(crate) fn handle_dm_event(
         &mut self,
         event: Event<Vec<u8>, Vec<u8>>,
+        retry_tx: Option<UnboundedSender<ClientRequest>>,
     ) -> Option<NetworkEvent> {
         match event {
             Event::InboundFailure {
@@ -72,7 +67,24 @@ impl DMBehaviour {
                     "outbound failure to send message to {:?} with error {:?}",
                     peer, error
                 );
-                if let Some(mut req) = self.in_progress_rr.remove(&request_id) {}
+                if let Some(mut req) = self.in_progress_rr.remove(&request_id) {
+                    if req.retry_count == 0 {
+                        return None;
+                    }
+                    req.retry_count -= 1;
+                    if let Some(retry_tx) = retry_tx {
+                        async_spawn(async move {
+                            async_sleep(req.backoff.next_timeout(false)).await;
+                            let _ = retry_tx
+                                .send(ClientRequest::DirectRequest {
+                                    pid: peer,
+                                    contents: req.data,
+                                    retry_count: req.retry_count,
+                                })
+                                .await;
+                        });
+                    }
+                }
                 None
             }
             Event::Message { message, peer, .. } => match message {

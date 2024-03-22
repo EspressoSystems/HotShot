@@ -2,10 +2,7 @@ use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
-    request_response::{
-        cbor::{self, Behaviour},
-        ResponseChannel,
-    },
+    request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -15,7 +12,6 @@ use tracing::{debug, error};
 use super::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
         request_response::{Request, Response},
     },
@@ -147,19 +143,13 @@ impl NetworkDef {
 /// Request/response functions
 impl NetworkDef {
     /// Add a direct request for a given peer
-    pub fn add_direct_request(&mut self, peer_id: PeerId, data: Vec<u8>, retry_count: u8) {
-        let request = DMRequest {
-            peer_id,
-            data: data.clone(),
-            backoff: ExponentialBackoff::default(),
-            retry_count,
-        };
-        let id = self.direct_message.send_request(&peer_id, data);
+    pub fn add_direct_request(&mut self, peer_id: PeerId, data: Vec<u8>) -> OutboundRequestId {
+        self.direct_message.send_request(&peer_id, data)
     }
 
     /// Add a direct response for a channel
     pub fn add_direct_response(&mut self, chan: ResponseChannel<Vec<u8>>, msg: Vec<u8>) {
-        self.direct_message.send_response(chan, msg);
+        let _ = self.direct_message.send_response(chan, msg);
     }
 }
 
