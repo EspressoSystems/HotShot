@@ -17,9 +17,7 @@ async fn test_quorum_proposal_task() {
     use hotshot::tasks::inject_quorum_proposal_polls;
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
-    use hotshot_testing::{
-        predicates::is_at_view_number, task_helpers::vid_scheme_from_view_number,
-    };
+    use hotshot_testing::task_helpers::vid_scheme_from_view_number;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
