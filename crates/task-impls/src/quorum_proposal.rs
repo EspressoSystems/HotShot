@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
+    task::{Task, TaskState},
 };
 use hotshot_types::{
     consensus::Consensus,
@@ -497,5 +498,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             _ => {}
         }
+    }
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
+    for QuorumProposalTaskState<TYPES, I>
+{
+    type Event = Arc<HotShotEvent<TYPES>>;
+    type Output = ();
+    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
+        !matches!(
+            event.as_ref(),
+            HotShotEvent::QuorumProposalRecv(_, _)
+                | HotShotEvent::QCFormed(_)
+                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
+                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+                | HotShotEvent::Shutdown,
+        )
+    }
+    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
+    where
+        Self: Sized,
+    {
+        let receiver = task.subscribe();
+        let sender = task.clone_sender();
+        tracing::trace!("sender queue len {}", sender.len());
+        task.state_mut().handle(event, receiver, sender).await;
+        None
+    }
+    fn should_shutdown(event: &Self::Event) -> bool {
+        matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
 }
