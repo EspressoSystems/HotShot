@@ -75,31 +75,35 @@ test_web_server:
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
 test_with_failures:
-  echo Testing nodes leaving the network with async std executor
+  echo Testing nodes leaving the network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
 
 test_memory_network:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
 
 test_consensus_task:
-  echo Testing with async std executor
+  echo Testing the consensus task
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
+test_quorum_vote_task:
+  echo Testing the quorum vote task
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_vote_task -- --test-threads=1 --nocapture
+
 test_da_task:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_vid_task:
-  echo Testing the VID task with async std executor
+  echo Testing the VID task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
 
 test_view_sync_task:
-  echo Testing the view sync task with async std executor
+  echo Testing the view sync task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"

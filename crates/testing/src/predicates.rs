@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
+use hotshot::types::SystemContextHandle;
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
 };
 use hotshot_types::traits::node_implementation::NodeType;
-
-use hotshot::types::SystemContextHandle;
-
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
 pub struct Predicate<INPUT> {
     pub function: Box<dyn Fn(&INPUT) -> bool>,
@@ -29,6 +27,25 @@ where
 
     Predicate {
         function: Box::new(move |e| e == &event),
+        info,
+    }
+}
+
+pub type ConsecutiveEvents<TYPES> = (Arc<HotShotEvent<TYPES>>, Arc<HotShotEvent<TYPES>>);
+
+pub fn consecutive<TYPES>(
+    events: (HotShotEvent<TYPES>, HotShotEvent<TYPES>),
+) -> Predicate<ConsecutiveEvents<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = format!("{:?}", events);
+    let (event_0, event_1) = (Arc::new(events.0), Arc::new(events.1));
+
+    Predicate {
+        function: Box::new(move |(e0, e1)| {
+            (e0 == &event_0 && e1 == &event_1) || (e0 == &event_1 && e1 == &event_0)
+        }),
         info,
     }
 }

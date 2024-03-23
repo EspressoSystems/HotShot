@@ -1,14 +1,20 @@
-use crate::predicates::Predicate;
+use crate::predicates::{ConsecutiveEvents, Predicate};
 use async_broadcast::broadcast;
-use hotshot_task_impls::events::HotShotEvent;
-
+use either::{Either, Left, Right};
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
 
+type OneOrConsecutiveEvents<TYPES> =
+    Either<Predicate<Arc<HotShotEvent<TYPES>>>, Predicate<ConsecutiveEvents<TYPES>>>;
+
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
-    pub outputs: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
+    // Verify either one or two consecutive events at a time. It should be the former in most
+    // cases, but the latter is useful when we won't want to require the order of consecutive
+    // events.
+    pub outputs: Vec<OneOrConsecutiveEvents<TYPES>>,
     pub asserts: Vec<Predicate<S>>,
 }
 
@@ -107,11 +113,32 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         }
 
         for assert in &stage.outputs {
-            if let Ok(received_output) = test_receiver.try_recv() {
-                tracing::debug!("Test received: {:?}", received_output);
-                validate_output_or_panic(stage_number, &received_output, assert);
-            } else {
-                panic_missing_output(stage_number, assert);
+            match assert {
+                Left(assert) => {
+                    if let Ok(received_output) = test_receiver.try_recv() {
+                        tracing::debug!("Test received: {:?}", received_output);
+                        validate_output_or_panic(stage_number, &received_output, assert);
+                    } else {
+                        panic_missing_output(stage_number, assert);
+                    }
+                }
+                Right(asserts) => {
+                    if let Ok(received_output_0) = test_receiver.try_recv() {
+                        tracing::debug!("Test received: {:?}", received_output_0);
+                        if let Ok(received_output_1) = test_receiver.try_recv() {
+                            tracing::debug!("Test received: {:?}", received_output_1);
+                            validate_output_or_panic(
+                                stage_number,
+                                &(received_output_0, received_output_1),
+                                asserts,
+                            );
+                        } else {
+                            panic_missing_output(stage_number, asserts);
+                        }
+                    } else {
+                        panic_missing_output(stage_number, asserts);
+                    }
+                }
             }
         }
 

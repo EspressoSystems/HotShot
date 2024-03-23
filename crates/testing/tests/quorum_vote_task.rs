@@ -7,10 +7,11 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_success() {
+    use either::{Left, Right};
     use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
-        predicates::exact,
+        predicates::{consecutive, exact},
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
@@ -36,12 +37,16 @@ async fn test_quorum_vote_task_success() {
             VidDisperseRecv(view.vid_proposal.0.clone()),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(view.quorum_proposal.data.clone())),
-            exact(DACertificateValidated(view.da_certificate.clone())),
-            exact(VIDShareValidated(view.vid_proposal.0.data.clone())),
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
-            exact(DummyQuorumVoteSend(ViewNumber::new(1))),
+            Right(consecutive((
+                ViewChange(ViewNumber::new(2)),
+                QuorumProposalValidated(view.quorum_proposal.data.clone()),
+            ))),
+            Right(consecutive((
+                DACertificateValidated(view.da_certificate.clone()),
+                VIDShareValidated(view.vid_proposal.0.data.clone()),
+            ))),
+            Left(exact(QuorumVoteDependenciesValidated(ViewNumber::new(1)))),
+            Left(exact(DummyQuorumVoteSend(ViewNumber::new(1)))),
         ],
         asserts: vec![],
     };
@@ -57,10 +62,11 @@ async fn test_quorum_vote_task_success() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_miss_dependency() {
+    use either::{Left, Right};
     use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
-        predicates::exact,
+        predicates::{consecutive, exact},
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
@@ -90,10 +96,10 @@ async fn test_quorum_vote_task_miss_dependency() {
     // Send two of quorum proposal, DAC, and VID disperse data, in which case there's no vote.
     let view_no_quorum_proposal = TestScriptStage {
         inputs: vec![DACRecv(dacs[0].clone()), VidDisperseRecv(vids[0].0.clone())],
-        outputs: vec![
-            exact(DACertificateValidated(dacs[0].clone())),
-            exact(VIDShareValidated(vids[0].0.data.clone())),
-        ],
+        outputs: vec![Right(consecutive((
+            DACertificateValidated(dacs[0].clone()),
+            VIDShareValidated(vids[0].0.data.clone()),
+        )))],
         asserts: vec![],
     };
     let view_no_dac = TestScriptStage {
@@ -102,9 +108,11 @@ async fn test_quorum_vote_task_miss_dependency() {
             VidDisperseRecv(vids[1].0.clone()),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            exact(VIDShareValidated(vids[1].0.data.clone())),
+            Right(consecutive((
+                ViewChange(ViewNumber::new(3)),
+                QuorumProposalValidated(proposals[1].data.clone()),
+            ))),
+            Left(exact(VIDShareValidated(vids[1].0.data.clone()))),
         ],
         asserts: vec![],
     };
@@ -114,9 +122,11 @@ async fn test_quorum_vote_task_miss_dependency() {
             DACRecv(dacs[2].clone()),
         ],
         outputs: vec![
-            exact(ViewChange(ViewNumber::new(4))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
-            exact(DACertificateValidated(dacs[2].clone())),
+            Right(consecutive((
+                ViewChange(ViewNumber::new(4)),
+                QuorumProposalValidated(proposals[2].data.clone()),
+            ))),
+            Left(exact(DACertificateValidated(dacs[2].clone()))),
         ],
         asserts: vec![],
     };
