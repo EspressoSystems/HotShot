@@ -37,7 +37,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use std::{sync::Arc, task, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tracing::error;
 
 /// event for global event stream
@@ -198,11 +198,7 @@ pub async fn inject_consensus_polls<
 }
 
 /// Setup polls for the given `quorum_proposal`.
-pub async fn inject_quorum_proposal_polls<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    API: ConsensusApi<TYPES, I>,
->(
+pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     quorum_proposal_task_state: &QuorumProposalTaskState<TYPES, I>,
 ) {
     // Poll (forever) for the latest quorum proposal
@@ -308,6 +304,7 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg.run_task(task).await;
 }
 
+/// add the quorum proposal task
 pub async fn add_quorum_proposal_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<Arc<HotShotEvent<TYPES>>>,
