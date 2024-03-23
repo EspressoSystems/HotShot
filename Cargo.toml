@@ -190,6 +190,6 @@ module_name_repetitions = "allow"
 [workspace.lints.rust]
 # warns
 rust_2018_idioms = "warn"
-# TODO cahnge to deny
+# TODO change to deny
 missing_docs = "warn"
 warnings = "warn"

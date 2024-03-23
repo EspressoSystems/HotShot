@@ -333,7 +333,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .metrics
                 .current_view
                 .set(usize::try_from(self.cur_view.get_u64()).unwrap());
-            // Do the comparison before the substraction to avoid potential overflow, since
+            // Do the comparison before the subtraction to avoid potential overflow, since
             // `last_decided_view` may be greater than `cur_view` if the node is catching up.
             if usize::try_from(self.cur_view.get_u64()).unwrap()
                 > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
@@ -445,7 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // SS: It is possible that we may wish to vote against any quorum proposal
                 // if it attaches an upgrade certificate that we cannot support.
                 // But I don't think there's much point in this -- if the UpgradeCertificate
-                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis
+                // threshold (90%) has been reached, voting against the QuorumProposal on that basis
                 // will probably be completely symbolic anyway.
                 //
                 // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
@@ -642,7 +642,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                 }
 
-                // Skip if both saftey and liveness checks fail.
+                // Skip if both safety and liveness checks fail.
                 if !safety_check && !liveness_check {
                     error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc, proposal.data.clone(), consensus.locked_view);
                     return;
@@ -853,7 +853,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 self.current_proposal = None;
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                debug!("Received quroum vote: {:?}", vote.get_view_number());
+                debug!("Received quorum vote: {:?}", vote.get_view_number());
                 if self
                     .quorum_membership
                     .get_leader(vote.get_view_number() + 1)
