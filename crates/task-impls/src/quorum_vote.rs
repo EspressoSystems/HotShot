@@ -122,6 +122,11 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
             &self.sender,
         )
         .await;
+        broadcast_event(
+            Arc::new(HotShotEvent::DummyQuorumVoteSend(self.view_number)),
+            &self.sender,
+        )
+        .await;
     }
 }
 
@@ -332,11 +337,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) => {
                 debug!("All vote dependencies verified for view {:?}", view);
-                broadcast_event(
-                    Arc::new(HotShotEvent::DummyQuorumVoteSend(*view)),
-                    &event_sender.clone(),
-                )
-                .await;
                 if !self.update_latest_voted_view(*view).await {
                     debug!("view not updated");
                     return;
