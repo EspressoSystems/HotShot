@@ -143,7 +143,7 @@ async fn test_upgrade_task() {
 
     inject_consensus_polls(&consensus_state).await;
 
-    run_test_script(script, consensus_state).await;
+    run_test_script(script, consensus_state, None).await;
 }
 
 #[cfg_attr(

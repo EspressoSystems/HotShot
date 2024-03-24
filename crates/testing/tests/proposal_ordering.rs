@@ -107,7 +107,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     >::create_from(&handle)
     .await;
 
-    run_test_script(script, consensus_state).await;
+    run_test_script(script, consensus_state, None).await;
 }
 
 #[cfg_attr(

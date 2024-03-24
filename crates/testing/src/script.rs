@@ -4,7 +4,7 @@ use hotshot_task_impls::events::HotShotEvent;
 
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
-use std::sync::Arc;
+use std::{sync::Arc, thread::sleep};
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -75,6 +75,7 @@ where
 pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>>(
     mut script: TestScript<TYPES, S>,
     state: S,
+    check_delay: Option<std::time::Duration>,
 ) where
     TYPES: NodeType,
     S: Send + 'static,
@@ -104,6 +105,11 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     task.state_mut().handle_result(&res).await;
                 }
             }
+        }
+
+        if let Some(duration) = check_delay {
+            tracing::info!("Sleeping thread for {:?} before validating.", duration);
+            sleep(duration);
         }
 
         for assert in &stage.outputs {
