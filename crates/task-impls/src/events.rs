@@ -1,7 +1,7 @@
 use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
-use hotshot_types::data::VidDisperseShare;
+use hotshot_types::data::{VidDisperseShare, ViewChangeEvidence};
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
@@ -44,10 +44,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DACValidated(DACertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
-    /// Dummy quorum proposal to test if the quorum proposal dependency works.
-    DummyQuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
-    /// Dummy quorum proposal to test if the quorum proposal dependency works.
-    QuorumProposalDependenciesValidated(TYPES::Time),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
     /// Dummy quorum vote to test if the quorum vote dependency works.
@@ -111,12 +107,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),
-    /// Event to send the validated payload to the quorum proposal task; internal event only
-    QuorumProposalPayloadValidated(
-        VidCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
-        TYPES::Time,
-    ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     TransactionsSequenced(
         Vec<u8>,
@@ -147,4 +137,26 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+
+    /** Quorum Proposal Task **/
+    /// Dummy quorum proposal to test if the quorum proposal dependency task works.
+    DummyQuorumProposalSend(TYPES::Time),
+    /// Event to send the validated payload to the quorum proposal task; internal event only
+    QuorumProposalPayloadAndMetadataValidated(
+        VidCommitment,
+        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        TYPES::Time,
+    ),
+    /// All required dependencies of the quorum proposal have been validated and the task is ready
+    /// to propse.
+    QuorumProposalDependenciesValidated(TYPES::Time),
+    /// Send a `QuorumProposalTimeoutCertValidated` event when the task receives and validates a
+    /// proposable timeout certificate.
+    QuorumProposalTimeoutCertValidated(TimeoutCertificate<TYPES>),
+    /// Send a `QuorumProposalViewSyncFinalizeCertValidated` event when the task receives and
+    /// validates a view sync finalize certificate.
+    QuorumProposalViewSyncFinalizeCertValidated(ViewSyncFinalizeCertificate2<TYPES>),
+    /// Send a `QuorumProposalQuorumCertValidated` event when the task receives and validates a
+    /// quorum certificate.
+    QuorumProposalQuorumCertValidated(QuorumCertificate<TYPES>),
 }
