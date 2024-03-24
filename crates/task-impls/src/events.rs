@@ -111,6 +111,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),
+    /// Event to send the validated payload to the quorum proposal task; internal event only
+    QuorumProposalPayloadValidated(
+        VidCommitment,
+        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        TYPES::Time,
+    ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     TransactionsSequenced(
         Vec<u8>,

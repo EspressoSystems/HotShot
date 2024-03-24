@@ -109,8 +109,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _view_sync_finalize_cert = None;
         for event in res {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
+                HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
+                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             return;
@@ -119,7 +119,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         payload_commitment = Some(proposal_payload_comm);
                     }
                 }
-                HotShotEvent::SendPayloadCommitmentAndMetadata(
+                HotShotEvent::QuorumProposalPayloadValidated(
                     payload_commitment,
                     metadata,
                     _view,
@@ -224,14 +224,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::QuorumProposal => {
-                        if let HotShotEvent::QuorumProposalRecv(proposal, _sender) = event {
-                            proposal.data.view_number
+                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
+                            proposal.view_number
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::PayloadAndMetadata => {
-                        if let HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        if let HotShotEvent::QuorumProposalPayloadValidated(
                             _payload_commitment,
                             _metadata,
                             view,
@@ -433,6 +433,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 ) {
                     return;
                 }
+
+                broadcast_event(
+                    Arc::new(HotShotEvent::QuorumProposalPayloadValidated(
+                        *payload_commitment,
+                        metadata.clone(),
+                        view,
+                    )),
+                    &event_sender.clone(),
+                )
+                .await;
 
                 self.create_dependency_task_if_new(
                     view,
