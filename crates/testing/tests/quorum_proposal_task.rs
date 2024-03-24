@@ -74,3 +74,54 @@ async fn test_quorum_proposal_task() {
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
 }
+
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_proposal_task_with_incomplete_events() {
+    use hotshot::tasks::inject_quorum_proposal_polls;
+    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    // We need to propose as the leader for view 2, otherwise we get caught up with the special
+    // case in the genesis view.
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    let mut votes = Vec::new();
+    let mut dacs = Vec::new();
+    let mut vids = Vec::new();
+    for view in (&mut generator).take(2) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_quorum_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
+    }
+
+    // We run the task here at view 2, but this time we ignore the crucial piece of evidence: the
+    // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
+    // This should result in the proposal failing to be sent.
+    let view_2 = TestScriptStage {
+        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        // We still get the proposal since we received a valid quorum proposal. But we fail to get
+        // the dependencies validated event or a notification of our payload commitment ever
+        // arriving.
+        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
+        asserts: vec![],
+    };
+
+    let quorum_proposal_task_state =
+        QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
+
+    let script = vec![view_2];
+    run_test_script(script, quorum_proposal_task_state).await;
+}
