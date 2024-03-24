@@ -55,7 +55,15 @@ async fn test_quorum_proposal_task() {
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
-        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
+        outputs: vec![
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            exact(QuorumProposalPayloadValidated(
+                payload_commitment,
+                (),
+                ViewNumber::new(2),
+            )),
+            exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
+        ],
         asserts: vec![],
     };
 
