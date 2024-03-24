@@ -191,7 +191,11 @@ pub trait WebServerDataSource<KEY> {
     /// Get upgrade votes
     /// # Errors
     /// Error if unable to serve.
-    fn get_upgrade_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_upgrade_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get view sync votes
     /// # Errors
     /// Error if unable to serve.
@@ -399,7 +403,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
 
     /// Return all votes the server has received for a particular view from provided index to most recent
-    fn get_upgrade_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+    fn get_upgrade_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let votes = self.upgrade_votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
@@ -665,7 +673,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_upgrade_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
+    fn post_upgrade_proposal(
+        &mut self,
+        view_number: u64,
+        mut proposal: Vec<u8>,
+    ) -> Result<(), Error> {
         tracing::error!("Received upgrade proposal for view {}", view_number);
 
         if self.upgrade_proposals.len() >= MAX_VIEWS {
@@ -673,9 +685,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
 
         self.upgrade_proposals
-          .entry(view_number)
-          .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
-          .or_insert_with(|| (String::new(), proposal));
+            .entry(view_number)
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
+            .or_insert_with(|| (String::new(), proposal));
         Ok(())
     }
 

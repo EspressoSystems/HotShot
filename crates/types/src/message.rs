@@ -82,10 +82,6 @@ pub enum MessagePurpose {
     UpgradeProposal,
     /// Upgrade vote.
     UpgradeVote,
-
-    #[cfg(feature = "arbitrary-messages")]
-    /// Arbitrary message with raw bytes. Primarily available for testing.
-    Arbitrary,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -203,19 +199,6 @@ pub enum SequencingMessage<TYPES: NodeType> {
 
     /// Messages related to the sequencing consensus protocol for the DA committee.
     Committee(CommitteeConsensusMessage<TYPES>),
-
-    #[cfg(feature = "arbitrary-messages")]
-    /// Arbitrary messages with raw bytes.
-    Arbitrary(ArbitraryData<TYPES>),
-}
-
-#[cfg(feature = "arbitrary-messages")]
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-#[serde(bound(deserialize = "", serialize = ""))]
-/// Arbitrary message data. Mostly intended to be used in testing.
-pub struct ArbitraryData<TYPES: NodeType> {
-    /// View number this message originated in
-    pub view_number: TYPES::Time,
 }
 
 impl<TYPES: NodeType> SequencingMessage<TYPES> {
@@ -271,8 +254,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                 }
             }
-            #[cfg(feature = "arbitrary-messages")]
-            SequencingMessage::Arbitrary(message) => message.view_number,
         }
     }
 
@@ -305,8 +286,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
                 CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
             },
-            #[cfg(feature = "arbitrary-messages")]
-            SequencingMessage::Arbitrary(_) => MessagePurpose::Arbitrary,
         }
     }
 }

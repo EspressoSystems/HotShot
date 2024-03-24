@@ -6,7 +6,6 @@ name = "hotshot-types"
 version = "0.1.11"
 
 [features]
-arbitrary-messages = []
 gpu-vid = ["jf-primitives/gpu-vid"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

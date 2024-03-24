@@ -352,13 +352,6 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVer
 
                         return true;
                     }
-                    #[cfg(feature = "example-upgrade")]
-                    MessagePurpose::Arbitrary => {
-                        tracing::error!(
-                        "Received a raw message at network version major: 0, minor: 1 -- ignoring."
-                    );
-                        return false;
-                    }
                 }
             }
             Ok(None) | Err(_) => {}
@@ -408,13 +401,6 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVer
                 MessagePurpose::UpgradeProposal => config::get_upgrade_proposal_route(0),
                 MessagePurpose::UpgradeVote => {
                     config::get_upgrade_vote_route(0, upgrade_vote_index)
-                }
-                #[cfg(feature = "example-upgrade")]
-                MessagePurpose::Arbitrary => {
-                    tracing::error!(
-                        "Asked to fetch a raw message from the web server -- ignoring."
-                    );
-                    continue;
                 }
             };
 
@@ -654,8 +640,6 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
             MessagePurpose::VidDisperse => config::post_vid_disperse_route(*view_number),
             MessagePurpose::UpgradeProposal => config::post_upgrade_proposal_route(0),
             MessagePurpose::UpgradeVote => config::post_upgrade_vote_route(0),
-            #[cfg(feature = "example-upgrade")]
-            MessagePurpose::Arbitrary => return Err(WebServerNetworkError::ArbitraryMessageError),
         };
 
         let network_msg: SendMsg<Message<TYPES>> = SendMsg {

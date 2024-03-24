@@ -12,4 +12,4 @@
 **/.direnv
 **/*.bkp
 *.sqlite
-results.csv
+**/results.csv

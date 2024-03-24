@@ -6,7 +6,7 @@ name = "hotshot-task-impls"
 version = { workspace = true }
 
 [features]
-example-upgrade = ["hotshot-types/arbitrary-messages"]
+example-upgrade = []
 gpu-vid = ["hotshot-types/gpu-vid"]
 
 

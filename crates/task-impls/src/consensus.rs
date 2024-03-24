@@ -726,7 +726,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
-                                    info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
+                                    error!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
                                     async_block_on(broadcast_event(
                                         Arc::new(HotShotEvent::UpgradeDecided(upgrade_cert.data.new_version, upgrade_cert.data.new_version_first_block)),

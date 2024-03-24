@@ -177,7 +177,6 @@
             python3
             zlib.dev
             zlib.out
-            moreutils
             fenix.packages.${system}.rust-analyzer
             just
             pkg-config

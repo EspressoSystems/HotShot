@@ -24,12 +24,12 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     constants::Version01,
     message::Message,
     traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
 };
-use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     message::Messages,
     traits::{

@@ -2,7 +2,6 @@ use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
 use hotshot_types::data::VidDisperseShare;
-use versioned_binary_serialization::version::Version;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
@@ -17,6 +16,7 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
+use versioned_binary_serialization::version::Version;
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]

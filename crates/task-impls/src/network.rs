@@ -178,11 +178,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 }
                             }
                         }
-                        #[cfg(feature = "example-upgrade")]
-                        SequencingMessage::Arbitrary(_) => {
-                            tracing::info!("Received a raw message -- discarding.");
-                            todo!()
-                        }
                     };
                     // TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.

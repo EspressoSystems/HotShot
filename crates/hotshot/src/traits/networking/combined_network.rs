@@ -123,8 +123,6 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> CombinedNetworks<TYPES,
                     matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
                 SequencingMessage::Committee(_) => true,
-                #[cfg(feature = "example-upgrade")]
-                SequencingMessage::Arbitrary(_) => false,
             },
             MessageKind::Data(_) => false,
         }
