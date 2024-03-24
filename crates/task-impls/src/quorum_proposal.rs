@@ -70,7 +70,7 @@ fn validate_payload_and_metadata<TYPES: NodeType>(
 }
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
@@ -109,6 +109,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
         for event in res {
+            debug!("EVENT {:?}", event);
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -132,13 +133,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     });
                 }
                 HotShotEvent::QuorumProposalTimeoutCertValidated(timeout_cert) => {
-                    _timeout_certificate = Some(timeout_cert);
+                    _timeout_certificate = Some(timeout_cert.clone());
                 }
                 HotShotEvent::QuorumProposalQuorumCertValidated(qc) => {
-                    _quorum_certificate = Some(qc);
+                    _quorum_certificate = Some(qc.clone());
                 }
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert);
+                HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(cert) => {
+                    _view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
             }
@@ -211,8 +212,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::ViewSync => {
-                        if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
-                            event
+                        if let HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(
+                            view_sync_cert,
+                        ) = event
                         {
                             view_sync_cert.view_number
                         } else {
@@ -416,7 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             return;
                         }
 
-                        let view = qc.view_number;
+                        let view = qc.view_number + 1;
 
                         broadcast_event(
                             Arc::new(HotShotEvent::QuorumProposalQuorumCertValidated(qc)),
