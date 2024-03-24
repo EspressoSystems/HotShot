@@ -109,7 +109,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
         for event in res {
-            debug!("EVENT {:?}", event);
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
