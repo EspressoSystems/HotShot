@@ -1,7 +1,7 @@
 use crate::view_sync::ViewSyncPhase;
 
 use either::Either;
-use hotshot_types::data::{VidDisperseShare, ViewChangeEvidence};
+use hotshot_types::data::VidDisperseShare;
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
     message::Proposal,
