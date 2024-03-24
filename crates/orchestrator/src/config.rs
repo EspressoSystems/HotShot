@@ -218,7 +218,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         file: Option<String>,
     ) -> (NetworkConfig<K, E>, NetworkConfigSource) {
         if let Some(file) = file {
-            error!("Retrieving config from the file");
+            println!("Retrieving config from the file");
             // if we pass in file, try there first
             match Self::from_file(file.clone()) {
                 Ok(config) => (config, NetworkConfigSource::File),
@@ -239,7 +239,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
                 }
             }
         } else {
-            error!("Retrieving config from the orchestrator");
+            println!("Retrieving config from the orchestrator");
 
             // otherwise just get from orchestrator
             (
@@ -291,7 +291,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
             .await;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        error!("Retrieved config; our node index is {node_index}.");
+        println!("Retrieved config; our node index is {node_index}.");
         (run_config, source)
     }
 

@@ -573,7 +573,7 @@ pub trait RunDA<
         debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        debug!("Starting HotShot example!");
+        info!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -1088,7 +1088,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    debug!("Starting validator");
+    println!("Starting validator");
 
     // see what our public identity will be
     let public_ip = match args.public_ip {
@@ -1118,7 +1118,7 @@ pub async fn main_entry_point<
         )
         .await;
 
-    error!("Initializing networking");
+    info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
