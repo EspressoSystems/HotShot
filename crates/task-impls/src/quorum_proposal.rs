@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::{
-    dependency::{AndDependency, EventDependency, OrDependency},
+    dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
 };
