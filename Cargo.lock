@@ -1263,15 +1263,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capnpc"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c75ba30e0f08582d53c2f3710cf4bb65ff562614b1ba86906d7391adffe189ec"
-dependencies = [
- "capnp",
-]
-
-[[package]]
 name = "cbor4ii"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1289,7 +1280,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.12#3082083b1e67dd232e0cbb6519c643b9cfa93b2b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1302,6 +1293,7 @@ dependencies = [
  "local-ip-address 0.5.7",
  "parking_lot",
  "prometheus",
+ "rand 0.8.5",
  "rkyv",
  "tokio",
  "tracing",
@@ -1311,7 +1303,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.12#3082083b1e67dd232e0cbb6519c643b9cfa93b2b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1327,7 +1319,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.12#3082083b1e67dd232e0cbb6519c643b9cfa93b2b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1342,14 +1334,13 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.11#c854b7c106f72f21c94a1235e8222f76f78e47e6"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.12#3082083b1e67dd232e0cbb6519c643b9cfa93b2b"
 dependencies = [
  "anyhow",
  "ark-serialize",
  "async-std",
  "async-trait",
  "capnp",
- "capnpc",
  "derivative",
  "jf-primitives",
  "kanal",
@@ -6310,6 +6301,7 @@ dependencies = [
  "pem",
  "ring 0.17.8",
  "time 0.3.34",
+ "x509-parser",
  "yasna",
 ]
 
@@ -9056,6 +9048,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "oid-registry",
+ "ring 0.16.20",
  "rusticata-macros",
  "thiserror",
  "time 0.3.34",
