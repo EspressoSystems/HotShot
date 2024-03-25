@@ -22,7 +22,7 @@ use hotshot_types::{
 
 use crate::vote_collection::HandleVoteEvent;
 use std::sync::Arc;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -72,51 +72,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
-                error!("Received upgrade proposal!");
+                info!("Received upgrade proposal: {:?}", proposal);
 
-                let should_vote = self.should_vote;
-
-                // // If the proposal does not match our upgrade target, we immediately exit.
-                // if !should_vote(proposal.data.upgrade_proposal.clone()) {
-                //     error!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
-                //     return None;
-                // }
+                // If the proposal does not match our upgrade target, we immediately exit.
+                if !(self.should_vote)(proposal.data.upgrade_proposal.clone()) {
+                    info!("Received unexpected upgrade proposal:\n{:?}", proposal.data);
+                    return None;
+                }
 
                 // If we have an upgrade target, we validate that the proposal is relevant for the current view.
-
-                debug!(
+                info!(
                     "Upgrade proposal received for view: {:?}",
                     proposal.data.get_view_number()
                 );
-                // NOTE: Assuming that the next view leader is the one who sends an upgrade proposal for this view
+
                 let view = proposal.data.get_view_number();
 
-                // Allow an upgrade proposal that is one view older, in case we have voted on a quorum
-                // proposal and updated the view.
-                // `self.cur_view` should be at least 1 since there is a view change before getting
-                // the `UpgradeProposalRecv` event. Otherewise, the view number subtraction below will
-                // cause an overflow error.
-                // TODO Come back to this - we probably don't need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn't make one for the genesis block
-
-                if self.cur_view != TYPES::Time::genesis() && view < self.cur_view - 1 {
-                    warn!("Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}.",
-                      view,
-                      self.cur_view
-                    );
-                    return None;
-                }
-
-                // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.quorum_membership.get_leader(view);
-                if &view_leader_key != sender {
-                    error!("Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}", *view, proposal.data.clone());
-                    return None;
-                }
+                // At this point, we could choose to validate
+                // that the proposal was issued by the correct leader
+                // for the indiciated view.
+                //
+                // We choose not to, because we don't gain that much from it.
+                // The certificate itself is only useful to the leader for that view anyway,
+                // and from the node's perspective it doesn't matter who the sender is.
+                // All we'd save is the cost of signing the vote, and we'd lose some flexibility.
 
                 // At this point, we've checked that:
                 //   * the proposal was expected,
                 //   * the proposal is valid, and
-                //   * the proposal is recent,
                 // so we notify the application layer
                 self.api
                     .send_event(Event {
@@ -143,16 +126,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
                 error!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
+
                 // Check if we are the leader.
-                // let view = vote.get_view_number();
-                //                if self.quorum_membership.get_leader(view) != self.public_key {
-                //                    error!(
-                //                        "We are not the leader for view {} are we leader for next view? {}",
-                //                        *view,
-                //                        self.quorum_membership.get_leader(view + 1) == self.public_key
-                //                    );
-                //                    return None;
-                //                }
+                {
+                    let view = vote.get_view_number();
+                    if self.quorum_membership.get_leader(view) != self.public_key {
+                        error!(
+                            "We are not the leader for view {} are we leader for next view? {}",
+                            *view,
+                            self.quorum_membership.get_leader(view + 1) == self.public_key
+                        );
+                        return None;
+                    }
+                }
+
                 let mut collector = self.vote_collector.write().await;
 
                 if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view
