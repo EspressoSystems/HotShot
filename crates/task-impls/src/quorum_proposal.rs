@@ -235,7 +235,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
-    /// given view number if it doesn't exist.
+    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
+    /// dependency as already completed. This allows for the task to receive a proposable event
+    /// without losing the data that it received, as the dependency task would otherwise have no
+    /// ability to receive the event and, thus, would never propose.
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
