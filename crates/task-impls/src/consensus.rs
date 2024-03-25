@@ -35,7 +35,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-use tracing::warn;
 use versioned_binary_serialization::version::Version;
 
 use crate::vote_collection::HandleVoteEvent;
@@ -48,7 +47,7 @@ use std::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument};
+use tracing::{debug, warn, info, error, instrument};
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -742,7 +741,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
-                                    error!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
+                                    info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
                                 }
                                 // If the block payload is available for this leaf, include it in
