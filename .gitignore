@@ -12,7 +12,6 @@
 **/.direnv
 **/*.bkp
 *.sqlite
-<<<<<<< HEAD
 **/results.csv
 .github/workflows/preserve-build-and-test-self-hosted.yml
 .github/workflows/preserve-build-and-test.yml
