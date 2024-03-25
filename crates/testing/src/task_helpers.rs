@@ -257,7 +257,6 @@ async fn build_quorum_proposal_and_signature(
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: None,
-        proposer_id: *handle.public_key(),
     };
 
     let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
@@ -266,10 +265,8 @@ async fn build_quorum_proposal_and_signature(
         block_header: block_header.clone(),
         view_number: ViewNumber::new(1),
         justify_qc: QuorumCertificate::genesis(),
-        timeout_certificate: None,
         upgrade_certificate: None,
-        view_sync_certificate: None,
-        proposer_id: leaf.proposer_id,
+        proposal_certificate: None,
     };
 
     // Only view 2 is tested, higher views are not tested
@@ -317,7 +314,6 @@ async fn build_quorum_proposal_and_signature(
             parent_commitment: parent_leaf.commit(),
             block_header: block_header.clone(),
             block_payload: None,
-            proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
         };
         let signature_new_view =
             <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
@@ -326,10 +322,8 @@ async fn build_quorum_proposal_and_signature(
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
-            timeout_certificate: None,
             upgrade_certificate: None,
-            view_sync_certificate: None,
-            proposer_id: leaf_new_view.clone().proposer_id,
+            proposal_certificate: None,
         };
         proposal = proposal_new_view;
         signature = signature_new_view;
@@ -451,7 +445,6 @@ pub async fn build_vote(
 ) -> GeneralConsensusMessage<TestTypes> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let justify_qc = proposal.justify_qc.clone();
     let view = ViewNumber::new(*proposal.view_number);
@@ -482,7 +475,6 @@ pub async fn build_vote(
         parent_commitment,
         block_header: proposal.block_header,
         block_payload: None,
-        proposer_id: membership.get_leader(view),
     };
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
         QuorumData {

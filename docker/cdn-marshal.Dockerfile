@@ -5,9 +5,6 @@ FROM docker.io/rust:1.76-bookworm as BUILDER
 WORKDIR /build
 COPY . .
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install -y capnproto
-
 # Build our example
 RUN RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' cargo build --profile release-lto --example marshal-push-cdn
 
