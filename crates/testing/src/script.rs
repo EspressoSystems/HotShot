@@ -1,10 +1,12 @@
 use crate::predicates::{ConsecutiveEvents, Predicate};
 use async_broadcast::broadcast;
+use async_std::future::timeout;
 use either::{Either, Left, Right};
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
+use std::time::Duration;
 
 type OneOrConsecutiveEvents<TYPES> =
     Either<Predicate<Arc<HotShotEvent<TYPES>>>, Predicate<ConsecutiveEvents<TYPES>>>;
@@ -67,6 +69,8 @@ where
     );
 }
 
+const RECV_TIMEOUT_SEC: u64 = 1;
+
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
 /// It broadcasts all given inputs (in order) and waits to receive all outputs (in order).
 /// Once the expected outputs have been received, it validates the task state at that stage
@@ -115,28 +119,40 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         for assert in &stage.outputs {
             match assert {
                 Left(assert) => {
-                    if let Ok(received_output) = test_receiver.try_recv() {
-                        tracing::debug!("Test received: {:?}", received_output);
-                        validate_output_or_panic(stage_number, &received_output, assert);
-                    } else {
-                        panic_missing_output(stage_number, assert);
+                    let async_recv = test_receiver.recv();
+                    let timeout_duration: Duration = Duration::from_secs(RECV_TIMEOUT_SEC);
+                    match timeout(timeout_duration, async_recv).await {
+                        Ok(Ok(received_output)) => {
+                            tracing::debug!("Test received: {:?}", received_output);
+                            validate_output_or_panic(stage_number, &received_output, assert);
+                        }
+                        _ => panic_missing_output(stage_number, assert),
                     }
                 }
                 Right(asserts) => {
-                    if let Ok(received_output_0) = test_receiver.try_recv() {
-                        tracing::debug!("Test received: {:?}", received_output_0);
-                        if let Ok(received_output_1) = test_receiver.try_recv() {
-                            tracing::debug!("Test received: {:?}", received_output_1);
-                            validate_output_or_panic(
-                                stage_number,
-                                &(received_output_0, received_output_1),
-                                asserts,
-                            );
-                        } else {
-                            panic_missing_output(stage_number, asserts);
+                    let async_recv = test_receiver.recv();
+                    let timeout_duration = Duration::from_secs(RECV_TIMEOUT_SEC);
+                    match timeout(timeout_duration, async_recv).await {
+                        Ok(Ok(received_output_0)) => {
+                            let async_recv = test_receiver.recv();
+                            let timeout_duration = Duration::from_secs(RECV_TIMEOUT_SEC);
+                            match timeout(timeout_duration, async_recv).await {
+                                Ok(Ok(received_output_1)) => {
+                                    tracing::debug!(
+                                        "Test received: {:?} and {:?}",
+                                        received_output_0,
+                                        received_output_1
+                                    );
+                                    validate_output_or_panic(
+                                        stage_number,
+                                        &(received_output_0, received_output_1),
+                                        asserts,
+                                    );
+                                }
+                                _ => panic_missing_output(stage_number, asserts),
+                            }
                         }
-                    } else {
-                        panic_missing_output(stage_number, asserts);
+                        _ => panic_missing_output(stage_number, asserts),
                     }
                 }
             }
