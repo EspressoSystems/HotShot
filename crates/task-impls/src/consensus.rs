@@ -1408,7 +1408,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             {
                 debug!("Attaching upgrade certificate to proposal.");
                 // If the cert view number matches, set upgrade_cert to self.upgrade_cert
-                self.upgrade_cert.clone()
+                // and sets the upgrade_cert to None.
+                //
+                // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
+                self.upgrade_cert.take()
             } else {
                 // Otherwise, set upgrade_cert to None.
                 None
