@@ -130,6 +130,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
                 })
                 .await;
+                #[cfg(async_executor_impl = "tokio")]
+                let vid_disperse = vid_disperse.unwrap();
 
                 let vid_disperse = VidDisperse::from_membership(
                     proposal.data.view_number,

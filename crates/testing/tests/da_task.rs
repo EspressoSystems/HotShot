@@ -7,7 +7,7 @@ use hotshot_example_types::{
 use hotshot_task_impls::da::DATaskState;
 use hotshot_task_impls::events::HotShotEvent::*;
 use hotshot_testing::{
-    predicates::exact,
+    predicates::{exact, multi_exact},
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
@@ -65,9 +65,13 @@ async fn test_da_task() {
     };
 
     // Run view 2 and propose.
+    let disperse_receives: Vec<_> = vids[1].0.clone().into_iter().map(VidDisperseRecv).collect();
+    let mut multi_predicate = multi_exact(disperse_receives);
+    let mut output_predicates = vec![exact(DAVoteSend(votes[1].clone()))];
+    output_predicates.append(&mut multi_predicate);
     let view_2 = TestScriptStage {
         inputs: vec![DAProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![exact(DAVoteSend(votes[1].clone()))],
+        outputs: output_predicates,
         asserts: vec![],
     };
 
