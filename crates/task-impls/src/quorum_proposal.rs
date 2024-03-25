@@ -75,14 +75,9 @@ enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
-    ViewSync,
-
-    /// For the `QuorumProposalRecv` event.
-    QuorumProposal,
-
-    /// For the `QCFormed` event.
-    QCFormed,
+    /// Any of the 3 optional proposal certs is successfully validated and sent downstream in the
+    /// task. The certs are `ViewSyncFinalizeCertificate2Recv`, `QuorumProposalRecv`, and `QCFormed`.
+    CertValidated,
 }
 
 /// Handler for the proposal dependency
@@ -211,34 +206,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             Box::new(move |event| {
                 let event = event.as_ref();
                 let event_view = match dependency_type {
-                    ProposalDependency::ViewSync => {
-                        if let HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(
+                    ProposalDependency::CertValidated => match event {
+                        HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(
                             view_sync_cert,
-                        ) = event
-                        {
-                            view_sync_cert.view_number
-                        } else {
-                            return false;
-                        }
-                    }
-                    ProposalDependency::QCFormed => {
-                        if let HotShotEvent::QuorumProposalTimeoutCertValidated(timeout_cert) =
-                            event
-                        {
+                        ) => view_sync_cert.view_number,
+                        HotShotEvent::QuorumProposalTimeoutCertValidated(timeout_cert) => {
                             timeout_cert.view_number
-                        } else if let HotShotEvent::QuorumProposalQuorumCertValidated(qc) = event {
-                            qc.view_number
-                        } else {
-                            return false;
                         }
-                    }
-                    ProposalDependency::QuorumProposal => {
-                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
-                            proposal.view_number
-                        } else {
-                            return false;
-                        }
-                    }
+                        HotShotEvent::QuorumProposalQuorumCertValidated(qc) => qc.view_number,
+                        HotShotEvent::QuorumProposalValidated(proposal) => proposal.view_number,
+                        _ => return false,
+                    },
                     ProposalDependency::PayloadAndMetadata => {
                         if let HotShotEvent::QuorumProposalPayloadAndMetadataValidated(
                             _payload_commitment,
@@ -258,7 +236,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
-    /// given view number if it doesn't exist.
+    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
+    /// dependency as already completed. This allows for the task to receive a proposable event
+    /// without losing the data that it received, as the dependency task would otherwise have no
+    /// ability to receive the event and, thus, would never propose.
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -270,8 +251,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        let mut quorum_proposal_dependency = self.create_event_dependency(
-            ProposalDependency::QuorumProposal,
+        let mut cert_validated_dependency = self.create_event_dependency(
+            ProposalDependency::CertValidated,
             view_number,
             event_receiver.clone(),
         );
@@ -279,45 +260,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut payload_commitment_dependency = self.create_event_dependency(
             ProposalDependency::PayloadAndMetadata,
             view_number,
-            event_receiver.clone(),
+            event_receiver,
         );
-
-        let mut view_sync_finalize_dependency = self.create_event_dependency(
-            ProposalDependency::ViewSync,
-            view_number,
-            event_receiver.clone(),
-        );
-
-        let mut qc_formed_dependency =
-            self.create_event_dependency(ProposalDependency::QCFormed, view_number, event_receiver);
 
         match event.as_ref() {
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
-                view_sync_finalize_dependency.mark_as_completed(event.clone());
-            }
-            HotShotEvent::QCFormed(_) => qc_formed_dependency.mark_as_completed(event.clone()),
-            HotShotEvent::QuorumProposalRecv(_, _) => {
-                quorum_proposal_dependency.mark_as_completed(event);
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+            | HotShotEvent::QuorumProposalRecv(_, _)
+            | HotShotEvent::QCFormed(_) => {
+                cert_validated_dependency.mark_as_completed(event);
             }
             _ => {}
         };
 
-        let or_deps = vec![
-            quorum_proposal_dependency,
-            view_sync_finalize_dependency,
-            qc_formed_dependency,
-        ];
-        let or_dependency = OrDependency::from_deps(or_deps);
-
-        let and_deps = vec![payload_commitment_dependency];
+        let and_deps = vec![payload_commitment_dependency, cert_validated_dependency];
 
         // We must always have the payload commitment and metadata, but can have any of the other
         // events that include a proposable certificate
-        let mut proposal_dependency = AndDependency::from_deps(and_deps);
-        proposal_dependency.add_dep(or_dependency);
+        let proposal_dependency = AndDependency::from_deps(and_deps);
 
         let dependency_task = DependencyTask::new(
             proposal_dependency,
@@ -336,7 +298,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
             debug!(
-                "Updating next vote view from {} to {} in the quorum vote task",
+                "Updating next proposal view from {} to {} in the quorum proposal task",
                 *self.latest_proposed_view, *new_view
             );
 
@@ -538,6 +500,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     event_sender,
                     event.clone(),
                 );
+            }
+            HotShotEvent::QuorumProposalDependenciesValidated(view) => {
+                debug!("All proposal dependencies verified for view {:?}", view);
+                if !self.update_latest_proposed_view(*view).await {
+                    debug!("proposal not updated");
+                    return;
+                }
             }
             _ => {}
         }
