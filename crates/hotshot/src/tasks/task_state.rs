@@ -12,11 +12,7 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::{collections::HashMap, marker::PhantomData};
 use versioned_binary_serialization::version::StaticVersionType;
 
 /// Trait for creating task states.
@@ -159,8 +155,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         TransactionTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
-            transactions: Arc::default(),
-            seen_transactions: HashSet::new(),
             cur_view: handle.get_cur_view().await,
             network: handle.hotshot.networks.quorum_network.clone(),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),

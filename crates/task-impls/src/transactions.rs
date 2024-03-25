@@ -4,9 +4,7 @@ use crate::{
     helpers::broadcast_event,
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_lock::RwLock;
-use commit::Commitment;
 
 use hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
 use hotshot_task::task::{Task, TaskState};
@@ -23,15 +21,8 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 use tracing::{debug, error, instrument};
-
-/// A type alias for `HashMap<Commitment<T>, T>`
-type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<
@@ -47,12 +38,6 @@ pub struct TransactionTaskState<
 
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
-
-    /// A list of undecided transactions
-    pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
-
-    /// A list of transactions we've seen decided, but didn't receive
-    pub seen_transactions: HashSet<Commitment<TYPES::Transaction>>,
 
     /// Network for all nodes
     pub network: Arc<I::QuorumNetwork>,
@@ -76,7 +61,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
-
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

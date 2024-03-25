@@ -380,6 +380,7 @@ impl SimpleBuilderSource {
 pub struct SimpleBuilderTask {
     transactions: Arc<RwLock<HashMap<Commitment<TestTransaction>, TestTransaction>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry>>>,
+    decided_transactions: LruCache<Commitment<TestTransaction>, ()>,
 }
 
 pub trait BuilderTask: Send + Sync {
@@ -395,7 +396,7 @@ impl BuilderTask for SimpleBuilderTask {
     type TYPES = TestTypes;
 
     fn start(
-        self: Box<Self>,
+        mut self: Box<Self>,
         mut stream: Box<
             dyn Stream<Item = Event<Self::TYPES>> + std::marker::Unpin + Send + 'static,
         >,
@@ -412,6 +413,7 @@ impl BuilderTask for SimpleBuilderTask {
                             for leaf_info in leaf_chain.iter() {
                                 if let Some(ref payload) = leaf_info.leaf.block_payload {
                                     for txn in payload.transaction_commitments(&()) {
+                                        self.decided_transactions.put(txn, ());
                                         queue.remove(&txn);
                                     }
                                 }
@@ -421,7 +423,9 @@ impl BuilderTask for SimpleBuilderTask {
                         EventType::Transactions { transactions } => {
                             let mut queue = self.transactions.write().await;
                             for transaction in transactions {
-                                queue.insert(transaction.commit(), transaction.clone());
+                                if !self.decided_transactions.contains(&transaction.commit()) {
+                                    queue.insert(transaction.commit(), transaction.clone());
+                                }
                             }
                         }
                         _ => {}
@@ -452,6 +456,7 @@ pub async fn make_simple_builder(
     let task = SimpleBuilderTask {
         transactions,
         blocks,
+        decided_transactions: LruCache::new(NonZeroUsize::new(u16::MAX.into()).expect("> 0")),
     };
 
     (source, task)
