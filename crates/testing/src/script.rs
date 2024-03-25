@@ -1,5 +1,6 @@
 use crate::predicates::{ConsecutiveEvents, Predicate};
 use async_broadcast::broadcast;
+#[cfg(async_executor_impl = "async-std")]
 use async_std::future::timeout;
 use either::{Either, Left, Right};
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
@@ -7,6 +8,8 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::time::timeout;
 
 type OneOrConsecutiveEvents<TYPES> =
     Either<Predicate<Arc<HotShotEvent<TYPES>>>, Predicate<ConsecutiveEvents<TYPES>>>;
