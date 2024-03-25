@@ -9,10 +9,10 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::{QuorumProposal, ViewChangeEvidence},
+    data::QuorumProposal,
     event::Event,
     message::Proposal,
-    simple_certificate::QuorumCertificate,
+    simple_certificate::ViewSyncFinalizeCertificate2,
     traits::{
         block_contents::BlockHeader,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -44,26 +44,8 @@ fn validate_quorum_proposal<TYPES: NodeType>(
 
 /// Validate a view sync cert or a timeout cert.
 #[allow(clippy::needless_pass_by_value)]
-fn validate_view_change_evidence<TYPES: NodeType>(
-    _certificate: ViewChangeEvidence<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate a quorum certificate.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_quorum_certificate<TYPES: NodeType>(
-    _certificate: QuorumCertificate<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate payload and metadata.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_payload_and_metadata<TYPES: NodeType>(
-    _payload_commitment_and_metadata: CommitmentAndMetadata<<TYPES as NodeType>::BlockPayload>,
+fn validate_view_sync_finalize_certificate<TYPES: NodeType>(
+    _certificate: ViewSyncFinalizeCertificate2<TYPES>,
     _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> bool {
     true
@@ -115,7 +97,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         payload_commitment = Some(proposal_payload_comm);
                     }
                 }
-                HotShotEvent::QuorumProposalPayloadAndMetadataValidated(
+                HotShotEvent::SendPayloadCommitmentAndMetadata(
                     payload_commitment,
                     metadata,
                     _view,
@@ -126,13 +108,15 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         metadata: metadata.clone(),
                     });
                 }
-                HotShotEvent::QuorumProposalTimeoutCertValidated(timeout_cert) => {
-                    _timeout_certificate = Some(timeout_cert.clone());
-                }
-                HotShotEvent::QuorumProposalQuorumCertValidated(qc) => {
-                    _quorum_certificate = Some(qc.clone());
-                }
-                HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(cert) => {
+                HotShotEvent::QCFormed(cert) => match cert {
+                    either::Right(timeout) => {
+                        _timeout_certificate = Some(timeout.clone());
+                    }
+                    either::Left(qc) => {
+                        _quorum_certificate = Some(qc.clone());
+                    }
+                },
+                HotShotEvent::ViewSyncFinalizeCertValidated(cert) => {
                     _view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
@@ -206,18 +190,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::CertValidated => match event {
-                        HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(
-                            view_sync_cert,
-                        ) => view_sync_cert.view_number,
-                        HotShotEvent::QuorumProposalTimeoutCertValidated(timeout_cert) => {
-                            timeout_cert.view_number
+                        HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_cert) => {
+                            view_sync_cert.view_number
                         }
-                        HotShotEvent::QuorumProposalQuorumCertValidated(qc) => qc.view_number,
+                        HotShotEvent::QCFormed(cert) => match cert {
+                            either::Right(timeout) => timeout.view_number,
+                            either::Left(qc) => qc.view_number,
+                        },
                         HotShotEvent::QuorumProposalValidated(proposal) => proposal.view_number,
                         _ => return false,
                     },
                     ProposalDependency::PayloadAndMetadata => {
-                        if let HotShotEvent::QuorumProposalPayloadAndMetadataValidated(
+                        if let HotShotEvent::SendPayloadCommitmentAndMetadata(
                             _payload_commitment,
                             _metadata,
                             view,
@@ -328,8 +312,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QCFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {
-                        let proposal_cert = ViewChangeEvidence::Timeout(timeout_cert.clone());
-
                         // cancel poll for votes
                         self.quorum_network
                             .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -338,22 +320,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             .await;
 
                         let view = timeout_cert.view_number + 1;
-
-                        // Now that we're sure this is the right thing, validate the certificate
-                        if !validate_view_change_evidence(
-                            proposal_cert.clone(),
-                            event_sender.clone(),
-                        ) {
-                            return;
-                        }
-
-                        broadcast_event(
-                            Arc::new(HotShotEvent::QuorumProposalTimeoutCertValidated(
-                                timeout_cert,
-                            )),
-                            &event_sender.clone(),
-                        )
-                        .await;
 
                         self.create_dependency_task_if_new(
                             view,
@@ -375,17 +341,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                         // We need to drop our handle here to make the borrow checker happy.
                         drop(consensus);
-                        if !validate_quorum_certificate(qc.clone(), event_sender.clone()) {
-                            return;
-                        }
+                        debug!(
+                            "Attempting to publish proposal after forming a QC for view {}",
+                            *qc.view_number
+                        );
 
                         let view = qc.view_number + 1;
-
-                        broadcast_event(
-                            Arc::new(HotShotEvent::QuorumProposalQuorumCertValidated(qc)),
-                            &event_sender.clone(),
-                        )
-                        .await;
 
                         self.create_dependency_task_if_new(
                             view,
@@ -396,7 +357,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                 }
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
                 let view = *view;
                 if view < self.latest_proposed_view {
                     debug!(
@@ -407,28 +368,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 debug!("got commit and meta {:?}", payload_commitment);
-
-                let payload_commitment_and_metadata = CommitmentAndMetadata {
-                    commitment: *payload_commitment,
-                    metadata: metadata.clone(),
-                };
-
-                if !validate_payload_and_metadata(
-                    payload_commitment_and_metadata,
-                    event_sender.clone(),
-                ) {
-                    return;
-                }
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalPayloadAndMetadataValidated(
-                        *payload_commitment,
-                        metadata.clone(),
-                        view,
-                    )),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(
                     view,
@@ -447,15 +386,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                if !validate_view_change_evidence(
-                    ViewChangeEvidence::ViewSync(view_sync_finalize_cert.clone()),
+                if !validate_view_sync_finalize_certificate(
+                    view_sync_finalize_cert.clone(),
                     event_sender.clone(),
                 ) {
                     return;
                 }
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalViewSyncFinalizeCertValidated(
+                    Arc::new(HotShotEvent::ViewSyncFinalizeCertValidated(
                         view_sync_finalize_cert.clone(),
                     )),
                     &event_sender.clone(),

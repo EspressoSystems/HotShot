@@ -141,22 +141,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /** Quorum Proposal Task **/
     /// Dummy quorum proposal to test if the quorum proposal dependency task works.
     DummyQuorumProposalSend(TYPES::Time),
-    /// Event to send the validated payload to the quorum proposal task; internal event only
-    QuorumProposalPayloadAndMetadataValidated(
-        VidCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
-        TYPES::Time,
-    ),
     /// All required dependencies of the quorum proposal have been validated and the task is ready
-    /// to propse.
+    /// to propose.
     QuorumProposalDependenciesValidated(TYPES::Time),
-    /// Send a `QuorumProposalTimeoutCertValidated` event when the task receives and validates a
-    /// proposable timeout certificate.
-    QuorumProposalTimeoutCertValidated(TimeoutCertificate<TYPES>),
     /// Send a `QuorumProposalViewSyncFinalizeCertValidated` event when the task receives and
     /// validates a view sync finalize certificate.
-    QuorumProposalViewSyncFinalizeCertValidated(ViewSyncFinalizeCertificate2<TYPES>),
-    /// Send a `QuorumProposalQuorumCertValidated` event when the task receives and validates a
-    /// quorum certificate.
-    QuorumProposalQuorumCertValidated(QuorumCertificate<TYPES>),
+    ViewSyncFinalizeCertValidated(ViewSyncFinalizeCertificate2<TYPES>),
 }
