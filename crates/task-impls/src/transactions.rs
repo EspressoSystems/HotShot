@@ -158,7 +158,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             };
 
-            available_blocks.sort_by_key(|block_info| block_info.block_size);
+            available_blocks.sort_by_key(|block_info| block_info.offered_fee);
 
             let Some(block_info) = available_blocks.pop() else {
                 continue;
