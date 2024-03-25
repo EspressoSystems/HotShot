@@ -17,7 +17,6 @@ use hotshot_types::{
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
     traits::{
-        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -31,6 +30,10 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 
 use crate::vote_collection::HandleVoteEvent;
+use futures::future::join_all;
+use hotshot_types::data::{VidDisperse, VidDisperseShare};
+use hotshot_types::vid::vid_scheme;
+use jf_primitives::vid::VidScheme;
 use std::{marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
@@ -122,10 +125,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
-                let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
-                #[cfg(async_executor_impl = "tokio")]
-                let payload_commitment = payload_commitment.unwrap();
+                let vid_disperse = spawn_blocking(move || {
+                    #[allow(clippy::panic)]
+                    vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+                })
+                .await;
+
+                let vid_disperse = VidDisperse::from_membership(
+                    proposal.data.view_number,
+                    vid_disperse,
+                    &self.quorum_membership,
+                );
+                let payload_commitment = vid_disperse.payload_commitment;
+                let vid_disperse_tasks: Vec<_> = VidDisperseShare::from_vid_disperse(vid_disperse)
+                    .into_iter()
+                    .map(|vid_share| {
+                        Some(broadcast_event(
+                            Arc::new(HotShotEvent::VidDisperseRecv(
+                                vid_share.to_proposal(&self.private_key)?,
+                            )),
+                            &event_stream,
+                        ))
+                    })
+                    .collect();
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
@@ -188,6 +210,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 broadcast_event(Arc::new(HotShotEvent::DAVoteSend(vote)), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
+
+                if vid_disperse_tasks.iter().all(Option::is_some) {
+                    join_all(vid_disperse_tasks.into_iter().flatten()).await;
+                }
 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
