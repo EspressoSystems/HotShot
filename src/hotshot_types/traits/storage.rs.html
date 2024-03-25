@@ -24,16 +24,29 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstract storage type for storing DA proposals and VID shares
 //!
 //! This modules provides the [`Storage`] trait.
 //!
 
-</span><span class="kw">use </span>anyhow::Result;
+</span><span class="kw">use </span>std::collections::BTreeMap;
+
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_trait::async_trait;
 
 <span class="kw">use crate</span>::{
-    data::{DAProposal, VidDisperseShare},
+    consensus::{CommitmentMap, View},
+    data::{DAProposal, Leaf, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -47,6 +60,13 @@
     <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
+    /// and the undecided state.
+    </span><span class="kw">async fn </span>update_undecided_state(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        leafs: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+        state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 </code></pre></div></section></main></body></html>

@@ -449,6 +449,7 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -471,7 +472,6 @@
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TestTask};
-<span class="kw">use </span>hotshot_types::constants::EVENT_CHANNEL_SIZE;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::Leaf,
@@ -481,6 +481,7 @@
     },
     HotShotConfig, ValidatorConfig,
 };
+<span class="kw">use </span>hotshot_types::{constants::EVENT_CHANNEL_SIZE, simple_certificate::QuorumCertificate};
 <span class="kw">use </span>hotshot_types::{
     message::Message,
     traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
@@ -670,6 +671,7 @@
             latest_view: <span class="prelude-val">None</span>,
             changes,
             last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
+            high_qc: QuorumCertificate::genesis(),
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;, SpinningTask&lt;TYPES, I&gt;&gt;::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),

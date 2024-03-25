@@ -489,6 +489,8 @@
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -558,6 +560,7 @@
 {
     <span class="doccomment">/// Take one vote and accumultate it. Returns either the cert or the updated state
     /// after the vote is accumulated
+    </span><span class="attr">#[allow(clippy::question_mark)]
     </span><span class="kw">pub async fn </span>accumulate_vote(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
@@ -576,6 +579,7 @@
             );
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
+
         <span class="kw">let </span>accumulator = <span class="self">self</span>.accumulator.as_mut()<span class="question-mark">?</span>;
         <span class="kw">match </span>accumulator.accumulate(vote, <span class="kw-2">&amp;</span><span class="self">self</span>.membership) {
             Either::Left(()) =&gt; <span class="prelude-val">None</span>,
