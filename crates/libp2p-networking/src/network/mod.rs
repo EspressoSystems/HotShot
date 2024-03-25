@@ -180,7 +180,7 @@ pub enum NetworkEvent {
 /// only used for event processing before relaying to client
 pub enum NetworkEventInternal {
     /// a DHT event
-    DHTEvent(DHTEvent),
+    DHTEvent(libp2p::kad::Event),
     /// a identify event. Is boxed because this event is much larger than the other ones so we want
     /// to store it on the heap.
     IdentifyEvent(Box<IdentifyEvent>),

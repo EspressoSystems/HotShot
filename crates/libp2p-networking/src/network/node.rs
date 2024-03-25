@@ -22,7 +22,7 @@ use super::{
 };
 
 use crate::network::behaviours::{
-    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
     request_response::{Request, RequestResponseState, Response},
@@ -33,7 +33,7 @@ use async_compatibility_layer::{
 };
 use futures::{select, FutureExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::{core::transport::ListenerId, StreamProtocol};
+use libp2p::{core::transport::ListenerId, kad::Record, StreamProtocol};
 use libp2p::{
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
@@ -89,6 +89,8 @@ pub struct NetworkNode {
     request_response_state: RequestResponseState,
     /// Handler for direct messages
     direct_message_state: DMBehaviour,
+    /// Handler for DHT Events
+    dht_handler: DHTBehaviour,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
 }
@@ -149,7 +151,7 @@ impl NetworkNode {
                 }
             }
         }
-        behaviour.dht.add_bootstrap_nodes(bs_nodes);
+        self.dht_handler.add_bootstrap_nodes(bs_nodes);
     }
 
     /// Creates a new `Network` with the given settings.
@@ -295,19 +297,8 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
 
-            let network = NetworkDef::new(
-                gossipsub,
-                DHTBehaviour::new(
-                    kadem,
-                    peer_id,
-                    config
-                        .replication_factor
-                        .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
-                ),
-                identify,
-                direct_message,
-                request_response,
-            );
+            let network =
+                NetworkDef::new(gossipsub, kadem, identify, direct_message, request_response);
 
             // build swarm
             let swarm = SwarmBuilder::with_existing_identity(identity.clone());
@@ -335,12 +326,45 @@ impl NetworkNode {
             identity,
             peer_id,
             swarm,
-            config,
+            config: config.clone(),
             listener_id: None,
             request_response_state: RequestResponseState::default(),
             direct_message_state: DMBehaviour::default(),
+            dht_handler: DHTBehaviour::new(
+                peer_id,
+                config
+                    .replication_factor
+                    .unwrap_or(NonZeroUsize::new(4).unwrap()),
+            ),
             resend_tx: None,
         })
+    }
+
+    /// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`super::error::DHTError`] is
+    /// sent instead.
+    pub fn put_record(&mut self, mut query: KadPutQuery) {
+        let record = Record::new(query.key.clone(), query.value.clone());
+        match self.swarm.behaviour_mut().dht.put_record(
+            record,
+            libp2p::kad::Quorum::N(self.dht_handler.get_replication_factor()),
+        ) {
+            Err(e) => {
+                // failed try again later
+                query.progress = DHTProgress::NotStarted;
+                query.backoff.start_next(false);
+                error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
+            }
+            Ok(qid) => {
+                info!("Success publishing {:?} to DHT", qid);
+                let query = KadPutQuery {
+                    progress: DHTProgress::InProgress(qid),
+                    ..query
+                };
+                self.dht_handler.put_record(qid, query);
+            }
+        }
     }
 
     /// event handler for client events
@@ -361,13 +385,17 @@ impl NetworkNode {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        self.swarm.behaviour_mut().dht.begin_bootstrap();
+                        let _ = self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
-                        self.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
+                        let id = self.swarm.behaviour_mut().dht.get_closest_peers(pid);
+                        self.dht_handler
+                            .in_progress_get_closest_peers
+                            .insert(id, chan);
                     }
                     ClientRequest::GetRoutingTable(chan) => {
-                        self.swarm.behaviour_mut().dht.print_routing_table();
+                        self.dht_handler
+                            .print_routing_table(&mut self.swarm.behaviour_mut().dht);
                         if chan.send(()).is_err() {
                             warn!("Tried to notify client but client not tracking anymore");
                         }
@@ -380,7 +408,7 @@ impl NetworkNode {
                             value,
                             backoff: ExponentialBackoff::default(),
                         };
-                        self.swarm.behaviour_mut().put_record(query);
+                        self.put_record(query);
                     }
                     ClientRequest::GetConnectedPeerNum(s) => {
                         if s.send(self.num_connected()).is_err() {
@@ -397,11 +425,13 @@ impl NetworkNode {
                         notify,
                         retry_count,
                     } => {
-                        self.swarm.behaviour_mut().get_record(
+                        self.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            ExponentialBackoff::default(),
                             retry_count,
+                            &mut self.swarm.behaviour_mut().dht,
                         );
                     }
                     ClientRequest::IgnorePeers(_peers) => {
@@ -563,9 +593,12 @@ impl NetworkNode {
             } => {}
             SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
-                    NetworkEventInternal::DHTEvent(e) => match e {
-                        DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
-                    },
+                    NetworkEventInternal::DHTEvent(e) => {
+                        // DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
+                        self.dht_handler
+                            .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut());
+                        None
+                    }
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
                         if let IdentifyEvent::Received {
@@ -588,7 +621,7 @@ impl NetworkNode {
                             // with autonat
                             info!(
                                 "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
-                                behaviour.dht.peer_id, peer_id, listen_addrs, observed_addr
+                                self.dht_handler.peer_id , peer_id, listen_addrs, observed_addr
                                 );
                             // into hashset to delete duplicates (I checked: there are duplicates)
                             for addr in listen_addrs.iter().collect::<HashSet<_>>() {
