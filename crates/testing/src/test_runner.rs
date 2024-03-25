@@ -5,6 +5,7 @@ use super::{
     txn_task::TxnTask,
 };
 use crate::{
+    block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Networks, TestLauncher},
@@ -65,13 +66,13 @@ pub type LateNodeContext<TYPES, I> = Either<
 >;
 
 /// A yet-to-be-started node that participates in tests
-#[derive(Clone)]
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
     /// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     pub context: LateNodeContext<TYPES, I>,
+    pub builder_task: Option<Box<dyn BuilderTask<TYPES = TYPES>>>,
 }
 
 /// The runner of a test network
@@ -132,7 +133,7 @@ where
     /// # Panics
     /// if the test fails
     #[allow(clippy::too_many_lines)]
-    pub async fn run_test(mut self) {
+    pub async fn run_test<B: TestBuilderImplementation<TYPES = TYPES, I = I>>(mut self) {
         let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
@@ -150,7 +151,7 @@ where
             }
         }
 
-        self.add_nodes(
+        self.add_nodes::<B>(
             self.launcher.metadata.num_nodes_with_stake,
             &late_start_nodes,
         )
@@ -326,13 +327,17 @@ where
     ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes(&mut self, total: usize, late_start: &HashSet<u64>) -> Vec<u64> {
+    pub async fn add_nodes<B: TestBuilderImplementation<TYPES = TYPES, I = I>>(
+        &mut self,
+        total: usize,
+        late_start: &HashSet<u64>,
+    ) -> Vec<u64> {
         let mut results = vec![];
         for i in 0..total {
             let node_id = self.next_node_id;
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
-            let config = self.launcher.resource_generator.config.clone();
+            let mut config = self.launcher.resource_generator.config.clone();
             let known_nodes_with_stake = config.known_nodes_with_stake.clone();
             let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
                 TYPES::Membership::default_election_config(
@@ -359,9 +364,18 @@ where
                 ),
                 view_sync_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    quorum_election_config,
+                    quorum_election_config.clone(),
                 ),
             };
+
+            let (builder_task, builder_url) =
+                B::start(Arc::new(<TYPES as NodeType>::Membership::create_election(
+                    known_nodes_with_stake.clone(),
+                    quorum_election_config.clone(),
+                )))
+                .await;
+            config.builder_url = builder_url;
+
             let networks = (self.launcher.resource_generator.channel_generator)(node_id);
             let storage = (self.launcher.resource_generator.storage)(node_id);
 
@@ -371,6 +385,7 @@ where
                     LateStartNode {
                         networks,
                         context: Right((storage, memberships, config)),
+                        builder_task,
                     },
                 );
             } else {
@@ -395,13 +410,20 @@ where
                         LateStartNode {
                             networks,
                             context: Left(hotshot),
+                            builder_task,
                         },
                     );
                 } else {
+                    let handle = hotshot.run_tasks().await;
+
+                    if let Some(task) = builder_task {
+                        task.start(Box::new(handle.get_event_stream()))
+                    }
+
                     self.nodes.push(Node {
                         node_id,
                         networks,
-                        handle: hotshot.run_tasks().await,
+                        handle,
                     });
                 }
             }

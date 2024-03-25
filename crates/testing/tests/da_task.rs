@@ -58,7 +58,7 @@ async fn test_da_task() {
         inputs: vec![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            TransactionsSequenced(encoded_transactions.clone(), (), ViewNumber::new(2)),
+            BlockRecv(encoded_transactions.clone(), (), ViewNumber::new(2)),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],
@@ -118,7 +118,7 @@ async fn test_da_task_storage_failure() {
         inputs: vec![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            TransactionsSequenced(encoded_transactions.clone(), (), ViewNumber::new(2)),
+            BlockRecv(encoded_transactions.clone(), (), ViewNumber::new(2)),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],

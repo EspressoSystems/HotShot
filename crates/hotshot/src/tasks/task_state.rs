@@ -1,6 +1,7 @@
 use crate::types::SystemContextHandle;
 
 use async_trait::async_trait;
+use hotshot_task_impls::builder::BuilderClient;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, da::DATaskState, request::NetworkRequestState,
     transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
@@ -166,6 +167,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
+            builder_client: BuilderClient::new(handle.hotshot.config.builder_url.clone()),
         }
     }
 }

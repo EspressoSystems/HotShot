@@ -130,13 +130,18 @@ where
                                     }
                                 };
 
+                                let handle = context.run_tasks().await;
+                                if let Some(builder_task) = node.builder_task {
+                                    builder_task.start(Box::new(handle.get_event_stream()));
+                                }
+
                                 // Create the node and add it to the state, so we can shut them
                                 // down properly later to avoid the overflow error in the overall
                                 // safety task.
                                 let node = Node {
                                     node_id,
                                     networks: node.networks,
-                                    handle: context.run_tasks().await,
+                                    handle,
                                 };
                                 state.handles.push(node.clone());
 

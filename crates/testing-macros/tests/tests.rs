@@ -1,5 +1,6 @@
 use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl};
 use hotshot_example_types::state_types::TestTypes;
+use hotshot_testing::block_builder::SimpleBuilderImplementation;
 use hotshot_testing::completion_task::{
     CompletionTaskDescription, TimeBasedCompletionTaskDescription,
 };

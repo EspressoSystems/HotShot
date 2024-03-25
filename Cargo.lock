@@ -3510,6 +3510,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
+ "url",
  "versioned-binary-serialization",
 ]
 
