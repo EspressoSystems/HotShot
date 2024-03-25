@@ -573,7 +573,7 @@ pub trait RunDA<
         debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        info!("Starting HotShot example!");
+        debug!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();

@@ -15,5 +15,4 @@ ENV RUST_LOG="warn"
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
 
-ENTRYPOINT ["tini", "--"]
-CMD ["validator-webserver"]
+ENTRYPOINT ["validator-webserver"]
