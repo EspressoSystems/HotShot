@@ -185,7 +185,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     broadcast_event(Arc::new(event), &self.event_stream).await;
                 }
                 MessageKind::Data(message) => match message {
-                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, _) => {
+                    DataMessage::SubmitTransaction(transaction, _) => {
                         transactions.push(transaction);
                     }
                     DataMessage::DataResponse(_) | DataMessage::RequestData(_) => {

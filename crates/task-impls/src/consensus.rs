@@ -50,7 +50,7 @@ use std::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, instrument};
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -726,7 +726,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
-                                    error!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
+                                    warn!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
                                     async_block_on(broadcast_event(
                                         Arc::new(HotShotEvent::UpgradeDecided(upgrade_cert.data.new_version, upgrade_cert.data.new_version_first_block)),
@@ -1022,7 +1022,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Update our current upgrade_cert as long as it's still relevant.
                 if cert.view_number >= self.cur_view {
-                    error!("Updating current upgrade_cert");
+                    debug!("Updating current upgrade_cert");
                     self.upgrade_cert = Some(cert.clone());
                 }
             }
@@ -1370,7 +1370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .as_ref()
                 .is_some_and(|cert| cert.view_number == view)
             {
-                error!("attaching upgrade cert!");
+                debug!("Attaching upgrade certificate to proposal.");
                 // If the cert view number matches, set upgrade_cert to self.upgrade_cert
                 self.upgrade_cert.clone()
             } else {
