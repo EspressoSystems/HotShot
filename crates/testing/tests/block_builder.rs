@@ -22,26 +22,37 @@ use tide_disco::Url;
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_random_block_builder() {
+    use std::time::Instant;
+
     use hotshot_builder_api::block_info::AvailableBlockData;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
 
     run_random_builder(api_url.clone());
+    let builder_started = Instant::now();
 
     let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 
-    // Wait for at least one block to be built
-    async_sleep(Duration::from_millis(30)).await;
+    let mut blocks = loop {
+        // Test getting blocks
+        let blocks = client
+            .get_available_blocks(vid_commitment(&vec![], 1))
+            .await
+            .expect("Failed to get available blocks");
 
-    // Test getting blocks
-    let mut blocks = client
-        .get_available_blocks(vid_commitment(&vec![], 1))
-        .await
-        .expect("Failed to get available blocks");
+        if !blocks.is_empty() {
+            break blocks;
+        };
 
-    assert!(!blocks.is_empty());
+        // Wait for at least one block to be built
+        async_sleep(Duration::from_millis(20)).await;
+
+        if builder_started.elapsed() > Duration::from_secs(2) {
+            panic!("Builder failed to provide blocks in two seconds");
+        }
+    };
 
     // Test claiming available block
     let signature = {
