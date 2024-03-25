@@ -164,6 +164,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 continue;
             };
 
+            // Don't try to re-claim the same block if builder advertises it again
+            if latest_block.as_ref().map_or(false, |block| {
+                block.0.block_payload.builder_commitment(&block.0.metadata) == block_info.block_hash
+            }) {
+                continue;
+            }
+
             let Ok(signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
                 &self.private_key,
                 block_info.block_hash.as_ref(),
