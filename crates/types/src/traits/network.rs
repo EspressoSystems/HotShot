@@ -77,10 +77,10 @@ pub enum WebServerNetworkError {
 }
 
 /// the type of transmission
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum TransmitType {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransmitType<TYPES: NodeType> {
     /// directly transmit
-    Direct,
+    Direct(TYPES::SignatureKey),
     /// broadcast the message to all
     Broadcast,
     /// broadcast to DA committee
