@@ -4,7 +4,7 @@ use crate::{
     vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -125,9 +125,8 @@ pub struct ConsensusTaskState<
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
-    /// The current version of the network.
-    /// Updated on view change based on the most recent decided upgrade certificate.
-    pub current_network_version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -743,12 +742,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
-                                    warn!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
+                                    error!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
-                                    async_block_on(broadcast_event(
-                                        Arc::new(HotShotEvent::UpgradeDecided(upgrade_cert.data.new_version, upgrade_cert.data.new_version_first_block)),
-                                        &event_stream,
-                                    ));
                                 }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
@@ -1147,21 +1142,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                // update the view in state to the one in the message
-                // Publish a view change event to the application
-                if !self.update_view(new_view, &event_stream).await {
-                    debug!("view not updated");
-                    return;
-                }
-
                 // If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
                 if let Some(ref cert) = self.decided_upgrade_cert {
                     if new_view >= cert.data.new_version_first_block {
-                        self.current_network_version = cert.data.new_version;
+                        warn!(
+                            "Updating version based on a decided upgrade cert: {:?}",
+                            cert
+                        );
+                        let mut version = self.version.write().await;
+                        *version = cert.data.new_version;
+
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VersionUpgrade(cert.data.new_version)),
+                            &event_stream,
+                        )
+                        .await;
+
                         // Discard the old upgrade certificate, which is no longer relevant.
                         self.decided_upgrade_cert = None;
                     }
+                }
+
+                // update the view in state to the one in the message
+                // Publish a view change event to the application
+                // Returns if the view does not need updating.
+                if !self.update_view(new_view, &event_stream).await {
+                    debug!("view not updated");
+                    return;
                 }
 
                 broadcast_event(

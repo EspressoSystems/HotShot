@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::constants::STATIC_VER_0_1;
+use hotshot_types::constants::{BASE_VERSION, STATIC_VER_0_1};
 use hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
     message::{
@@ -25,7 +25,7 @@ use hotshot_types::{
     vote::{HasViewNumber, Vote},
 };
 use tracing::instrument;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 use versioned_binary_serialization::version::Version;
 
 /// quorum filter
@@ -34,9 +34,7 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
         event.as_ref(),
         HotShotEvent::QuorumProposalSend(_, _)
             | HotShotEvent::QuorumVoteSend(_)
-            | HotShotEvent::Shutdown
             | HotShotEvent::DACSend(_, _)
-            | HotShotEvent::ViewChange(_)
             | HotShotEvent::TimeoutVoteSend(_)
     )
 }
@@ -45,10 +43,7 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
 pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::UpgradeProposalSend(_, _)
-            | HotShotEvent::UpgradeVoteSend(_)
-            | HotShotEvent::Shutdown
-            | HotShotEvent::ViewChange(_)
+        HotShotEvent::UpgradeProposalSend(_, _) | HotShotEvent::UpgradeVoteSend(_)
     )
 }
 
@@ -56,19 +51,13 @@ pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool
 pub fn committee_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::DAProposalSend(_, _)
-            | HotShotEvent::DAVoteSend(_)
-            | HotShotEvent::Shutdown
-            | HotShotEvent::ViewChange(_)
+        HotShotEvent::DAProposalSend(_, _) | HotShotEvent::DAVoteSend(_)
     )
 }
 
 /// vid filter
 pub fn vid_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
-    !matches!(
-        event.as_ref(),
-        HotShotEvent::Shutdown | HotShotEvent::VidDisperseSend(_, _) | HotShotEvent::ViewChange(_)
-    )
+    !matches!(event.as_ref(), HotShotEvent::VidDisperseSend(_, _))
 }
 
 /// view sync filter
@@ -81,8 +70,6 @@ pub fn view_sync_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bo
             | HotShotEvent::ViewSyncPreCommitVoteSend(_)
             | HotShotEvent::ViewSyncCommitVoteSend(_)
             | HotShotEvent::ViewSyncFinalizeVoteSend(_)
-            | HotShotEvent::Shutdown
-            | HotShotEvent::ViewChange(_)
     )
 }
 /// the network message task state
@@ -216,8 +203,6 @@ pub struct NetworkEventTaskState<
     pub view: TYPES::Time,
     /// version
     pub version: Version,
-    /// decided upgrade
-    pub decided_upgrade: Option<(Version, TYPES::Time)>,
     /// membership for the channel
     pub membership: TYPES::Membership,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
@@ -254,7 +239,13 @@ impl<
     }
 
     fn filter(&self, event: &Self::Event) -> bool {
-        (self.filter)(event) || matches!(event.as_ref(), HotShotEvent::UpgradeDecided(_, _))
+        (self.filter)(event)
+            && !matches!(
+                event.as_ref(),
+                HotShotEvent::VersionUpgrade(_)
+                    | HotShotEvent::ViewChange(_)
+                    | HotShotEvent::Shutdown
+            )
     }
 }
 
@@ -417,15 +408,11 @@ impl<
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
                 self.channel.update_view(self.view.get_u64());
-                if let Some((new_version, starting_view)) = self.decided_upgrade {
-                    if view >= starting_view {
-                        self.version = new_version;
-                    }
-                }
                 return None;
             }
-            HotShotEvent::UpgradeDecided(version, view) => {
-                self.decided_upgrade = Some((version, view));
+            HotShotEvent::VersionUpgrade(version) => {
+                debug!("Updating internal version in network task to {:?}", version);
+                self.version = version;
                 return None;
             }
             HotShotEvent::Shutdown => {
@@ -445,6 +432,7 @@ impl<
         let committee = membership.get_whole_committee(view);
         let net = self.channel.clone();
         let storage = self.storage.clone();
+        let version = self.version;
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
@@ -457,19 +445,24 @@ impl<
                 return;
             }
 
-            let transmit_result = match transmit_type {
-                TransmitType::Direct => {
-                    net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
-                        .await
+            let transmit_result = if version == BASE_VERSION {
+                match transmit_type {
+                    TransmitType::Direct => {
+                        net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
+                            .await
+                    }
+                    TransmitType::Broadcast => {
+                        net.broadcast_message(message, committee, STATIC_VER_0_1)
+                            .await
+                    }
+                    TransmitType::DACommitteeBroadcast => {
+                        net.da_broadcast_message(message, committee, STATIC_VER_0_1)
+                            .await
+                    }
                 }
-                TransmitType::Broadcast => {
-                    net.broadcast_message(message, committee, STATIC_VER_0_1)
-                        .await
-                }
-                TransmitType::DACommitteeBroadcast => {
-                    net.da_broadcast_message(message, committee, STATIC_VER_0_1)
-                        .await
-                }
+            } else {
+                error!("The network has upgraded to {:?}, which is not implemented in this instance of HotShot.", version);
+                return;
             };
 
             match transmit_result {

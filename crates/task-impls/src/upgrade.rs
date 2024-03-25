@@ -171,6 +171,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            HotShotEvent::VersionUpgrade(version) => {
+                error!("The network was upgraded to {:?}. This instance of HotShot did not expect an upgrade.", version);
+            }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
                 if *self.cur_view >= *view {
@@ -187,7 +190,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     use commit::Committable;
                     use std::marker::PhantomData;
 
-                    use hotshot_types::{data::UpgradeProposal, message::Proposal};
+                    use hotshot_types::{
+                        data::UpgradeProposal, message::Proposal,
+                        traits::node_implementation::ConsensusTime,
+                    };
                     use versioned_binary_serialization::version::Version;
 
                     if *view == 5 && self.quorum_membership.get_leader(view + 5) == self.public_key
@@ -270,6 +276,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::UpgradeVoteRecv(_)
                 | HotShotEvent::Shutdown
                 | HotShotEvent::ViewChange(_)
+                | HotShotEvent::VersionUpgrade(_)
         )
     }
 }

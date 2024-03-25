@@ -138,6 +138,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
-    /// Upgrade was decided, and scheduled for a future view.
-    UpgradeDecided(Version, TYPES::Time),
+    /// HotShot was upgraded, with a new network version.
+    VersionUpgrade(Version),
 }

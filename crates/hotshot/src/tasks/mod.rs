@@ -132,7 +132,6 @@ pub async fn add_network_event_task<
         channel,
         view: TYPES::Time::genesis(),
         version: VERSION_0_1,
-        decided_upgrade: None,
         membership,
         filter,
         storage,

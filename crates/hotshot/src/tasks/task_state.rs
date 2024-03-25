@@ -6,7 +6,6 @@ use hotshot_task_impls::{
     transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -196,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             upgrade_cert: None,
             proposal_cert: None,
             decided_upgrade_cert: None,
-            current_network_version: VERSION_0_1,
+            version: handle.hotshot.version.clone(),
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
             current_proposal: None,
             id: handle.hotshot.id,

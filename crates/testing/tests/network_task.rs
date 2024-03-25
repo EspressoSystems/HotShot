@@ -58,7 +58,6 @@ async fn test_network_task() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            decided_upgrade: None,
             version: BASE_VERSION,
             storage,
         };
@@ -127,7 +126,6 @@ async fn test_network_storage_fail() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            decided_upgrade: None,
             version: BASE_VERSION,
             storage,
         };
