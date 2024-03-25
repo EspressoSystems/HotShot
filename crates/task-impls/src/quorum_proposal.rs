@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::{
-    dependency::{AndDependency, EventDependency},
+    dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
 };
@@ -57,9 +57,9 @@ enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// Any of the 3 optional proposal certs is successfully validated and sent downstream in the
+    /// Any of the 3 optional proposal certs is successfully received and sent downstream in the
     /// task. The certs are `ViewSyncFinalizeCertificate2Recv`, `QuorumProposalRecv`, and `QCFormed`.
-    CertValidated,
+    ProposalCertificate,
 }
 
 /// Handler for the proposal dependency
@@ -189,8 +189,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             event_receiver,
             Box::new(move |event| {
                 let event = event.as_ref();
+                debug!("Dependency {:?} got event {:?}", dependency_type, event);
                 let event_view = match dependency_type {
-                    ProposalDependency::CertValidated => match event {
+                    ProposalDependency::ProposalCertificate => match event {
                         HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_cert) => {
                             view_sync_cert.view_number
                         }
@@ -214,6 +215,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                 };
+                debug!("Event view {:?}", event_view);
                 event_view == view_number
             }),
         )
@@ -231,12 +233,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
     ) {
+        debug!("Attempting to make dependency task for event {:?}", event);
         if self.propose_dependencies.get(&view_number).is_some() {
+            debug!("Task already exists");
             return;
         }
 
-        let mut cert_validated_dependency = self.create_event_dependency(
-            ProposalDependency::CertValidated,
+        let mut proposal_cert_validated_dependency = self.create_event_dependency(
+            ProposalDependency::ProposalCertificate,
             view_number,
             event_receiver.clone(),
         );
@@ -251,19 +255,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-            | HotShotEvent::QuorumProposalRecv(_, _)
-            | HotShotEvent::QCFormed(_) => {
-                cert_validated_dependency.mark_as_completed(event);
+            HotShotEvent::QuorumProposalRecv(proposal, _) => {
+                proposal_cert_validated_dependency.mark_as_completed(Arc::new(
+                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
+                ));
+            }
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_finalize_cert) => {
+                proposal_cert_validated_dependency.mark_as_completed(Arc::new(
+                    HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_finalize_cert.clone()),
+                ));
+            }
+            HotShotEvent::QCFormed(_) => {
+                proposal_cert_validated_dependency.mark_as_completed(event);
             }
             _ => {}
         };
 
-        let and_deps = vec![payload_commitment_dependency, cert_validated_dependency];
-
         // We must always have the payload commitment and metadata, but can have any of the other
         // events that include a proposable certificate
-        let proposal_dependency = AndDependency::from_deps(and_deps);
+        let proposal_dependency = AndDependency::from_deps(vec![
+            payload_commitment_dependency,
+            proposal_cert_validated_dependency,
+        ]);
 
         let dependency_task = DependencyTask::new(
             proposal_dependency,

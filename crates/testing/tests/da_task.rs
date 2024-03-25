@@ -74,7 +74,7 @@ async fn test_da_task() {
     let da_state = DATaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
     let stages = vec![view_1, view_2];
 
-    run_test_script(stages, da_state, None).await;
+    run_test_script(stages, da_state).await;
 }
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -136,5 +136,5 @@ async fn test_da_task_storage_failure() {
     let da_state = DATaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
     let stages = vec![view_1, view_2];
 
-    run_test_script(stages, da_state, None).await;
+    run_test_script(stages, da_state).await;
 }

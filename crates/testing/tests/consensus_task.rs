@@ -93,7 +93,7 @@ async fn test_consensus_task() {
 
     inject_consensus_polls(&consensus_state).await;
 
-    run_test_script(vec![view_1, view_2], consensus_state, None).await;
+    run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
 #[cfg(test)]
@@ -154,7 +154,7 @@ async fn test_consensus_vote() {
     .await;
 
     inject_consensus_polls(&consensus_state).await;
-    run_test_script(vec![view_1], consensus_state, None).await;
+    run_test_script(vec![view_1], consensus_state).await;
 }
 
 /// Tests the voting behavior by allowing the input to be permuted in any order desired. This
@@ -226,7 +226,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     .await;
 
     inject_consensus_polls(&consensus_state).await;
-    run_test_script(vec![view_1, view_2], consensus_state, None).await;
+    run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
 #[cfg(test)]
@@ -371,7 +371,7 @@ async fn test_view_sync_finalize_propose() {
     let stages = vec![view_1, view_2_3, view_4];
 
     inject_consensus_polls(&consensus_state).await;
-    run_test_script(stages, consensus_state, None).await;
+    run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
@@ -476,7 +476,7 @@ async fn test_view_sync_finalize_vote() {
     let stages = vec![view_1, view_2, view_3];
 
     inject_consensus_polls(&consensus_state).await;
-    run_test_script(stages, consensus_state, None).await;
+    run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
@@ -588,7 +588,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     let stages = vec![view_1, view_2, view_3];
 
     inject_consensus_polls(&consensus_state).await;
-    run_test_script(stages, consensus_state, None).await;
+    run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
@@ -642,5 +642,5 @@ async fn test_vid_disperse_storage_failure() {
 
     inject_consensus_polls(&consensus_state).await;
 
-    run_test_script(vec![view_1], consensus_state, None).await;
+    run_test_script(vec![view_1], consensus_state).await;
 }

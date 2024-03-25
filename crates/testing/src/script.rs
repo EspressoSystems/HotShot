@@ -6,6 +6,13 @@ use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, thread::sleep};
 
+#[cfg(async_executor_impl = "async-std")]
+use async_std::future::timeout;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::time::timeout;
+
+use std::time::Duration;
+
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
     pub outputs: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
@@ -75,7 +82,6 @@ where
 pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>>(
     mut script: TestScript<TYPES, S>,
     state: S,
-    check_delay: Option<std::time::Duration>,
 ) where
     TYPES: NodeType,
     S: Send + 'static,
@@ -107,17 +113,18 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             }
         }
 
-        if let Some(duration) = check_delay {
-            tracing::info!("Sleeping thread for {:?} before validating.", duration);
-            sleep(duration);
-        }
-
         for assert in &stage.outputs {
-            if let Ok(received_output) = test_receiver.try_recv() {
-                tracing::debug!("Test received: {:?}", received_output);
-                validate_output_or_panic(stage_number, &received_output, assert);
-            } else {
-                panic_missing_output(stage_number, assert);
+            let timeout_duration = Duration::from_secs(2);
+            match timeout(timeout_duration, test_receiver.recv_direct()).await {
+                Ok(Ok(received_output)) => {
+                    tracing::debug!("Test received: {:?}", received_output);
+                    validate_output_or_panic(stage_number, &received_output, assert);
+                }
+                Ok(Err(_)) => panic_missing_output(stage_number, assert),
+                Err(_) => {
+                    tracing::debug!("Timeout waiting for output at stage {}", stage_number);
+                    panic_missing_output(stage_number, assert);
+                }
             }
         }
 

@@ -61,11 +61,6 @@ async fn test_quorum_proposal_task_quorum_proposal() {
         ],
         outputs: vec![
             exact(QuorumProposalValidated(proposals[1].data.clone())),
-            exact(QuorumProposalPayloadAndMetadataValidated(
-                payload_commitment,
-                (),
-                ViewNumber::new(2),
-            )),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -77,7 +72,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
-    run_test_script(script, quorum_proposal_task_state, TASK_COMPLETE_DELAY).await;
+    run_test_script(script, quorum_proposal_task_state).await;
 }
 
 #[cfg(test)]
@@ -107,12 +102,6 @@ async fn test_quorum_proposal_task_qc_proposal() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalQuorumCertValidated(cert)),
-            exact(QuorumProposalPayloadAndMetadataValidated(
-                payload_commitment,
-                (),
-                ViewNumber::new(2),
-            )),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -124,7 +113,7 @@ async fn test_quorum_proposal_task_qc_proposal() {
     inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
-    run_test_script(script, quorum_proposal_task_state, TASK_COMPLETE_DELAY).await;
+    run_test_script(script, quorum_proposal_task_state).await;
 }
 
 #[cfg(test)]
@@ -169,12 +158,6 @@ async fn test_quorum_proposal_task_qc_timeout() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalTimeoutCertValidated(cert)),
-            exact(QuorumProposalPayloadAndMetadataValidated(
-                payload_commitment,
-                (),
-                ViewNumber::new(2),
-            )),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -186,7 +169,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
-    run_test_script(script, quorum_proposal_task_state, TASK_COMPLETE_DELAY).await;
+    run_test_script(script, quorum_proposal_task_state).await;
 }
 
 #[cfg(test)]
@@ -234,12 +217,7 @@ async fn test_quorum_proposal_task_view_sync() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalViewSyncFinalizeCertValidated(cert)),
-            exact(QuorumProposalPayloadAndMetadataValidated(
-                payload_commitment,
-                (),
-                ViewNumber::new(2),
-            )),
+            exact(ViewSyncFinalizeCertValidated(cert.clone())),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -251,7 +229,7 @@ async fn test_quorum_proposal_task_view_sync() {
     inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
-    run_test_script(script, quorum_proposal_task_state, TASK_COMPLETE_DELAY).await;
+    run_test_script(script, quorum_proposal_task_state).await;
 }
 
 #[cfg(test)]
@@ -292,5 +270,5 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
-    run_test_script(script, quorum_proposal_task_state, TASK_COMPLETE_DELAY).await;
+    run_test_script(script, quorum_proposal_task_state).await;
 }
