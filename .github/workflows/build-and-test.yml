@@ -51,7 +51,7 @@ jobs:
           RUST_BACKTRACE: full
 
       - name: Build examples in release mode
-        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features --features="docs,doc-images"
+        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
@@ -89,7 +89,7 @@ jobs:
           prefix-key: arm-${{ matrix.just_variants }}
 
       - name: Build examples in release mode
-        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features --features="docs,doc-images"
+        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4

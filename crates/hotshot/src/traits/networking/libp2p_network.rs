@@ -16,6 +16,8 @@ use futures::{
     future::{join_all, Either},
     FutureExt, StreamExt,
 };
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::network::NetworkReliability;
 use hotshot_types::{
     boxed_sync,
     constants::{Version01, LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1},
@@ -33,7 +35,7 @@ use hotshot_types::{
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     message::{Message, MessageKind},
-    traits::network::{NetworkReliability, TestableNetworkingImplementation, ViewMessage},
+    traits::network::{TestableNetworkingImplementation, ViewMessage},
 };
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]
@@ -332,7 +334,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
-        reliability_config: Option<Box<dyn NetworkReliability>>,
+        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {

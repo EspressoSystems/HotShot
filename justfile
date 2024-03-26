@@ -39,7 +39,7 @@ build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 
 example *ARGS:
-  cargo run --profile=release-lto --example {{ARGS}}
+  cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
 test *ARGS:
   echo Testing {{ARGS}}

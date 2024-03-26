@@ -8,7 +8,7 @@ version = { workspace = true }
 rust-version = "1.65.0"
 
 [features]
-default = ["docs", "doc-images"]
+default = ["docs", "doc-images", "hotshot-testing"]
 gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 # Features required for binaries
@@ -17,7 +17,7 @@ bin-orchestrator = ["clap"]
 # Build the extended documentation
 docs = []
 doc-images = []
-hotshot-testing = []
+hotshot-testing = ["hotshot/hotshot-testing"]
 randomized-leader-election = []
 
 # libp2p
