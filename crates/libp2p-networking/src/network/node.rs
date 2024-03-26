@@ -16,6 +16,7 @@ pub use self::{
 };
 
 use super::{
+    behaviours::dht::bootstrap::{self, DHTBootstrapTask},
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -31,7 +32,7 @@ use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use futures::{select, FutureExt, StreamExt};
+use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::{core::transport::ListenerId, kad::Record, StreamProtocol};
 use libp2p::{
@@ -93,6 +94,8 @@ pub struct NetworkNode {
     dht_handler: DHTBehaviour,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
+    /// Send to the bootstrap task to tell it to start a bootstrap
+    bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
 }
 
 impl NetworkNode {
@@ -151,7 +154,6 @@ impl NetworkNode {
                 }
             }
         }
-        self.dht_handler.add_bootstrap_nodes(bs_nodes);
     }
 
     /// Creates a new `Network` with the given settings.
@@ -337,6 +339,7 @@ impl NetworkNode {
                     .unwrap_or(NonZeroUsize::new(4).unwrap()),
             ),
             resend_tx: None,
+            bootstrap_tx: None,
         })
     }
 
@@ -385,7 +388,7 @@ impl NetworkNode {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        let _ = self.swarm.behaviour_mut().dht.bootstrap();
+                        self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
                         let id = self.swarm.behaviour_mut().dht.get_closest_peers(pid);
@@ -596,8 +599,7 @@ impl NetworkNode {
                     NetworkEventInternal::DHTEvent(e) => {
                         // DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
                         self.dht_handler
-                            .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut());
-                        None
+                            .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut())
                     }
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
@@ -710,9 +712,11 @@ impl NetworkNode {
     > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
-
+        let (bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
         self.resend_tx = Some(s_input.clone());
+        self.bootstrap_tx = Some(bootstrap_tx);
 
+        DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
         async_spawn(
             async move {
                 let mut fuse = s_output.recv().boxed().fuse();

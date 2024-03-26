@@ -1,5 +1,5 @@
 /// Task for doing bootstraps at a regular interval
-mod bootstrap;
+pub mod bootstrap;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -8,10 +8,13 @@ use std::{
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
 /// a local caching layer for the DHT key value pairs
-use futures::channel::oneshot::Sender;
+use futures::{
+    channel::{mpsc, oneshot::Sender},
+    SinkExt,
+};
 use lazy_static::lazy_static;
-use libp2p::kad::Event as KademliaEvent;
 use libp2p::kad::{store::RecordStore, Behaviour as KademliaBehaviour};
+use libp2p::kad::{BootstrapError, Event as KademliaEvent};
 use libp2p::{
     kad::{
         /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
@@ -31,7 +34,7 @@ lazy_static! {
     static ref MAX_DHT_QUERY_SIZE: NonZeroUsize = NonZeroUsize::new(50).unwrap();
 }
 
-use crate::network::ClientRequest;
+use crate::network::{ClientRequest, NetworkEvent};
 
 use super::exponential_backoff::ExponentialBackoff;
 
@@ -57,6 +60,8 @@ pub struct DHTBehaviour {
     pub replication_factor: NonZeroUsize,
     /// Sender to retry requests.
     retry_tx: Option<UnboundedSender<ClientRequest>>,
+    /// Sender to the bootstrap task
+    bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
 }
 
 /// State of bootstrapping
@@ -89,6 +94,9 @@ impl DHTBehaviour {
     pub fn set_retry(&mut self, tx: UnboundedSender<ClientRequest>) {
         self.retry_tx = Some(tx);
     }
+    pub fn set_bootstrap_sender(&mut self, tx: mpsc::Sender<bootstrap::InputEvent>) {
+        self.bootstrap_tx = Some(tx);
+    }
     /// Create a new DHT behaviour
     #[must_use]
     pub fn new(pid: PeerId, replication_factor: NonZeroUsize) -> Self {
@@ -108,6 +116,7 @@ impl DHTBehaviour {
             in_progress_get_closest_peers: HashMap::default(),
             replication_factor,
             retry_tx: None,
+            bootstrap_tx: None,
         }
     }
 
@@ -357,8 +366,21 @@ impl DHTBehaviour {
         }
     }
 
+    /// Send that the bootsrap suceeded
+    fn finsish_bootstrap(&mut self) {
+        if let Some(mut tx) = self.bootstrap_tx.clone() {
+            art::async_spawn(
+                async move { tx.send(bootstrap::InputEvent::BootstrapFinished).await },
+            );
+        }
+    }
+    #[allow(clippy::too_many_lines)]
     /// handle a DHT event
-    pub fn dht_handle_event(&mut self, event: KademliaEvent, store: &mut MemoryStore) {
+    pub fn dht_handle_event(
+        &mut self,
+        event: KademliaEvent,
+        store: &mut MemoryStore,
+    ) -> Option<NetworkEvent> {
         match event {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::PutRecord(record_results),
@@ -412,11 +434,31 @@ impl DHTBehaviour {
                     })),
                 step: ProgressStep { last: true, .. },
                 ..
-            } => {}
+            } => {
+                if num_remaining == 0 {
+                    info!("Finished bootstrap for peer {:?}", self.peer_id);
+                    self.finsish_bootstrap();
+                } else {
+                    warn!(
+                        "Bootstrap in progress: num remaining nodes to ping {:?}",
+                        num_remaining
+                    );
+                }
+                return Some(NetworkEvent::IsBootstrapped);
+            }
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::Bootstrap(Err(e)),
                 ..
-            } => {}
+            } => {
+                let BootstrapError::Timeout { num_remaining, .. } = e;
+                if num_remaining.is_none() {
+                    error!(
+                        "Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT.",
+                        self.peer_id, e,
+                    );
+                }
+                self.finsish_bootstrap();
+            }
             KademliaEvent::RoutablePeer { peer, address: _ } => {
                 info!("on peer {:?} found routable peer {:?}", self.peer_id, peer);
             }
@@ -446,6 +488,7 @@ impl DHTBehaviour {
                 error!("UNHANDLED NEW SWARM VARIANT: {e:?}");
             }
         }
+        None
     }
 }
 

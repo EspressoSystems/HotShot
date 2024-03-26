@@ -17,10 +17,7 @@ pub use self::{
     },
 };
 
-use self::behaviours::{
-    dht::DHTEvent,
-    request_response::{Request, Response},
-};
+use self::behaviours::request_response::{Request, Response};
 use futures::channel::oneshot::{self, Sender};
 use libp2p::{
     build_multiaddr,

@@ -5,11 +5,11 @@ use futures::{channel::mpsc, StreamExt};
 
 use crate::network::ClientRequest;
 
-pub(crate) enum InputEvent {
+pub enum InputEvent {
     StartBootstrap,
     BootstrapFinished,
 }
-pub(crate) struct DHTBootstrapTask {
+pub struct DHTBootstrapTask {
     rx: mpsc::Receiver<InputEvent>,
     network_tx: UnboundedSender<ClientRequest>,
     in_progress: bool,
