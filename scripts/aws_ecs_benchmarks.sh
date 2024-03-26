@@ -20,10 +20,11 @@ docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
-# Sishan TODO
-# https://stackoverflow.com/questions/9713104/loop-over-tuples-in-bash
+
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
+# for iteration of assignment
+# see `aws_ecs_nginx_benchmarks.sh` for an example
 for total_nodes in 10 50 100
 do
     for da_committee_size in 10 50 100
@@ -32,7 +33,7 @@ do
         then
             for transactions_per_round in 1 10 50 100
             do
-                for transaction_size in 512 4096 #1000000 20000000
+                for transaction_size in 512 4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
                     rounds=100
                     # start webserver

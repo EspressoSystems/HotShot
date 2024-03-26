@@ -1118,7 +1118,7 @@ pub async fn main_entry_point<
         )
         .await;
 
-    info!("Initializing networking");
+    println!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
@@ -1160,7 +1160,7 @@ pub async fn main_entry_point<
     }
 
     if let NetworkConfigSource::Orchestrator = source {
-        debug!("Waiting for the start command from orchestrator");
+        println!("Waiting for the start command from orchestrator");
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .await;
