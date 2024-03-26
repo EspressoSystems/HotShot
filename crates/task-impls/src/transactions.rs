@@ -10,7 +10,6 @@ use hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderIn
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    constants::Version01,
     event::{Event, EventType},
     traits::{
         block_contents::BlockHeader,
@@ -23,12 +22,14 @@ use hotshot_types::{
 };
 use std::{sync::Arc, time::Instant};
 use tracing::{debug, error, instrument};
+use versioned_binary_serialization::version::StaticVersionType;
 
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     A: ConsensusApi<TYPES, I> + 'static,
+    Ver: StaticVersionType,
 > {
     /// The state's api
     pub api: A,
@@ -46,7 +47,7 @@ pub struct TransactionTaskState<
     pub membership: Arc<TYPES::Membership>,
 
     /// Builder API client
-    pub builder_client: BuilderClient<TYPES, Version01>,
+    pub builder_client: BuilderClient<TYPES, Ver>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -56,8 +57,12 @@ pub struct TransactionTaskState<
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    TransactionTaskState<TYPES, I, A>
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        A: ConsensusApi<TYPES, I> + 'static,
+        Ver: StaticVersionType,
+    > TransactionTaskState<TYPES, I, A, Ver>
 {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
@@ -207,8 +212,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 }
 
 /// task state implementation for Transactions Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for TransactionTaskState<TYPES, I, A>
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        A: ConsensusApi<TYPES, I> + 'static,
+        Ver: StaticVersionType + 'static,
+    > TaskState for TransactionTaskState<TYPES, I, A, Ver>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 

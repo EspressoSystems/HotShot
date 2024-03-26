@@ -146,12 +146,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
+    CreateTaskState<TYPES, I>
+    for TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>, Ver>
 {
     async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
-    ) -> TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
+    ) -> TransactionTaskState<TYPES, I, SystemContextHandle<TYPES, I>, Ver> {
         TransactionTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
