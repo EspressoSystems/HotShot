@@ -91,9 +91,6 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
     let (to_task, mut from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
 
-    // let task_input = test_input.clone();
-    // let mut test_receiver = task_receiver.clone();
-
     let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
