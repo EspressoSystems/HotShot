@@ -353,7 +353,7 @@ impl DHTBehaviour {
                     query.progress = DHTProgress::NotStarted;
                     query.backoff.start_next(false);
 
-                    warn!(
+                    error!(
                         "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
                         e, self.peer_id
                     );
@@ -385,10 +385,13 @@ impl DHTBehaviour {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::PutRecord(record_results),
                 id,
-                step: ProgressStep { last: true, .. },
+                step: ProgressStep { last, .. },
                 ..
             } => {
-                self.handle_put_query(record_results, id);
+                error!("Mad progress on put {}", id);
+                if last {
+                    self.handle_put_query(record_results, id);
+                }
             }
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetClosestPeers(r),

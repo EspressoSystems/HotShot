@@ -480,7 +480,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // global topic to the topic map
                 // NOTE this wont' work without this change
 
-                info!(
+                error!(
                     "peer {:?} waiting for publishing, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -495,7 +495,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                info!(
+                error!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -511,12 +511,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // 10 minute timeout
                 let timeout_duration = Duration::from_secs(600);
                 // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
+                error!("WAITING TO CONNECT ON NODE {:?}", id);
                 handle
                     .wait_to_connect(4, id, timeout_duration)
                     .await
                     .unwrap();
-                info!(
+                error!(
                     "node {:?} is barring bootstrap, type: {:?}",
                     handle.peer_id(),
                     node_type
