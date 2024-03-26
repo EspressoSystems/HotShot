@@ -1,3 +1,5 @@
+/// Task for doing bootstraps at a regular interval
+mod bootstrap;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -43,8 +45,6 @@ use super::exponential_backoff::ExponentialBackoff;
 pub struct DHTBehaviour {
     /// in progress queries for nearby peers
     pub in_progress_get_closest_peers: HashMap<QueryId, Sender<()>>,
-    /// bootstrap nodes
-    pub bootstrap_nodes: HashMap<PeerId, HashSet<Multiaddr>>,
     /// List of in-progress get requests
     in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
     /// List of in-progress put requests
@@ -98,7 +98,6 @@ impl DHTBehaviour {
         // we won't have a local network
         // <https://github.com/libp2p/rust-libp2p/issues/4194>
         Self {
-            bootstrap_nodes: HashMap::default(),
             peer_id: pid,
             in_progress_get_record_queries: HashMap::default(),
             in_progress_put_record_queries: HashMap::default(),
@@ -126,13 +125,6 @@ impl DHTBehaviour {
             }
         }
         error!("{:?}", err);
-    }
-
-    /// Save in case kademlia forgets about bootstrap nodes
-    pub fn add_bootstrap_nodes(&mut self, nodes: HashMap<PeerId, HashSet<Multiaddr>>) {
-        for (k, v) in nodes {
-            self.bootstrap_nodes.insert(k, v);
-        }
     }
 
     /// Get the replication factor for queries
