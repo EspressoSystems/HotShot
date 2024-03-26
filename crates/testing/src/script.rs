@@ -13,6 +13,8 @@ use tokio::time::timeout;
 
 use std::time::Duration;
 
+const RECV_TIMEOUT_SEC: Duration = Duration::from_secs(1);
+
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
     pub outputs: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
@@ -113,8 +115,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         }
 
         for assert in &stage.outputs {
-            let timeout_duration = Duration::from_secs(2);
-            match timeout(timeout_duration, from_task.recv_direct()).await {
+            match timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await {
                 Ok(Ok(received_output)) => {
                     tracing::debug!("Test received: {:?}", received_output);
                     validate_output_or_panic(stage_number, &received_output, assert);
