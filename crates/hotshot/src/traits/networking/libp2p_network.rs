@@ -332,7 +332,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         id: usize,
         // HACK
         committee_pks: BTreeSet<K>,
-        #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
+        reliability_config: Option<Box<dyn NetworkReliability>>,
         da_pks: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
