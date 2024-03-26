@@ -132,9 +132,9 @@ anyhow = "1.0.81"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.12" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.12" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.12" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.14" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.14" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.14" }
 
 ### Profiles
 ###
@@ -152,13 +152,6 @@ debug = 0
 opt-level = 1
 strip = true
 debug = 0
-
-# The default release profile without LTO.
-[profile.release]
-debug = 1
-# Disable LTO to decrease the linking time.
-lto = "off"
-incremental = true
 
 # The release profile with LTO.
 # CI uses this profile. To run it locally, add `--profile=release-lto` to `cargo build` or `cargo
