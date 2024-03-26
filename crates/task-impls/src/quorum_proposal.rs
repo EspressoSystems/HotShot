@@ -373,7 +373,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                debug!("got commit and meta {:?}", payload_commitment);
+                debug!("Got payload commitment and meta {:?}", payload_commitment);
 
                 self.create_dependency_task_if_new(
                     view,
