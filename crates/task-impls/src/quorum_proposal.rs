@@ -57,9 +57,9 @@ enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// Any of the 3 optional proposal certs is successfully validated and sent downstream in the
+    /// Any of the 3 optional proposal certs is successfully received and sent downstream in the
     /// task. The certs are `ViewSyncFinalizeCertificate2Recv`, `QuorumProposalRecv`, and `QCFormed`.
-    CertValidated,
+    ProposalCertificate,
 }
 
 /// Handler for the proposal dependency
@@ -87,8 +87,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _view_sync_finalize_cert = None;
         for event in res {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
+                HotShotEvent::QuorumProposalRecv(proposal, _) => {
+                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             return;
@@ -116,7 +116,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         _quorum_certificate = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertValidated(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
                     _view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
@@ -188,16 +188,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             event_receiver,
             Box::new(move |event| {
                 let event = event.as_ref();
+                debug!("Dependency {:?} got event {:?}", dependency_type, event);
                 let event_view = match dependency_type {
-                    ProposalDependency::CertValidated => match event {
-                        HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_cert) => {
+                    ProposalDependency::ProposalCertificate => match event {
+                        HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) => {
                             view_sync_cert.view_number
                         }
                         HotShotEvent::QCFormed(cert) => match cert {
                             either::Right(timeout) => timeout.view_number,
                             either::Left(qc) => qc.view_number,
                         },
-                        HotShotEvent::QuorumProposalValidated(proposal) => proposal.view_number,
+                        HotShotEvent::QuorumProposalRecv(proposal, _) => proposal.data.view_number,
                         _ => return false,
                     },
                     ProposalDependency::PayloadAndMetadata => {
@@ -230,12 +231,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
     ) {
+        debug!("Attempting to make dependency task for event {:?}", event);
         if self.propose_dependencies.get(&view_number).is_some() {
+            debug!("Task already exists");
             return;
         }
 
-        let mut cert_validated_dependency = self.create_event_dependency(
-            ProposalDependency::CertValidated,
+        let mut proposal_cert_validated_dependency = self.create_event_dependency(
+            ProposalDependency::ProposalCertificate,
             view_number,
             event_receiver.clone(),
         );
@@ -250,19 +253,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-            | HotShotEvent::QuorumProposalRecv(_, _)
-            | HotShotEvent::QCFormed(_) => {
-                cert_validated_dependency.mark_as_completed(event);
+            HotShotEvent::QuorumProposalRecv(_, _)
+            | HotShotEvent::QCFormed(_)
+            | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+                proposal_cert_validated_dependency.mark_as_completed(event);
             }
             _ => {}
         };
 
-        let and_deps = vec![payload_commitment_dependency, cert_validated_dependency];
-
         // We must always have the payload commitment and metadata, but can have any of the other
         // events that include a proposable certificate
-        let proposal_dependency = AndDependency::from_deps(and_deps);
+        let proposal_dependency = AndDependency::from_deps(vec![
+            payload_commitment_dependency,
+            proposal_cert_validated_dependency,
+        ]);
 
         let dependency_task = DependencyTask::new(
             proposal_dependency,
@@ -367,7 +371,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                debug!("got commit and meta {:?}", payload_commitment);
+                debug!("Got payload commitment and meta {:?}", payload_commitment);
 
                 self.create_dependency_task_if_new(
                     view,
@@ -393,14 +397,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewSyncFinalizeCertValidated(
-                        view_sync_finalize_cert.clone(),
-                    )),
-                    &event_sender.clone(),
-                )
-                .await;
-
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
             HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
@@ -425,12 +421,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
                     return;
                 }
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(
                     view,
