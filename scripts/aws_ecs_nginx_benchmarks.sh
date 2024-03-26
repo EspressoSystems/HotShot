@@ -36,7 +36,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # docker run --network=host sishan-nginx:latest
 
 OLDIFS=$IFS; IFS=',';
-for config in 10,5,1,10000000,20 50,5,1,1000000,20 10,5,1,20000000,20 #100,10,1,20000000,20 200,10,1,20000000,20
+for config in 10,5,1,1000000,20 50,5,1,1000000,20 10,5,1,20000000,20 #100,10,1,20000000,20 200,10,1,20000000,20
 do
     set -- $config;
     # start webserver
@@ -60,7 +60,7 @@ do
 
     # start validators
     ecs scale --region us-east-2 hotshot hotshot_centralized $1 --timeout -1
-    sleep $((($5 + $1) * 5))
+    sleep $((($5 + $1) * 2))
     sleep 10m
 
     # kill them
