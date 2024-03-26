@@ -35,11 +35,6 @@ jobs:
           shared-key: ""
           prefix-key: ${{ matrix.just_variants }}
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y capnproto
-
       - name: Install Just
         run: |
           wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
@@ -66,11 +61,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
-
-      - name: Install Cap'n'Proto
-        run: |
-          apt-get update
-          apt-get install -y capnproto
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -104,11 +94,6 @@ jobs:
           shared-key: ""
           prefix-key: ${{ matrix.just_variants }}
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y capnproto
-
       - name: Install Just
         run: |
           wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
@@ -139,11 +124,6 @@ jobs:
         with:
           shared-key: ""
           prefix-key: ${{ matrix.just_variants }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y capnproto
 
       - name: Install Just
         run: |
@@ -182,11 +162,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
-        
-      - name: Install Cap'n'Proto
-        run: |
-          apt-get update
-          apt-get install -y capnproto
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching

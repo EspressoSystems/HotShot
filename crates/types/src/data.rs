@@ -173,6 +173,26 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     }
 }
 
+/// Helper type to encapsulate the various ways that proposal certificates can be captured and
+/// stored.
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewChangeEvidence<TYPES: NodeType> {
+    /// Holds a timeout certificate.
+    Timeout(TimeoutCertificate<TYPES>),
+    /// Holds a view sync finalized certificate.
+    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+}
+
+impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
+    pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
+        match self {
+            ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.get_data().view == *view - 1,
+            ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
@@ -282,18 +302,14 @@ pub struct QuorumProposal<TYPES: NodeType> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
 
-    /// Possible timeout certificate.  Only present if the justify_qc is not for the preceding view
-    pub timeout_certificate: Option<TimeoutCertificate<TYPES>>,
-
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// Possible view sync certificate. Only present if the justify_qc and timeout_cert are not
+    /// Possible timeout or view sync certificate.
+    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
+    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
     /// present.
-    pub view_sync_certificate: Option<ViewSyncFinalizeCertificate2<TYPES>>,
-
-    /// the propser id
-    pub proposer_id: TYPES::SignatureKey,
+    pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DAProposal<TYPES> {
@@ -373,9 +389,6 @@ pub struct Leaf<TYPES: NodeType> {
     ///
     /// It may be empty for nodes not in the DA committee.
     pub block_payload: Option<TYPES::BlockPayload>,
-
-    /// the proposer id of the leaf
-    pub proposer_id: TYPES::SignatureKey,
 }
 
 impl<TYPES: NodeType> PartialEq for Leaf<TYPES> {
@@ -431,7 +444,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             parent_commitment: fake_commitment(),
             block_header: block_header.clone(),
             block_payload: Some(payload),
-            proposer_id: <<TYPES as NodeType>::SignatureKey as SignatureKey>::genesis_proposer_pk(),
         }
     }
 
@@ -496,11 +508,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// A commitment to the block payload contained in this leaf.
     pub fn get_payload_commitment(&self) -> VidCommitment {
         self.get_block_header().payload_commitment()
-    }
-
-    /// Identity of the network participant who proposed this leaf.
-    pub fn get_proposer_id(&self) -> TYPES::SignatureKey {
-        self.proposer_id.clone()
     }
 }
 

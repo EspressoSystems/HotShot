@@ -15,7 +15,7 @@ use commit::Committable;
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 
 use hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewNumber},
+    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -90,10 +90,8 @@ impl TestView {
             block_header: block_header.clone(),
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(),
-            timeout_certificate: None,
             upgrade_certificate: None,
-            view_sync_certificate: None,
-            proposer_id: public_key,
+            proposal_certificate: None,
         };
 
         let transactions = vec![TestTransaction(vec![0])];
@@ -124,8 +122,6 @@ impl TestView {
             block_payload: Some(TestBlockPayload {
                 transactions: transactions.clone(),
             }),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            proposer_id: public_key,
         };
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
@@ -266,6 +262,12 @@ impl TestView {
             None
         };
 
+        let proposal_certificate = if let Some(tc) = timeout_certificate {
+            Some(ViewChangeEvidence::Timeout(tc))
+        } else {
+            view_sync_certificate.map(ViewChangeEvidence::ViewSync)
+        };
+
         let block_header = TestBlockHeader {
             block_number: *next_view,
             timestamp: *next_view,
@@ -281,8 +283,6 @@ impl TestView {
             block_payload: Some(TestBlockPayload {
                 transactions: transactions.clone(),
             }),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            proposer_id: public_key,
         };
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
@@ -292,10 +292,8 @@ impl TestView {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
-            timeout_certificate,
             upgrade_certificate,
-            view_sync_certificate,
-            proposer_id: public_key,
+            proposal_certificate,
         };
 
         let quorum_proposal = Proposal {
