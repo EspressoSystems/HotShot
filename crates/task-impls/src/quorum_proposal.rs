@@ -86,7 +86,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
         for event in res {
-            debug!("EVENT {:?}", event);
             match event.as_ref() {
                 HotShotEvent::QuorumProposalRecv(proposal, _) => {
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
@@ -215,7 +214,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                 };
-                debug!("Event view {:?}", event_view);
                 event_view == view_number
             }),
         )
