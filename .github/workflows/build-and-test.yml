@@ -135,13 +135,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/amd64/debug/examples
+          path: target/${{ matrix.just_variants }}/amd64/release/examples
 
       - name: Download executables ARM
         uses: actions/download-artifact@v4
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/arm64/debug/examples
+          path: target/${{ matrix.just_variants }}/arm64/release/examples
 
       - name: Generate orchestrator-libp2p docker metadata
         uses: docker/metadata-action@v5
