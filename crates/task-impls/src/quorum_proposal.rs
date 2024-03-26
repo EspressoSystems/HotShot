@@ -9,16 +9,18 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::QuorumProposal,
+    constants::LOOK_AHEAD,
+    data::{QuorumProposal, ViewChangeEvidence},
     event::Event,
     message::Proposal,
     simple_certificate::ViewSyncFinalizeCertificate2,
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 #[cfg(async_executor_impl = "async-std")]
@@ -32,24 +34,6 @@ use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
-
-/// Validate a quorum proposal.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_quorum_proposal<TYPES: NodeType>(
-    _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate a view sync cert or a timeout cert.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_view_sync_finalize_certificate<TYPES: NodeType>(
-    _certificate: ViewSyncFinalizeCertificate2<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -304,6 +288,105 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         false
     }
 
+    /// Validate a quorum proposal.
+    async fn validate_quorum_proposal(
+        &mut self,
+        view: TYPES::Time,
+        quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+        sender: TYPES::SignatureKey,
+    ) -> bool {
+        let view_leader_key = self.quorum_membership.get_leader(view);
+        if view_leader_key != sender {
+            return false;
+        }
+
+        if quorum_proposal.data.justify_qc.get_view_number() != view - 1 {
+            if let Some(received_quorum_proposal_cert) =
+                quorum_proposal.data.proposal_certificate.clone()
+            {
+                match received_quorum_proposal_cert {
+                    ViewChangeEvidence::Timeout(timeout_cert) => {
+                        if timeout_cert.get_data().view != view - 1 {
+                            tracing::warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                            return false;
+                        }
+
+                        if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                            tracing::warn!("Timeout certificate for view {} was invalid", *view);
+                            return false;
+                        }
+                    }
+                    ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                        if view_sync_cert.view_number != view {
+                            debug!(
+                                "Cert view number {:?} does not match proposal view number {:?}",
+                                view_sync_cert.view_number, view
+                            );
+                            return false;
+                        }
+
+                        // View sync certs must also be valid.
+                        if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                            debug!("Invalid ViewSyncFinalize cert provided");
+                            return false;
+                        }
+                    }
+                }
+            } else {
+                tracing::warn!(
+                    "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                    *view);
+                return false;
+            };
+        }
+
+        let justify_qc = quorum_proposal.data.justify_qc.clone();
+        if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
+            error!("Invalid justify_qc in proposal for view {}", *view);
+            let consensus = self.consensus.write().await;
+            consensus.metrics.invalid_qc.update(1);
+            return false;
+        }
+
+        // Validate the upgrade certificate, if one is attached.
+        // Continue unless the certificate is invalid.
+        //
+        // Note: we are *not* directly voting on the upgrade certificate here.
+        // Once a certificate has been (allegedly) formed, it has already been voted on.
+        // The certificate is either valid or invalid, and we are simply validating it.
+        //
+        // SS: It is possible that we may wish to vote against any quorum proposal
+        // if it attaches an upgrade certificate that we cannot support.
+        // But I don't think there's much point in this -- if the UpgradeCertificate
+        // threshhold (90%) has been reached, voting against the QuorumProposal on that basis
+        // will probably be completely symbolic anyway.
+        //
+        // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
+        // that we do not support.
+        if let Some(ref upgrade_cert) = quorum_proposal.data.upgrade_certificate {
+            if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                self.consensus
+                    .write()
+                    .await
+                    .saved_upgrade_certs
+                    .insert(view, upgrade_cert.clone());
+            } else {
+                tracing::error!("Invalid upgrade_cert in proposal for view {}", *view);
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Validate a view sync cert or a timeout cert.
+    fn validate_view_sync_finalize_certificate(
+        &self,
+        certificate: &ViewSyncFinalizeCertificate2<TYPES>,
+    ) -> bool {
+        certificate.is_valid_cert(self.quorum_membership.as_ref())
+    }
+
     /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal handle", level = "error")]
     pub async fn handle(
@@ -390,16 +473,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                if !validate_view_sync_finalize_certificate(
-                    view_sync_finalize_cert.clone(),
-                    event_sender.clone(),
-                ) {
+                if !self.validate_view_sync_finalize_certificate(view_sync_finalize_cert) {
                     return;
                 }
 
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
+            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
                 if view < self.latest_proposed_view {
                     debug!("Proposal is from an older view {:?}", proposal.data.clone());
@@ -418,7 +498,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     ))
                     .await;
 
-                if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
+                if !self
+                    .validate_quorum_proposal(view, proposal.clone(), sender.clone())
+                    .await
+                {
                     return;
                 }
 
