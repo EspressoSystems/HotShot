@@ -1,20 +1,15 @@
-use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
+    kad::store::MemoryStore,
     request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
-use std::num::NonZeroUsize;
 use tracing::{debug, error};
 
 use super::{
-    behaviours::{
-        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        exponential_backoff::ExponentialBackoff,
-        request_response::{Request, Response},
-    },
+    behaviours::request_response::{Request, Response},
     NetworkEventInternal,
 };
 
@@ -38,7 +33,7 @@ pub struct NetworkDef {
     /// purpose: peer routing
     /// purpose: storing pub key <-> peer id bijection
     #[debug(skip)]
-    pub dht: DHTBehaviour,
+    pub dht: libp2p::kad::Behaviour<MemoryStore>,
 
     /// purpose: identifying the addresses from an outside POV
     #[debug(skip)]
@@ -58,7 +53,7 @@ impl NetworkDef {
     #[must_use]
     pub fn new(
         gossipsub: GossipBehaviour,
-        dht: DHTBehaviour,
+        dht: libp2p::kad::Behaviour<MemoryStore>,
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
         request_response: cbor::Behaviour<Request, Response>,
@@ -110,36 +105,6 @@ impl NetworkDef {
     }
 }
 
-/// DHT functions
-impl NetworkDef {
-    /// Publish a key/value to the kv store.
-    /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`super::error::DHTError`] is
-    /// sent instead.
-    pub fn put_record(&mut self, query: KadPutQuery) {
-        self.dht.put_record(query);
-    }
-
-    /// Retrieve a value for a key from the DHT.
-    /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`super::error::DHTError`] is sent instead.
-    pub fn get_record(
-        &mut self,
-        key: Vec<u8>,
-        chan: Sender<Vec<u8>>,
-        factor: NonZeroUsize,
-        retry_count: u8,
-    ) {
-        self.dht.get_record(
-            key,
-            chan,
-            factor,
-            ExponentialBackoff::default(),
-            retry_count,
-        );
-    }
-}
-
 /// Request/response functions
 impl NetworkDef {
     /// Add a direct request for a given peer
@@ -159,8 +124,8 @@ impl From<GossipEvent> for NetworkEventInternal {
     }
 }
 
-impl From<DHTEvent> for NetworkEventInternal {
-    fn from(event: DHTEvent) -> Self {
+impl From<libp2p::kad::Event> for NetworkEventInternal {
+    fn from(event: libp2p::kad::Event) -> Self {
         Self::DHTEvent(event)
     }
 }
