@@ -213,7 +213,6 @@ async fn test_quorum_proposal_task_view_sync() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(ViewSyncFinalizeCertValidated(cert.clone())),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],

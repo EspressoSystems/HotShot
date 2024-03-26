@@ -117,7 +117,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         _quorum_certificate = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertValidated(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
                     _view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
@@ -192,7 +192,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 debug!("Dependency {:?} got event {:?}", dependency_type, event);
                 let event_view = match dependency_type {
                     ProposalDependency::ProposalCertificate => match event {
-                        HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_cert) => {
+                        HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) => {
                             view_sync_cert.view_number
                         }
                         HotShotEvent::QCFormed(cert) => match cert {
@@ -398,14 +398,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 ) {
                     return;
                 }
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewSyncFinalizeCertValidated(
-                        view_sync_finalize_cert.clone(),
-                    )),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
