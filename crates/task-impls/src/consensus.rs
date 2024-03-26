@@ -201,7 +201,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     parent_commitment,
                     block_header: proposal.block_header.clone(),
                     block_payload: None,
-                    proposer_id: self.quorum_membership.get_leader(view),
                 };
 
                 // Validate the DAC.
@@ -514,6 +513,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 };
 
+                if justify_qc.get_view_number() > consensus.high_qc.view_number {
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .update_high_qc(justify_qc.clone())
+                        .await
+                    {
+                        warn!("Failed to store High QC not voting. Error: {:?}", e);
+                        return;
+                    }
+                }
+
                 let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
 
                 if justify_qc.get_view_number() > consensus.high_qc.view_number {
@@ -533,7 +545,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         parent_commitment: justify_qc.get_data().leaf_commit,
                         block_header: proposal.data.block_header.clone(),
                         block_payload: None,
-                        proposer_id: sender,
                     };
                     let state = Arc::new(
                         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
@@ -552,6 +563,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                     );
                     consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .update_undecided_state(
+                            consensus.saved_leaves.clone(),
+                            consensus.validated_state_map.clone(),
+                        )
+                        .await
+                    {
+                        warn!("Couldn't store undecided state.  Error: {:?}", e);
+                    }
 
                     // If we are missing the parent from storage, the safety check will fail.  But we can
                     // still vote if the liveness check succeeds.
@@ -608,7 +632,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     parent_commitment,
                     block_header: proposal.data.block_header.clone(),
                     block_payload: None,
-                    proposer_id: sender.clone(),
                 };
                 let leaf_commitment = leaf.commit();
 
@@ -785,6 +808,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     },
                 );
                 consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                if let Err(e) = self
+                    .storage
+                    .write()
+                    .await
+                    .update_undecided_state(
+                        consensus.saved_leaves.clone(),
+                        consensus.validated_state_map.clone(),
+                    )
+                    .await
+                {
+                    warn!("Couldn't store undecided state.  Error: {:?}", e);
+                }
+
                 if new_commit_reached {
                     consensus.locked_view = new_locked_view;
                 }
@@ -972,6 +1009,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
                 if let either::Left(qc) = cert {
+                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
+                        warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                    }
+
                     let mut consensus = self.consensus.write().await;
                     consensus.high_qc = qc.clone();
 
@@ -1336,7 +1377,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 parent_commitment: parent_leaf.commit(),
                 block_header: block_header.clone(),
                 block_payload: None,
-                proposer_id: self.api.public_key().clone(),
             };
 
             let Ok(signature) =
@@ -1375,7 +1415,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 justify_qc: consensus.high_qc.clone(),
                 proposal_certificate,
                 upgrade_certificate: upgrade_cert,
-                proposer_id: leaf.proposer_id,
             };
 
             self.proposal_cert = None;
