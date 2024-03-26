@@ -40,6 +40,9 @@ jobs:
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
 
+      - name: Build all crates in workspace
+        run: just ${{ matrix.just_variants }} build
+
       - name: Unit and integration tests for all crates in workspace
         run: |
           just ${{ matrix.just_variants }} test-ci
