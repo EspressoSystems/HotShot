@@ -15,9 +15,6 @@ use hotshot_types::simple_vote::ViewSyncFinalizeData;
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::vid::VidSchemeType;
 use jf_primitives::vid::VidScheme;
-use std::time::Duration;
-
-const TASK_COMPLETE_DELAY: Option<Duration> = Some(Duration::from_millis(500));
 
 fn make_payload_commitment(
     membership: &<TestTypes as NodeType>::Membership,
@@ -60,7 +57,6 @@ async fn test_quorum_proposal_task_quorum_proposal() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -258,10 +254,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // This should result in the proposal failing to be sent.
     let view_2 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        // We still get the proposal since we received a valid quorum proposal. But we fail to get
-        // the dependencies validated event or a notification of our payload commitment ever
-        // arriving.
-        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
+        outputs: vec![],
         asserts: vec![],
     };
 

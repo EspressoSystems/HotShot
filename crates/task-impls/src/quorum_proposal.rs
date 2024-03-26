@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::{
-    dependency::{AndDependency, EventDependency, OrDependency},
+    dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
 };
@@ -88,8 +88,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         for event in res {
             debug!("EVENT {:?}", event);
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
+                HotShotEvent::QuorumProposalRecv(proposal, _) => {
+                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             return;
@@ -199,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             either::Right(timeout) => timeout.view_number,
                             either::Left(qc) => qc.view_number,
                         },
-                        HotShotEvent::QuorumProposalValidated(proposal) => proposal.view_number,
+                        HotShotEvent::QuorumProposalRecv(proposal, _) => proposal.data.view_number,
                         _ => return false,
                     },
                     ProposalDependency::PayloadAndMetadata => {
@@ -255,17 +255,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _) => {
-                proposal_cert_validated_dependency.mark_as_completed(Arc::new(
-                    HotShotEvent::QuorumProposalValidated(proposal.data.clone()),
-                ));
-            }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_finalize_cert) => {
-                proposal_cert_validated_dependency.mark_as_completed(Arc::new(
-                    HotShotEvent::ViewSyncFinalizeCertValidated(view_sync_finalize_cert.clone()),
-                ));
-            }
-            HotShotEvent::QCFormed(_) => {
+            HotShotEvent::QuorumProposalRecv(_, _)
+            | HotShotEvent::QCFormed(_)
+            | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 proposal_cert_validated_dependency.mark_as_completed(event);
             }
             _ => {}
@@ -439,12 +431,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
                     return;
                 }
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(
                     view,
