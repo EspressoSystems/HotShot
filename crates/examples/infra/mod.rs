@@ -64,7 +64,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-use tracing::{debug, error, info, warn};
+use tracing::{error, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
