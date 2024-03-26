@@ -144,7 +144,4 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// All required dependencies of the quorum proposal have been validated and the task is ready
     /// to propose.
     QuorumProposalDependenciesValidated(TYPES::Time),
-    /// Send a `QuorumProposalViewSyncFinalizeCertValidated` event when the task receives and
-    /// validates a view sync finalize certificate.
-    ViewSyncFinalizeCertValidated(ViewSyncFinalizeCertificate2<TYPES>),
 }
