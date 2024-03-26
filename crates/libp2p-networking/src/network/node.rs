@@ -596,11 +596,9 @@ impl NetworkNode {
             } => {}
             SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
-                    NetworkEventInternal::DHTEvent(e) => {
-                        // DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
-                        self.dht_handler
-                            .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut())
-                    }
+                    NetworkEventInternal::DHTEvent(e) => self
+                        .dht_handler
+                        .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut()),
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
                         if let IdentifyEvent::Received {

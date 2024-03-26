@@ -28,10 +28,12 @@ impl DHTBootstrapTask {
     }
     async fn run_loop(mut self) {
         loop {
+            tracing::error!("looping bootstrap");
             if !self.in_progress {
                 match art::async_timeout(Duration::from_secs(120), self.rx.next()).await {
                     Ok(maybe_event) => match maybe_event {
                         Some(InputEvent::StartBootstrap) => {
+                            tracing::error!("Start bootsrap in bootstrap task");
                             self.bootstrap().await;
                         }
                         _ => {}
