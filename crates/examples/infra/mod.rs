@@ -570,10 +570,10 @@ pub trait RunDA<
         let mut total_latency = 0;
         let mut num_latency = 0;
 
-        debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+        println!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        debug!("Starting HotShot example!");
+        println!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -603,7 +603,7 @@ pub trait RunDA<
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
-                                info!("Decide event for leaf: {}", *leaf.view_number);
+                                println!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload {
