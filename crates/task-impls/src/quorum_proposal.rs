@@ -504,6 +504,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 {
                     return;
                 }
+                broadcast_event(
+                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+                    &event_sender.clone(),
+                )
+                .await;
 
                 self.create_dependency_task_if_new(
                     view,

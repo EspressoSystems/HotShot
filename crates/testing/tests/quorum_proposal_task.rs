@@ -57,6 +57,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -253,7 +254,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // This should result in the proposal failing to be sent.
     let view_2 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![],
+        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
         asserts: vec![],
     };
 
