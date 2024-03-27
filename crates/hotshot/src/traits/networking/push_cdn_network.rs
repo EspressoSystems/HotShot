@@ -125,7 +125,9 @@ impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
 #[derive(Clone)]
 /// Is generic over both the type of key and the network protocol.
 pub struct PushCdnNetwork<TYPES: NodeType> {
+    /// The underlying client
     client: Client<WrappedSignatureKey<TYPES::SignatureKey>, Quic>,
+    /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
 }
