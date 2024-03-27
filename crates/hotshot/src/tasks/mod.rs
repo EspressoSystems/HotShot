@@ -17,6 +17,7 @@ use hotshot_task_impls::{
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
+    quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
@@ -196,6 +197,28 @@ pub async fn inject_consensus_polls<
     }
 }
 
+/// Setup polls for the given `quorum_vote`
+pub async fn inject_quorum_vote_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    quorum_vote_state: &QuorumVoteTaskState<TYPES, I>,
+) {
+    // Poll (forever) for the latest quorum proposal
+    quorum_vote_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Start polling for proposals for the first view
+    quorum_vote_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
+        .await;
+
+    quorum_vote_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
+        .await;
+}
+
 /// add the consensus task
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
@@ -208,6 +231,21 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     inject_consensus_polls(&consensus_state).await;
 
     let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
+    task_reg.run_task(task).await;
+}
+
+/// Add the quorum vote task.
+pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
+
+    inject_quorum_vote_polls(&quorum_vote_state).await;
+
+    let task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
     task_reg.run_task(task).await;
 }
 
