@@ -1,5 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/def.rs`."><title>def.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/def.rs`."><title>def.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../libp2p_networking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -182,19 +183,11 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
-    request_response::{cbor, ResponseChannel},
+    request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -204,7 +197,6 @@
 <span class="kw">use super</span>::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        direct_message::{DMBehaviour, DMEvent, DMRequest},
         exponential_backoff::ExponentialBackoff,
         request_response::{Request, Response},
     },
@@ -239,7 +231,7 @@
 
     <span class="doccomment">/// purpose: directly messaging peer
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>direct_message: DMBehaviour,
+    </span><span class="kw">pub </span>direct_message: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
 
     <span class="doccomment">/// Behaviour for requesting and receiving data
     </span><span class="attr">#[debug(skip)]
@@ -253,7 +245,7 @@
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,
         identify: IdentifyBehaviour,
-        direct_message: DMBehaviour,
+        direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         request_response: cbor::Behaviour&lt;Request, Response&gt;,
     ) -&gt; NetworkDef {
         <span class="self">Self </span>{
@@ -336,25 +328,13 @@
 <span class="doccomment">/// Request/response functions
 </span><span class="kw">impl </span>NetworkDef {
     <span class="doccomment">/// Add a direct request for a given peer
-    </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, data: Vec&lt;u8&gt;, retry_count: u8) {
-        <span class="kw">let </span>request = DMRequest {
-            peer_id,
-            data,
-            backoff: ExponentialBackoff::default(),
-            retry_count,
-        };
-        <span class="self">self</span>.direct_message.add_direct_request(request);
+    </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, data: Vec&lt;u8&gt;) -&gt; OutboundRequestId {
+        <span class="self">self</span>.direct_message.send_request(<span class="kw-2">&amp;</span>peer_id, data)
     }
 
     <span class="doccomment">/// Add a direct response for a channel
     </span><span class="kw">pub fn </span>add_direct_response(<span class="kw-2">&amp;mut </span><span class="self">self</span>, chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;, msg: Vec&lt;u8&gt;) {
-        <span class="self">self</span>.direct_message.add_direct_response(chan, msg);
-    }
-}
-
-<span class="kw">impl </span>From&lt;DMEvent&gt; <span class="kw">for </span>NetworkEventInternal {
-    <span class="kw">fn </span>from(event: DMEvent) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::DMEvent(event)
+        <span class="kw">let _ </span>= <span class="self">self</span>.direct_message.send_response(chan, msg);
     }
 }
 
@@ -373,6 +353,11 @@
 <span class="kw">impl </span>From&lt;IdentifyEvent&gt; <span class="kw">for </span>NetworkEventInternal {
     <span class="kw">fn </span>from(event: IdentifyEvent) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::IdentifyEvent(Box::new(event))
+    }
+}
+<span class="kw">impl </span>From&lt;libp2p::request_response::Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(value: libp2p::request_response::Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::DMEvent(value)
     }
 }
 
