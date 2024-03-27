@@ -1192,6 +1192,7 @@
 <a href="#1190" id="1190">1190</a>
 <a href="#1191" id="1191">1191</a>
 <a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1638,7 +1639,8 @@
         <span class="comment">// NOTE: this introduces an invariant that the keys are assigned using this indexed
         // function
         </span>all_keys,
-        <span class="prelude-val">None</span>,
+        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+        </span><span class="prelude-val">None</span>,
         da_keys.clone(),
         da_keys.contains(<span class="kw-2">&amp;</span>pub_key),
     )
