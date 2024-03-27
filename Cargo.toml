@@ -76,7 +76,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 rand_chacha = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_bytes = { version = "0.11" }
-serde_json = { version = "1.0.114" }
+serde_json = { version = "1.0.115" }
 sha2 = "0.10"
 snafu = "0.8"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.5.0" }
