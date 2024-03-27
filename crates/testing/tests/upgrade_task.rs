@@ -67,22 +67,23 @@ async fn test_upgrade_task() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalValidated(proposals[0].data.clone()),
             VidDisperseRecv(vids[0].0.clone()),
             DACRecv(dacs[0].clone()),
-            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumVoteSend(votes[0].clone())),
             exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![
-            VidDisperseRecv(vids[1].0.clone()),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalValidated(proposals[1].data.clone()),
+            VidDisperseRecv(vids[1].0.clone()),
             DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
@@ -96,13 +97,14 @@ async fn test_upgrade_task() {
     let view_3 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
+            QuorumProposalValidated(proposals[2].data.clone()),
             DACRecv(dacs[2].clone()),
             VidDisperseRecv(vids[2].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
             leaf_decided(),
+            exact(QuorumProposalValidated(proposals[2].data.clone())),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
@@ -111,24 +113,28 @@ async fn test_upgrade_task() {
     let view_4 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
+            QuorumProposalValidated(proposals[3].data.clone()),
             DACRecv(dacs[3].clone()),
             VidDisperseRecv(vids[3].0.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
-            exact(QuorumProposalValidated(proposals[3].data.clone())),
             leaf_decided(),
+            exact(QuorumProposalValidated(proposals[3].data.clone())),
             exact(QuorumVoteSend(votes[3].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
 
     let view_5 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
+        inputs: vec![
+            QuorumProposalRecv(proposals[4].clone(), leaders[4]),
+            QuorumProposalValidated(proposals[4].data.clone()),
+        ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
-            exact(QuorumProposalValidated(proposals[4].data.clone())),
             leaf_decided(),
+            exact(QuorumProposalValidated(proposals[4].data.clone())),
         ],
         asserts: vec![decided_upgrade_cert()],
     };
