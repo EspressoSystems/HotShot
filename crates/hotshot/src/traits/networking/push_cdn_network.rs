@@ -37,6 +37,8 @@ use hotshot_types::{
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 use std::marker::PhantomData;
+#[cfg(feature = "hotshot-testing")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::BTreeSet, path::Path, sync::Arc, time::Duration};
 use tracing::{error, warn};
 use versioned_binary_serialization::{
@@ -122,7 +124,11 @@ impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
 /// that helps organize them all.
 #[derive(Clone)]
 /// Is generic over both the type of key and the network protocol.
-pub struct PushCdnNetwork<TYPES: NodeType>(Client<WrappedSignatureKey<TYPES::SignatureKey>, Quic>);
+pub struct PushCdnNetwork<TYPES: NodeType> {
+    client: Client<WrappedSignatureKey<TYPES::SignatureKey>, Quic>,
+    #[cfg(feature = "hotshot-testing")]
+    is_paused: Arc<AtomicBool>,
+}
 
 impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
@@ -152,7 +158,11 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // Create the client, performing the initial connection
         let client = Client::new(config).await?;
 
-        Ok(Self(client))
+        Ok(Self {
+            client,
+            #[cfg(feature = "hotshot-testing")]
+            is_paused: Arc::default(),
+        })
     }
 
     /// Broadcast a message to members of the particular topic. Does not retry.
@@ -166,6 +176,12 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         topic: Topic,
         _: Ver,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         // Bincode the message
         let serialized_message = match Serializer::<Ver>::serialize(&message) {
             Ok(serialized) => serialized,
@@ -178,7 +194,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // Send the message
         // TODO: check if we need to print this error
         if self
-            .0
+            .client
             .send_broadcast_message(vec![topic], serialized_message)
             .await
             .is_err()
@@ -308,10 +324,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     .expect("failed to build client config");
 
                 // Create our client
-                let client = Arc::new(PushCdnNetwork(
-                    async_block_on(async move { Client::new(client_config).await })
+                let client = Arc::new(PushCdnNetwork {
+                    client: async_block_on(async move { Client::new(client_config).await })
                         .expect("failed to create client"),
-                ));
+                    #[cfg(feature = "hotshot-testing")]
+                    is_paused: Arc::default(),
+                });
 
                 (client.clone(), client)
             }
@@ -331,10 +349,16 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for PushCdnNetwork<TYPES>
 {
     /// We do not support pausing the PushCDN network right now, but it is possible.
-    fn pause(&self) {}
+    fn pause(&self) {
+        #[cfg(feature = "hotshot-testing")]
+        self.is_paused.store(true, Ordering::Relaxed);
+    }
 
     /// We do not support resuming the PushCDN network right now, but it is possible.
-    fn resume(&self) {}
+    fn resume(&self) {
+        #[cfg(feature = "hotshot-testing")]
+        self.is_paused.store(false, Ordering::Relaxed);
+    }
 
     /// The clients form an initial connection when created, so we don't have to wait.
     async fn wait_for_ready(&self) {}
@@ -394,6 +418,12 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         recipient: TYPES::SignatureKey,
         _: Ver,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         // Bincode the message
         let serialized_message = match Serializer::<Ver>::serialize(&message) {
             Ok(serialized) => serialized,
@@ -406,7 +436,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         // Send the message
         // TODO: check if we need to print this error
         if self
-            .0
+            .client
             .send_direct_message(&WrappedSignatureKey(recipient), serialized_message)
             .await
             .is_err()
@@ -424,7 +454,13 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// - If we fail to receive messages. Will trigger a retry automatically.
     async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // Receive a message
-        let message = self.0.receive_message().await;
+        let message = self.client.receive_message().await;
+
+        // If we're paused, receive but don't process messages
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(vec![]);
+        }
 
         // If it was an error, wait a bit and retry
         let message = match message {
