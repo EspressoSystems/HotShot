@@ -175,7 +175,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 /// on the tuple
 #[derive(Clone)]
 pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
-    pub PushCdnNetwork<TYPES>,
+    pub Arc<PushCdnNetwork<TYPES>>,
     pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 );
 
@@ -211,16 +211,15 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             )
         );
         Box::new(move |node_id| {
-            let (cdn, _) = generators.0(node_id);
-            let cdn = Arc::<PushCdnNetwork<TYPES>>::into_inner(cdn).unwrap();
+            let (quorum_cdn, da_cdn) = generators.0(node_id);
 
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                cdn.clone(),
+                quorum_cdn,
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                cdn,
+                da_cdn,
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
                     quorum_p2p,
                 ),
