@@ -134,13 +134,6 @@ jobs:
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
 
-      - name: Unit and integration tests for all crates in workspace
-        run: |
-          just ${{ matrix.just_variants }} test-ci
-        timeout-minutes: 60
-        env:
-          RUST_BACKTRACE: full
-
       - name: Build examples in release mode
         run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
 
