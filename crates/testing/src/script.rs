@@ -2,7 +2,7 @@ use crate::predicates::Predicate;
 use async_broadcast::broadcast;
 use hotshot_task_impls::events::HotShotEvent;
 
-use async_compatibility_layer::art::async_timeout;
+use async_compatibility_layer::art::{async_sleep, async_timeout};
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, time::Duration};
@@ -104,6 +104,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
                 }
+                async_sleep(Duration::from_millis(1)).await;
             }
         }
 
