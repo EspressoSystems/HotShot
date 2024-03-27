@@ -733,6 +733,12 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -1324,7 +1330,10 @@
         }
 
         <span class="comment">// retry put/gets if they are ready
-        </span><span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_get_record_queries.pop_front() {
+        </span><span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.queued_get_record_queries.len() {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_get_record_queries.pop_front() <span class="kw">else </span>{
+                <span class="kw">continue</span>;
+            };
             <span class="kw">if </span>req.backoff.is_expired() {
                 <span class="self">self</span>.get_record(
                     req.key,
@@ -1338,7 +1347,10 @@
             }
         }
 
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_put_record_queries.pop_front() {
+        <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.queued_put_record_queries.len() {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_put_record_queries.pop_front() <span class="kw">else </span>{
+                <span class="kw">continue</span>;
+            };
             <span class="kw">if </span>req.backoff.is_expired() {
                 <span class="self">self</span>.put_record(req);
             } <span class="kw">else </span>{
