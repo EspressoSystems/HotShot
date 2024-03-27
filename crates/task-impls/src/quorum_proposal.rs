@@ -85,7 +85,7 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
-    type Output = Vec<Vec<Vec<Arc<HotShotEvent<TYPES>>>>>;
+    type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
@@ -94,7 +94,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _quorum_certificate = None;
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
-        for event in res.iter().flatten().flatten() {
+        for event in res.iter().flatten() {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalRecv(proposal, _) => {
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
@@ -319,28 +319,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
         // We have three cases to consider:
         let combined = AndDependency::from_deps(vec![
-            AndDependency::from_deps(vec![OrDependency::from_deps(vec![
-                AndDependency::from_deps(vec![payload_commitment_dependency]),
+            OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                payload_commitment_dependency,
             ])]),
-            AndDependency::from_deps(vec![OrDependency::from_deps(vec![
+            OrDependency::from_deps(vec![
                 // 1. A QCFormed event and QuorumProposalRecv event
                 AndDependency::from_deps(vec![qc_dependency, proposal_cert_validated_dependency]),
                 // 2. A timeout cert was received
                 AndDependency::from_deps(vec![timeout_dependency]),
                 // 3. A view sync cert was received.
                 AndDependency::from_deps(vec![view_sync_dependency]),
-            ])]),
+            ]),
         ]);
 
-        // let mut top = payload_commitment_dependency.and(
-        //     qc_dependency
-        //         .and(proposal_cert_validated_dependency)
-        //         .or(timeout_dependency)
-        //         .or(view_sync_dependency),
-        // );
-
         let dependency_task = DependencyTask::new(
-            // No matter what, the task *must* have a PayloadCommitmentAndMetadata event.
             combined,
             ProposalDependencyHandle {
                 view_number,
