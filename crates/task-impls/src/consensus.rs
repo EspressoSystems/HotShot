@@ -1390,7 +1390,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 upgrade_certificate: upgrade_cert.clone(),
             };
 
-            let new_leaf = Leaf::from_quorum_proposal(&proposal);
+            let mut new_leaf = Leaf::from_quorum_proposal(&proposal);
+            new_leaf.set_parent_commitment(parent_leaf.commit());
 
             let Ok(signature) =
                 TYPES::SignatureKey::sign(&self.private_key, new_leaf.commit().as_ref())
