@@ -1,6 +1,11 @@
 use std::{fmt::Display, path::PathBuf};
 
+use crate::{
+    api::load_api,
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+};
 use clap::Args;
+use commit::Committable;
 use derive_more::From;
 use futures::FutureExt;
 use hotshot_types::{
@@ -16,11 +21,6 @@ use tide_disco::{
     Api, RequestError, StatusCode,
 };
 use versioned_binary_serialization::version::StaticVersionType;
-
-use crate::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
 
 #[derive(Args, Default)]
 pub struct Options {
@@ -188,8 +188,9 @@ where
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .context(TxnUnpackSnafu)?;
+                let hash = tx.commit();
                 state.submit_txn(tx).await.context(TxnSubmitSnafu)?;
-                Ok(())
+                Ok(hash)
             }
             .boxed()
         })?;

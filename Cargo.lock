@@ -3217,6 +3217,7 @@ version = "0.1.6"
 dependencies = [
  "async-trait",
  "clap",
+ "commit",
  "derive_more",
  "futures",
  "hotshot-types",
