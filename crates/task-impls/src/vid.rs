@@ -172,21 +172,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     &self.membership,
                 );
 
-                let vid_disperse_tasks: Vec<_> = VidDisperseShare::from_vid_disperse(vid_disperse)
+                let vid_disperse_tasks = VidDisperseShare::from_vid_disperse(vid_disperse)
                     .into_iter()
-                    .map(|vid_share| {
+                    .filter_map(|vid_share| {
                         Some(broadcast_event(
                             Arc::new(HotShotEvent::VidDisperseRecv(
                                 vid_share.to_proposal(&self.private_key)?,
                             )),
                             &event_stream,
                         ))
-                    })
-                    .collect();
+                    });
 
-                if vid_disperse_tasks.iter().all(Option::is_some) {
-                    join_all(vid_disperse_tasks.into_iter().flatten()).await;
-                }
+                join_all(vid_disperse_tasks).await;
             }
 
             HotShotEvent::Shutdown => {
