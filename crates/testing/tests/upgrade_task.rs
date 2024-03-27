@@ -68,7 +68,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             QuorumProposalValidated(proposals[0].data.clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
             DACRecv(dacs[0].clone()),
         ],
         outputs: vec![
@@ -83,7 +83,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QuorumProposalValidated(proposals[1].data.clone()),
-            VidDisperseRecv(vids[1].0.clone()),
+            VidDisperseRecv(vids[1].0[0].clone()),
             DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
@@ -99,7 +99,7 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             QuorumProposalValidated(proposals[2].data.clone()),
             DACRecv(dacs[2].clone()),
-            VidDisperseRecv(vids[2].0.clone()),
+            VidDisperseRecv(vids[2].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
@@ -115,7 +115,7 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
             QuorumProposalValidated(proposals[3].data.clone()),
             DACRecv(dacs[3].clone()),
-            VidDisperseRecv(vids[3].0.clone()),
+            VidDisperseRecv(vids[3].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
@@ -236,7 +236,7 @@ async fn test_upgrade_and_consensus_task() {
     let inputs = vec![
         vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
             DACRecv(dacs[0].clone()),
         ],
         upgrade_vote_recvs,
@@ -244,7 +244,7 @@ async fn test_upgrade_and_consensus_task() {
         vec![
             DACRecv(dacs[1].clone()),
             SendPayloadCommitmentAndMetadata(
-                vids[2].0.data.payload_commitment,
+                vids[2].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(2),
             ),

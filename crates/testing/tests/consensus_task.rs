@@ -57,7 +57,7 @@ async fn test_consensus_task() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             QuorumProposalValidated(proposals[0].data.clone()),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -137,7 +137,7 @@ async fn test_consensus_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
             QuorumVoteRecv(votes[0].clone()),
             QuorumProposalValidated(proposals[0].data.clone()),
         ],
@@ -189,9 +189,9 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
             QuorumProposalValidated(proposals[0].data.clone()),
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -203,7 +203,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VidDisperseRecv(vids[1].0.clone()),
+        VidDisperseRecv(vids[1].0[0].clone()),
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
@@ -305,7 +305,7 @@ async fn test_view_sync_finalize_propose() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             QuorumProposalValidated(proposals[0].data.clone()),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -430,7 +430,7 @@ async fn test_view_sync_finalize_vote() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             QuorumProposalValidated(proposals[0].data.clone()),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -535,9 +535,9 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
             QuorumProposalValidated(proposals[0].data.clone()),
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -633,7 +633,7 @@ async fn test_vid_disperse_storage_failure() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
