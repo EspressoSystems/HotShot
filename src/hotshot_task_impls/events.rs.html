@@ -140,6 +140,8 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -178,6 +180,8 @@
     </span>TimeoutVoteSend(TimeoutVote&lt;TYPES&gt;),
     <span class="doccomment">/// A DA proposal has been received from the network; handled by the DA task
     </span>DAProposalRecv(Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// A DA proposal has been validated; handled by the DA task and VID task
+    </span>DAProposalValidated(Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A DA vote has been received by the network; handled by the DA task
     </span>DAVoteRecv(DAVote&lt;TYPES&gt;),
     <span class="doccomment">/// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task

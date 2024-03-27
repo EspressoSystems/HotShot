@@ -1479,6 +1479,11 @@
 <a href="#1477" id="1477">1477</a>
 <a href="#1478" id="1478">1478</a>
 <a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -2573,9 +2578,14 @@
                 <span class="macro">debug!</span>(<span class="string">"VID disperse data is not more than one view older."</span>);
                 <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
 
-                <span class="comment">// Check whether the data comes from the right leader for this view
+                <span class="comment">// Check whether the data comes from the right leader for this view or
+                // the data was calculated and signed by the current node
                 </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.get_leader(view);
-                <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
+                <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
+                    &amp;&amp; !<span class="self">self
+                        </span>.public_key
+                        .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
+                {
                     <span class="macro">warn!</span>(<span class="string">"Could not verify VID dispersal/share sig."</span>);
                     <span class="kw">return</span>;
                 }

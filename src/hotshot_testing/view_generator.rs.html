@@ -517,7 +517,7 @@
     <span class="kw">pub </span>view_number: ViewNumber,
     <span class="kw">pub </span>quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>vid_proposal: (
-        Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;,
+        Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,

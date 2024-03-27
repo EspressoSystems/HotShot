@@ -489,6 +489,10 @@
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -889,7 +893,7 @@
     view_number: ViewNumber,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-) -&gt; Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt; {
+) -&gt; Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
@@ -900,9 +904,13 @@
     );
 
     VidDisperseShare::from_vid_disperse(vid_disperse)
-        .swap_remove(<span class="number">0</span>)
-        .to_proposal(private_key)
-        .expect(<span class="string">"Failed to sign payload commitment"</span>)
+        .into_iter()
+        .map(|vid_disperse| {
+            vid_disperse
+                .to_proposal(private_key)
+                .expect(<span class="string">"Failed to sign payload commitment"</span>)
+        })
+        .collect()
 }
 
 <span class="kw">pub fn </span>build_da_certificate(

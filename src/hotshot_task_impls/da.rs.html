@@ -380,6 +380,14 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -399,7 +407,6 @@
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
     traits::{
-        block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -413,6 +420,7 @@
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
 <span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
+<span class="kw">use </span>hotshot_types::traits::block_contents::vid_commitment;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
@@ -502,13 +510,6 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">let </span>txns = proposal.data.encoded_transactions.clone();
-                <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes();
-                <span class="kw">let </span>payload_commitment =
-                    spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
-                <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-                </span><span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
-
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
                 <span class="comment">// ED Is this the right leader?
@@ -523,6 +524,13 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                broadcast_event(
+                    Arc::new(HotShotEvent::DAProposalValidated(proposal.clone(), sender)),
+                    <span class="kw-2">&amp;</span>event_stream,
+                )
+                .<span class="kw">await</span>;
+            }
+            HotShotEvent::DAProposalValidated(proposal, sender) =&gt; {
                 <span class="comment">// Proposal is fresh and valid, notify the application layer
                 </span><span class="self">self</span>.api
                     .send_event(Event {
@@ -549,7 +557,14 @@
                     );
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
+                <span class="kw">let </span>txns = proposal.data.encoded_transactions.clone();
+                <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes();
+                <span class="kw">let </span>payload_commitment =
+                    spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
+                <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+                </span><span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
 
+                <span class="kw">let </span>view = proposal.data.get_view_number();
                 <span class="comment">// Generate and send vote
                 </span><span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = DAVote::create_signed_vote(
                     DAData {
@@ -745,6 +760,7 @@
                 | HotShotEvent::TransactionsSequenced(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::Timeout(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
+                | HotShotEvent::DAProposalValidated(<span class="kw">_</span>, <span class="kw">_</span>)
         )
     }
 
