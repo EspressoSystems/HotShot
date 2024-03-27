@@ -342,9 +342,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         })
     }
 
-    /// Get the number of messages in-flight.
-    ///
-    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
+    /// The PushCDN does not support in-flight message counts
     fn in_flight_message_count(&self) -> Option<usize> {
         None
     }
@@ -354,13 +352,13 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     for PushCdnNetwork<TYPES>
 {
-    /// We do not support pausing the PushCDN network right now, but it is possible.
+    /// Pause sending and receiving on the PushCDN network.
     fn pause(&self) {
         #[cfg(feature = "hotshot-testing")]
         self.is_paused.store(true, Ordering::Relaxed);
     }
 
-    /// We do not support resuming the PushCDN network right now, but it is possible.
+    /// Resumse sending and receiving on the PushCDN network.
     fn resume(&self) {
         #[cfg(feature = "hotshot-testing")]
         self.is_paused.store(false, Ordering::Relaxed);
