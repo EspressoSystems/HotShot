@@ -81,6 +81,7 @@ jobs:
           - async-std
           - tokio
       fail-fast: false
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -100,8 +101,26 @@ jobs:
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
 
-      - name: Build HotShot in release mode
-        run: just ${{ matrix.just_variants }} build_release
+      - name: Build examples in release mode
+        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-amd64-${{ matrix.just_variants }}
+          path: |
+            target/${{ matrix.just_variants }}/release/examples/counter
+            target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
+            target/${{ matrix.just_variants }}/release/examples/orchestrator-libp2p
+            target/${{ matrix.just_variants }}/release/examples/validator-libp2p
+            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/multi-webserver
+            target/${{ matrix.just_variants }}/release/examples/webserver
+            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
+            target/${{ matrix.just_variants }}/release/examples/validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/cdn-broker
+            target/${{ matrix.just_variants }}/release/examples/cdn-marshal
+
 
 
   build:
@@ -111,7 +130,6 @@ jobs:
           - async-std
           - tokio
       fail-fast: false
-    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -134,27 +152,7 @@ jobs:
       - name: Build all crates in workspace
         run: just ${{ matrix.just_variants }} build
 
-      - name: Build examples in release mode
-        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
-
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-amd64-${{ matrix.just_variants }}
-          path: |
-            target/${{ matrix.just_variants }}/release/examples/counter
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release/examples/webserver
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release/examples/validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/cdn-broker
-            target/${{ matrix.just_variants }}/release/examples/cdn-marshal
-
-  build-arm:
+  build-arm-release:
     strategy:
       matrix:
         just_variants:
@@ -202,7 +200,7 @@ jobs:
           - tokio
       fail-fast: false
     runs-on: ubuntu-latest
-    needs: [build, build-arm]
+    needs: [build-release, build-arm-release]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
