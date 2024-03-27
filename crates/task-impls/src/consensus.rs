@@ -195,12 +195,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
                 let parent_commitment = parent.commit();
 
-                let proposed_leaf = Leaf::from_quorum_proposal(proposal);
-
-                if proposed_leaf.get_parent_commitment() != parent_commitment {
-                    info!("Quorum proposal's parent commitment does not match expected parent commitment!");
-                    return false;
-                }
+                let mut proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                proposed_leaf.set_parent_commitment(parent_commitment);
 
                 // Validate the DAC.
                 let message = if cert.is_valid_cert(self.committee_membership.as_ref()) {
@@ -621,12 +617,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let delta = Arc::new(state_delta);
                 let parent_commitment = parent_leaf.commit();
 
-                let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-
-                if proposed_leaf.get_parent_commitment() != parent_commitment {
-                    info!("Quorum proposal's parent commitment does not match expected parent commitment!");
-                    return;
-                }
+                let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+                proposed_leaf.set_parent_commitment(parent_commitment);
 
                 // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
                 if !view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()) {

@@ -473,6 +473,10 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_parent_commitment(&self) -> Commitment<Self> {
         self.parent_commitment
     }
+    /// Commitment to this leaf's parent.
+    pub fn set_parent_commitment(&mut self, commitment: Commitment<Self>) {
+        self.parent_commitment = commitment;
+    }
     /// The block header contained in this leaf.
     pub fn get_block_header(&self) -> &<TYPES as NodeType>::BlockHeader {
         &self.block_header

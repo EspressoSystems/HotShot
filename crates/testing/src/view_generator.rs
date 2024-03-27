@@ -3,6 +3,7 @@ use std::{cmp::max, marker::PhantomData};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
 };
 use sha2::{Digest, Sha256};
 
@@ -116,6 +117,7 @@ impl TestView {
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
+        leaf.set_parent_commitment(Leaf::genesis(&TestInstanceState {}).commit());
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment!");
