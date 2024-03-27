@@ -211,7 +211,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             )
         );
         Box::new(move |node_id| {
-            let cdn = Arc::<PushCdnNetwork<TYPES>>::into_inner(generators.0(node_id).0).unwrap();
+            let (cdn, _) = generators.0(node_id);
+            let cdn = Arc::<PushCdnNetwork<TYPES>>::into_inner(cdn).unwrap();
 
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
