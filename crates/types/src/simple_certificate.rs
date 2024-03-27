@@ -10,7 +10,7 @@ use commit::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
 
 use crate::{
-    data::{Leaf, serialize_signature2},
+    data::{serialize_signature2, Leaf},
     simple_vote::{
         DAData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
@@ -77,19 +77,21 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     pub _pd: PhantomData<(TYPES, THRESHOLD)>,
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYPES>> Committable for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD> {
+impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYPES>> Committable
+    for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+{
     fn commit(&self) -> Commitment<Self> {
         let signature_bytes = match self.signatures.as_ref() {
-          Some(sigs) => serialize_signature2::<TYPES>(sigs),
-          None => vec![],
+            Some(sigs) => serialize_signature2::<TYPES>(sigs),
+            None => vec![],
         };
         commit::RawCommitmentBuilder::new("Certificate")
-          .field("data", self.data.commit())
-          .field("vote_commitment", self.vote_commitment)
-          .field("view number", self.view_number.commit())
-          .var_size_field("signatures", &signature_bytes)
-          .fixed_size_field("is genesis", &[self.is_genesis as u8])
-          .finalize()
+            .field("data", self.data.commit())
+            .field("vote_commitment", self.vote_commitment)
+            .field("view number", self.view_number.commit())
+            .var_size_field("signatures", &signature_bytes)
+            .fixed_size_field("is genesis", &[self.is_genesis as u8])
+            .finalize()
     }
 }
 

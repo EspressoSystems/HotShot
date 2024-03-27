@@ -240,7 +240,9 @@ async fn build_quorum_proposal_and_signature(
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     let mut parent_state = Arc::new(
-        <TestValidatedState as ValidatedState<TestTypes>>::from_header(parent_leaf.get_block_header()),
+        <TestValidatedState as ValidatedState<TestTypes>>::from_header(
+            parent_leaf.get_block_header(),
+        ),
     );
     let block_header = TestBlockHeader::new(
         &*parent_state,

@@ -801,7 +801,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                     },
                 );
-                consensus.saved_leaves.insert(proposed_leaf.commit(), proposed_leaf.clone());
+                consensus
+                    .saved_leaves
+                    .insert(proposed_leaf.commit(), proposed_leaf.clone());
 
                 if let Err(e) = self
                     .storage

@@ -580,35 +580,44 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
             .u64_field("view number", *self.view_number)
             .u64_field("block number", self.get_height())
             .field("parent Leaf commitment", self.parent_commitment)
-            .fixed_size_field("block payload commitment", self.get_payload_commitment().as_ref().as_ref())
+            .fixed_size_field(
+                "block payload commitment",
+                self.get_payload_commitment().as_ref().as_ref(),
+            )
             .field("justify qc", self.justify_qc.commit())
             .optional("upgrade certificate", &self.upgrade_certificate)
             .finalize()
     }
 }
 
-
 impl<TYPES: NodeType> Leaf<TYPES> {
-  pub fn from_proposal(proposal: &Proposal<TYPES, QuorumProposal<TYPES>>) -> Self {
-    Self::from_quorum_proposal(&proposal.data)
-  }
-
-  pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal<TYPES>) -> Self {
-    // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
-    // The point of this match is that we will get a compile-time error if we add a field without updating this.
-    let QuorumProposal { view_number, justify_qc, block_header, upgrade_certificate, proposal_certificate: _ } = quorum_proposal;
-    Leaf {
-      view_number: *view_number,
-      justify_qc: justify_qc.clone(),
-      parent_commitment: justify_qc.get_data().leaf_commit,
-      block_header: block_header.clone(),
-      upgrade_certificate: upgrade_certificate.clone(),
-      block_payload: None,
+    pub fn from_proposal(proposal: &Proposal<TYPES, QuorumProposal<TYPES>>) -> Self {
+        Self::from_quorum_proposal(&proposal.data)
     }
-  }
 
-  pub fn commit_from_proposal(proposal: &Proposal<TYPES, QuorumProposal<TYPES>>) -> Commitment<Self> {
-    Leaf::from_proposal(proposal).commit()
-  }
+    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal<TYPES>) -> Self {
+        // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
+        // The point of this match is that we will get a compile-time error if we add a field without updating this.
+        let QuorumProposal {
+            view_number,
+            justify_qc,
+            block_header,
+            upgrade_certificate,
+            proposal_certificate: _,
+        } = quorum_proposal;
+        Leaf {
+            view_number: *view_number,
+            justify_qc: justify_qc.clone(),
+            parent_commitment: justify_qc.get_data().leaf_commit,
+            block_header: block_header.clone(),
+            upgrade_certificate: upgrade_certificate.clone(),
+            block_payload: None,
+        }
+    }
+
+    pub fn commit_from_proposal(
+        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    ) -> Commitment<Self> {
+        Leaf::from_proposal(proposal).commit()
+    }
 }
-
