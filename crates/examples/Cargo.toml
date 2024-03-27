@@ -131,6 +131,7 @@ hotshot = { path = "../hotshot" }
 hotshot-example-types = { path = "../example-types" }
 chrono = "0.4"
 versioned-binary-serialization = { workspace = true }
+sha2.workspace = true
 
 tracing = { workspace = true }
 
