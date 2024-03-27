@@ -139,6 +139,7 @@ async fn test_consensus_vote() {
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
             QuorumVoteRecv(votes[0].clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -190,6 +191,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -205,7 +207,8 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         DACRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
-    let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    view_2_inputs.push(QuorumProposalValidated(proposals[1].data.clone()));
 
     let view_2_outputs = vec![
         exact(ViewChange(ViewNumber::new(2))),
@@ -302,6 +305,7 @@ async fn test_view_sync_finalize_propose() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -353,6 +357,7 @@ async fn test_view_sync_finalize_propose() {
             TimeoutVoteRecv(timeout_vote_view_3),
             ViewSyncFinalizeCertificate2Recv(cert),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalValidated(proposals[1].data.clone()),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(4)),
         ],
         outputs: vec![
@@ -423,6 +428,7 @@ async fn test_view_sync_finalize_vote() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalValidated(proposals[0].data.clone()),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
         ],
@@ -460,6 +466,7 @@ async fn test_view_sync_finalize_vote() {
             ViewSyncFinalizeCertificate2Recv(cert),
             // Receive a proposal for view 4, but with the highest qc being from view 1.
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(QuorumProposalValidated(proposals[0].data.clone())),
@@ -530,6 +537,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
