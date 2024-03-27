@@ -15,12 +15,103 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  test:
     strategy:
       matrix:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test-ci
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
+
+
+  test-self-hosted:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+      fail-fast: false
+    runs-on: [self-hosted]
+    container: ghcr.io/espressosystems/devops-rust:stable
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} test-ci-fail-fast
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
+
+  build-release:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: ""
+          prefix-key: ${{ matrix.just_variants }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Build HotShot in release mode
+        run: just ${{ matrix.just_variants }} build_release
+
+
+  build:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+      fail-fast: false
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +167,8 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
+    needs: [test]
     runs-on: [self-hosted, arm64]
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:
@@ -114,8 +207,9 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     runs-on: ubuntu-latest
-    needs: [build-and-test, build-arm]
+    needs: [build, build-arm]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -131,13 +225,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download executables AMD
+      - name: Download AMD executables
         uses: actions/download-artifact@v4
         with:
           name: binaries-amd64-${{ matrix.just_variants }}
           path: target/${{ matrix.just_variants }}/amd64/release/examples
 
-      - name: Download executables ARM
+      - name: Download ARM executables
         uses: actions/download-artifact@v4
         with:
           name: binaries-aarch64-${{ matrix.just_variants }}

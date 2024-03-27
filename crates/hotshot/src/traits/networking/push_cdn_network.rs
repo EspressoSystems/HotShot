@@ -9,10 +9,11 @@ use cdn_broker::reexports::def::RunDef;
 use cdn_broker::reexports::discovery::{Embedded, Redis};
 #[cfg(feature = "hotshot-testing")]
 use cdn_broker::{Broker, Config, ConfigBuilder as BrokerConfigBuilder};
+pub use cdn_client::reexports::crypto::signature::KeyPair;
 use cdn_client::{
     reexports::{
         connection::protocols::Quic,
-        crypto::signature::{KeyPair, Serializable, SignatureScheme},
+        crypto::signature::{Serializable, SignatureScheme},
         message::{Broadcast, Direct, Message as PushCdnMessage, Topic},
     },
     Client, ConfigBuilder as ClientConfigBuilder,
