@@ -1015,18 +1015,16 @@ where
         }
 
         // Create the network and await the initial connection
-        let cdn_network = Arc::from(
-            PushCdnNetwork::new(
-                config
-                    .cdn_marshal_address
-                    .clone()
-                    .expect("`cdn_marshal_address` needs to be supplied for a CDN run"),
-                topics.iter().map(ToString::to_string).collect(),
-                keypair,
-            )
-            .await
-            .expect("failed to perform initial connection"),
-        );
+        let cdn_network = PushCdnNetwork::new(
+            config
+                .cdn_marshal_address
+                .clone()
+                .expect("`cdn_marshal_address` needs to be supplied for a CDN run"),
+            topics.iter().map(ToString::to_string).collect(),
+            keypair,
+        )
+        .await
+        .expect("failed to perform initial connection");
 
         // Combine the two communication channels
         let da_channel = CombinedNetworks::new(
