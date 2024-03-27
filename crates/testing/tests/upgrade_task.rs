@@ -69,11 +69,12 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VidDisperseRecv(vids[0].0.clone()),
             DACRecv(dacs[0].clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
             exact(QuorumVoteSend(votes[0].clone())),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
         ],
         asserts: vec![],
     };

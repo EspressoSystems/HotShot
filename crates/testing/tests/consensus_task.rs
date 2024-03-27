@@ -57,6 +57,7 @@ async fn test_consensus_task() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0.clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -75,11 +76,12 @@ async fn test_consensus_task() {
             QCFormed(either::Left(cert)),
             // We must have a payload commitment and metadata to propose.
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            QuorumProposalValidated(proposals[1].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
             quorum_proposal_send(),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
         ],
         asserts: vec![is_at_view_number(2)],
     };
