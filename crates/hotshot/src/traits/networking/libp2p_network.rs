@@ -121,8 +121,6 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
-    /// bootstrap
-    bootstrap_addrs_len: usize,
     /// whether or not the network is ready to send
     is_ready: Arc<AtomicBool>,
     /// max time before dropping message due to DHT error
@@ -378,7 +376,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 requests_rx: Mutex::new(Some(requests_rx)),
                 sender: sender.clone(),
                 pk,
-                bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(false)),
                 // This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
@@ -445,7 +442,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
     fn spawn_connect<VER: 'static + StaticVersionType>(&mut self, id: usize, bind_version: VER) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = self.inner.bootstrap_addrs.clone();
-        let num_bootstrap = self.inner.bootstrap_addrs_len;
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
@@ -455,14 +451,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         async_spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
-                let bs_addrs = loop {
-                    let bss = bootstrap_ref.read().await;
-                    let bs_addrs = bss.clone();
-                    drop(bss);
-                    if bs_addrs.len() >= num_bootstrap {
-                        break bs_addrs;
-                    }
-                };
+                let bs_addrs = bootstrap_ref.read().await.clone();
+
                 debug!("Finished adding bootstrap addresses.");
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
