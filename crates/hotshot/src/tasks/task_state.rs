@@ -211,11 +211,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for QuorumProposalTaskState<TYPES, I>
+    for QuorumProposalTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
     async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
-    ) -> QuorumProposalTaskState<TYPES, I> {
+    ) -> QuorumProposalTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
         let consensus = handle.hotshot.get_consensus();
         QuorumProposalTaskState {
             latest_proposed_view: handle.get_cur_view().await,
@@ -229,6 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_task: None,
             public_key: handle.public_key().clone(),
             timeout: handle.hotshot.config.next_view_timeout,
+            api: handle.clone(),
             id: handle.hotshot.id,
         }
     }

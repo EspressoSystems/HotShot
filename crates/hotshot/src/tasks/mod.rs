@@ -198,8 +198,12 @@ pub async fn inject_consensus_polls<
 }
 
 /// Setup polls for the given `quorum_proposal`.
-pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    quorum_proposal_task_state: &QuorumProposalTaskState<TYPES, I>,
+pub async fn inject_quorum_proposal_polls<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    A: ConsensusApi<TYPES, I>,
+>(
+    quorum_proposal_task_state: &QuorumProposalTaskState<TYPES, I, A>,
 ) {
     // Poll (forever) for the latest quorum proposal
     quorum_proposal_task_state
