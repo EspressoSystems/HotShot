@@ -45,11 +45,11 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
     }
-    let cert = proposals[2].data.justify_qc.clone();
+    let cert = proposals[1].data.justify_qc.clone();
 
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
