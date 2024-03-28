@@ -1,6 +1,6 @@
 use super::NetworkError;
 #[cfg(feature = "hotshot-testing")]
-use async_compatibility_layer::art::{async_block_on, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use bincode::config::Options;
@@ -20,6 +20,7 @@ use cdn_client::{
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
+use hotshot_types::traits::network::AsyncGenerator;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
 use hotshot_types::{
@@ -207,7 +208,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         _is_da: bool,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
         // The configuration we are using for testing is 2 brokers & 1 marshal
 
         // A keypair shared between brokers
@@ -287,38 +288,44 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         });
 
         // This function is called for each client we spawn
-        Box::new({
+        Box::pin({
             move |node_id| {
-                // Derive our public and priate keys from our index
-                let private_key =
-                    TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
-                let public_key = TYPES::SignatureKey::from_private(&private_key);
+                // Clone this so we can pin the future
+                let marshal_endpoint = marshal_endpoint.clone();
 
-                // Calculate if we're DA or not
-                let topics = if node_id < da_committee_size as u64 {
-                    vec![Topic::DA, Topic::Global]
-                } else {
-                    vec![Topic::Global]
-                };
+                Box::pin(async move {
+                    // Derive our public and priate keys from our index
+                    let private_key =
+                        TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
+                    let public_key = TYPES::SignatureKey::from_private(&private_key);
 
-                // Configure our client
-                let client_config = ClientConfigBuilder::default()
-                    .keypair(KeyPair {
-                        public_key: WrappedSignatureKey(public_key),
-                        private_key,
-                    })
-                    .subscribed_topics(topics)
-                    .endpoint(marshal_endpoint.clone())
-                    .build()
-                    .expect("failed to build client config");
+                    // Calculate if we're DA or not
+                    let topics = if node_id < da_committee_size as u64 {
+                        vec![Topic::DA, Topic::Global]
+                    } else {
+                        vec![Topic::Global]
+                    };
 
-                // Create our client
-                let client = Arc::new(PushCdnNetwork(
-                    async_block_on(async move { Client::new(client_config).await })
-                        .expect("failed to create client"),
-                ));
+                    // Configure our client
+                    let client_config = ClientConfigBuilder::default()
+                        .keypair(KeyPair {
+                            public_key: WrappedSignatureKey(public_key),
+                            private_key,
+                        })
+                        .subscribed_topics(topics)
+                        .endpoint(marshal_endpoint)
+                        .build()
+                        .expect("failed to build client config");
 
-                (client.clone(), client)
+                    // Create our client
+                    let client = Arc::new(PushCdnNetwork(
+                        Client::new(client_config)
+                            .await
+                            .expect("failed to create client"),
+                    ));
+
+                    (client.clone(), client)
+                })
             }
         })
     }

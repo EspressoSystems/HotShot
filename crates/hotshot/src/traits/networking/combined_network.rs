@@ -3,9 +3,12 @@
 use super::NetworkError;
 use crate::traits::implementations::{Libp2pNetwork, WebServerNetwork};
 use async_lock::RwLock;
-use hotshot_types::constants::{
-    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+use hotshot_types::{
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
+    traits::network::AsyncGenerator,
 };
 use lru::LruCache;
 use std::{
@@ -194,7 +197,7 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
         let generators = (
             <WebServerNetwork<TYPES, NetworkVersion> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
@@ -215,38 +218,45 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>
                 Duration::default(),
             )
         );
-        Box::new(move |node_id| {
-            let (quorum_web, da_web) = generators.0(node_id);
-            let (quorum_p2p, da_p2p) = generators.1(node_id);
-            let da_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(da_web).unwrap(),
-                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
-            );
-            let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(quorum_web).unwrap(),
-                Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
-                    quorum_p2p,
-                ),
-            );
-            let quorum_net = Self {
-                networks: Arc::new(quorum_networks),
-                message_cache: Arc::new(RwLock::new(LruCache::new(
-                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
-                ))),
-                primary_down: Arc::new(AtomicU64::new(0)),
-                delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
-            };
-            let da_net = Self {
-                networks: Arc::new(da_networks),
-                message_cache: Arc::new(RwLock::new(LruCache::new(
-                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
-                ))),
-                primary_down: Arc::new(AtomicU64::new(0)),
-                delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
-            };
-            (quorum_net.into(), da_net.into())
+        Box::pin(move |node_id| {
+            let gen0 = generators.0(node_id);
+            let gen1 = generators.1(node_id);
+
+            Box::pin(async move {
+                let (quorum_web, da_web) = gen0.await;
+                let (quorum_p2p, da_p2p) = gen1.await;
+                let da_networks = UnderlyingCombinedNetworks(
+                    Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(da_web).unwrap(),
+                    Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
+                        da_p2p,
+                    ),
+                );
+                let quorum_networks = UnderlyingCombinedNetworks(
+                    Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(quorum_web).unwrap(),
+                    Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
+                        quorum_p2p,
+                    ),
+                );
+                let quorum_net = Self {
+                    networks: Arc::new(quorum_networks),
+                    message_cache: Arc::new(RwLock::new(LruCache::new(
+                        NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                    ))),
+                    primary_down: Arc::new(AtomicU64::new(0)),
+                    delayed_tasks: Arc::default(),
+                    delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                };
+                let da_net = Self {
+                    networks: Arc::new(da_networks),
+                    message_cache: Arc::new(RwLock::new(LruCache::new(
+                        NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                    ))),
+                    primary_down: Arc::new(AtomicU64::new(0)),
+                    delayed_tasks: Arc::default(),
+                    delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                };
+                (quorum_net.into(), da_net.into())
+            })
         })
     }
 

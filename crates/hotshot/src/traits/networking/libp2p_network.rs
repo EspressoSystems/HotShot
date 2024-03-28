@@ -2,8 +2,6 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 use super::NetworkingMetricsValue;
-#[cfg(feature = "hotshot-testing")]
-use async_compatibility_layer::art::async_block_on;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{self, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
@@ -24,8 +22,8 @@ use hotshot_types::{
     data::ViewNumber,
     traits::{
         network::{
-            self, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ResponseMessage,
+            self, AsyncGenerator, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
+            NetworkError, NetworkMsg, ResponseMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -182,7 +180,7 @@ where
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
         assert!(
             da_committee_size <= expected_node_count,
             "DA committee size must be less than or equal to total # nodes"
@@ -203,7 +201,7 @@ where
 
         // NOTE uncomment this for easier debugging
         // let start_port = 5000;
-        Box::new({
+        Box::pin({
             move |node_id| {
                 info!(
                     "GENERATOR: Node id {:?}, is bootstrap: {:?}",
@@ -268,29 +266,31 @@ where
                 let keys = all_keys.clone();
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
-                let net = Arc::new(async_block_on(async move {
-                    match Libp2pNetwork::new(
-                        NetworkingMetricsValue::default(),
-                        config,
-                        pubkey.clone(),
-                        bootstrap_addrs_ref,
-                        num_bootstrap,
-                        usize::try_from(node_id).unwrap(),
-                        keys,
-                        #[cfg(feature = "hotshot-testing")]
-                        reliability_config_dup,
-                        da.clone(),
-                        da.contains(&pubkey),
-                    )
-                    .await
-                    {
-                        Ok(network) => network,
-                        Err(err) => {
-                            panic!("Failed to create libp2p network: {err:?}");
-                        }
-                    }
-                }));
-                (net.clone(), net)
+                Box::pin(async move {
+                    let net = Arc::new(
+                        match Libp2pNetwork::new(
+                            NetworkingMetricsValue::default(),
+                            config,
+                            pubkey.clone(),
+                            bootstrap_addrs_ref,
+                            num_bootstrap,
+                            usize::try_from(node_id).unwrap(),
+                            keys,
+                            #[cfg(feature = "hotshot-testing")]
+                            reliability_config_dup,
+                            da.clone(),
+                            da.contains(&pubkey),
+                        )
+                        .await
+                        {
+                            Ok(network) => network,
+                            Err(err) => {
+                                panic!("Failed to create libp2p network: {err:?}");
+                            }
+                        },
+                    );
+                    (net.clone(), net)
+                })
             }
         })
     }
