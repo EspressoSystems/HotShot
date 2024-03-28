@@ -1,15 +1,7 @@
-use anyhow::{bail, Result};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use commit::Committable;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
-use chrono::Utc;
+use async_lock::RwLock;
 use either::Either;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
@@ -18,21 +10,13 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    constants::LOOK_AHEAD,
-    data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
-    event::{Event, EventType, LeafInfo},
-    message::Proposal,
+    event::Event,
     simple_certificate::ViewSyncFinalizeCertificate2,
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
-        election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        signature_key::SignatureKey,
-        BlockPayload, ValidatedState,
     },
-    utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -40,7 +24,7 @@ use hotshot_types::{
 use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::{
     consensus::CommitmentAndMetadata,
@@ -374,43 +358,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return true;
         }
         false
-    }
-
-    /// Validates view change evidence and logs if a failure occurs
-    fn validate_view_change_evidence(
-        &self,
-        view: TYPES::Time,
-        evidence: ViewChangeEvidence<TYPES>,
-    ) -> bool {
-        match evidence {
-            ViewChangeEvidence::Timeout(timeout_cert) => {
-                if timeout_cert.get_data().view != view - 1 {
-                    tracing::warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                    return false;
-                }
-
-                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                    tracing::warn!("Timeout certificate for view {} was invalid", *view);
-                    return false;
-                }
-            }
-            ViewChangeEvidence::ViewSync(view_sync_cert) => {
-                if view_sync_cert.view_number != view {
-                    debug!(
-                        "Cert view number {:?} does not match proposal view number {:?}",
-                        view_sync_cert.view_number, view
-                    );
-                    return false;
-                }
-
-                // View sync certs must also be valid.
-                if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                    debug!("Invalid ViewSyncFinalize cert provided");
-                    return false;
-                }
-            }
-        }
-        true
     }
 
     /// Validate a view sync cert or a timeout cert.
