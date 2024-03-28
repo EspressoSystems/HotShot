@@ -56,13 +56,8 @@ pub trait Membership<TYPES: NodeType>:
         &self,
     ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
-    #[cfg(not(feature = "fixed-leader-election"))]
     /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
-
-    #[cfg(feature = "fixed-leader-election")]
-    /// Only get leader in fixed set
-    fn get_leader(&self, view_number: TYPES::Time, fixed_leader_for_gpuvid: usize) -> PUBKEY;
 
     /// The staked members of the committee for view `view_number`.
     fn get_staked_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;

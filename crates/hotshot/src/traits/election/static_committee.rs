@@ -86,9 +86,9 @@ where
 
     #[cfg(feature = "fixed-leader-election")]
     /// Only get leader in fixed set
-    /// Index the fixed vector (first fixed_leader_for_gpuvid) of public keys with the current view number
-    fn get_leader(&self, view_number: TYPES::Time, fixed_leader_for_gpuvid: usize) -> PUBKEY {
-        let index = usize::try_from(*view_number % fixed_leader_for_gpuvid as u64).unwrap();
+    /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
+    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
+        let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
         let res = self.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(&res)
     }

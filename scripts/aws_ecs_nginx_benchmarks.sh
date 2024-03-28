@@ -25,15 +25,15 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 
 # start these two dockers in another two servers and keep them running
 # enter the repo hotshot-nginx and switch to sishan/autobench
-# docker build . -f Dockerfile -t sishan-nginx
-# docker run --network=host sishan-nginx:latest
+# docker build . -f Dockerfile -t [YOUR-NAME]
+# docker run --network=host [YOUR-NAME]:latest
 
-# docker build . -f Dockerfile_da -t sishan-nginx
-# docker run --network=host sishan-nginx:latest
+# docker build . -f Dockerfile_da -t [YOUR-NAME]
+# docker run --network=host [YOUR-NAME]:latest
 
 # start this docker if using orchestrator with nginx
-# docker build . -f Dockerfile_orchestrator -t sishan-nginx
-# docker run --network=host sishan-nginx:latest
+# docker build . -f Dockerfile_orchestrator -t [YOUR-NAME]
+# docker run --network=host [YOUR-NAME]:latest
 
 OLDIFS=$IFS; IFS=',';
 for config in 10,5,1,1000000,20 50,5,1,1000000,20 10,5,1,20000000,20 #100,10,1,20000000,20 200,10,1,20000000,20

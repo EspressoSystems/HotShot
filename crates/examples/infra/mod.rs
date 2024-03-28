@@ -193,7 +193,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .short('f')
                 .long("fixed_leader_for_gpuvid")
                 .value_name("BOOL")
-                .help("Sets the number of fixed leader for gpu vid")
+                .help("Sets the number of fixed leader for gpu vid, only be used when leaders running on gpu")
                 .required(false),
         )
         .get_matches();
