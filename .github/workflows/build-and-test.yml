@@ -286,6 +286,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.orchestrator-libp2p.outputs.tags }}
           labels: ${{ steps.orchestrator-libp2p.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -298,6 +300,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-libp2p.outputs.tags }}
           labels: ${{ steps.validator-libp2p.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -310,6 +314,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.webserver.outputs.tags }}
           labels: ${{ steps.webserver.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -322,6 +328,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.orchestrator-webserver.outputs.tags }}
           labels: ${{ steps.orchestrator-webserver.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -334,6 +342,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-webserver.outputs.tags }}
           labels: ${{ steps.validator-webserver.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -346,6 +356,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.cdn-broker.outputs.tags }}
           labels: ${{ steps.cdn-broker.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
@@ -358,6 +370,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.cdn-marshal.outputs.tags }}
           labels: ${{ steps.cdn-marshal.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
