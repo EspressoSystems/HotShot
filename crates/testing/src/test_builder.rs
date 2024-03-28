@@ -3,6 +3,7 @@ use hotshot_example_types::storage_types::TestStorage;
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use tide_disco::Url;
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 
@@ -301,6 +302,8 @@ impl TestMetadata {
                 num_nodes_with_stake as u64,
                 0,
             )),
+            // Placeholder until we spin up the builder
+            builder_url: Url::parse("http://localhost:9999").expect("Valid URL"),
         };
         let TimingData {
             next_view_timeout,
