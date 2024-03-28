@@ -160,7 +160,7 @@
 
         # TODO uncomment when fetching dependencies is unborked
         # pkgsAndChecksList = pkgs.lib.mapAttrsToList (name: val: { packages.${name} = val.build; checks.${name} = val.build.override { runTests = true; }; }) project.workspaceMembers;
-        # # programatically generate output packages based on what exists in the workspace
+        # # programmatically generate output packages based on what exists in the workspace
         # pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
 
         buildDeps = with pkgs;
