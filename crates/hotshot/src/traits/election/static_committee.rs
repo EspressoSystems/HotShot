@@ -16,7 +16,8 @@ use tracing::debug;
 
 /// Dummy implementation of [`Membership`]
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(bound(deserialize = "PUBKEY: SignatureKey"))]
 pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
     /// All the nodes participating and their stake
     nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
