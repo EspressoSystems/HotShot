@@ -61,7 +61,7 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
-/// Validate the state and safety and liveness of a proposal then emit the
+/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 async fn validate_proposal<TYPES: NodeType>(
