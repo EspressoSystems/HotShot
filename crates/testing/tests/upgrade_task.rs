@@ -69,7 +69,6 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VidDisperseRecv(vids[0].0[0].clone()),
             DACRecv(dacs[0].clone()),
-            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -84,7 +83,6 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             VidDisperseRecv(vids[1].0[0].clone()),
             DACRecv(dacs[1].clone()),
-            QuorumProposalValidated(proposals[1].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -99,7 +97,6 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             DACRecv(dacs[2].clone()),
             VidDisperseRecv(vids[2].0[0].clone()),
-            QuorumProposalValidated(proposals[2].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
@@ -115,7 +112,6 @@ async fn test_upgrade_task() {
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
             DACRecv(dacs[3].clone()),
             VidDisperseRecv(vids[3].0[0].clone()),
-            QuorumProposalValidated(proposals[3].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
@@ -127,10 +123,7 @@ async fn test_upgrade_task() {
     };
 
     let view_5 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[4].clone(), leaders[4]),
-            QuorumProposalValidated(proposals[4].data.clone()),
-        ],
+        inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
             exact(QuorumProposalValidated(proposals[4].data.clone())),
