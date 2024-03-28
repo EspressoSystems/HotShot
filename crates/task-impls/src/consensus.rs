@@ -274,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             if *self.cur_view / 100 != *new_view / 100 {
                 // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
                 // switch to info! when INFO logs become less cluttered
-                error!("Progress: entered view {:>6}", *new_view);
+                println!("Progress: entered view {:>6}", *new_view);
             }
 
             // cancel the old timeout task

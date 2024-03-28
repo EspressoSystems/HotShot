@@ -64,7 +64,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-use tracing::{debug, error, info, warn};
+use tracing::{error, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
@@ -571,10 +571,10 @@ pub trait RunDA<
         let mut total_latency = 0;
         let mut num_latency = 0;
 
-        debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+        println!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        debug!("Starting HotShot example!");
+        println!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -604,7 +604,7 @@ pub trait RunDA<
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
-                                info!("Decide event for leaf: {}", *leaf.view_number);
+                                println!("Decide event for leaf: {}", *leaf.view_number);
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload {
@@ -1089,7 +1089,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    debug!("Starting validator");
+    println!("Starting validator");
 
     // see what our public identity will be
     let public_ip = match args.public_ip {
@@ -1119,7 +1119,7 @@ pub async fn main_entry_point<
         )
         .await;
 
-    error!("Initializing networking");
+    println!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
@@ -1161,7 +1161,7 @@ pub async fn main_entry_point<
     }
 
     if let NetworkConfigSource::Orchestrator = source {
-        debug!("Waiting for the start command from orchestrator");
+        println!("Waiting for the start command from orchestrator");
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .await;
