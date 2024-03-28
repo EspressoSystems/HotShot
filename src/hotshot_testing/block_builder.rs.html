@@ -468,6 +468,18 @@
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -671,6 +683,12 @@
         };
         <span class="prelude-val">Ok</span>(header_input)
     }
+
+    <span class="kw">async fn </span>get_builder_address(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey, BuildError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.pub_key)
+    }
 }
 
 <span class="doccomment">/// Construct a tide disco app that mocks the builder API.
@@ -765,6 +783,12 @@
         <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
         <span class="kw">let </span>entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)<span class="question-mark">?</span>;
         entry.header_input.take().ok_or(BuildError::Missing)
+    }
+
+    <span class="kw">async fn </span>get_builder_address(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey, BuildError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.pub_key)
     }
 }
 

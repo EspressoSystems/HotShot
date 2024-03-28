@@ -197,9 +197,30 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, path::PathBuf};
 
+<span class="kw">use crate</span>::{
+    api::load_api,
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+};
 <span class="kw">use </span>clap::Args;
+<span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>derive_more::From;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
@@ -215,11 +236,6 @@
     Api, RequestError, StatusCode,
 };
 <span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
 
 <span class="attr">#[derive(Args, Default)]
 </span><span class="kw">pub struct </span>Options {
@@ -278,6 +294,11 @@
     </span>TxnSubmit {
         source: BuildError,
     },
+    <span class="attr">#[snafu(display(<span class="string">"error getting builder address: {source}"</span>))]
+    #[from(ignore)]
+    </span>BuilderAddress {
+        source: BuildError,
+    },
     Custom {
         message: String,
         status: StatusCode,
@@ -304,6 +325,7 @@
             Error::TxnUnpack { .. } =&gt; StatusCode::BadRequest,
             Error::TxnSubmit { .. } =&gt; StatusCode::InternalServerError,
             Error::Custom { .. } =&gt; StatusCode::InternalServerError,
+            Error::BuilderAddress { .. } =&gt; StatusCode::InternalServerError,
         }
     }
 }
@@ -364,6 +386,15 @@
                     })
             }
             .boxed()
+        })<span class="question-mark">?
+        </span>.get(<span class="string">"builder_address"</span>, |_req, state| {
+            <span class="kw">async move </span>{
+                state
+                    .get_builder_address()
+                    .<span class="kw">await
+                    </span>.context(BuilderAddressSnafu)
+            }
+            .boxed()
         })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(api)
 }
@@ -387,8 +418,9 @@
                 <span class="kw">let </span>tx = req
                     .body_auto::&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction, Ver&gt;(Ver::instance())
                     .context(TxnUnpackSnafu)<span class="question-mark">?</span>;
+                <span class="kw">let </span>hash = tx.commit();
                 state.submit_txn(tx).<span class="kw">await</span>.context(TxnSubmitSnafu)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(())
+                <span class="prelude-val">Ok</span>(hash)
             }
             .boxed()
         })<span class="question-mark">?</span>;
