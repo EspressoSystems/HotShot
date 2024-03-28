@@ -528,6 +528,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub staked_committee_nodes: usize,
     /// Number of non-staking committee nodes
     pub non_staked_committee_nodes: usize,
+    /// Number of fixed leader for GPU VID
+    pub fixed_leader_for_gpuvid: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -617,6 +619,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             my_own_validator_config: val.my_own_validator_config,
             da_staked_committee_size: val.staked_committee_nodes,
             da_non_staked_committee_size: val.non_staked_committee_nodes,
+            fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
             timeout_ratio: val.timeout_ratio,
@@ -670,6 +673,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             known_nodes_without_stake: vec![],
             staked_committee_nodes: 5,
             non_staked_committee_nodes: 0,
+            fixed_leader_for_gpuvid: 0,
             max_transactions: NonZeroUsize::new(100).unwrap(),
             min_transactions: 1,
             next_view_timeout: 10000,

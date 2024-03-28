@@ -49,6 +49,7 @@ async fn test_network_task() {
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
         quorum_election_config.clone(),
+        config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_, _>, _> =
@@ -116,6 +117,7 @@ async fn test_network_storage_fail() {
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
         quorum_election_config.clone(),
+        config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_, _>, _> =

@@ -188,6 +188,14 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .help("Sets the url of the da webserver")
                 .required(false),
         )
+        .arg(
+            Arg::new("fixed_leader_for_gpuvid")
+                .short('f')
+                .long("fixed_leader_for_gpuvid")
+                .value_name("BOOL")
+                .help("Sets the number of fixed leader for gpu vid")
+                .required(false),
+        )
         .get_matches();
 
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
@@ -211,6 +219,12 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
     }
     if let Some(da_committee_size_string) = matches.get_one::<String>("da_committee_size") {
         config.config.da_staked_committee_size = da_committee_size_string.parse::<usize>().unwrap();
+    }
+    if let Some(fixed_leader_for_gpuvid_string) =
+        matches.get_one::<String>("fixed_leader_for_gpuvid")
+    {
+        config.config.fixed_leader_for_gpuvid =
+            fixed_leader_for_gpuvid_string.parse::<usize>().unwrap();
     }
     if let Some(transactions_per_round_string) = matches.get_one::<String>("transactions_per_round")
     {
@@ -516,18 +530,22 @@ pub trait RunDA<
             quorum_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config.clone(),
+                config.config.fixed_leader_for_gpuvid,
             ),
             da_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 committee_election_config,
+                config.config.fixed_leader_for_gpuvid,
             ),
             vid_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config.clone(),
+                config.config.fixed_leader_for_gpuvid,
             ),
             view_sync_membership: <TYPES as NodeType>::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config,
+                config.config.fixed_leader_for_gpuvid,
             ),
         };
 

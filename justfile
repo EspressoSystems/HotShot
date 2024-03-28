@@ -41,6 +41,12 @@ build_release:
 example *ARGS:
   cargo run --profile=release-lto --example {{ARGS}}
 
+example_gpuvid *ARGS:
+  cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
+
+example_leader_gpuvid *ARGS:
+  cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
+
 test *ARGS:
   echo Testing {{ARGS}}
   cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
