@@ -119,20 +119,20 @@ async fn validate_proposal<TYPES: NodeType>(
         },
     );
     let safety_check = outcome.is_ok();
-    if let Err(e) = outcome {
-        broadcast_event(
-            Event {
-                view_number: view,
-                event: EventType::Error { error: Arc::new(e) },
-            },
-            &event_sender,
-        )
-        .await;
-    }
 
     // Skip if both saftey and liveness checks fail.
     if !safety_check && !liveness_check {
         error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc, proposal.data.clone(), consensus.locked_view);
+        if let Err(e) = outcome {
+            broadcast_event(
+                Event {
+                    view_number: view,
+                    event: EventType::Error { error: Arc::new(e) },
+                },
+                &event_sender,
+            )
+            .await;
+        }
         return;
     }
 
@@ -310,7 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some(parent) = parent else {
-                    error!(
+                    warn!(
                                 "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
                                 justify_qc.get_data().leaf_commit,
                                 proposal.view_number,
@@ -654,7 +654,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some((parent_leaf, parent_state)) = parent else {
-                    error!(
+                    warn!(
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
                     );
@@ -830,14 +830,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         },
                     ) {
                         error!("view publish error {e}");
-                        broadcast_event(
-                            Event {
-                                view_number: view,
-                                event: EventType::Error { error: e.into() },
-                            },
-                            &self.output_event_stream,
-                        )
-                        .await;
                     }
                 }
 
