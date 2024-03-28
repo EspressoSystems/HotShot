@@ -134,7 +134,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     ) -> Message<TYPES> {
         if !proposals_map.contains_key(key) {
             return self.make_msg(ResponseMessage::NotFound);
-        };
+        }
+
         let seq_msg = SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(
             proposals_map.get(key).unwrap().clone(),
         ));

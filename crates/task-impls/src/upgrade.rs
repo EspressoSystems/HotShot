@@ -125,7 +125,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), &tx).await;
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
-                error!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
+                debug!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
 
                 // Check if we are the leader.
                 {

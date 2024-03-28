@@ -978,8 +978,6 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
                                 "Background receive latest upgrade proposal polling encountered an error: {:?}",
                                 e
                             );
-                        } else {
-                            error!("Poll successful!");
                         }
                     });
                 }
@@ -1010,8 +1008,6 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
                                 "Background receive latest upgrade proposal polling encountered an error: {:?}",
                                 e
                             );
-                        } else {
-                            error!("Poll successful!");
                         }
                     });
                 }
