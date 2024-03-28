@@ -90,7 +90,6 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
     pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>, delay_duration: Duration) -> Self {
-        println!("created new combined network");
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -155,6 +154,15 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
+            self.delayed_tasks
+                .write()
+                .await
+                .entry(message.kind.get_view_number().get_u64())
+                .or_default()
+                .push(async_spawn(async move {
+                    async_sleep(duration).await;
+                    secondary_future.await
+                }));
             Ok(())
         } else {
             secondary_future.await
@@ -266,9 +274,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         bind_version: VER,
     ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
-        // self.secondary()
-        //     .spawn_request_receiver_task(bind_version)
-        //     .await
+        self.secondary()
+            .spawn_request_receiver_task(bind_version)
+            .await
     }
 
     fn pause(&self) {
@@ -441,24 +449,24 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
 
     fn update_view(&self, view: u64) {
         let delayed_map = self.delayed_tasks.clone();
-        // async_spawn(async move {
-        //     let mut cancel_tasks = Vec::new();
-        //     {
-        //         let mut map_lock = delayed_map.write().await;
-        //         while let Some((first_view, _tasks)) = map_lock.first_key_value() {
-        //             if *first_view < view {
-        //                 if let Some((_view, tasks)) = map_lock.pop_first() {
-        //                     let mut ctasks = tasks.into_iter().map(cancel_task).collect();
-        //                     cancel_tasks.append(&mut ctasks);
-        //                 } else {
-        //                     break;
-        //                 }
-        //             } else {
-        //                 break;
-        //             }
-        //         }
-        //     }
-        //     join_all(cancel_tasks).await;
-        // });
+        async_spawn(async move {
+            let mut cancel_tasks = Vec::new();
+            {
+                let mut map_lock = delayed_map.write().await;
+                while let Some((first_view, _tasks)) = map_lock.first_key_value() {
+                    if *first_view < view {
+                        if let Some((_view, tasks)) = map_lock.pop_first() {
+                            let mut ctasks = tasks.into_iter().map(cancel_task).collect();
+                            cancel_tasks.append(&mut ctasks);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            join_all(cancel_tasks).await;
+        });
     }
 }
