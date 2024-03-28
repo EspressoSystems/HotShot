@@ -7,7 +7,7 @@ RUN apt-get update \
 ARG TARGETARCH
 ARG ASYNC_EXECUTOR
 
-COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/webserver /usr/local/bin/webserver
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/webserver /usr/local/bin/webserver
 
 # logging
 ENV RUST_LOG="warn"
