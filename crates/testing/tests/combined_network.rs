@@ -12,7 +12,7 @@ use tracing::instrument;
 
 /// A run with both the CDN and libp2p functioning properly
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "current_thread"))]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]
 async fn test_combined_network() {
