@@ -86,8 +86,8 @@ where
 
     #[cfg(feature = "fixed-leader-election")]
     /// Only get leader in fixed set
+    /// Index the fixed vector (first fixed_leader_for_gpuvid) of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time, fixed_leader_for_gpuvid: usize) -> PUBKEY {
-        // Sishan TODO: this should be a set instead of a number?
         let index = usize::try_from(*view_number % fixed_leader_for_gpuvid as u64).unwrap();
         let res = self.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(&res)
@@ -152,7 +152,7 @@ where
             }
         }
         debug!("Election Membership Size: {}", config.num_nodes_with_stake);
-        // truncate committee_nodes_with_stake to only `num_nodes`
+        // truncate committee_nodes_with_stake to only `num_nodes` with lower index
         // since the `num_nodes_without_stake` are not part of the committee,
         committee_nodes_with_stake.truncate(config.num_nodes_with_stake.try_into().unwrap());
         committee_nodes_without_stake.truncate(config.num_nodes_without_stake.try_into().unwrap());
