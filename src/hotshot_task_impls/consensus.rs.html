@@ -1467,6 +1467,37 @@
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
 <a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1529,6 +1560,130 @@
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
+
+<span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
+/// a `QuorumProposalValidated` event.
+</span><span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">async fn </span>validate_proposal&lt;TYPES: NodeType&gt;(
+    proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+    parent_leaf: Leaf&lt;TYPES&gt;,
+    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    parent_state: Arc&lt;TYPES::ValidatedState&gt;,
+    view_leader_key: TYPES::SignatureKey,
+    event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    sender: TYPES::SignatureKey,
+    event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
+    storage: Arc&lt;RwLock&lt;<span class="kw">impl </span>Storage&lt;TYPES&gt;&gt;&gt;,
+) {
+    <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
+        .validate_and_apply_header(
+            <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
+            <span class="kw-2">&amp;</span>parent_leaf,
+            <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
+        )
+        .<span class="kw">await
+    else </span>{
+        <span class="macro">error!</span>(<span class="string">"Block header doesn't extend the proposal"</span>,);
+        <span class="kw">return</span>;
+    };
+    <span class="kw">let </span>state = Arc::new(validated_state);
+    <span class="kw">let </span>delta = Arc::new(state_delta);
+    <span class="kw">let </span>parent_commitment = parent_leaf.commit();
+    <span class="kw">let </span>view = proposal.data.get_view_number();
+    <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
+    proposed_leaf.set_parent_commitment(parent_commitment);
+
+    <span class="comment">// Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+    </span><span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, proposed_leaf.commit().as_ref()) {
+        <span class="macro">error!</span>(<span class="question-mark">?</span>proposal.signature, <span class="string">"Could not verify proposal."</span>);
+        <span class="kw">return</span>;
+    }
+    <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
+    <span class="comment">// Create a positive vote if either liveness or safety check
+    // passes.
+
+    // Liveness check.
+    </span><span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
+    <span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus.locked_view;
+
+    <span class="comment">// Safety check.
+    // Check if proposal extends from the locked leaf.
+    </span><span class="kw">let </span>outcome = consensus.visit_leaf_ancestors(
+        justify_qc.get_view_number(),
+        Terminator::Inclusive(consensus.locked_view),
+        <span class="bool-val">false</span>,
+        |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
+            <span class="comment">// if leaf view no == locked view no then we're done, report success by
+            // returning true
+            </span>leaf.get_view_number() != consensus.locked_view
+        },
+    );
+    <span class="kw">let </span>safety_check = outcome.is_ok();
+
+    <span class="comment">// Skip if both saftey and liveness checks fail.
+    </span><span class="kw">if </span>!safety_check &amp;&amp; !liveness_check {
+        <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = outcome {
+            broadcast_event(
+                Event {
+                    view_number: view,
+                    event: EventType::Error { error: Arc::new(e) },
+                },
+                <span class="kw-2">&amp;</span>event_sender,
+            )
+            .<span class="kw">await</span>;
+        }
+        <span class="kw">return</span>;
+    }
+
+    <span class="comment">// We accept the proposal, notify the application layer
+
+    </span>broadcast_event(
+        Event {
+            view_number: view,
+            event: EventType::QuorumProposal {
+                proposal: proposal.clone(),
+                sender,
+            },
+        },
+        <span class="kw-2">&amp;</span>event_sender,
+    )
+    .<span class="kw">await</span>;
+    <span class="comment">// Notify other tasks
+    </span>broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+        <span class="kw-2">&amp;</span>event_stream,
+    )
+    .<span class="kw">await</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+
+    consensus.validated_state_map.insert(
+        view,
+        View {
+            view_inner: ViewInner::Leaf {
+                leaf: proposed_leaf.commit(),
+                state: state.clone(),
+                delta: <span class="prelude-val">Some</span>(delta.clone()),
+            },
+        },
+    );
+    consensus
+        .saved_leaves
+        .insert(proposed_leaf.commit(), proposed_leaf.clone());
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = storage
+        .write()
+        .<span class="kw">await
+        </span>.update_undecided_state(
+            consensus.saved_leaves.clone(),
+            consensus.validated_state_map.clone(),
+        )
+        .<span class="kw">await
+    </span>{
+        <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
+    }
+}
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
@@ -1655,7 +1810,7 @@
 
                 <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-                    <span class="macro">error!</span>(
+                    <span class="macro">warn!</span>(
                                 <span class="string">"Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}"</span>,
                                 justify_qc.get_data().leaf_commit,
                                 proposal.view_number,
@@ -1999,7 +2154,7 @@
 
                 <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, parent_state)) = parent <span class="kw">else </span>{
-                    <span class="macro">error!</span>(
+                    <span class="macro">warn!</span>(
                         <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
                         justify_qc.get_data().leaf_commit
                     );
@@ -2071,83 +2226,23 @@
 
                     <span class="kw">return</span>;
                 };
-                <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
-                    .validate_and_apply_header(
-                        <span class="kw-2">&amp;</span>consensus.instance_state,
-                        <span class="kw-2">&amp;</span>parent_leaf,
-                        <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
-                    )
-                    .<span class="kw">await
-                else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Block header doesn't extend the proposal"</span>,);
-                    <span class="kw">return</span>;
-                };
-                <span class="kw">let </span>state = Arc::new(validated_state);
-                <span class="kw">let </span>delta = Arc::new(state_delta);
-                <span class="kw">let </span>parent_commitment = parent_leaf.commit();
 
-                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
-                proposed_leaf.set_parent_commitment(parent_commitment);
-
-                <span class="comment">// Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-                </span><span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, proposed_leaf.commit().as_ref()) {
-                    <span class="macro">error!</span>(<span class="question-mark">?</span>proposal.signature, <span class="string">"Could not verify proposal."</span>);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="comment">// Create a positive vote if either liveness or safety check
-                // passes.
-
-                // Liveness check.
-                </span><span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus.locked_view;
-
-                <span class="comment">// Safety check.
-                // Check if proposal extends from the locked leaf.
-                </span><span class="kw">let </span>outcome = consensus.visit_leaf_ancestors(
-                    justify_qc.get_view_number(),
-                    Terminator::Inclusive(consensus.locked_view),
-                    <span class="bool-val">false</span>,
-                    |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
-                        <span class="comment">// if leaf view no == locked view no then we're done, report success by
-                        // returning true
-                        </span>leaf.get_view_number() != consensus.locked_view
-                    },
-                );
-                <span class="kw">let </span>safety_check = outcome.is_ok();
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = outcome {
-                    <span class="self">self</span>.api
-                        .send_event(Event {
-                            view_number: view,
-                            event: EventType::Error { error: Arc::new(e) },
-                        })
-                        .<span class="kw">await</span>;
-                }
-
-                <span class="comment">// Skip if both saftey and liveness checks fail.
-                </span><span class="kw">if </span>!safety_check &amp;&amp; !liveness_check {
-                    <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
-
-                <span class="comment">// We accept the proposal, notify the application layer
-                </span><span class="self">self</span>.api
-                    .send_event(Event {
-                        view_number: <span class="self">self</span>.cur_view,
-                        event: EventType::QuorumProposal {
-                            proposal: proposal.clone(),
-                            sender,
-                        },
-                    })
-                    .<span class="kw">await</span>;
-                <span class="comment">// Notify other tasks
-                </span>broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    <span class="kw-2">&amp;</span>event_stream,
-                )
-                .<span class="kw">await</span>;
-
+                async_spawn(validate_proposal(
+                    proposal.clone(),
+                    parent_leaf,
+                    <span class="self">self</span>.consensus.clone(),
+                    parent_state.clone(),
+                    view_leader_key,
+                    event_stream.clone(),
+                    sender,
+                    <span class="self">self</span>.output_event_stream.clone(),
+                    <span class="self">self</span>.storage.clone(),
+                ));
+            }
+            HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
+                <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
+                <span class="kw">let </span>view = proposal.get_view_number();
+                <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
                 <span class="kw">let </span><span class="kw-2">mut </span>new_anchor_view = consensus.last_decided_view;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_locked_view = consensus.locked_view;
                 <span class="kw">let </span><span class="kw-2">mut </span>last_view_number_visited = view;
@@ -2158,7 +2253,7 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>leafs_decided = Vec::new();
                 <span class="kw">let </span><span class="kw-2">mut </span>included_txns = HashSet::new();
                 <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
-                <span class="kw">let </span>parent_view = proposed_leaf.get_justify_qc().get_view_number();
+                <span class="kw">let </span>parent_view = proposal.justify_qc.get_view_number();
                 <span class="kw">let </span><span class="kw-2">mut </span>current_chain_length = <span class="number">0usize</span>;
                 <span class="kw">if </span>parent_view + <span class="number">1 </span>== view {
                     current_chain_length += <span class="number">1</span>;
@@ -2235,14 +2330,6 @@
                         </span>},
                     ) {
                         <span class="macro">error!</span>(<span class="string">"view publish error {e}"</span>);
-                        broadcast_event(
-                            Event {
-                                view_number: view,
-                                event: EventType::Error { error: e.into() },
-                            },
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
-                        )
-                        .<span class="kw">await</span>;
                     }
                 }
 
@@ -2252,33 +2339,7 @@
                     HashSet::new()
                 };
 
-                consensus.validated_state_map.insert(
-                    view,
-                    View {
-                        view_inner: ViewInner::Leaf {
-                            leaf: proposed_leaf.commit(),
-                            state: state.clone(),
-                            delta: <span class="prelude-val">Some</span>(delta.clone()),
-                        },
-                    },
-                );
-                consensus
-                    .saved_leaves
-                    .insert(proposed_leaf.commit(), proposed_leaf.clone());
-
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
-                    </span>.storage
-                    .write()
-                    .<span class="kw">await
-                    </span>.update_undecided_state(
-                        consensus.saved_leaves.clone(),
-                        consensus.validated_state_map.clone(),
-                    )
-                    .<span class="kw">await
-                </span>{
-                    <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
-                }
-
+                <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
                 <span class="kw">if </span>new_commit_reached {
                     consensus.locked_view = new_locked_view;
                 }
@@ -2909,6 +2970,7 @@
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
+                | HotShotEvent::QuorumProposalValidated(<span class="kw">_</span>)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
                 | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
                 | HotShotEvent::DACRecv(<span class="kw">_</span>)

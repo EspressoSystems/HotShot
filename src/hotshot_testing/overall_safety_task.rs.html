@@ -539,6 +539,17 @@
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
@@ -964,9 +975,20 @@
         <span class="kw">let </span>num_failed = <span class="self">self</span>.failed_nodes.len();
 
         <span class="kw">if </span>check_leaf &amp;&amp; <span class="self">self</span>.leaf_map.len() != <span class="number">1 </span>{
-            <span class="macro">error!</span>(<span class="string">"LEAF MAP (that is mismatched) IS: {:?}"</span>, <span class="self">self</span>.leaf_map);
-            <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
-            <span class="kw">return</span>;
+            <span class="kw">let </span>(quorum_leaf, count) = <span class="self">self
+                </span>.leaf_map
+                .iter()
+                .max_by(|(<span class="kw">_</span>, v), (<span class="kw">_</span>, other_val)| v.cmp(other_val))
+                .unwrap();
+            <span class="kw">if </span><span class="kw-2">*</span>count &gt;= threshold {
+                <span class="kw">for </span>leaf <span class="kw">in </span><span class="self">self</span>.leaf_map.keys() {
+                    <span class="kw">if </span>leaf.get_view_number() &gt; quorum_leaf.get_view_number() {
+                        <span class="macro">error!</span>(<span class="string">"LEAF MAP (that is mismatched) IS: {:?}"</span>, <span class="self">self</span>.leaf_map);
+                        <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
+                        <span class="kw">return</span>;
+                    }
+                }
+            }
         }
 
         <span class="kw">if </span>check_block &amp;&amp; <span class="self">self</span>.block_map.len() != <span class="number">1 </span>{

@@ -170,6 +170,7 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Macros for use in testing.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
@@ -240,7 +241,8 @@
     <span class="kw">use </span>hotshot_testing::predicates::Predicate;
     <span class="kw">use </span>async_broadcast::broadcast;
     <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
-
+    <span class="kw">use </span>std::time::Duration;
+    <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
     <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
     <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
     <span class="kw">use </span>std::sync::Arc;
@@ -302,7 +304,7 @@
                         #task_names.state().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
                     }
 
-                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(received_output) = test_receiver.try_recv() {
+                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(Duration::from_millis(<span class="number">250</span>), test_receiver.recv_direct()).<span class="kw">await </span>{
                         <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
                         <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;</span>#task_expectations[stage_number].output_asserts;

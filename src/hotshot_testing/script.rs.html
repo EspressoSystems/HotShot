@@ -191,13 +191,24 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::predicates::Predicate;
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 
+<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">pub struct </span>TestScriptStage&lt;TYPES: NodeType, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt; {
     <span class="kw">pub </span>inputs: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -300,9 +311,18 @@
         }
 
         <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;</span>stage.outputs {
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(received_output) = test_receiver.try_recv() {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) =
+                async_timeout(Duration::from_millis(<span class="number">250</span>), test_receiver.recv_direct()).<span class="kw">await
+            </span>{
                 <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
                 validate_output_or_panic(stage_number, <span class="kw-2">&amp;</span>received_output, assert);
+                <span class="kw">if </span>!task.state_mut().filter(<span class="kw-2">&amp;</span>received_output.clone()) {
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, received_output.clone());
+
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = S::handle_event(received_output.clone(), <span class="kw-2">&amp;mut </span>task).<span class="kw">await </span>{
+                        task.state_mut().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
+                    }
+                }
             } <span class="kw">else </span>{
                 panic_missing_output(stage_number, assert);
             }

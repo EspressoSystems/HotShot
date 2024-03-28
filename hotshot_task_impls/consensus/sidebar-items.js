@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"fn":["validate_proposal"],"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};
