@@ -35,11 +35,11 @@ async := "async-std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
-build_release:
-  cargo build --package hotshot --profile=release --no-default-features --features="docs, doc-images"
+build_release *ARGS: 
+  cargo build --profile=release {{ARGS}}
 
 example *ARGS:
-  cargo run --profile=release-lto --example {{ARGS}}
+  cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
 test *ARGS:
   echo Testing {{ARGS}}
