@@ -35,11 +35,11 @@ async := "async-std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
-build_release:
-  cargo build --package hotshot --profile=release --no-default-features --features="docs, doc-images"
+build_release *ARGS: 
+  cargo build --profile=release {{ARGS}}
 
 example *ARGS:
-  cargo run --profile=release-lto --example {{ARGS}}
+  cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
 example_gpuvid *ARGS:
   cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
@@ -53,7 +53,11 @@ test *ARGS:
 
 test-ci *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=hotshot=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --skip crypto_test
+  RUST_LOG=hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-fail-fast *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace {{ARGS}} -- --test-threads=1
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
