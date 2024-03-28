@@ -103,8 +103,8 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
-            leaf_decided(),
             exact(QuorumProposalValidated(proposals[2].data.clone())),
+            leaf_decided(),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
@@ -119,8 +119,8 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
-            leaf_decided(),
             exact(QuorumProposalValidated(proposals[3].data.clone())),
+            leaf_decided(),
             exact(QuorumVoteSend(votes[3].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
@@ -133,8 +133,8 @@ async fn test_upgrade_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
-            leaf_decided(),
             exact(QuorumProposalValidated(proposals[4].data.clone())),
+            leaf_decided(),
         ],
         asserts: vec![decided_upgrade_cert()],
     };
