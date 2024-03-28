@@ -16,5 +16,4 @@ results.csv
 .github/workflows/preserve-build-and-test-self-hosted.yml
 .github/workflows/preserve-build-and-test.yml
 config/ValidatorConfigOutput
-scripts/aws_ecs_nginx_benchmarks.sh
 scripts/preserve_ci_ecs_benchmarks.sh
