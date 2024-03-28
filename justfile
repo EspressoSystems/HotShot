@@ -47,7 +47,7 @@ test *ARGS:
 
 test-ci *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=hotshot=error,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --nocapture --test-threads=1
+  RUST_LOG=hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-fail-fast *ARGS:
   echo Testing {{ARGS}}
