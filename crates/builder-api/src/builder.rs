@@ -79,6 +79,11 @@ pub enum Error {
     TxnSubmit {
         source: BuildError,
     },
+    #[snafu(display("error getting builder address: {source}"))]
+    #[from(ignore)]
+    BuilderAddress {
+        source: BuildError,
+    },
     Custom {
         message: String,
         status: StatusCode,
@@ -105,6 +110,7 @@ impl tide_disco::error::Error for Error {
             Error::TxnUnpack { .. } => StatusCode::BadRequest,
             Error::TxnSubmit { .. } => StatusCode::InternalServerError,
             Error::Custom { .. } => StatusCode::InternalServerError,
+            Error::BuilderAddress { .. } => StatusCode::InternalServerError,
         }
     }
 }
@@ -163,6 +169,15 @@ where
                     .context(BlockClaimSnafu {
                         resource: hash.to_string(),
                     })
+            }
+            .boxed()
+        })?
+        .get("builder_address", |_req, state| {
+            async move {
+                state
+                    .get_builder_address()
+                    .await
+                    .context(BuilderAddressSnafu)
             }
             .boxed()
         })?;
