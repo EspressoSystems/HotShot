@@ -10,16 +10,14 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::QuorumProposal,
     event::Event,
-    message::Proposal,
     simple_certificate::ViewSyncFinalizeCertificate2,
     traits::{
         block_contents::BlockHeader,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 #[cfg(async_executor_impl = "async-std")]
@@ -33,24 +31,6 @@ use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
-
-/// Validate a quorum proposal.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_quorum_proposal<TYPES: NodeType>(
-    _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate a view sync cert or a timeout cert.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_view_sync_finalize_certificate<TYPES: NodeType>(
-    _certificate: ViewSyncFinalizeCertificate2<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -96,8 +76,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _view_sync_finalize_cert = None;
         for event in res.iter().flatten() {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalRecv(proposal, _) => {
-                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
+                HotShotEvent::QuorumProposalValidated(proposal) => {
+                    let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             return;
@@ -223,8 +203,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
 
                     ProposalDependency::ProposalCertificate => {
-                        if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
-                            proposal.data.view_number
+                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
+                            proposal.view_number
                         } else {
                             return false;
                         }
@@ -303,7 +283,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::QuorumProposalRecv(_, _) => {
+            HotShotEvent::QuorumProposalValidated(_) => {
                 proposal_cert_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
@@ -326,7 +306,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 payload_commitment_dependency,
             ])]),
             OrDependency::from_deps(vec![
-                // 1. A QCFormed event and QuorumProposalRecv event
+                // 1. A QCFormed event and QuorumProposalValidated event
                 AndDependency::from_deps(vec![qc_dependency, proposal_cert_dependency]),
                 // 2. A timeout cert was received
                 AndDependency::from_deps(vec![timeout_dependency]),
@@ -369,6 +349,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return true;
         }
         false
+    }
+
+    /// Validate a view sync cert or a timeout cert.
+    fn validate_view_sync_finalize_certificate(
+        &self,
+        certificate: &ViewSyncFinalizeCertificate2<TYPES>,
+    ) -> bool {
+        certificate.is_valid_cert(self.quorum_membership.as_ref())
     }
 
     /// Handles a consensus event received on the event stream
@@ -457,42 +445,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                if !validate_view_sync_finalize_certificate(
-                    view_sync_finalize_cert.clone(),
-                    event_sender.clone(),
-                ) {
+                if !self.validate_view_sync_finalize_certificate(view_sync_finalize_cert) {
                     return;
                 }
 
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
-                let view = proposal.data.get_view_number() + 1;
+            HotShotEvent::QuorumProposalValidated(proposal) => {
+                let view = proposal.get_view_number() + 1;
                 if view < self.latest_proposed_view {
-                    debug!("Proposal is from an older view {:?}", proposal.data.clone());
+                    debug!("Proposal is from an older view {:?}", proposal.clone());
                     return;
                 }
 
                 debug!(
                     "Received Quorum Proposal for view {}",
-                    *proposal.data.view_number
+                    *proposal.view_number
                 );
-
-                // stop polling for the received proposal
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
-                        *proposal.data.view_number,
-                    ))
-                    .await;
-
-                if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
-                    return;
-                }
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(
                     view,
@@ -521,7 +490,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(_, _)
+            HotShotEvent::QuorumProposalValidated(_)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
