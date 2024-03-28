@@ -1,6 +1,6 @@
 use super::NetworkError;
 #[cfg(feature = "hotshot-testing")]
-use async_compatibility_layer::art::{async_block_on, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use bincode::config::Options;
@@ -143,7 +143,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     ///
     /// # Errors
     /// If we fail the initial connection
-    pub async fn new(
+    pub fn new(
         marshal_endpoint: String,
         topics: Vec<String>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
@@ -162,7 +162,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
             .build()?;
 
         // Create the client, performing the initial connection
-        let client = Client::new(config).await?;
+        let client = Client::new(config);
 
         Ok(Self {
             client,
@@ -331,8 +331,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
                 // Create our client
                 let client = Arc::new(PushCdnNetwork {
-                    client: async_block_on(async move { Client::new(client_config).await })
-                        .expect("failed to create client"),
+                    client: Client::new(client_config),
                     #[cfg(feature = "hotshot-testing")]
                     is_paused: Arc::default(),
                 });

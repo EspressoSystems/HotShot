@@ -861,8 +861,7 @@ where
             topics.iter().map(ToString::to_string).collect(),
             keypair,
         )
-        .await
-        .expect("failed to perform initial connection");
+        .expect("failed to build client");
 
         PushCdnDaRun {
             config,
@@ -1023,8 +1022,7 @@ where
             topics.iter().map(ToString::to_string).collect(),
             keypair,
         )
-        .await
-        .expect("failed to perform initial connection");
+        .expect("failed to build client");
 
         // Combine the two communication channels
         let da_channel = CombinedNetworks::new(
