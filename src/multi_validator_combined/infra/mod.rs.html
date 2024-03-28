@@ -1193,6 +1193,8 @@
 <a href="#1191" id="1191">1191</a>
 <a href="#1192" id="1192">1192</a>
 <a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -2057,7 +2059,7 @@
             keypair,
         )
         .<span class="kw">await
-        </span>.expect(<span class="string">"failed to perform initial connection"</span>);
+        </span>.expect(<span class="string">"failed to perform initial client connection"</span>);
 
         PushCdnDaRun {
             config,
@@ -2152,13 +2154,13 @@
 <span class="comment">// Combined network
 
 </span><span class="doccomment">/// Represents a combined-network-based run
-</span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
+</span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     <span class="doccomment">/// quorum channel
-    </span>quorum_channel: CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+    </span>quorum_channel: CombinedNetworks&lt;TYPES&gt;,
     <span class="doccomment">/// data availability channel
-    </span>da_channel: CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+    </span>da_channel: CombinedNetworks&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -2171,65 +2173,67 @@
         &gt;,
         NODE: NodeImplementation&lt;
             TYPES,
-            QuorumNetwork = CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
-            CommitteeNetwork = CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
+            QuorumNetwork = CombinedNetworks&lt;TYPES&gt;,
+            CommitteeNetwork = CombinedNetworks&lt;TYPES&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-        NetworkVersion: StaticVersionType,
-    &gt;
-    RunDA&lt;
-        TYPES,
-        CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
-        CombinedNetworks&lt;TYPES, NetworkVersion&gt;,
-        NODE,
-    &gt; <span class="kw">for </span>CombinedDARun&lt;TYPES, NetworkVersion&gt;
+    &gt; RunDA&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDARun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
-    NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    ) -&gt; CombinedDARun&lt;TYPES, NetworkVersion&gt; {
+    ) -&gt; CombinedDARun&lt;TYPES&gt; {
         <span class="comment">// Get our own key
-        </span><span class="kw">let </span>pub_key = config.config.my_own_validator_config.public_key.clone();
+        </span><span class="kw">let </span>key = config.config.my_own_validator_config.clone();
 
         <span class="comment">// Create and wait for libp2p network
         </span><span class="kw">let </span>libp2p_underlying_quorum_network =
-            libp2p_network_from_config::&lt;TYPES&gt;(config.clone(), pub_key.clone()).<span class="kw">await</span>;
+            libp2p_network_from_config::&lt;TYPES&gt;(config.clone(), key.public_key.clone()).<span class="kw">await</span>;
 
         libp2p_underlying_quorum_network.wait_for_ready().<span class="kw">await</span>;
-
-        <span class="comment">// Extract values from config (for webserver DA network)
-        </span><span class="kw">let </span>WebServerConfig {
-            url,
-            wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         <span class="kw">let </span>CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
             config.clone().combined_network_config.unwrap();
 
-        <span class="comment">// Create and wait for underlying webserver network
-        </span><span class="kw">let </span>web_quorum_network =
-            webserver_network_from_config::&lt;TYPES, NetworkVersion&gt;(config.clone(), pub_key.clone());
+        <span class="comment">// Convert the keys to the CDN-compatible type
+        </span><span class="kw">let </span>keypair = KeyPair {
+            public_key: WrappedSignatureKey(key.public_key),
+            private_key: key.private_key,
+        };
 
-        <span class="kw">let </span>web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, <span class="bool-val">true</span>);
+        <span class="comment">// See if we should be DA
+        </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[Topic::Global];
+        <span class="kw">if </span>config.node_index &lt; config.config.da_staked_committee_size <span class="kw">as </span>u64 {
+            topics.push(Topic::DA);
+        }
 
-        web_quorum_network.wait_for_ready().<span class="kw">await</span>;
+        <span class="comment">// Create the network and await the initial connection
+        </span><span class="kw">let </span>cdn_network = PushCdnNetwork::new(
+            config
+                .cdn_marshal_address
+                .clone()
+                .expect(<span class="string">"`cdn_marshal_address` needs to be supplied for a CDN run"</span>),
+            topics.iter().map(ToString::to_string).collect(),
+            keypair,
+        )
+        .<span class="kw">await
+        </span>.expect(<span class="string">"failed to perform intiail client connection"</span>);
 
         <span class="comment">// Combine the two communication channels
         </span><span class="kw">let </span>da_channel = CombinedNetworks::new(
             Arc::new(UnderlyingCombinedNetworks(
-                web_da_network.clone(),
+                cdn_network.clone(),
                 libp2p_underlying_quorum_network.clone(),
             )),
             delay_duration,
         );
         <span class="kw">let </span>quorum_channel = CombinedNetworks::new(
             Arc::new(UnderlyingCombinedNetworks(
-                web_quorum_network.clone(),
+                cdn_network,
                 libp2p_underlying_quorum_network.clone(),
             )),
             delay_duration,
@@ -2242,11 +2246,11 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
+    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
+    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 

@@ -816,7 +816,7 @@
                     quorum_election_config,
                 ),
             };
-            <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id);
+            <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
 
             <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {

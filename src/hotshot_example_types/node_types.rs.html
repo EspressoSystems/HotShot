@@ -225,7 +225,7 @@
 </span><span class="kw">type </span>StaticWebDAComm = WebServerNetwork&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="doccomment">/// combined network
-</span><span class="kw">type </span>StaticCombinedDAComm = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
+</span><span class="kw">type </span>StaticCombinedDAComm = CombinedNetworks&lt;TestTypes&gt;;
 
 <span class="doccomment">/// memory comm channel
 </span><span class="kw">pub type </span>StaticMemoryQuorumComm =
@@ -239,7 +239,7 @@
 </span><span class="kw">type </span>StaticWebQuorumComm = WebServerNetwork&lt;TestTypes, WebServerVersion&gt;;
 
 <span class="doccomment">/// combined network (libp2p + web server)
-</span><span class="kw">type </span>StaticCombinedQuorumComm = CombinedNetworks&lt;TestTypes, WebServerVersion&gt;;
+</span><span class="kw">type </span>StaticCombinedQuorumComm = CombinedNetworks&lt;TestTypes&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>PushCdnImpl {
     <span class="kw">type </span>QuorumNetwork = StaticPushCdnQuorumComm;

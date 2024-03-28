@@ -131,6 +131,7 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
@@ -229,6 +230,7 @@
     <span class="kw">let </span>marshal_config = cdn_marshal::ConfigBuilder::default()
         .bind_address(marshal_endpoint.clone())
         .discovery_endpoint(<span class="string">"test.sqlite"</span>.to_string())
+        .metrics_enabled(<span class="bool-val">false</span>)
         .build()
         .expect(<span class="string">"failed to build marshal config"</span>);
 

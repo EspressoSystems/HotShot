@@ -1003,22 +1003,10 @@
 <a href="#1001" id="1001">1001</a>
 <a href="#1002" id="1002">1002</a>
 <a href="#1003" id="1003">1003</a>
-<a href="#1004" id="1004">1004</a>
-<a href="#1005" id="1005">1005</a>
-<a href="#1006" id="1006">1006</a>
-<a href="#1007" id="1007">1007</a>
-<a href="#1008" id="1008">1008</a>
-<a href="#1009" id="1009">1009</a>
-<a href="#1010" id="1010">1010</a>
-<a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>async_compatibility_layer::art::async_block_on;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{<span class="self">self</span>, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
@@ -1039,8 +1027,8 @@
     data::ViewNumber,
     traits::{
         network::{
-            <span class="self">self</span>, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ResponseMessage,
+            <span class="self">self</span>, AsyncGenerator, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
+            NetworkError, NetworkMsg, ResponseMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -1138,8 +1126,6 @@
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
-    <span class="doccomment">/// bootstrap
-    </span>bootstrap_addrs_len: usize,
     <span class="doccomment">/// whether or not the network is ready to send
     </span>is_ready: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// max time before dropping message due to DHT error
@@ -1197,7 +1183,7 @@
         _is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         _secondary_network_delay: Duration,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
+    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;)&gt; {
         <span class="macro">assert!</span>(
             da_committee_size &lt;= expected_node_count,
             <span class="string">"DA committee size must be less than or equal to total # nodes"
@@ -1218,7 +1204,7 @@
 
         <span class="comment">// NOTE uncomment this for easier debugging
         // let start_port = 5000;
-        </span>Box::new({
+        </span>Box::pin({
             <span class="kw">move </span>|node_id| {
                 <span class="macro">info!</span>(
                     <span class="string">"GENERATOR: Node id {:?}, is bootstrap: {:?}"</span>,
@@ -1283,29 +1269,31 @@
                 <span class="kw">let </span>keys = all_keys.clone();
                 <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
-                <span class="kw">let </span>net = Arc::new(async_block_on(<span class="kw">async move </span>{
-                    <span class="kw">match </span>Libp2pNetwork::new(
-                        NetworkingMetricsValue::default(),
-                        config,
-                        pubkey.clone(),
-                        bootstrap_addrs_ref,
-                        num_bootstrap,
-                        usize::try_from(node_id).unwrap(),
-                        keys,
-                        <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-                        </span>reliability_config_dup,
-                        da.clone(),
-                        da.contains(<span class="kw-2">&amp;</span>pubkey),
-                    )
-                    .<span class="kw">await
-                    </span>{
-                        <span class="prelude-val">Ok</span>(network) =&gt; network,
-                        <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">panic!</span>(<span class="string">"Failed to create libp2p network: {err:?}"</span>);
-                        }
-                    }
-                }));
-                (net.clone(), net)
+                Box::pin(<span class="kw">async move </span>{
+                    <span class="kw">let </span>net = Arc::new(
+                        <span class="kw">match </span>Libp2pNetwork::new(
+                            NetworkingMetricsValue::default(),
+                            config,
+                            pubkey.clone(),
+                            bootstrap_addrs_ref,
+                            num_bootstrap,
+                            usize::try_from(node_id).unwrap(),
+                            keys,
+                            <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+                            </span>reliability_config_dup,
+                            da.clone(),
+                            da.contains(<span class="kw-2">&amp;</span>pubkey),
+                        )
+                        .<span class="kw">await
+                        </span>{
+                            <span class="prelude-val">Ok</span>(network) =&gt; network,
+                            <span class="prelude-val">Err</span>(err) =&gt; {
+                                <span class="macro">panic!</span>(<span class="string">"Failed to create libp2p network: {err:?}"</span>);
+                            }
+                        },
+                    );
+                    (net.clone(), net)
+                })
             }
         })
     }
@@ -1393,7 +1381,6 @@
                 requests_rx: Mutex::new(<span class="prelude-val">Some</span>(requests_rx)),
                 sender: sender.clone(),
                 pk,
-                bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 <span class="comment">// This is optimal for 10-30 nodes. TODO: parameterize this for both tests and examples
@@ -1460,7 +1447,6 @@
     </span><span class="kw">fn </span>spawn_connect&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, bind_version: VER) {
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.pk.clone();
         <span class="kw">let </span>bootstrap_ref = <span class="self">self</span>.inner.bootstrap_addrs.clone();
-        <span class="kw">let </span>num_bootstrap = <span class="self">self</span>.inner.bootstrap_addrs_len;
         <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
         <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
         <span class="kw">let </span>node_type = <span class="self">self</span>.inner.handle.config().node_type;
@@ -1470,14 +1456,8 @@
         async_spawn({
             <span class="kw">let </span>is_ready = <span class="self">self</span>.inner.is_ready.clone();
             <span class="kw">async move </span>{
-                <span class="kw">let </span>bs_addrs = <span class="kw">loop </span>{
-                    <span class="kw">let </span>bss = bootstrap_ref.read().<span class="kw">await</span>;
-                    <span class="kw">let </span>bs_addrs = bss.clone();
-                    drop(bss);
-                    <span class="kw">if </span>bs_addrs.len() &gt;= num_bootstrap {
-                        <span class="kw">break </span>bs_addrs;
-                    }
-                };
+                <span class="kw">let </span>bs_addrs = bootstrap_ref.read().<span class="kw">await</span>.clone();
+
                 <span class="macro">debug!</span>(<span class="string">"Finished adding bootstrap addresses."</span>);
                 handle.add_known_peers(bs_addrs).<span class="kw">await</span>.unwrap();
 

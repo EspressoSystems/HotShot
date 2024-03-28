@@ -238,6 +238,7 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -246,7 +247,9 @@
 </span><span class="kw">use super</span>::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
-    network::{ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation},
+    network::{
+        AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
+    },
     states::TestableState,
     storage::Storage,
     ValidatedState,
@@ -264,8 +267,7 @@
 <span class="kw">use </span>std::{
     fmt::Debug,
     hash::Hash,
-    ops,
-    ops::{Deref, Sub},
+    ops::{<span class="self">self</span>, Deref, Sub},
     sync::Arc,
     time::Duration,
 };
@@ -333,7 +335,7 @@
         da_committee_size: usize,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         secondary_network_delay: Duration,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt;;
+    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -388,7 +390,7 @@
         da_committee_size: usize,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         secondary_network_delay: Duration,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt; {
+    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;, Arc&lt;<span class="self">Self</span>::QuorumNetwork&gt;)&gt; {
         &lt;I::QuorumNetwork <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
             expected_node_count,
             num_bootstrap,

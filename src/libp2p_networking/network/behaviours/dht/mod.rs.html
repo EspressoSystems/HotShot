@@ -1316,7 +1316,7 @@
                     <span class="macro">info!</span>(<span class="string">"Starting bootstrap"</span>);
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">error!</span>(
+                    <span class="macro">warn!</span>(
                         <span class="string">"peer id {:?} FAILED TO START BOOTSTRAP {:?} adding peers {:?}"</span>,
                         <span class="self">self</span>.peer_id, e, <span class="self">self</span>.bootstrap_nodes
                     );

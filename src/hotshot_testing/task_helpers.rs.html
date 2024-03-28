@@ -517,7 +517,7 @@
 
     <span class="kw">let </span>launcher = builder.gen_launcher::&lt;TestTypes, MemoryImpl&gt;(node_id);
 
-    <span class="kw">let </span>networks = (launcher.resource_generator.channel_generator)(node_id);
+    <span class="kw">let </span>networks = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 

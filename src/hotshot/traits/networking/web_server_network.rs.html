@@ -1236,6 +1236,11 @@
 <a href="#1234" id="1234">1234</a>
 <a href="#1235" id="1235">1235</a>
 <a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1250,6 +1255,7 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>derive_more::{Deref, DerefMut};
+<span class="kw">use </span>hotshot_types::traits::network::AsyncGenerator;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{Version01, VERSION_0_1},
@@ -2447,7 +2453,7 @@
         _is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         _secondary_network_delay: Duration,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
+    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;)&gt; {
         <span class="kw">let </span>da_gen = <span class="self">Self</span>::single_generator(
             expected_node_count,
             num_bootstrap,
@@ -2465,7 +2471,11 @@
             <span class="kw-2">&amp;</span>reliability_config,
         );
         <span class="comment">// Start each node's web server client
-        </span>Box::new(<span class="kw">move </span>|id| (quorum_gen(id).into(), da_gen(id).into()))
+        </span>Box::pin(<span class="kw">move </span>|id| {
+            <span class="kw">let </span>da_gen = da_gen(id);
+            <span class="kw">let </span>quorum_gen = quorum_gen(id);
+            Box::pin(<span class="kw">async move </span>{ (quorum_gen.into(), da_gen.into()) })
+        })
     }
 
     <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {

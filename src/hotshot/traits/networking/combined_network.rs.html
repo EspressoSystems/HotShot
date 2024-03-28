@@ -476,14 +476,23 @@
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
-</span><span class="kw">use </span><span class="kw">super</span>::NetworkError;
-<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::{Libp2pNetwork, WebServerNetwork};
+</span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
+<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::constants::{
-    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+<span class="kw">use </span>hotshot_types::{
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
+    traits::network::AsyncGenerator,
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>std::{
@@ -542,10 +551,10 @@
 
 <span class="doccomment">/// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
-</span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>CombinedNetworks&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The two networks we'll use for send/recv
-    </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES, NetworkVersion&gt;&gt;,
+    </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Last n seen messages to prevent processing duplicates
     </span>message_cache: Arc&lt;RwLock&lt;LruCache&lt;u64, ()&gt;&gt;&gt;,
@@ -560,17 +569,14 @@
     </span>delay_duration: Arc&lt;RwLock&lt;Duration&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; CombinedNetworks&lt;TYPES, NetworkVersion&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; CombinedNetworks&lt;TYPES&gt; {
     <span class="doccomment">/// Constructor
     ///
     /// # Panics
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(
-        networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES, NetworkVersion&gt;&gt;,
-        delay_duration: Duration,
-    ) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;, delay_duration: Duration) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -584,7 +590,7 @@
 
     <span class="doccomment">/// Get a ref to the primary network
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
+    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PushCdnNetwork&lt;TYPES&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networks.<span class="number">0
     </span>}
 
@@ -651,19 +657,17 @@
     }
 }
 
-<span class="doccomment">/// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
+<span class="doccomment">/// Wrapper for the tuple of `PushCdnNetwork` and `Libp2pNetwork`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
-</span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt;(
-    <span class="kw">pub </span>WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType&gt;(
+    <span class="kw">pub </span>PushCdnNetwork&lt;TYPES&gt;,
     <span class="kw">pub </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
 );
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>&gt;
-    TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedNetworks&lt;TYPES, NetworkVersion&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt; {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -672,9 +676,9 @@
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         secondary_network_delay: Duration,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; (Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;) + <span class="lifetime">'static</span>&gt; {
+    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;)&gt; {
         <span class="kw">let </span>generators = (
-            &lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
+            &lt;PushCdnNetwork&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>&gt;&gt;::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -693,38 +697,47 @@
                 Duration::default(),
             )
         );
-        Box::new(<span class="kw">move </span>|node_id| {
-            <span class="kw">let </span>(quorum_web, da_web) = generators.<span class="number">0</span>(node_id);
-            <span class="kw">let </span>(quorum_p2p, da_p2p) = generators.<span class="number">1</span>(node_id);
-            <span class="kw">let </span>da_networks = UnderlyingCombinedNetworks(
-                Arc::&lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt;&gt;::into_inner(da_web).unwrap(),
-                Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(da_p2p),
-            );
-            <span class="kw">let </span>quorum_networks = UnderlyingCombinedNetworks(
-                Arc::&lt;WebServerNetwork&lt;TYPES, NetworkVersion&gt;&gt;::into_inner(quorum_web).unwrap(),
-                Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(
-                    quorum_p2p,
-                ),
-            );
-            <span class="kw">let </span>quorum_net = <span class="self">Self </span>{
-                networks: Arc::new(quorum_networks),
-                message_cache: Arc::new(RwLock::new(LruCache::new(
-                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
-                ))),
-                primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
-                delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
-            };
-            <span class="kw">let </span>da_net = <span class="self">Self </span>{
-                networks: Arc::new(da_networks),
-                message_cache: Arc::new(RwLock::new(LruCache::new(
-                    NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
-                ))),
-                primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
-                delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
-            };
-            (quorum_net.into(), da_net.into())
+        Box::pin(<span class="kw">move </span>|node_id| {
+            <span class="kw">let </span>gen0 = generators.<span class="number">0</span>(node_id);
+            <span class="kw">let </span>gen1 = generators.<span class="number">1</span>(node_id);
+
+            Box::pin(<span class="kw">async move </span>{
+                <span class="kw">let </span>(cdn, <span class="kw">_</span>) = gen0.<span class="kw">await</span>;
+                <span class="kw">let </span>cdn = Arc::&lt;PushCdnNetwork&lt;TYPES&gt;&gt;::into_inner(cdn).unwrap();
+
+                <span class="kw">let </span>(quorum_p2p, da_p2p) = gen1.<span class="kw">await</span>;
+                <span class="kw">let </span>da_networks = UnderlyingCombinedNetworks(
+                    cdn.clone(),
+                    Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(
+                        da_p2p,
+                    ),
+                );
+                <span class="kw">let </span>quorum_networks = UnderlyingCombinedNetworks(
+                    cdn,
+                    Arc::&lt;Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(
+                        quorum_p2p,
+                    ),
+                );
+                <span class="kw">let </span>quorum_net = <span class="self">Self </span>{
+                    networks: Arc::new(quorum_networks),
+                    message_cache: Arc::new(RwLock::new(LruCache::new(
+                        NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                    ))),
+                    primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                    delayed_tasks: Arc::default(),
+                    delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                };
+                <span class="kw">let </span>da_net = <span class="self">Self </span>{
+                    networks: Arc::new(da_networks),
+                    message_cache: Arc::new(RwLock::new(LruCache::new(
+                        NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
+                    ))),
+                    primary_down: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                    delayed_tasks: Arc::default(),
+                    delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                };
+                (quorum_net.into(), da_net.into())
+            })
         })
     }
 
@@ -737,9 +750,8 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, NetworkVersion: <span class="lifetime">'static </span>+ StaticVersionType&gt;
-    ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
-    <span class="kw">for </span>CombinedNetworks&lt;TYPES, NetworkVersion&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
+    <span class="kw">for </span>CombinedNetworks&lt;TYPES&gt;
 {
     <span class="kw">async fn </span>request_data&lt;T: NodeType, VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -919,7 +931,7 @@
     </span>}
 
     <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;TYPES::SignatureKey&gt;) {
-        &lt;WebServerNetwork&lt;<span class="kw">_</span>, NetworkVersion&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+        &lt;PushCdnNetwork&lt;<span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::inject_consensus_info(<span class="self">self</span>.primary(), event.clone())
