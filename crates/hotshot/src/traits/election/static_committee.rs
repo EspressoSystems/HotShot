@@ -69,10 +69,19 @@ where
         self.committee_nodes_with_stake.clone()
     }
 
-    #[cfg(not(feature = "randomized-leader-election"))]
+    #[cfg(not(any(feature = "randomized-leader-election", feature = "fixed-leader-election")))]
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = usize::try_from(*view_number % self.nodes_with_stake.len() as u64).unwrap();
+        let res = self.nodes_with_stake[index].clone();
+        TYPES::SignatureKey::get_public_key(&res)
+    }
+
+    #[cfg(feature = "fixed-leader-election")]
+    /// Only get leader in fixed set
+    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
+        // Sishan TODO
+        let index = 1;
         let res = self.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(&res)
     }
