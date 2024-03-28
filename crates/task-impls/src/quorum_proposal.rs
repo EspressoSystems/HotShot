@@ -3,8 +3,9 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use either::Either;
 use hotshot_task::{
-    dependency::{AndDependency, EventDependency},
+    dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
 };
@@ -42,8 +43,16 @@ enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// Any of the 3 optional proposal certs is successfully received and sent downstream in the
-    /// task. The certs are `ViewSyncFinalizeCertificate2Recv`, `QuorumProposalRecv`, and `QCFormed`.
+    /// For the `QCFormed` event.
+    QC,
+
+    /// For the `ViewSyncFinalizeCertificate2Recv` event.
+    ViewSyncCert,
+
+    /// For the `QCFormed` event timeout branch.
+    TimeoutCert,
+
+    /// For the `QuroumProposalRecv` event.
     ProposalCertificate,
 }
 
@@ -61,7 +70,7 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
-    type Output = Vec<Arc<HotShotEvent<TYPES>>>;
+    type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
@@ -70,7 +79,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _quorum_certificate = None;
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
-        for event in res {
+        for event in res.iter().flatten() {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalRecv(proposal, _) => {
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
@@ -182,19 +191,38 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             event_receiver,
             Box::new(move |event| {
                 let event = event.as_ref();
-                debug!("Dependency {:?} got event {:?}", dependency_type, event);
                 let event_view = match dependency_type {
-                    ProposalDependency::ProposalCertificate => match event {
-                        HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) => {
-                            view_sync_cert.view_number
+                    ProposalDependency::QC => {
+                        if let HotShotEvent::QCFormed(either::Left(qc)) = event {
+                            qc.view_number
+                        } else {
+                            return false;
                         }
-                        HotShotEvent::QCFormed(cert) => match cert {
-                            either::Right(timeout) => timeout.view_number,
-                            either::Left(qc) => qc.view_number,
-                        },
-                        HotShotEvent::QuorumProposalRecv(proposal, _) => proposal.data.view_number,
-                        _ => return false,
-                    },
+                    }
+                    ProposalDependency::TimeoutCert => {
+                        if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
+                            timeout.view_number
+                        } else {
+                            return false;
+                        }
+                    }
+                    ProposalDependency::ViewSyncCert => {
+                        if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
+                            event
+                        {
+                            view_sync_cert.view_number
+                        } else {
+                            return false;
+                        }
+                    }
+
+                    ProposalDependency::ProposalCertificate => {
+                        if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
+                            proposal.data.view_number
+                        } else {
+                            return false;
+                        }
+                    }
                     ProposalDependency::PayloadAndMetadata => {
                         if let HotShotEvent::SendPayloadCommitmentAndMetadata(
                             _payload_commitment,
@@ -208,7 +236,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                 };
-                event_view == view_number
+                let valid = event_view == view_number;
+                if valid {
+                    debug!("Depencency {:?} is complete!", dependency_type);
+                }
+                valid
             }),
         )
     }
@@ -231,8 +263,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        let mut proposal_cert_validated_dependency = self.create_event_dependency(
+        let mut proposal_cert_dependency = self.create_event_dependency(
             ProposalDependency::ProposalCertificate,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        let mut qc_dependency = self.create_event_dependency(
+            ProposalDependency::QC,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        let mut view_sync_dependency = self.create_event_dependency(
+            ProposalDependency::ViewSyncCert,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        let mut timeout_dependency = self.create_event_dependency(
+            ProposalDependency::TimeoutCert,
             view_number,
             event_receiver.clone(),
         );
@@ -247,23 +297,40 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::QuorumProposalRecv(_, _)
-            | HotShotEvent::QCFormed(_)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
-                proposal_cert_validated_dependency.mark_as_completed(event);
+            HotShotEvent::QuorumProposalRecv(_, _) => {
+                proposal_cert_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
+                Either::Right(_) => {
+                    timeout_dependency.mark_as_completed(event);
+                }
+                Either::Left(_) => {
+                    qc_dependency.mark_as_completed(event);
+                }
+            },
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+                view_sync_dependency.mark_as_completed(event);
             }
             _ => {}
         };
 
-        // We must always have the payload commitment and metadata, but can have any of the other
-        // events that include a proposable certificate
-        let proposal_dependency = AndDependency::from_deps(vec![
-            payload_commitment_dependency,
-            proposal_cert_validated_dependency,
+        // We have three cases to consider:
+        let combined = AndDependency::from_deps(vec![
+            OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                payload_commitment_dependency,
+            ])]),
+            OrDependency::from_deps(vec![
+                // 1. A QCFormed event and QuorumProposalRecv event
+                AndDependency::from_deps(vec![qc_dependency, proposal_cert_dependency]),
+                // 2. A timeout cert was received
+                AndDependency::from_deps(vec![timeout_dependency]),
+                // 3. A view sync cert was received.
+                AndDependency::from_deps(vec![view_sync_dependency]),
+            ]),
         ]);
 
         let dependency_task = DependencyTask::new(
-            proposal_dependency,
+            combined,
             ProposalDependencyHandle {
                 view_number,
                 sender: event_sender,
@@ -613,7 +680,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                let view = proposal.data.get_view_number();
+                let view = proposal.data.get_view_number() + 1;
                 if view < self.latest_proposed_view {
                     debug!("Proposal is from an older view {:?}", proposal.data.clone());
                     return;
