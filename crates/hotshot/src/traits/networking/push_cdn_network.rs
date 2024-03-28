@@ -329,6 +329,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     .build()
                     .expect("failed to build client config");
 
+                println!("about to block");
                 // Create our client
                 let client = Arc::new(PushCdnNetwork {
                     client: async_block_on(async move { Client::new(client_config).await })
@@ -336,6 +337,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     #[cfg(feature = "hotshot-testing")]
                     is_paused: Arc::default(),
                 });
+                println!("done blocking");
 
                 (client.clone(), client)
             }
