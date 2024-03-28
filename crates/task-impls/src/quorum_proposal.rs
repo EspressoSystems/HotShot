@@ -160,15 +160,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
 
-    /// Timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
-
-    /// Our public key
-    pub public_key: TYPES::SignatureKey,
-
-    /// View timeout from config.
-    pub timeout: u64,
-
     /// The node's id
     pub id: u64,
 }
