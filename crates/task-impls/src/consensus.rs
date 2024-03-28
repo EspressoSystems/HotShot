@@ -91,7 +91,7 @@ async fn validate_proposal<TYPES: NodeType>(
     let parent_commitment = parent_leaf.commit();
     let view = proposal.data.get_view_number();
     let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-    // proposed_leaf.set_parent_commitment(parent_commitment);
+    proposed_leaf.set_parent_commitment(parent_commitment);
 
     // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     if !view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()) {
