@@ -365,7 +365,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     /// The clients form an initial connection when created, so we don't have to wait.
-    async fn wait_for_ready(&self) {}
+    async fn wait_for_ready(&self) {
+        self.client.ensure_initialized().await
+    }
 
     /// The clients form an initial connection when created, so we can return `true` here
     /// always.
