@@ -51,9 +51,9 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            QuorumProposalValidated(proposals[0].data.clone()),
             DACRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0[0].clone()),
+            QuorumProposalValidated(proposals[0].data.clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -89,7 +89,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         ]
     };
 
-    let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    view_2_inputs.push(QuorumProposalValidated(proposals[1].data.clone()));
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
