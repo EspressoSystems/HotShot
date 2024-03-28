@@ -287,6 +287,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         let marshal_endpoint = format!("127.0.0.1:{marshal_port}");
         let marshal_config = MarshalConfigBuilder::default()
             .bind_address(marshal_endpoint.clone())
+            .metrics_enabled(false)
             .discovery_endpoint(discovery_endpoint)
             .build()
             .expect("failed to build marshal config");

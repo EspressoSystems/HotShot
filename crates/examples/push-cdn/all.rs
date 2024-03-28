@@ -95,6 +95,7 @@ async fn main() {
     let marshal_endpoint = format!("127.0.0.1:{marshal_port}");
     let marshal_config = cdn_marshal::ConfigBuilder::default()
         .bind_address(marshal_endpoint.clone())
+        .metrics_enabled(false)
         .discovery_endpoint("test.sqlite".to_string())
         .build()
         .expect("failed to build marshal config");
