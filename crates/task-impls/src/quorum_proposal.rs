@@ -197,7 +197,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             event_receiver,
             Box::new(move |event| {
                 let event = event.as_ref();
-                debug!("Dependency {:?} got event {:?}", dependency_type, event);
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
                         if let HotShotEvent::QCFormed(either::Left(qc)) = event {
@@ -243,7 +242,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                 };
-                event_view == view_number
+                let valid = event_view == view_number;
+                if valid {
+                    debug!("Depencency {:?} is complete!", dependency_type);
+                }
+                valid
             }),
         )
     }
@@ -266,7 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        let mut proposal_cert_validated_dependency = self.create_event_dependency(
+        let mut proposal_cert_dependency = self.create_event_dependency(
             ProposalDependency::ProposalCertificate,
             view_number,
             event_receiver.clone(),
@@ -301,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalRecv(_, _) => {
-                proposal_cert_validated_dependency.mark_as_completed(event);
+                proposal_cert_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
@@ -324,7 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ])]),
             OrDependency::from_deps(vec![
                 // 1. A QCFormed event and QuorumProposalRecv event
-                AndDependency::from_deps(vec![qc_dependency, proposal_cert_validated_dependency]),
+                AndDependency::from_deps(vec![qc_dependency, proposal_cert_dependency]),
                 // 2. A timeout cert was received
                 AndDependency::from_deps(vec![timeout_dependency]),
                 // 3. A view sync cert was received.
