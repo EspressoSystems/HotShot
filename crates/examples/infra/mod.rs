@@ -64,7 +64,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
@@ -623,7 +623,7 @@ pub trait RunDA<
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
                                 // use println for tmp debugging on Datadog
-                                println!("Decide event for leaf: {}", *leaf.get_view_number());
+                                debug!("Decide event for leaf: {}", *leaf.get_view_number());
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.get_block_payload() {
