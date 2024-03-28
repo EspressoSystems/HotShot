@@ -1799,12 +1799,12 @@
                             <span class="comment">// this might be a obob
                             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = leaf_chain.first() {
                                 <span class="kw">let </span>leaf = <span class="kw-2">&amp;</span>leaf_info.leaf;
-                                <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.view_number);
+                                <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.get_view_number());
 
                                 <span class="comment">// iterate all the decided transactions to calculate latency
-                                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block_payload) = <span class="kw-2">&amp;</span>leaf.block_payload {
-                                    <span class="kw">for </span>tx <span class="kw">in
-                                        </span>block_payload.get_transactions(leaf.block_header.metadata())
+                                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block_payload) = <span class="kw-2">&amp;</span>leaf.get_block_payload() {
+                                    <span class="kw">for </span>tx <span class="kw">in </span>block_payload
+                                        .get_transactions(leaf.get_block_header().metadata())
                                     {
                                         <span class="kw">let </span>restored_timestamp_vec =
                                             tx.<span class="number">0</span>[tx.<span class="number">0</span>.len() - <span class="number">8</span>..].to_vec();
@@ -1821,9 +1821,9 @@
                                     }
                                 }
 
-                                <span class="kw">let </span>new_anchor = leaf.view_number;
+                                <span class="kw">let </span>new_anchor = leaf.get_view_number();
                                 <span class="kw">if </span>new_anchor &gt;= anchor_view {
-                                    anchor_view = leaf.view_number;
+                                    anchor_view = leaf.get_view_number();
                                 }
 
                                 <span class="comment">// send transactions

@@ -179,6 +179,24 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -191,7 +209,7 @@
 <span class="kw">use </span>ethereum_types::U256;
 
 <span class="kw">use crate</span>::{
-    data::Leaf,
+    data::{serialize_signature2, Leaf},
     simple_vote::{
         DAData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
@@ -256,6 +274,24 @@
     </span><span class="kw">pub </span>is_genesis: bool,
     <span class="doccomment">/// phantom data for `THRESHOLD` and `TYPES`
     </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, THRESHOLD)&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold&lt;TYPES&gt;&gt; Committable
+    <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
+{
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>signature_bytes = <span class="kw">match </span><span class="self">self</span>.signatures.as_ref() {
+            <span class="prelude-val">Some</span>(sigs) =&gt; serialize_signature2::&lt;TYPES&gt;(sigs),
+            <span class="prelude-val">None </span>=&gt; <span class="macro">vec!</span>[],
+        };
+        commit::RawCommitmentBuilder::new(<span class="string">"Certificate"</span>)
+            .field(<span class="string">"data"</span>, <span class="self">self</span>.data.commit())
+            .field(<span class="string">"vote_commitment"</span>, <span class="self">self</span>.vote_commitment)
+            .field(<span class="string">"view number"</span>, <span class="self">self</span>.view_number.commit())
+            .var_size_field(<span class="string">"signatures"</span>, <span class="kw-2">&amp;</span>signature_bytes)
+            .fixed_size_field(<span class="string">"is genesis"</span>, <span class="kw-2">&amp;</span>[<span class="self">self</span>.is_genesis <span class="kw">as </span>u8])
+            .finalize()
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">'static</span>, THRESHOLD: Threshold&lt;TYPES&gt;&gt; Certificate&lt;TYPES&gt;

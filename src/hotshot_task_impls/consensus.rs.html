@@ -1467,23 +1467,6 @@
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
 <a href="#1467" id="1467">1467</a>
-<a href="#1468" id="1468">1468</a>
-<a href="#1469" id="1469">1469</a>
-<a href="#1470" id="1470">1470</a>
-<a href="#1471" id="1471">1471</a>
-<a href="#1472" id="1472">1472</a>
-<a href="#1473" id="1473">1473</a>
-<a href="#1474" id="1474">1474</a>
-<a href="#1475" id="1475">1475</a>
-<a href="#1476" id="1476">1476</a>
-<a href="#1477" id="1477">1477</a>
-<a href="#1478" id="1478">1478</a>
-<a href="#1479" id="1479">1479</a>
-<a href="#1480" id="1480">1480</a>
-<a href="#1481" id="1481">1481</a>
-<a href="#1482" id="1482">1482</a>
-<a href="#1483" id="1483">1483</a>
-<a href="#1484" id="1484">1484</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1681,13 +1664,8 @@
                 };
                 <span class="kw">let </span>parent_commitment = parent.commit();
 
-                <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf {
-                    view_number: view,
-                    justify_qc: proposal.justify_qc.clone(),
-                    parent_commitment,
-                    block_header: proposal.block_header.clone(),
-                    block_payload: <span class="prelude-val">None</span>,
-                };
+                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                proposed_leaf.set_parent_commitment(parent_commitment);
 
                 <span class="comment">// Validate the DAC.
                 </span><span class="kw">let </span>message = <span class="kw">if </span>cert.is_valid_cert(<span class="self">self</span>.committee_membership.as_ref()) {
@@ -1701,7 +1679,7 @@
                     }
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(vote) = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
                         QuorumData {
-                            leaf_commit: leaf.commit(),
+                            leaf_commit: proposed_leaf.commit(),
                         },
                         view,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
@@ -1987,7 +1965,7 @@
                     {
                         <span class="prelude-val">Some</span>(leaf) =&gt; {
                             <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =
-                                consensus.get_state_and_delta(leaf.view_number)
+                                consensus.get_state_and_delta(leaf.get_view_number())
                             {
                                 <span class="prelude-val">Some</span>((leaf, state.clone()))
                             } <span class="kw">else </span>{
@@ -2025,13 +2003,8 @@
                         <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
                         justify_qc.get_data().leaf_commit
                     );
-                    <span class="kw">let </span>leaf = Leaf {
-                        view_number: view,
-                        justify_qc: justify_qc.clone(),
-                        parent_commitment: justify_qc.get_data().leaf_commit,
-                        block_header: proposal.data.block_header.clone(),
-                        block_payload: <span class="prelude-val">None</span>,
-                    };
+                    <span class="kw">let </span>leaf = Leaf::from_proposal(proposal);
+
                     <span class="kw">let </span>state = Arc::new(
                         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(
                             <span class="kw-2">&amp;</span>proposal.data.block_header,
@@ -2112,20 +2085,16 @@
                 <span class="kw">let </span>state = Arc::new(validated_state);
                 <span class="kw">let </span>delta = Arc::new(state_delta);
                 <span class="kw">let </span>parent_commitment = parent_leaf.commit();
-                <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf {
-                    view_number: view,
-                    justify_qc: justify_qc.clone(),
-                    parent_commitment,
-                    block_header: proposal.data.block_header.clone(),
-                    block_payload: <span class="prelude-val">None</span>,
-                };
-                <span class="kw">let </span>leaf_commitment = leaf.commit();
+
+                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
+                proposed_leaf.set_parent_commitment(parent_commitment);
 
                 <span class="comment">// Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-                </span><span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, leaf_commitment.as_ref()) {
+                </span><span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, proposed_leaf.commit().as_ref()) {
                     <span class="macro">error!</span>(<span class="question-mark">?</span>proposal.signature, <span class="string">"Could not verify proposal."</span>);
                     <span class="kw">return</span>;
                 }
+
                 <span class="comment">// Create a positive vote if either liveness or safety check
                 // passes.
 
@@ -2141,7 +2110,7 @@
                     |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
                         <span class="comment">// if leaf view no == locked view no then we're done, report success by
                         // returning true
-                        </span>leaf.view_number != consensus.locked_view
+                        </span>leaf.get_view_number() != consensus.locked_view
                     },
                 );
                 <span class="kw">let </span>safety_check = outcome.is_ok();
@@ -2189,7 +2158,7 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>leafs_decided = Vec::new();
                 <span class="kw">let </span><span class="kw-2">mut </span>included_txns = HashSet::new();
                 <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
-                <span class="kw">let </span>parent_view = leaf.justify_qc.get_view_number();
+                <span class="kw">let </span>parent_view = proposed_leaf.get_justify_qc().get_view_number();
                 <span class="kw">let </span><span class="kw-2">mut </span>current_chain_length = <span class="number">0usize</span>;
                 <span class="kw">if </span>parent_view + <span class="number">1 </span>== view {
                     current_chain_length += <span class="number">1</span>;
@@ -2199,17 +2168,17 @@
                         <span class="bool-val">true</span>,
                         |leaf, state, delta| {
                             <span class="kw">if </span>!new_decide_reached {
-                                <span class="kw">if </span>last_view_number_visited == leaf.view_number + <span class="number">1 </span>{
-                                    last_view_number_visited = leaf.view_number;
+                                <span class="kw">if </span>last_view_number_visited == leaf.get_view_number() + <span class="number">1 </span>{
+                                    last_view_number_visited = leaf.get_view_number();
                                     current_chain_length += <span class="number">1</span>;
                                     <span class="kw">if </span>current_chain_length == <span class="number">2 </span>{
-                                        new_locked_view = leaf.view_number;
+                                        new_locked_view = leaf.get_view_number();
                                         new_commit_reached = <span class="bool-val">true</span>;
                                         <span class="comment">// The next leaf in the chain, if there is one, is decided, so this
                                         // leaf's justify_qc would become the QC for the decided chain.
-                                        </span>new_decide_qc = <span class="prelude-val">Some</span>(leaf.justify_qc.clone());
+                                        </span>new_decide_qc = <span class="prelude-val">Some</span>(leaf.get_justify_qc().clone());
                                     } <span class="kw">else if </span>current_chain_length == <span class="number">3 </span>{
-                                        new_anchor_view = leaf.view_number;
+                                        new_anchor_view = leaf.get_view_number();
                                         new_decide_reached = <span class="bool-val">true</span>;
                                     }
                                 } <span class="kw">else </span>{
@@ -2220,7 +2189,7 @@
                             <span class="comment">// starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                             </span><span class="kw">if </span>new_decide_reached {
                                 <span class="kw">let </span><span class="kw-2">mut </span>leaf = leaf.clone();
-                                <span class="kw">if </span>leaf.view_number == new_anchor_view {
+                                <span class="kw">if </span>leaf.get_view_number() == new_anchor_view {
                                     consensus
                                         .metrics
                                         .last_synced_block_height
@@ -2254,7 +2223,7 @@
 
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
                                 leafs_decided.push(leaf.clone());
-                                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.get_block_payload() {
                                     <span class="kw">for </span>txn <span class="kw">in </span>payload
                                         .transaction_commitments(leaf.get_block_header().metadata())
                                     {
@@ -2287,13 +2256,15 @@
                     view,
                     View {
                         view_inner: ViewInner::Leaf {
-                            leaf: leaf.commit(),
+                            leaf: proposed_leaf.commit(),
                             state: state.clone(),
                             delta: <span class="prelude-val">Some</span>(delta.clone()),
                         },
                     },
                 );
-                consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+                consensus
+                    .saved_leaves
+                    .insert(proposed_leaf.commit(), proposed_leaf.clone());
 
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                     </span>.storage
@@ -2830,7 +2801,7 @@
             <span class="macro">error!</span>(<span class="string">"Failed to find high QC of parent."</span>);
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
-        <span class="kw">if </span>leaf.view_number == consensus.last_decided_view {
+        <span class="kw">if </span>leaf.get_view_number() == consensus.last_decided_view {
             reached_decided = <span class="bool-val">true</span>;
         }
 
@@ -2844,10 +2815,10 @@
         </span><span class="kw">if </span>!reached_decided {
             <span class="macro">debug!</span>(<span class="string">"We have not reached decide from view {:?}"</span>, <span class="self">self</span>.cur_view);
             <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>next_parent_hash) {
-                <span class="kw">if </span>next_parent_leaf.view_number &lt;= consensus.last_decided_view {
+                <span class="kw">if </span>next_parent_leaf.get_view_number() &lt;= consensus.last_decided_view {
                     <span class="kw">break</span>;
                 }
-                next_parent_hash = next_parent_leaf.parent_commitment;
+                next_parent_hash = next_parent_leaf.get_parent_commitment();
             }
             <span class="macro">debug!</span>(<span class="string">"updated saved leaves"</span>);
             <span class="comment">// TODO do some sort of sanity check on the view number that it matches decided
@@ -2862,21 +2833,6 @@
                 commit_and_metadata.metadata.clone(),
             )
             .<span class="kw">await</span>;
-            <span class="kw">let </span>leaf = Leaf {
-                view_number: view,
-                justify_qc: consensus.high_qc.clone(),
-                parent_commitment: parent_leaf.commit(),
-                block_header: block_header.clone(),
-                block_payload: <span class="prelude-val">None</span>,
-            };
-
-            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-                TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, leaf.commit().as_ref())
-            <span class="kw">else </span>{
-                <span class="macro">error!</span>(<span class="string">"Failed to sign leaf.commit()!"</span>);
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            };
-
             <span class="kw">let </span>upgrade_cert = <span class="kw">if </span><span class="self">self
                 </span>.upgrade_cert
                 .as_ref()
@@ -2901,11 +2857,21 @@
 
             <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             </span><span class="kw">let </span>proposal = QuorumProposal {
-                block_header,
-                view_number: leaf.view_number,
+                block_header: block_header.clone(),
+                view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 proposal_certificate,
-                upgrade_certificate: upgrade_cert,
+                upgrade_certificate: upgrade_cert.clone(),
+            };
+
+            <span class="kw">let </span><span class="kw-2">mut </span>new_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
+            new_leaf.set_parent_commitment(parent_leaf.commit());
+
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+                TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, new_leaf.commit().as_ref())
+            <span class="kw">else </span>{
+                <span class="macro">error!</span>(<span class="string">"Failed to sign new_leaf.commit()!"</span>);
+                <span class="kw">return </span><span class="bool-val">false</span>;
             };
 
             <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;
@@ -2914,7 +2880,7 @@
                 signature,
                 _pd: PhantomData,
             };
-            <span class="macro">debug!</span>(<span class="string">"Sending proposal for view {:?}"</span>, leaf.view_number);
+            <span class="macro">debug!</span>(<span class="string">"Sending proposal for view {:?}"</span>, view);
 
             broadcast_event(
                 Arc::new(HotShotEvent::QuorumProposalSend(

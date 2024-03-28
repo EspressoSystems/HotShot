@@ -818,7 +818,7 @@
             HotShotEvent::LeafDecided(leaf_chain) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>queue = this.transactions.write().<span class="kw">await</span>;
                 <span class="kw">for </span>leaf <span class="kw">in </span>leaf_chain.iter() {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.get_block_payload() {
                         <span class="kw">for </span>txn <span class="kw">in </span>payload.transaction_commitments(<span class="kw-2">&amp;</span>()) {
                             queue.remove(<span class="kw-2">&amp;</span>txn);
                         }

@@ -422,7 +422,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>QuorumData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"Yes Vote"</span>)
+        commit::RawCommitmentBuilder::new(<span class="string">"Quorum data"</span>)
             .var_size_bytes(<span class="self">self</span>.leaf_commit.as_ref())
             .finalize()
     }
@@ -430,7 +430,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>TimeoutData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"Timeout Vote"</span>)
+        commit::RawCommitmentBuilder::new(<span class="string">"Timeout data"</span>)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.view)
             .finalize()
     }
@@ -438,7 +438,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>DAData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"DA Vote"</span>)
+        commit::RawCommitmentBuilder::new(<span class="string">"DA data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
             .finalize()
     }
@@ -446,7 +446,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>VIDData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"VID Vote"</span>)
+        commit::RawCommitmentBuilder::new(<span class="string">"VID data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
             .finalize()
     }
@@ -454,7 +454,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>UpgradeProposalData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">"Upgrade Vote"</span>);
+        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>);
         builder
             .u64(<span class="kw-2">*</span><span class="self">self</span>.new_version_first_block)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.old_version_last_block)

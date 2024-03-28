@@ -886,7 +886,7 @@
         </span><span class="kw">let </span>validated_state = <span class="kw">match </span>initializer.validated_state {
             <span class="prelude-val">Some</span>(state) =&gt; state,
             <span class="prelude-val">None </span>=&gt; Arc::new(TYPES::ValidatedState::from_header(
-                <span class="kw-2">&amp;</span>anchored_leaf.block_header,
+                anchored_leaf.get_block_header(),
             )),
         };
 

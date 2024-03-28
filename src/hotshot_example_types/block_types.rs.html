@@ -458,7 +458,7 @@
         payload_commitment: VidCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>parent = <span class="kw-2">&amp;</span>parent_leaf.block_header;
+        <span class="kw">let </span>parent = parent_leaf.get_block_header();
 
         <span class="kw">let </span><span class="kw-2">mut </span>timestamp = OffsetDateTime::now_utc().unix_timestamp() <span class="kw">as </span>u64;
         <span class="kw">if </span>timestamp &lt; parent.timestamp {
