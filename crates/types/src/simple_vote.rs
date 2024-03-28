@@ -162,7 +162,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
 
 impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("Quorum data")
+        commit::RawCommitmentBuilder::new("Yes Vote")
             .var_size_bytes(self.leaf_commit.as_ref())
             .finalize()
     }
@@ -170,7 +170,7 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("Timeout data")
+        commit::RawCommitmentBuilder::new("Timeout Vote")
             .u64(*self.view)
             .finalize()
     }
@@ -178,7 +178,7 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
 
 impl Committable for DAData {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("DA data")
+        commit::RawCommitmentBuilder::new("DA Vote")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
@@ -186,7 +186,7 @@ impl Committable for DAData {
 
 impl Committable for VIDData {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("VID data")
+        commit::RawCommitmentBuilder::new("VID Vote")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
@@ -194,7 +194,7 @@ impl Committable for VIDData {
 
 impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("Upgrade data");
+        let builder = commit::RawCommitmentBuilder::new("Upgrade Vote");
         builder
             .u64(*self.new_version_first_block)
             .u64(*self.old_version_last_block)
