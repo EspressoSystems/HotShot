@@ -37,15 +37,15 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
-// use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use either::Either;
-// use futures::future::join_all;
-// use hotshot_task_impls::helpers::cancel_task;
+use futures::future::join_all;
+use hotshot_task_impls::helpers::cancel_task;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
-// use hotshot_types::traits::network::ViewMessage;
-// use hotshot_types::traits::node_implementation::ConsensusTime;
+use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use std::hash::Hash;
 use std::time::Duration;
 #[cfg(async_executor_impl = "tokio")]
@@ -76,10 +76,10 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     primary_down: Arc<AtomicU64>,
 
     /// delayed, cancelable tasks for secondary network
-    _delayed_tasks: DelayedTasksLockedMap,
+    delayed_tasks: DelayedTasksLockedMap,
 
     /// how long to delay
-    _delay_duration: Arc<RwLock<Duration>>,
+    delay_duration: Arc<RwLock<Duration>>,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -97,8 +97,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
             ))),
             primary_down: Arc::new(AtomicU64::new(0)),
-            _delayed_tasks: Arc::default(),
-            _delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delayed_tasks: Arc::default(),
+            delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
     }
 
@@ -154,6 +154,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         }
 
         if !primary_failed && Self::should_delay(&message) {
+            let duration = *self.delay_duration.read().await;
             Ok(())
         } else {
             secondary_future.await
@@ -222,8 +223,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                 ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
-                _delayed_tasks: Arc::default(),
-                _delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             let da_net = Self {
                 networks: Arc::new(da_networks),
@@ -231,8 +232,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                 ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
-                _delayed_tasks: Arc::default(),
-                _delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                delayed_tasks: Arc::default(),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             (quorum_net.into(), da_net.into())
         })
@@ -265,11 +266,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         bind_version: VER,
     ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
-        _ = bind_version;
         // self.secondary()
         //     .spawn_request_receiver_task(bind_version)
         //     .await
-        None
     }
 
     fn pause(&self) {
@@ -440,7 +439,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             inject_consensus_info(self.secondary(), event).await;
     }
 
-    fn update_view(&self, _view: u64) {
+    fn update_view(&self, view: u64) {
+        let delayed_map = self.delayed_tasks.clone();
         // async_spawn(async move {
         //     let mut cancel_tasks = Vec::new();
         //     {
