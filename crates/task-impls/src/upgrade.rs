@@ -117,7 +117,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}", *view, proposal.data.clone());
                     return None;
                 }
->>>>>>> main
 
                 // At this point, we've checked that:
                 //   * the proposal was expected,
