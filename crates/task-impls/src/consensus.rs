@@ -31,15 +31,12 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::{vid_scheme, VidCommitment},
+    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 use hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-use jf_primitives::vid::VidScheme;
 use tracing::warn;
 use versioned_binary_serialization::version::Version;
-
-use memoize::memoize;
 
 use crate::vote_collection::HandleVoteEvent;
 use chrono::Utc;
@@ -297,11 +294,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             if let Some(upgrade_cert) = &self.decided_upgrade_cert {
-                if self.cur_view > upgrade_cert.data.old_version_last_block
-                    && self.cur_view < upgrade_cert.data.new_version_first_block
+                if view_is_between_versions(self.cur_view, &upgrade_cert.data)
                     && Some(proposal.block_header.payload_commitment())
-                        != null_block_commitment(self.quorum_membership.total_nodes())
+                        != null_block::commitment(self.quorum_membership.total_nodes())
                 {
+                    info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(self.quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
                     return false;
                 }
             }
@@ -1409,7 +1406,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 let Some(null_block_commitment) =
-                    null_block_commitment(self.quorum_membership.total_nodes())
+                    null_block::commitment(self.quorum_membership.total_nodes())
                 else {
                     // This should never happen.
                     error!("Failed to calculate null block commitment");
@@ -1580,19 +1577,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-/// The commitment for a null block payload.
-///
-/// Note: the commitment depends on the network (via `num_storage_nodes`),
-/// and may change (albeit rarely) during execution.
-///
-/// We memoize the result to avoid having to recalculate it.
-#[memoize(SharedCache, Capacity: 10)]
-fn null_block_commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
-    let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
+pub mod null_block {
+    #![allow(missing_docs)]
+    use hotshot_types::vid::{vid_scheme, VidCommitment};
+    use jf_primitives::vid::VidScheme;
+    use memoize::memoize;
 
-    match vid_result {
-        Ok(r) => Some(r),
-        Err(_) => None,
+    /// The commitment for a null block payload.
+    ///
+    /// Note: the commitment depends on the network (via `num_storage_nodes`),
+    /// and may change (albeit rarely) during execution.
+    ///
+    /// We memoize the result to avoid having to recalculate it.
+    #[memoize(SharedCache, Capacity: 10)]
+    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
+
+        match vid_result {
+            Ok(r) => Some(r),
+            Err(_) => None,
+        }
     }
 }
 
