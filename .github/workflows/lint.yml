@@ -31,8 +31,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |

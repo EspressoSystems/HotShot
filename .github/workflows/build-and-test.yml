@@ -32,8 +32,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -65,7 +66,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Unit and integration tests for all crates in workspace
         run: |
@@ -92,8 +95,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -140,8 +144,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -169,8 +174,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: arm-${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build examples in release mode
         run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
@@ -390,8 +396,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
