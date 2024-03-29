@@ -7,7 +7,6 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_success() {
-    use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::{consecutive, exact},
@@ -53,7 +52,6 @@ async fn test_quorum_vote_task_success() {
     let quorum_vote_state =
         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_quorum_vote_polls(&quorum_vote_state).await;
     run_test_script(vec![view_success], quorum_vote_state).await;
 }
 
@@ -61,7 +59,6 @@ async fn test_quorum_vote_task_success() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_miss_dependency() {
-    use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::{consecutive, exact},
@@ -135,7 +132,6 @@ async fn test_quorum_vote_task_miss_dependency() {
     let quorum_vote_state =
         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_quorum_vote_polls(&quorum_vote_state).await;
     run_test_script(
         vec![view_no_quorum_proposal, view_no_dac, view_no_vid],
         quorum_vote_state,

@@ -64,7 +64,7 @@ where
     );
 }
 
-const RECV_TIMEOUT_MILLIS: u64 = 250;
+pub const RECV_TIMEOUT_MILLIS: u64 = 250;
 
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
 /// It broadcasts all given inputs (in order) and waits to receive all outputs (in order).

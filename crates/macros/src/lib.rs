@@ -62,7 +62,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
     use hotshot_testing::script::{
         panic_extra_output_in_script, panic_missing_output_in_script, validate_output_or_panic_in_script,
-        validate_task_state_or_panic_in_script,
+        validate_task_state_or_panic_in_script,RECV_TIMEOUT_MILLIS
     };
 
     use hotshot_testing::predicates::Predicate;
@@ -146,7 +146,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         #task_names.state().handle_result(&res).await;
                     }
 
-                    while let Ok(received_output_0) = test_receiver.try_recv() {
+                    while let Ok(Ok(received_output_0)) = async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output_0);
 
                         let output_asserts = &#task_expectations[stage_number].output_asserts;
@@ -160,7 +160,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         match assert {
                             EventPredicate::One(assert) => validate_output_or_panic_in_script(stage_number, #script_names.to_string(), &received_output_0, assert),
                             EventPredicate::Consecutive(assert) => {
-                                if let Ok(received_output_1) = test_receiver.try_recv() {
+                                if let Ok(Ok(received_output_1)) = async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
                                     tracing::debug!("Test received: {:?}", received_output_1);
 
                                     let output_asserts = &#task_expectations[stage_number].output_asserts;
