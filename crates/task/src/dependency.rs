@@ -148,6 +148,9 @@ impl<T: Clone + Send + Sync + 'static> EventDependency<T> {
 
 impl<T: Clone + Send + Sync + 'static> Dependency<T> for EventDependency<T> {
     async fn completed(mut self) -> Option<T> {
+        if let Some(dependency) = self.completed_dependency {
+            return Some(dependency);
+        }
         loop {
             if let Some(dependency) = self.completed_dependency {
                 return Some(dependency);

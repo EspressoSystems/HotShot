@@ -7,7 +7,7 @@ RUN apt-get update \
 ARG TARGETARCH
 ARG ASYNC_EXECUTOR
 
-COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/debug/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/orchestrator-webserver /usr/local/bin/orchestrator-webserver
 
 # logging
 ENV RUST_LOG="warn"
@@ -15,5 +15,4 @@ ENV RUST_LOG="warn"
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"
 
-ENTRYPOINT ["tini", "--"]
-CMD ["orchestrator-webserver"]
+ENTRYPOINT ["orchestrator-webserver"]

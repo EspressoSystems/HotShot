@@ -1,2 +1,3 @@
 __pycache__
 *.output
+benchmarks_results/results.csv

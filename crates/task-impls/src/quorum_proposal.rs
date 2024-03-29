@@ -54,7 +54,7 @@ enum ProposalDependency {
     TimeoutCert,
 
     /// For the `QuroumProposalRecv` event.
-    ProposalCertificate,
+    Proposal,
 }
 
 /// Handler for the proposal dependency
@@ -432,8 +432,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        let mut proposal_cert_dependency = self.create_event_dependency(
-            ProposalDependency::ProposalCertificate,
+        let mut proposal_dependency = self.create_event_dependency(
+            ProposalDependency::Proposal,
             view_number,
             event_receiver.clone(),
         );
