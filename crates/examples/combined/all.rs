@@ -67,7 +67,7 @@ async fn main() {
             BrokerConfigBuilder::default()
                 .discovery_endpoint(discovery_endpoint.clone())
                 .keypair(KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key.clone()),
+                    public_key: WrappedSignatureKey(broker_public_key),
                     private_key: broker_private_key.clone(),
                 })
                 .metrics_enabled(false)
