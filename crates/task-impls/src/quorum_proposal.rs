@@ -190,7 +190,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             None
         };
 
-        // We only want to proposal to be attached if any of them are valid.
+        // We only want the proposal to be attached if any of them are valid.
         let proposal_certificate = proposal_cert
             .as_ref()
             .filter(|cert| cert.is_valid_for_view(&view))
@@ -402,7 +402,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                 };
+
                 let valid = event_view == view_number;
+
+                // NOTE: This will *not* emit when a dependency was short circuited on creation.
+                // This is only for dependencies that were awaiting a result.
                 if valid {
                     debug!("Depencency {:?} is complete!", dependency_type);
                 }
@@ -411,8 +415,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         )
     }
 
-    /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
-    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
+    /// Create and store an [`AndDependency`] of [`OrDependency`]s combining
+    /// [`EventDependency`]s associated with the given view number if it doesn't exist.
+    /// Also takes in the received `event` to seed a
     /// dependency as already completed. This allows for the task to receive a proposable event
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
@@ -525,7 +530,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             .insert(view_number, dependency_task.run());
     }
 
-    /// Update the latest proposed view number.
+    /// Update the latest proposed view number. This function destructively removes all old
+    /// dependency tasks (tasks whose view is < the latest view).
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
@@ -558,7 +564,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         certificate.is_valid_cert(self.quorum_membership.as_ref())
     }
 
-    /// Handles a consensus event received on the event stream
+    /// Handles a consensus event received on the event stream. A notable deviation between the
+    /// original implementation of this code in the `ConsensusTask` is the handling of inbound
+    /// events which *initiate* a proposal. In this case, when an event arrives for a previously
+    /// unseen view (> than the latest proposed view), we create a background dependency task for
+    /// that view, which allows for the collection of events which, when satisfied, initiates a
+    /// proposal. The code works according to the following flow:
+    /// 1. Is the received event for a newer view than we've ever seen? Create a task.
+    ///
+    /// 2. Is the event received for an event we're currently collecting events for? Let the
+    ///    dependency task handle it, as it will make sure that the data is valid and corresponds
+    ///    to the correct view.
+    /// Lastly, in option 1, we don't want to lose access to the available data, so we clone the
+    /// `event` and initialize the dependency task with the data from it to ensure that the
+    /// information is not lost when we start the dependency, this allows us to instantly mark one
+    /// of the requirements as complete.
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal handle", level = "error")]
     pub async fn handle(
         &mut self,
