@@ -111,8 +111,8 @@ jobs:
           path: |
             target/${{ matrix.just_variants }}/release/examples/counter
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
+            target/${{ matrix.just_variants }}/release/examples/validator-combined
             target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
             target/${{ matrix.just_variants }}/release/examples/multi-webserver
             target/${{ matrix.just_variants }}/release/examples/webserver
@@ -182,8 +182,8 @@ jobs:
           path: |
             target/${{ matrix.just_variants }}/release/examples/counter
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
+            target/${{ matrix.just_variants }}/release/examples/validator-combined
             target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
             target/${{ matrix.just_variants }}/release/examples/multi-webserver
             target/${{ matrix.just_variants }}/release/examples/webserver
@@ -228,18 +228,18 @@ jobs:
           name: binaries-aarch64-${{ matrix.just_variants }}
           path: target/${{ matrix.just_variants }}/arm64/release/examples
 
-      - name: Generate orchestrator-libp2p docker metadata
-        uses: docker/metadata-action@v5
-        id: orchestrator-libp2p
-        with:
-          images: ghcr.io/espressosystems/hotshot/orchestrator-libp2p
-          flavor: suffix=-${{ matrix.just_variants }}
-
       - name: Generate validator-libp2p docker metadata
         uses: docker/metadata-action@v5
         id: validator-libp2p
         with:
           images: ghcr.io/espressosystems/hotshot/validator-libp2p
+          flavor: suffix=-${{ matrix.just_variants }}
+
+      - name: Generate validator-combined docker metadata
+        uses: docker/metadata-action@v5
+        id: validator-combined
+        with:
+          images: ghcr.io/espressosystems/hotshot/validator-combined
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate webserver docker metadata
@@ -277,20 +277,6 @@ jobs:
           images: ghcr.io/espressosystems/hotshot/cdn-marshal
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Build and push orchestrator-libp2p docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./
-          file: ./docker/orchestrator-libp2p.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.orchestrator-libp2p.outputs.tags }}
-          labels: ${{ steps.orchestrator-libp2p.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
       - name: Build and push validator-libp2p docker
         uses: docker/build-push-action@v5
         with:
@@ -300,6 +286,20 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.validator-libp2p.outputs.tags }}
           labels: ${{ steps.validator-libp2p.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
+
+      - name: Build and push validator-combined docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./docker/validator-combined.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.validator-combined.outputs.tags }}
+          labels: ${{ steps.validator-combined.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

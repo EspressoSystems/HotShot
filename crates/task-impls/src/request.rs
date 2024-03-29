@@ -131,7 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             .for_each(|r| self.run_delay(r, sender.clone(), view, bind_version));
     }
 
-    /// Creats the srequest structures for all types that are needed.
+    /// Creates the srequest structures for all types that are needed.
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares.contains_key(&view) {
@@ -142,7 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 
     /// run a delayed request task for a request.  The first response
-    /// recieved will be sent over `sender`
+    /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
         &self,
@@ -180,7 +180,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 }
 
-/// A short lived task that waits a delay and starts trying peers until it complets
+/// A short lived task that waits a delay and starts trying peers until it completes
 /// a request.  If at any point the requested info is seen in the data stores or
 /// the view has moved beyond the view we are requesting, the task will completed.
 struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
