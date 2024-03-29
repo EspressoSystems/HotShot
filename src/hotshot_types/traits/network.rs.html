@@ -828,7 +828,7 @@
         <span class="doccomment">/// source of error
         </span>source: Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;,
     },
-    <span class="doccomment">/// collection of libp2p secific errors
+    <span class="doccomment">/// collection of libp2p specific errors
     </span>Libp2pMulti {
         <span class="doccomment">/// sources of errors
         </span>sources: Vec&lt;Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;,
@@ -1003,7 +1003,7 @@
     </span>DAProposal(TYPES::Time),
 }
 
-<span class="doccomment">/// A resopnse for a request.  `SequencingMessage` is the same as other network messages
+<span class="doccomment">/// A response for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
 </span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
@@ -1332,7 +1332,7 @@
         <span class="bool-val">true
     </span>}
     <span class="kw">fn </span>sample_delay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
-        <span class="comment">// act asyncronous before gst
+        <span class="comment">// act asynchronous before gst
         </span><span class="kw">if </span><span class="self">self</span>.start.elapsed() &lt; <span class="self">self</span>.gst {
             <span class="kw">if </span><span class="self">self</span>.asynchronous.sample_keep() {
                 <span class="self">self</span>.asynchronous.sample_delay()
@@ -1341,7 +1341,7 @@
                 </span><span class="self">self</span>.synchronous.sample_delay() + <span class="self">self</span>.gst
             }
         } <span class="kw">else </span>{
-            <span class="comment">// act syncronous after gst
+            <span class="comment">// act synchronous after gst
             </span><span class="self">self</span>.synchronous.sample_delay()
         }
     }

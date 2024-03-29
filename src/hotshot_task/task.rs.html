@@ -502,7 +502,7 @@
 </span><span class="kw">pub trait </span>TaskState: Send {
     <span class="doccomment">/// Type of event sent and received by the task
     </span><span class="kw">type </span>Event: Clone + Send + Sync + <span class="lifetime">'static</span>;
-    <span class="doccomment">/// The result returned when this task compeltes
+    <span class="doccomment">/// The result returned when this task completes
     </span><span class="kw">type </span>Output: Send;
     <span class="doccomment">/// Handle event and update state.  Return true if the task is finished
     /// false otherwise.  The handler can access the state through `Task::state_mut`
@@ -653,7 +653,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.state
     }
 
-    <span class="doccomment">/// Spawn a new task adn register it.  It will get all events not seend
+    <span class="doccomment">/// Spawn a new task and register it.  It will get all events not seend
     /// by the task creating it.
     </span><span class="kw">pub async fn </span>run_sub_task(<span class="kw-2">&amp;</span><span class="self">self</span>, state: S) {
         <span class="kw">let </span>task = Task {
@@ -793,7 +793,7 @@
     }
     <span class="doccomment">/// Wait for the results of all the tasks registered
     /// # Panics
-    /// Panics if one of the tasks paniced
+    /// Panics if one of the tasks panicked
     </span><span class="kw">pub async fn </span>join_all(<span class="self">self</span>) -&gt; Vec&lt;()&gt; {
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span><span class="kw">let </span>ret = join_all(<span class="self">self</span>.task_handles.into_inner()).<span class="kw">await</span>;

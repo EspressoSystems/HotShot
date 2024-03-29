@@ -944,7 +944,7 @@
 
 <span class="attr">#[tagged(<span class="string">"MERKLE_COMM"</span>)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, CanonicalSerialize, CanonicalDeserialize)]
-</span><span class="doccomment">/// A succint commitment for Merkle tree
+</span><span class="doccomment">/// A succinct commitment for Merkle tree
 </span><span class="kw">pub struct </span>MerkleCommitment {
     <span class="doccomment">/// Merkle tree digest
     </span>comm: FieldType,
@@ -977,7 +977,7 @@
 }
 
 <span class="kw">impl</span>&lt;K: Key&gt; PersistentMerkleNode&lt;K&gt; {
-    <span class="doccomment">/// Returns the succint commitment of this subtree
+    <span class="doccomment">/// Returns the succinct commitment of this subtree
     </span><span class="kw">pub fn </span>commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FieldType {
         <span class="kw">match </span><span class="self">self </span>{
             PersistentMerkleNode::Empty =&gt; FieldType::from(<span class="number">0</span>),

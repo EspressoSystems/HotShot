@@ -296,7 +296,7 @@
     }
 
     <span class="doccomment">/// Handle the request contained in the message. Returns the response we should send
-    /// First parses the kind and passes to the appropriate hanlder for the specific type
+    /// First parses the kind and passes to the appropriate handler for the specific type
     /// of the request.
     </span><span class="kw">async fn </span>handle_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: DataRequest&lt;TYPES&gt;) -&gt; Message&lt;TYPES&gt; {
         <span class="kw">match </span>req.request {

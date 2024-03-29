@@ -311,7 +311,7 @@
                 .<span class="kw">await</span>;
 
                 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-                </span><span class="comment">// Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
+                </span><span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
                 </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(

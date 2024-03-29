@@ -42,7 +42,7 @@ NOTE: only for debugging purposes currently</p>
     _: VER
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../behaviours/request_response/struct.Response.html" title="struct libp2p_networking::network::behaviours::request_response::Response">Response</a>&gt;, <a class="enum" href="enum.NetworkNodeHandleError.html" title="enum libp2p_networking::network::node::handle::NetworkNodeHandleError">NetworkNodeHandleError</a>&gt;</h4></section></summary><div class="docblock"><p>Request another peer for some data we want.  Returns the id of the request</p>
 <h5 id="errors-3"><a class="doc-anchor" href="#errors-3">§</a>Errors</h5>
-<p>Will retrun a networking error if the channel closes before the result
+<p>Will return a networking error if the channel closes before the result
 can be sent back</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.respond_data" class="method"><a class="src rightside" href="../../../../src/libp2p_networking/network/node/handle.rs.html#208-220">source</a><h4 class="code-header">pub async fn <a href="#method.respond_data" class="fn">respond_data</a>&lt;VER: StaticVersionType&gt;(
     &amp;self,

@@ -793,9 +793,9 @@
     </span>in_progress_get_record_queries: HashMap&lt;QueryId, KadGetQuery&gt;,
     <span class="doccomment">/// List of in-progress put requests
     </span>in_progress_put_record_queries: HashMap&lt;QueryId, KadPutQuery&gt;,
-    <span class="doccomment">/// List of previously failled get requests
+    <span class="doccomment">/// List of previously failed get requests
     </span>queued_get_record_queries: VecDeque&lt;KadGetQuery&gt;,
-    <span class="doccomment">/// List of previously failled put requests
+    <span class="doccomment">/// List of previously failed put requests
     </span>queued_put_record_queries: VecDeque&lt;KadPutQuery&gt;,
     <span class="doccomment">/// Kademlia behaviour
     </span><span class="kw">pub </span>kadem: KademliaBehaviour&lt;MemoryStore&gt;,
@@ -1019,7 +1019,7 @@
         };
 
         <span class="comment">// if the query has completed and we need to retry
-        // or if the query has enoguh replicas to return to the client
+        // or if the query has enough replicas to return to the client
         // trigger retry or completion logic
         </span><span class="kw">if </span>num &gt;= NUM_REPLICATED_TO_TRUST || last {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(KadGetQuery {
@@ -1182,7 +1182,7 @@
                     <span class="macro">info!</span>(<span class="string">"Finished bootstrap for peer {:?}"</span>, <span class="self">self</span>.peer_id);
                     <span class="self">self</span>.bootstrap_state.state = State::NotStarted;
                     <span class="self">self</span>.event_queue.push(DHTEvent::IsBootstrapped);
-                    <span class="comment">// After initial bootstrap suceeds do it every 2 minutes to maintain routing.
+                    <span class="comment">// After initial bootstrap succeeds do it every 2 minutes to maintain routing.
                     </span><span class="self">self</span>.bootstrap_state.backoff =
                         ExponentialBackoff::new(<span class="number">1</span>, Duration::from_secs(<span class="number">120</span>));
                     <span class="self">self</span>.bootstrap_state.backoff.start_next(<span class="bool-val">true</span>);

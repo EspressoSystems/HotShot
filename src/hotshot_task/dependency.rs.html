@@ -349,7 +349,7 @@
     }
 }
 
-<span class="doccomment">/// Defines a dependency that complets when one of it's dependencies compeltes
+<span class="doccomment">/// Defines a dependency that completes when one of it's dependencies completes
 </span><span class="kw">pub struct </span>OrDependency&lt;T&gt; {
     <span class="doccomment">/// Dependencies being combined
     </span>deps: Vec&lt;BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Option</span>&lt;T&gt;&gt;&gt;,
@@ -380,16 +380,16 @@
         }
         <span class="self">Self </span>{ deps: pinned }
     }
-    <span class="doccomment">/// Add another dependecy
+    <span class="doccomment">/// Add another dependency
     </span><span class="kw">pub fn </span>add_dep(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dep: <span class="kw">impl </span>Dependency&lt;T&gt; + Send + <span class="lifetime">'static</span>) {
         <span class="self">self</span>.deps.push(dep.completed().boxed());
     }
 }
 
-<span class="doccomment">/// A dependency that listens on a chanel for an event
+<span class="doccomment">/// A dependency that listens on a channel for an event
 /// that matches what some value it wants.
 </span><span class="kw">pub struct </span>EventDependency&lt;T: Clone + Send + Sync&gt; {
-    <span class="doccomment">/// Channel of incomming events
+    <span class="doccomment">/// Channel of incoming events
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) event_rx: Receiver&lt;T&gt;,
 
     <span class="doccomment">/// Closure which returns true if the incoming `T` is the

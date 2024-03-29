@@ -214,7 +214,7 @@
 #[behaviour(to_swarm = <span class="string">"NetworkEventInternal"</span>)]
 </span><span class="kw">pub struct </span>NetworkDef {
     <span class="doccomment">/// purpose: broadcasting messages to many peers
-    /// NOTE gossipsub works ONLY for sharing messsages right now
+    /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
     /// &lt;https://github.com/libp2p/rust-libp2p/issues/2398&gt;
     </span><span class="attr">#[debug(skip)]
@@ -283,14 +283,14 @@
     <span class="doccomment">/// Subscribe to a given topic
     </span><span class="kw">pub fn </span>subscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.subscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)) {
-            <span class="macro">error!</span>(<span class="string">"Failed to subsribe to topic {:?}. Error: {:?}"</span>, t, e);
+            <span class="macro">error!</span>(<span class="string">"Failed to subscribe to topic {:?}. Error: {:?}"</span>, t, e);
         }
     }
 
     <span class="doccomment">/// Unsubscribe from a given topic
     </span><span class="kw">pub fn </span>unsubscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.unsubscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)) {
-            <span class="macro">error!</span>(<span class="string">"Failed to unsubsribe from topic {:?}. Error: {:?}"</span>, t, e);
+            <span class="macro">error!</span>(<span class="string">"Failed to unsubscribe from topic {:?}. Error: {:?}"</span>, t, e);
         }
     }
 }

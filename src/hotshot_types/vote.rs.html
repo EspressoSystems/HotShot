@@ -258,7 +258,7 @@ The votes all must be over the `Commitment` associated type.
     <span class="doccomment">/// Get the vote commitment which the votes commit to
     </span><span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Voteable&gt;;
 }
-<span class="doccomment">/// Mapping of vote commitment to sigatures and bitvec
+<span class="doccomment">/// Mapping of vote commitment to signatures and bitvec
 </span><span class="kw">type </span>SignersMap&lt;COMMITMENT, KEY&gt; = HashMap&lt;
     COMMITMENT,
     (
@@ -272,7 +272,7 @@ The votes all must be over the `Commitment` associated type.
     VOTE: Vote&lt;TYPES&gt;,
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
 &gt; {
-    <span class="doccomment">/// Map of all signatures accumlated so far
+    <span class="doccomment">/// Map of all signatures accumulated so far
     </span><span class="kw">pub </span>vote_outcomes: VoteMap2&lt;
         Commitment&lt;VOTE::Commitment&gt;,
         TYPES::SignatureKey,

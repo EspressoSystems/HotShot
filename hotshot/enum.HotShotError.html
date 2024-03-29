@@ -44,7 +44,7 @@ Error type for <code>HotShot</code></p>
 </div></div></div><div class="docblock"><p>Failure in networking layer</p>
 </div><section id="variant.LeafNotFound" class="variant"><a href="#variant.LeafNotFound" class="anchor">§</a><h3 class="code-header">LeafNotFound</h3></section><div class="docblock"><p>Item was not present in storage</p>
 </div><section id="variant.InvalidState" class="variant"><a href="#variant.InvalidState" class="anchor">§</a><h3 class="code-header">InvalidState</h3></section><div class="sub-variant" id="variant.InvalidState.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.InvalidState.field.context" class="section-header"><a href="#variant.InvalidState.field.context" class="anchor field">§</a><code>context: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code></span><div class="docblock"><p>Context</p>
-</div></div></div><div class="docblock"><p>Error accesing storage
+</div></div></div><div class="docblock"><p>Error accessing storage
 Invalid state machine state</p>
 </div><section id="variant.TimeoutError" class="variant"><a href="#variant.TimeoutError" class="anchor">§</a><h3 class="code-header">TimeoutError</h3></section><div class="sub-variant" id="variant.TimeoutError.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TimeoutError.field.source" class="section-header"><a href="#variant.TimeoutError.field.source" class="anchor field">§</a><code>source: TimeoutError</code></span><div class="docblock"><p>source of error</p>
 </div></div></div><div class="docblock"><p>HotShot timed out waiting for msgs</p>
@@ -55,7 +55,7 @@ Invalid state machine state</p>
 </div></div><div class="sub-variant-field"><span id="variant.InsufficientValidSignatures.field.threshold" class="section-header"><a href="#variant.InsufficientValidSignatures.field.threshold" class="anchor field">§</a><code>threshold: <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/num/nonzero/struct.NonZero.html" title="struct core::num::nonzero::NonZero">NonZero</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>&gt;</code></span><div class="docblock"><p>Threshold of signatures needed for a quorum</p>
 </div></div></div><div class="docblock"><p>Not enough valid signatures for a quorum</p>
 </div><section id="variant.Misc" class="variant"><a href="#variant.Misc" class="anchor">§</a><h3 class="code-header">Misc</h3></section><div class="sub-variant" id="variant.Misc.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Misc.field.context" class="section-header"><a href="#variant.Misc.field.context" class="anchor field">§</a><code>context: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code></span><div class="docblock"><p>source of error</p>
-</div></div></div><div class="docblock"><p>Miscelaneous error
+</div></div></div><div class="docblock"><p>Miscellaneous error
 TODO fix this with
 #181 <a href="https://github.com/EspressoSystems/HotShot/issues/181">https://github.com/EspressoSystems/HotShot/issues/181</a></p>
 </div><section id="variant.Continue" class="variant"><a href="#variant.Continue" class="anchor">§</a><h3 class="code-header">Continue</h3></section><div class="docblock"><p>Internal value used to drive the state machine</p>

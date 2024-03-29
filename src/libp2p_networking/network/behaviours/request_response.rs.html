@@ -118,7 +118,7 @@
                 } =&gt; {
                     <span class="kw">let </span>chan = <span class="self">self</span>.request_map.remove(<span class="kw-2">&amp;</span>request_id)<span class="question-mark">?</span>;
                     <span class="kw">if </span>chan.send(<span class="prelude-val">Some</span>(response)).is_err() {
-                        <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send resonse to client, channel closed."</span>);
+                        <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send response to client, channel closed."</span>);
                     }
                     <span class="prelude-val">None
                 </span>}
@@ -131,7 +131,7 @@
                 <span class="macro">tracing::warn!</span>(<span class="string">"Error Sending Request {:?}"</span>, error);
                 <span class="kw">let </span>chan = <span class="self">self</span>.request_map.remove(<span class="kw-2">&amp;</span>request_id)<span class="question-mark">?</span>;
                 <span class="kw">if </span>chan.send(<span class="prelude-val">None</span>).is_err() {
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send resonse to client, channel closed."</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send response to client, channel closed."</span>);
                 }
                 <span class="prelude-val">None
             </span>}

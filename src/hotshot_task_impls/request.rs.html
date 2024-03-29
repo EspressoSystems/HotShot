@@ -424,7 +424,7 @@
             .for_each(|r| <span class="self">self</span>.run_delay(r, sender.clone(), view, bind_version));
     }
 
-    <span class="doccomment">/// Creats the srequest structures for all types that are needed.
+    <span class="doccomment">/// Creates the srequest structures for all types that are needed.
     </span><span class="kw">async fn </span>build_requests(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, <span class="kw">_</span>: Ver) -&gt; Vec&lt;RequestKind&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>reqs = Vec::new();
         <span class="kw">if </span>!<span class="self">self</span>.state.read().<span class="kw">await</span>.vid_shares.contains_key(<span class="kw-2">&amp;</span>view) {
@@ -435,7 +435,7 @@
     }
 
     <span class="doccomment">/// run a delayed request task for a request.  The first response
-    /// recieved will be sent over `sender`
+    /// received will be sent over `sender`
     </span><span class="kw">fn </span>run_delay(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
@@ -471,7 +471,7 @@
     }
 }
 
-<span class="doccomment">/// A short lived task that waits a delay and starts trying peers until it complets
+<span class="doccomment">/// A short lived task that waits a delay and starts trying peers until it completes
 /// a request.  If at any point the requested info is seen in the data stores or
 /// the view has moved beyond the view we are requesting, the task will completed.
 </span><span class="kw">struct </span>DelayedRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {

@@ -778,7 +778,7 @@
 
 <span class="doccomment">/// Bundle of the networks used in consensus
 </span><span class="kw">pub struct </span>Networks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Newtork for reaching all nodes
+    <span class="doccomment">/// Network for reaching all nodes
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for reaching the DA committee
@@ -1336,13 +1336,13 @@
 
     <span class="doccomment">/// Optional validated state.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
+    /// If it's given, we'll use it to construct the `SystemContext`. Otherwise, we'll construct
     /// the state from the block header.
     </span>validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
 
     <span class="doccomment">/// Optional state delta.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`.
+    /// If it's given, we'll use it to construct the `SystemContext`.
     </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
 
     <span class="doccomment">/// Starting view number that we are confident won't lead to a double vote after restart.
@@ -1381,7 +1381,7 @@
     /// # Arguments
     /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
     /// after restart.
-    /// * `validated_state` - Optional validated state that if given, will be used to constrcut the
+    /// * `validated_state` - Optional validated state that if given, will be used to construct the
     /// `SystemContext`.
     </span><span class="kw">pub fn </span>from_reload(
         anchor_leaf: Leaf&lt;TYPES&gt;,

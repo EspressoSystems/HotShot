@@ -1497,7 +1497,6 @@
 <a href="#1495" id="1495">1495</a>
 <a href="#1496" id="1496">1496</a>
 <a href="#1497" id="1497">1497</a>
-<a href="#1498" id="1498">1498</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1952,7 +1951,7 @@
                 .metrics
                 .current_view
                 .set(usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap());
-            <span class="comment">// Do the comparison before the substraction to avoid potential overflow, since
+            <span class="comment">// Do the comparison before the subtraction to avoid potential overflow, since
             // `last_decided_view` may be greater than `cur_view` if the node is catching up.
             </span><span class="kw">if </span>usize::try_from(<span class="self">self</span>.cur_view.get_u64()).unwrap()
                 &gt; usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
@@ -2064,7 +2063,7 @@
                 // SS: It is possible that we may wish to vote against any quorum proposal
                 // if it attaches an upgrade certificate that we cannot support.
                 // But I don't think there's much point in this -- if the UpgradeCertificate
-                // threshhold (90%) has been reached, voting against the QuorumProposal on that basis
+                // threshold (90%) has been reached, voting against the QuorumProposal on that basis
                 // will probably be completely symbolic anyway.
                 //
                 // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
@@ -2226,7 +2225,6 @@
 
                     <span class="kw">return</span>;
                 };
-
                 async_spawn(validate_proposal(
                     proposal.clone(),
                     parent_leaf,
@@ -2411,7 +2409,7 @@
                 <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
             }
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Received quroum vote: {:?}"</span>, vote.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"Received quorum vote: {:?}"</span>, vote.get_view_number());
                 <span class="kw">if </span><span class="self">self
                     </span>.quorum_membership
                     .get_leader(vote.get_view_number() + <span class="number">1</span>)
