@@ -487,13 +487,11 @@
 </span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
 <span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::{
-    constants::{
-        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
-    },
-    traits::network::AsyncGenerator,
+<span class="kw">use </span>hotshot_types::constants::{
+    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
 };
+
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>std::{
     collections::BTreeSet,
@@ -509,7 +507,9 @@
 
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
+</span><span class="kw">use </span>hotshot_types::traits::network::{
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
+};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     data::ViewNumber,

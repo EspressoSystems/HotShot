@@ -552,9 +552,10 @@
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
-<span class="kw">use </span>hotshot_types::traits::network::AsyncGenerator;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::network::{NetworkReliability, TestableNetworkingImplementation};
+</span><span class="kw">use </span>hotshot_types::traits::network::{
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
+};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{Version01, VERSION_0_1},
@@ -569,14 +570,13 @@
     BoxSyncFuture,
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>rand::rngs::StdRng;
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>rand::{RngCore, SeedableRng};
+</span><span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>std::collections::BTreeSet;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
-<span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+</span><span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{error, warn};
 <span class="kw">use </span>versioned_binary_serialization::{
     version::{StaticVersionType, Version},

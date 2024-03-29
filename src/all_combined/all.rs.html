@@ -100,6 +100,53 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -112,16 +159,18 @@
     types::{DANetwork, NodeImpl, QuorumNetwork},
 };
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_compatibility_layer::channel::oneshot;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+<span class="kw">use </span>cdn_broker::{Broker, Config <span class="kw">as </span>BrokerConfig, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder};
+<span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
+<span class="kw">use </span>hotshot::traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey};
+<span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
-<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>surf_disco::Url;
+<span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>tracing::{error, instrument};
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
@@ -136,38 +185,83 @@
 
     <span class="kw">let </span>(config, orchestrator_url) = read_orchestrator_init_config::&lt;TestTypes&gt;();
 
-    <span class="comment">// spawn web servers
-    </span><span class="kw">let </span>(server_shutdown_sender_cdn, server_shutdown_cdn) = oneshot();
-    <span class="kw">let </span>(server_shutdown_sender_da, server_shutdown_da) = oneshot();
-    <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender_cdn);
-    <span class="kw">let </span>_sender = Arc::new(server_shutdown_sender_da);
+    <span class="comment">// The configuration we are using for testing is 2 brokers &amp; 1 marshal
+    // A keypair shared between brokers
+    </span><span class="kw">let </span>(broker_public_key, broker_private_key) =
+        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">1337</span>);
 
-    async_spawn(<span class="kw">async move </span>{
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-            WebServerVersion,
-        &gt;(
-            <span class="prelude-val">Some</span>(server_shutdown_cdn),
-            Url::parse(<span class="string">"http://localhost:9000"</span>).unwrap(),
-            WebServerVersion::instance(),
-        )
-        .<span class="kw">await
-        </span>{
-            <span class="macro">error!</span>(<span class="string">"Problem starting cdn web server: {:?}"</span>, e);
-        }
-    });
-    async_spawn(<span class="kw">async move </span>{
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = hotshot_web_server::run_web_server::&lt;
-            &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey,
-            WebServerVersion,
-        &gt;(
-            <span class="prelude-val">Some</span>(server_shutdown_da),
-            Url::parse(<span class="string">"http://localhost:9001"</span>).unwrap(),
-            WebServerVersion::instance(),
-        )
-        .<span class="kw">await
-        </span>{
-            <span class="macro">error!</span>(<span class="string">"Problem starting da web server: {:?}"</span>, e);
+    <span class="comment">// Get the OS temporary directory
+    </span><span class="kw">let </span>temp_dir = std::env::temp_dir();
+
+    <span class="comment">// Create an SQLite file inside of the temporary directory
+    </span><span class="kw">let </span>discovery_endpoint = temp_dir
+        .join(Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">"test-{}.sqlite"</span>,
+            StdRng::from_entropy().next_u64()
+        )))
+        .to_string_lossy()
+        .into_owned();
+
+    <span class="comment">// 2 brokers
+    </span><span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+        <span class="comment">// Get the ports to bind to
+        </span><span class="kw">let </span>private_port = portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>);
+        <span class="kw">let </span>public_port = portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>);
+
+        <span class="comment">// Extrapolate addresses
+        </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
+        <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
+
+        <span class="kw">let </span>config: BrokerConfig&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
+            BrokerConfigBuilder::default()
+                .discovery_endpoint(discovery_endpoint.clone())
+                .keypair(KeyPair {
+                    public_key: WrappedSignatureKey(broker_public_key),
+                    private_key: broker_private_key.clone(),
+                })
+                .metrics_enabled(<span class="bool-val">false</span>)
+                .private_bind_address(private_address.clone())
+                .public_bind_address(public_address.clone())
+                .private_advertise_address(private_address)
+                .public_advertise_address(public_address)
+                .build()
+                .expect(<span class="string">"failed to build broker config"</span>);
+
+        <span class="comment">// Create and spawn the broker
+        </span>async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TestTypes&gt;&gt; =
+                Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
+
+            <span class="comment">// Error if we stopped unexpectedly
+            </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = broker.start().<span class="kw">await </span>{
+                <span class="macro">error!</span>(<span class="string">"broker stopped: {err}"</span>);
+            }
+        });
+    }
+
+    <span class="comment">// Get the port to use for the marshal
+    </span><span class="kw">let </span>marshal_endpoint = config
+        .cdn_marshal_address
+        .clone()
+        .expect(<span class="string">"CDN marshal address must be specified"</span>);
+
+    <span class="comment">// Configure the marshal
+    </span><span class="kw">let </span>marshal_config = MarshalConfigBuilder::default()
+        .bind_address(marshal_endpoint.clone())
+        .metrics_enabled(<span class="bool-val">false</span>)
+        .discovery_endpoint(discovery_endpoint)
+        .build()
+        .expect(<span class="string">"failed to build marshal config"</span>);
+
+    <span class="comment">// Spawn the marshal
+    </span>async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TestTypes&gt;&gt; = Marshal::new(marshal_config)
+            .<span class="kw">await
+            </span>.expect(<span class="string">"failed to spawn marshal"</span>);
+
+        <span class="comment">// Error if we stopped unexpectedly
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = marshal.start().<span class="kw">await </span>{
+            <span class="macro">error!</span>(<span class="string">"broker stopped: {err}"</span>);
         }
     });
 
