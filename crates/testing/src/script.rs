@@ -1,18 +1,14 @@
 use crate::predicates::{ConsecutiveEvents, Predicate};
 use async_broadcast::broadcast;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::future::timeout;
 use either::{Either, Left, Right};
+use hotshot_task_impls::events::HotShotEvent;
+use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
-use std::sync::Arc;
-use std::time::Duration;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::time::timeout;
-
 type OneOrConsecutiveEvents<TYPES> =
     Either<Predicate<Arc<HotShotEvent<TYPES>>>, Predicate<ConsecutiveEvents<TYPES>>>;
+use std::{sync::Arc, time::Duration};
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -72,7 +68,7 @@ where
     );
 }
 
-const RECV_TIMEOUT_SEC: u64 = 1;
+const RECV_TIMEOUT_MILLIS: u64 = 250;
 
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
 /// It broadcasts all given inputs (in order) and waits to receive all outputs (in order).
@@ -122,9 +118,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         for assert in &stage.outputs {
             match assert {
                 Left(assert) => {
-                    let async_recv = test_receiver.recv();
-                    let timeout_duration: Duration = Duration::from_secs(RECV_TIMEOUT_SEC);
-                    match timeout(timeout_duration, async_recv).await {
+                    match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
                         Ok(Ok(received_output)) => {
                             tracing::debug!("Test received: {:?}", received_output);
                             validate_output_or_panic(stage_number, &received_output, assert);
@@ -133,13 +127,9 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     }
                 }
                 Right(asserts) => {
-                    let async_recv = test_receiver.recv();
-                    let timeout_duration = Duration::from_secs(RECV_TIMEOUT_SEC);
-                    match timeout(timeout_duration, async_recv).await {
+                    match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
                         Ok(Ok(received_output_0)) => {
-                            let async_recv = test_receiver.recv();
-                            let timeout_duration = Duration::from_secs(RECV_TIMEOUT_SEC);
-                            match timeout(timeout_duration, async_recv).await {
+                            match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
                                 Ok(Ok(received_output_1)) => {
                                     tracing::debug!(
                                         "Test received: {:?} and {:?}",

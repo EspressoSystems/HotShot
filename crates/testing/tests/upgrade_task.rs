@@ -68,7 +68,7 @@ async fn test_upgrade_task() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
             DACRecv(dacs[0].clone()),
         ],
         outputs: vec![
@@ -81,8 +81,8 @@ async fn test_upgrade_task() {
 
     let view_2 = TestScriptStage {
         inputs: vec![
-            VidDisperseRecv(vids[1].0.clone()),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            VidDisperseRecv(vids[1].0[0].clone()),
             DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
@@ -97,7 +97,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             DACRecv(dacs[2].clone()),
-            VidDisperseRecv(vids[2].0.clone()),
+            VidDisperseRecv(vids[2].0[0].clone()),
         ],
         outputs: vec![
             Left(exact(ViewChange(ViewNumber::new(3)))),
@@ -112,7 +112,7 @@ async fn test_upgrade_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
             DACRecv(dacs[3].clone()),
-            VidDisperseRecv(vids[3].0.clone()),
+            VidDisperseRecv(vids[3].0[0].clone()),
         ],
         outputs: vec![
             Left(exact(ViewChange(ViewNumber::new(4)))),
@@ -230,7 +230,7 @@ async fn test_upgrade_and_consensus_task() {
     let inputs = vec![
         vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VidDisperseRecv(vids[0].0.clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
             DACRecv(dacs[0].clone()),
         ],
         upgrade_vote_recvs,
@@ -238,7 +238,7 @@ async fn test_upgrade_and_consensus_task() {
         vec![
             DACRecv(dacs[1].clone()),
             SendPayloadCommitmentAndMetadata(
-                vids[2].0.data.payload_commitment,
+                vids[2].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(2),
             ),

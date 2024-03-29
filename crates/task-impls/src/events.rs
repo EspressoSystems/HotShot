@@ -36,6 +36,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     TimeoutVoteSend(TimeoutVote<TYPES>),
     /// A DA proposal has been received from the network; handled by the DA task
     DAProposalRecv(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
+    /// A DA proposal has been validated; handled by the DA task and VID task
+    DAProposalValidated(Proposal<TYPES, DAProposal<TYPES>>, TYPES::SignatureKey),
     /// A DA vote has been received by the network; handled by the DA task
     DAVoteRecv(DAVote<TYPES>),
     /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
@@ -140,4 +142,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+
+    /** Quorum Proposal Task **/
+    /// Dummy quorum proposal to test if the quorum proposal dependency task works.
+    DummyQuorumProposalSend(TYPES::Time),
+    /// All required dependencies of the quorum proposal have been validated and the task is ready
+    /// to propose.
+    QuorumProposalDependenciesValidated(TYPES::Time),
 }
