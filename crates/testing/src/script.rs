@@ -84,7 +84,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (to_task, from_test) = broadcast(1024);
+    let (to_task, mut from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
 
     let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
@@ -103,6 +103,8 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
                 }
+
+                while from_test.try_recv().is_ok() {}
             }
         }
 

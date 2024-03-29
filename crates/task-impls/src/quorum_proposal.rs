@@ -300,7 +300,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             )
             .await
         {
-            error!("Failed to propse; error = {:?}", e);
+            error!("Failed to propose; error = {:?}", e);
         }
     }
 }
