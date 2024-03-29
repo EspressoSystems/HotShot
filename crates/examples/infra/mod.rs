@@ -64,7 +64,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-use tracing::{debug, error, warn};
+use tracing::{error, info, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
@@ -589,10 +589,10 @@ pub trait RunDA<
         let mut total_latency = 0;
         let mut num_latency = 0;
 
-        println!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+        info!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        println!("Starting HotShot example!");
+        info!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -623,7 +623,7 @@ pub trait RunDA<
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
                                 // use println for tmp debugging on Datadog
-                                debug!("Decide event for leaf: {}", *leaf.get_view_number());
+                                info!("Decide event for leaf: {}", *leaf.get_view_number());
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.get_block_payload() {
@@ -1108,7 +1108,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    println!("Starting validator");
+    info!("Starting validator");
 
     // see what our public identity will be
     let public_ip = match args.public_ip {
@@ -1138,7 +1138,7 @@ pub async fn main_entry_point<
         )
         .await;
 
-    println!("Initializing networking");
+    info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone()).await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
@@ -1180,13 +1180,13 @@ pub async fn main_entry_point<
     }
 
     if let NetworkConfigSource::Orchestrator = source {
-        println!("Waiting for the start command from orchestrator");
+        info!("Waiting for the start command from orchestrator");
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .await;
     }
 
-    println!("Starting HotShot");
+    info!("Starting HotShot");
     let bench_results = run
         .run_hotshot(
             hotshot,

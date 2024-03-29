@@ -41,10 +41,10 @@ build_release *ARGS:
 example *ARGS:
   cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
-example_gpuvid *ARGS:
+example_gpuvid_validator *ARGS:
   cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
 
-example_leader_gpuvid *ARGS:
+example_gpuvid_leader *ARGS:
   cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
 
 test *ARGS:
