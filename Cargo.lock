@@ -1286,7 +1286,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.15#c44a9a45488d5230f33d3725e57bf193ad212786"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1309,7 +1309,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.15#c44a9a45488d5230f33d3725e57bf193ad212786"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1325,7 +1325,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.15#c44a9a45488d5230f33d3725e57bf193ad212786"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1340,7 +1340,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.15#c44a9a45488d5230f33d3725e57bf193ad212786"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -1457,9 +1457,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.3"
+version = "4.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "949626d00e063efc93b6dca932419ceb5432f99769911c0b995f7e884c778813"
+checksum = "90bc066a67923782aa8515dbaea16946c5bcc5addbd668bb80af688e53e548a0"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1479,9 +1479,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.3"
+version = "4.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90239a040c80f5e14809ca132ddc4176ab33d5e17e49691793296e3fcb34d72f"
+checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3148,6 +3148,7 @@ version = "0.1.6"
 dependencies = [
  "async-trait",
  "clap",
+ "commit",
  "derive_more",
  "futures",
  "hotshot-types",
@@ -6786,9 +6787,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.114"
+version = "1.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f09b1bd632ef549eaa9f60a1f8de742bdbc698e6cee2095fc84dde5f549ae0"
+checksum = "12dc5c46daa8e9fdf4f5e71b6cf9a53f2487da0e86e55808e2d35539666497dd"
 dependencies = [
  "itoa",
  "ryu",
