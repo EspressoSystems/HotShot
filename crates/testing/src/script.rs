@@ -2,16 +2,10 @@ use crate::predicates::Predicate;
 use async_broadcast::broadcast;
 use hotshot_task_impls::events::HotShotEvent;
 
+use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
-use std::sync::Arc;
-
-#[cfg(async_executor_impl = "async-std")]
-use async_std::future::timeout;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::time::timeout;
-
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 const RECV_TIMEOUT_SEC: Duration = Duration::from_secs(1);
 
@@ -90,7 +84,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (to_task, mut from_test) = broadcast(1024);
+    let (to_task, from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
 
     let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
@@ -109,22 +103,24 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
                 }
-
-                while from_test.try_recv().is_ok() {}
             }
         }
 
         for assert in &stage.outputs {
-            match timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await {
-                Ok(Ok(received_output)) => {
-                    tracing::debug!("Test received: {:?}", received_output);
-                    validate_output_or_panic(stage_number, &received_output, assert);
+            if let Ok(Ok(received_output)) =
+                async_timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await
+            {
+                tracing::debug!("Test received: {:?}", received_output);
+                validate_output_or_panic(stage_number, &received_output, assert);
+                if !task.state_mut().filter(&received_output.clone()) {
+                    tracing::debug!("Test sent: {:?}", received_output.clone());
+
+                    if let Some(res) = S::handle_event(received_output.clone(), &mut task).await {
+                        task.state_mut().handle_result(&res).await;
+                    }
                 }
-                Ok(Err(_)) => panic_missing_output(stage_number, assert),
-                Err(_) => {
-                    tracing::debug!("Timeout waiting for output at stage {}", stage_number);
-                    panic_missing_output(stage_number, assert);
-                }
+            } else {
+                panic_missing_output(stage_number, assert);
             }
         }
 

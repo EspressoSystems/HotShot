@@ -64,7 +64,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use std::{fs, time::Instant};
 use std::{num::NonZeroUsize, str::FromStr};
 use surf_disco::Url;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
@@ -172,6 +172,22 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .help("Sets the url of the orchestrator")
                 .required(false),
         )
+        .arg(
+            Arg::new("webserver_url")
+                .short('w')
+                .long("webserver_url")
+                .value_name("URL")
+                .help("Sets the url of the webserver")
+                .required(false),
+        )
+        .arg(
+            Arg::new("da_webserver_url")
+                .short('a')
+                .long("da_webserver_url")
+                .value_name("URL")
+                .help("Sets the url of the da webserver")
+                .required(false),
+        )
         .get_matches();
 
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
@@ -211,6 +227,20 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
     }
     if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
+    }
+    if let Some(webserver_url_string) = matches.get_one::<String>("webserver_url") {
+        let updated_web_server_config = WebServerConfig {
+            url: Url::parse(webserver_url_string).unwrap(),
+            wait_between_polls: config.web_server_config.unwrap().wait_between_polls,
+        };
+        config.web_server_config = Some(updated_web_server_config);
+    }
+    if let Some(da_webserver_url_string) = matches.get_one::<String>("da_webserver_url") {
+        let updated_da_web_server_config = WebServerConfig {
+            url: Url::parse(da_webserver_url_string).unwrap(),
+            wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
+        };
+        config.da_web_server_config = Some(updated_da_web_server_config);
     }
 
     (config, orchestrator_url)
@@ -260,7 +290,7 @@ pub async fn run_orchestrator<
 >(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
-    error!("Starting orchestrator",);
+    println!("Starting orchestrator",);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -414,6 +444,7 @@ async fn libp2p_network_from_config<TYPES: NodeType>(
         // NOTE: this introduces an invariant that the keys are assigned using this indexed
         // function
         all_keys,
+        #[cfg(feature = "hotshot-testing")]
         None,
         da_keys.clone(),
         da_keys.contains(&pub_key),
@@ -540,10 +571,10 @@ pub trait RunDA<
         let mut total_latency = 0;
         let mut num_latency = 0;
 
-        error!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
+        debug!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
         async_sleep(Duration::from_secs(start_delay_seconds)).await;
 
-        error!("Starting HotShot example!");
+        debug!("Starting HotShot example!");
         let start = Instant::now();
 
         let mut event_stream = context.get_event_stream();
@@ -573,12 +604,12 @@ pub trait RunDA<
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
-                                info!("Decide event for leaf: {}", *leaf.view_number);
+                                info!("Decide event for leaf: {}", *leaf.get_view_number());
 
                                 // iterate all the decided transactions to calculate latency
-                                if let Some(block_payload) = &leaf.block_payload {
-                                    for tx in
-                                        block_payload.get_transactions(leaf.block_header.metadata())
+                                if let Some(block_payload) = &leaf.get_block_payload() {
+                                    for tx in block_payload
+                                        .get_transactions(leaf.get_block_header().metadata())
                                     {
                                         let restored_timestamp_vec =
                                             tx.0[tx.0.len() - 8..].to_vec();
@@ -595,9 +626,9 @@ pub trait RunDA<
                                     }
                                 }
 
-                                let new_anchor = leaf.view_number;
+                                let new_anchor = leaf.get_view_number();
                                 if new_anchor >= anchor_view {
-                                    anchor_view = leaf.view_number;
+                                    anchor_view = leaf.get_view_number();
                                 }
 
                                 // send transactions
@@ -638,7 +669,7 @@ pub trait RunDA<
                             failed_num_views += 1;
                             warn!("Timed out in view {:?}", view_number);
                         }
-                        _ => {}
+                        _ => {} // mostly DA proposal
                     }
                 }
             }
@@ -647,19 +678,21 @@ pub trait RunDA<
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
-        error!("Failed views: {failed_num_views}, Total views: {total_num_views}, num_successful_commits: {num_successful_commits}");
+        println!("[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}");
         // +2 is for uncommitted views
         assert!(total_num_views <= (failed_num_views + num_successful_commits + 2));
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
-        error!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        println!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         if total_transactions_committed != 0 {
             // extra 8 bytes for timestamp
             let throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed.as_secs();
+            let avg_latency_in_sec = total_latency / num_latency;
+            println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
             BenchResults {
-                avg_latency_in_sec: total_latency / num_latency,
+                avg_latency_in_sec,
                 num_latency,
                 minimum_latency_in_sec: minimum_latency,
                 maximum_latency_in_sec: maximum_latency,
@@ -829,7 +862,7 @@ where
             keypair,
         )
         .await
-        .expect("failed to perform initial connection");
+        .expect("failed to perform initial client connection");
 
         PushCdnDaRun {
             config,
@@ -924,13 +957,13 @@ where
 // Combined network
 
 /// Represents a combined-network-based run
-pub struct CombinedDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
+pub struct CombinedDARun<TYPES: NodeType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     /// quorum channel
-    quorum_channel: CombinedNetworks<TYPES, NetworkVersion>,
+    quorum_channel: CombinedNetworks<TYPES>,
     /// data availability channel
-    da_channel: CombinedNetworks<TYPES, NetworkVersion>,
+    da_channel: CombinedNetworks<TYPES>,
 }
 
 #[async_trait]
@@ -943,65 +976,67 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = CombinedNetworks<TYPES, NetworkVersion>,
-            CommitteeNetwork = CombinedNetworks<TYPES, NetworkVersion>,
+            QuorumNetwork = CombinedNetworks<TYPES>,
+            CommitteeNetwork = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
         >,
-        NetworkVersion: StaticVersionType,
-    >
-    RunDA<
-        TYPES,
-        CombinedNetworks<TYPES, NetworkVersion>,
-        CombinedNetworks<TYPES, NetworkVersion>,
-        NODE,
-    > for CombinedDARun<TYPES, NetworkVersion>
+    > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
-    NetworkVersion: 'static,
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> CombinedDARun<TYPES, NetworkVersion> {
+    ) -> CombinedDARun<TYPES> {
         // Get our own key
-        let pub_key = config.config.my_own_validator_config.public_key.clone();
+        let key = config.config.my_own_validator_config.clone();
 
         // Create and wait for libp2p network
         let libp2p_underlying_quorum_network =
-            libp2p_network_from_config::<TYPES>(config.clone(), pub_key.clone()).await;
+            libp2p_network_from_config::<TYPES>(config.clone(), key.public_key.clone()).await;
 
         libp2p_underlying_quorum_network.wait_for_ready().await;
-
-        // Extract values from config (for webserver DA network)
-        let WebServerConfig {
-            url,
-            wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
 
         let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig =
             config.clone().combined_network_config.unwrap();
 
-        // Create and wait for underlying webserver network
-        let web_quorum_network =
-            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
+        // Convert the keys to the CDN-compatible type
+        let keypair = KeyPair {
+            public_key: WrappedSignatureKey(key.public_key),
+            private_key: key.private_key,
+        };
 
-        let web_da_network = WebServerNetwork::create(url, wait_between_polls, pub_key, true);
+        // See if we should be DA
+        let mut topics = vec![Topic::Global];
+        if config.node_index < config.config.da_staked_committee_size as u64 {
+            topics.push(Topic::DA);
+        }
 
-        web_quorum_network.wait_for_ready().await;
+        // Create the network and await the initial connection
+        let cdn_network = PushCdnNetwork::new(
+            config
+                .cdn_marshal_address
+                .clone()
+                .expect("`cdn_marshal_address` needs to be supplied for a CDN run"),
+            topics.iter().map(ToString::to_string).collect(),
+            keypair,
+        )
+        .await
+        .expect("failed to perform intiail client connection");
 
         // Combine the two communication channels
         let da_channel = CombinedNetworks::new(
             Arc::new(UnderlyingCombinedNetworks(
-                web_da_network.clone(),
+                cdn_network.clone(),
                 libp2p_underlying_quorum_network.clone(),
             )),
             delay_duration,
         );
         let quorum_channel = CombinedNetworks::new(
             Arc::new(UnderlyingCombinedNetworks(
-                web_quorum_network.clone(),
+                cdn_network,
                 libp2p_underlying_quorum_network.clone(),
             )),
             delay_duration,
@@ -1014,11 +1049,11 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
+    fn get_da_channel(&self) -> CombinedNetworks<TYPES> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES, NetworkVersion> {
+    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES> {
         self.quorum_channel.clone()
     }
 
@@ -1056,7 +1091,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    error!("Starting validator");
+    debug!("Starting validator");
 
     // see what our public identity will be
     let public_ip = match args.public_ip {
@@ -1128,13 +1163,13 @@ pub async fn main_entry_point<
     }
 
     if let NetworkConfigSource::Orchestrator = source {
-        error!("Waiting for the start command from orchestrator");
+        debug!("Waiting for the start command from orchestrator");
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .await;
     }
 
-    error!("Starting HotShot");
+    println!("Starting HotShot");
     let bench_results = run
         .run_hotshot(
             hotshot,

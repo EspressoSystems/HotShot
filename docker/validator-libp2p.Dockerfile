@@ -7,7 +7,7 @@ RUN apt-get update \
 ARG TARGETARCH
 ARG ASYNC_EXECUTOR
 
-COPY ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/debug/examples/validator-libp2p /usr/local/bin/validator-libp2p
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/validator-libp2p /usr/local/bin/validator-libp2p
 
 # logging
 ENV RUST_LOG="warn"
