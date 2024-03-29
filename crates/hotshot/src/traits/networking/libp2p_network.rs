@@ -20,6 +20,7 @@ use hotshot_types::{
     boxed_sync,
     constants::{Version01, LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1},
     data::ViewNumber,
+    message::DataMessage::DataResponse,
     traits::{
         network::{
             self, AsyncGenerator, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu,
@@ -693,9 +694,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         {
             Ok(response) => match response {
                 Some(msg) => {
-                    let res = Serializer::<VER>::deserialize(&msg.0)
+                    let res: Message<TYPES> = Serializer::<VER>::deserialize(&msg.0)
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
-                    Ok(ResponseMessage::Found(res))
+                    let DataResponse(res) = (match res.kind {
+                        MessageKind::Data(data) => data,
+                        MessageKind::Consensus(_) => return Ok(ResponseMessage::NotFound),
+                    }) else {
+                        return Ok(ResponseMessage::NotFound);
+                    };
+                    Ok(res)
                 }
                 None => Ok(ResponseMessage::NotFound),
             },
