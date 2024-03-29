@@ -627,6 +627,11 @@
 <a href="#625" id="625">625</a>
 <a href="#626" id="626">626</a>
 <a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1106,9 +1111,14 @@
     </span><span class="kw">pub fn </span>set_parent_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: Commitment&lt;<span class="self">Self</span>&gt;) {
         <span class="self">self</span>.parent_commitment = commitment;
     }
-    <span class="doccomment">/// The block header contained in this leaf.
+    <span class="doccomment">/// Get a reference to the block header contained in this leaf.
     </span><span class="kw">pub fn </span>get_block_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
         <span class="kw-2">&amp;</span><span class="self">self</span>.block_header
+    }
+
+    <span class="doccomment">/// Get a mutable reference to the block header contained in this leaf.
+    </span><span class="kw">pub fn </span>get_block_header_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.block_header
     }
     <span class="doccomment">/// Fill this leaf with the block payload.
     ///
