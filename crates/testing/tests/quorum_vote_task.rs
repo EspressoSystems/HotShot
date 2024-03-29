@@ -7,7 +7,6 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_success() {
-    use either::{Left, Right};
     use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
@@ -34,19 +33,19 @@ async fn test_quorum_vote_task_success() {
         inputs: vec![
             QuorumProposalRecv(view.quorum_proposal.clone(), view.leader_public_key),
             DACRecv(view.da_certificate.clone()),
-            VidDisperseRecv(view.vid_proposal.0.clone()),
+            VidDisperseRecv(view.vid_proposal.0[0].clone()),
         ],
         outputs: vec![
-            Right(consecutive((
+            consecutive((
                 ViewChange(ViewNumber::new(2)),
                 QuorumProposalValidated(view.quorum_proposal.data.clone()),
-            ))),
-            Right(consecutive((
+            )),
+            consecutive((
                 DACertificateValidated(view.da_certificate.clone()),
-                VIDShareValidated(view.vid_proposal.0.data.clone()),
-            ))),
-            Left(exact(QuorumVoteDependenciesValidated(ViewNumber::new(1)))),
-            Left(exact(DummyQuorumVoteSend(ViewNumber::new(1)))),
+                VIDShareValidated(view.vid_proposal.0[0].data.clone()),
+            )),
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
+            exact(DummyQuorumVoteSend(ViewNumber::new(1))),
         ],
         asserts: vec![],
     };
@@ -62,7 +61,6 @@ async fn test_quorum_vote_task_success() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_miss_dependency() {
-    use either::{Left, Right};
     use hotshot::tasks::inject_quorum_vote_polls;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
@@ -95,24 +93,27 @@ async fn test_quorum_vote_task_miss_dependency() {
 
     // Send two of quorum proposal, DAC, and VID disperse data, in which case there's no vote.
     let view_no_quorum_proposal = TestScriptStage {
-        inputs: vec![DACRecv(dacs[0].clone()), VidDisperseRecv(vids[0].0.clone())],
-        outputs: vec![Right(consecutive((
+        inputs: vec![
+            DACRecv(dacs[0].clone()),
+            VidDisperseRecv(vids[0].0[0].clone()),
+        ],
+        outputs: vec![consecutive((
             DACertificateValidated(dacs[0].clone()),
-            VIDShareValidated(vids[0].0.data.clone()),
-        )))],
+            VIDShareValidated(vids[0].0[0].data.clone()),
+        ))],
         asserts: vec![],
     };
     let view_no_dac = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            VidDisperseRecv(vids[1].0.clone()),
+            VidDisperseRecv(vids[1].0[0].clone()),
         ],
         outputs: vec![
-            Right(consecutive((
+            consecutive((
                 ViewChange(ViewNumber::new(3)),
                 QuorumProposalValidated(proposals[1].data.clone()),
-            ))),
-            Left(exact(VIDShareValidated(vids[1].0.data.clone()))),
+            )),
+            exact(VIDShareValidated(vids[1].0[0].data.clone())),
         ],
         asserts: vec![],
     };
@@ -122,11 +123,11 @@ async fn test_quorum_vote_task_miss_dependency() {
             DACRecv(dacs[2].clone()),
         ],
         outputs: vec![
-            Right(consecutive((
+            consecutive((
                 ViewChange(ViewNumber::new(4)),
                 QuorumProposalValidated(proposals[2].data.clone()),
-            ))),
-            Left(exact(DACertificateValidated(dacs[2].clone()))),
+            )),
+            exact(DACertificateValidated(dacs[2].clone())),
         ],
         asserts: vec![],
     };

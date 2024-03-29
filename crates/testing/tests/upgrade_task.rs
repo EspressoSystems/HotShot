@@ -18,7 +18,6 @@ use versioned_binary_serialization::version::Version;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_upgrade_task() {
-    use either::Left;
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -72,9 +71,9 @@ async fn test_upgrade_task() {
             DACRecv(dacs[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
     };
@@ -86,9 +85,9 @@ async fn test_upgrade_task() {
             DACRecv(dacs[1].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(2)))),
-            Left(exact(QuorumProposalValidated(proposals[1].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[1].clone()))),
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            exact(QuorumVoteSend(votes[1].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
@@ -100,10 +99,10 @@ async fn test_upgrade_task() {
             VidDisperseRecv(vids[2].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(3)))),
-            Left(exact(QuorumProposalValidated(proposals[2].data.clone()))),
-            Left(leaf_decided()),
-            Left(exact(QuorumVoteSend(votes[2].clone()))),
+            exact(ViewChange(ViewNumber::new(3))),
+            exact(QuorumProposalValidated(proposals[2].data.clone())),
+            leaf_decided(),
+            exact(QuorumVoteSend(votes[2].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
@@ -115,10 +114,10 @@ async fn test_upgrade_task() {
             VidDisperseRecv(vids[3].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(4)))),
-            Left(exact(QuorumProposalValidated(proposals[3].data.clone()))),
-            Left(leaf_decided()),
-            Left(exact(QuorumVoteSend(votes[3].clone()))),
+            exact(ViewChange(ViewNumber::new(4))),
+            exact(QuorumProposalValidated(proposals[3].data.clone())),
+            leaf_decided(),
+            exact(QuorumVoteSend(votes[3].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
@@ -126,9 +125,9 @@ async fn test_upgrade_task() {
     let view_5 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(5)))),
-            Left(exact(QuorumProposalValidated(proposals[4].data.clone()))),
-            Left(leaf_decided()),
+            exact(ViewChange(ViewNumber::new(5))),
+            exact(QuorumProposalValidated(proposals[4].data.clone())),
+            leaf_decided(),
         ],
         asserts: vec![decided_upgrade_cert()],
     };

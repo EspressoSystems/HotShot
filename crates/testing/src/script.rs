@@ -1,13 +1,9 @@
-use crate::predicates::{ConsecutiveEvents, Predicate};
+use crate::predicates::{EventPredicate, Predicate};
 use async_broadcast::broadcast;
-use either::{Either, Left, Right};
-use hotshot_task_impls::events::HotShotEvent;
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
-type OneOrConsecutiveEvents<TYPES> =
-    Either<Predicate<Arc<HotShotEvent<TYPES>>>, Predicate<ConsecutiveEvents<TYPES>>>;
 use std::{sync::Arc, time::Duration};
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
@@ -15,7 +11,7 @@ pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEven
     // Verify either one or two consecutive events at a time. It should be the former in most
     // cases, but the latter is useful when we won't want to require the order of consecutive
     // events.
-    pub outputs: Vec<OneOrConsecutiveEvents<TYPES>>,
+    pub outputs: Vec<EventPredicate<TYPES>>,
     pub asserts: Vec<Predicate<S>>,
 }
 
@@ -117,8 +113,13 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 
         for assert in &stage.outputs {
             match assert {
-                Left(assert) => {
-                    match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
+                EventPredicate::One(assert) => {
+                    match async_timeout(
+                        Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                        test_receiver.recv_direct(),
+                    )
+                    .await
+                    {
                         Ok(Ok(received_output)) => {
                             tracing::debug!("Test received: {:?}", received_output);
                             validate_output_or_panic(stage_number, &received_output, assert);
@@ -126,10 +127,20 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                         _ => panic_missing_output(stage_number, assert),
                     }
                 }
-                Right(asserts) => {
-                    match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
+                EventPredicate::Consecutive(asserts) => {
+                    match async_timeout(
+                        Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                        test_receiver.recv_direct(),
+                    )
+                    .await
+                    {
                         Ok(Ok(received_output_0)) => {
-                            match async_timeout(Duration::from_millis(RECV_TIMEOUT_MILLIS), test_receiver.recv_direct()).await {
+                            match async_timeout(
+                                Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                                test_receiver.recv_direct(),
+                            )
+                            .await
+                            {
                                 Ok(Ok(received_output_1)) => {
                                     tracing::debug!(
                                         "Test received: {:?} and {:?}",
@@ -167,7 +178,7 @@ pub struct TaskScript<TYPES: NodeType, S> {
 }
 
 pub struct Expectations<TYPES: NodeType, S> {
-    pub output_asserts: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
+    pub output_asserts: Vec<EventPredicate<TYPES>>,
     pub task_state_asserts: Vec<Predicate<S>>,
 }
 

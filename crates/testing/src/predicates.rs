@@ -18,36 +18,44 @@ impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
     }
 }
 
-pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub type ConsecutiveEvents<TYPES> = (Arc<HotShotEvent<TYPES>>, Arc<HotShotEvent<TYPES>>);
+
+#[derive(Debug)]
+pub enum EventPredicate<TYPES: NodeType> {
+    One(Predicate<Arc<HotShotEvent<TYPES>>>),
+    Consecutive(Predicate<ConsecutiveEvents<TYPES>>),
+}
+
+pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = format!("{:?}", event);
     let event = Arc::new(event);
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(move |e| e == &event),
         info,
-    }
+    })
 }
-
-pub type ConsecutiveEvents<TYPES> = (Arc<HotShotEvent<TYPES>>, Arc<HotShotEvent<TYPES>>);
 
 pub fn consecutive<TYPES>(
     events: (HotShotEvent<TYPES>, HotShotEvent<TYPES>),
-) -> Predicate<ConsecutiveEvents<TYPES>>
+) -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = format!("{:?}", events);
     let (event_0, event_1) = (Arc::new(events.0), Arc::new(events.1));
 
-    Predicate {
+    EventPredicate::Consecutive(Predicate {
         function: Box::new(move |(e0, e1)| {
             (e0 == &event_0 && e1 == &event_1) || (e0 == &event_1 && e1 == &event_0)
         }),
         info,
-    }
+    })
+}
+
 pub fn multi_exact<TYPES>(
     events: Vec<HotShotEvent<TYPES>>,
 ) -> Vec<Predicate<Arc<HotShotEvent<TYPES>>>>
@@ -67,59 +75,59 @@ where
         .collect()
 }
 
-pub fn leaf_decided<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn leaf_decided<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "LeafDecided".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), LeafDecided(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn quorum_vote_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn quorum_vote_send<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "QuorumVoteSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumVoteSend(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn view_change<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn view_change<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "ViewChange".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), ViewChange(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn upgrade_certificate_formed<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn upgrade_certificate_formed<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "UpgradeCertificateFormed".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), UpgradeCertificateFormed(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
@@ -129,49 +137,49 @@ where
         _ => false,
     };
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn quorum_proposal_validated<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn quorum_proposal_validated<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalValidated".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumProposalValidated(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn quorum_proposal_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn quorum_proposal_send<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumProposalSend(_, _));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
-pub fn timeout_vote_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
+pub fn timeout_vote_send<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
 {
     let info = "TimeoutVoteSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), TimeoutVoteSend(_));
 
-    Predicate {
+    EventPredicate::One(Predicate {
         function: Box::new(function),
         info,
-    }
+    })
 }
 
 type ConsensusTaskTestState =

@@ -1,4 +1,3 @@
-use either::Left;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::{
@@ -61,10 +60,7 @@ async fn test_da_task() {
             ViewChange(ViewNumber::new(2)),
             TransactionsSequenced(encoded_transactions.clone(), (), ViewNumber::new(2)),
         ],
-        outputs: vec![Left(exact(DAProposalSend(
-            proposals[1].clone(),
-            leaders[1],
-        )))],
+        outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],
     };
 
@@ -127,10 +123,7 @@ async fn test_da_task_storage_failure() {
             ViewChange(ViewNumber::new(2)),
             TransactionsSequenced(encoded_transactions.clone(), (), ViewNumber::new(2)),
         ],
-        outputs: vec![Left(exact(DAProposalSend(
-            proposals[1].clone(),
-            leaders[1],
-        )))],
+        outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],
     };
 

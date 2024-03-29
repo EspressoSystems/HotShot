@@ -1,4 +1,3 @@
-use either::Left;
 use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
@@ -60,9 +59,9 @@ async fn test_consensus_task() {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
@@ -140,9 +139,9 @@ async fn test_consensus_vote() {
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
     };
@@ -191,9 +190,9 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
@@ -207,9 +206,9 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
     let view_2_outputs = vec![
-        Left(exact(ViewChange(ViewNumber::new(2)))),
-        Left(exact(QuorumProposalValidated(proposals[1].data.clone()))),
-        Left(exact(QuorumVoteSend(votes[1].clone()))),
+        exact(ViewChange(ViewNumber::new(2))),
+        exact(QuorumProposalValidated(proposals[1].data.clone())),
+        exact(QuorumVoteSend(votes[1].clone())),
     ];
 
     // Use the permuted inputs for view 2 depending on the provided index ordering.
@@ -303,9 +302,9 @@ async fn test_view_sync_finalize_propose() {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
@@ -314,7 +313,7 @@ async fn test_view_sync_finalize_propose() {
     // view number in the generator.
     let view_2_3 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![Left(timeout_vote_send()), Left(timeout_vote_send())],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
         asserts: vec![is_at_view_number(1)],
     };
@@ -355,9 +354,9 @@ async fn test_view_sync_finalize_propose() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(4)),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(4)))),
-            Left(exact(QuorumProposalValidated(proposals[1].data.clone()))),
-            Left(quorum_proposal_send()),
+            exact(ViewChange(ViewNumber::new(4))),
+            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_send(),
         ],
         asserts: vec![is_at_view_number(4)],
     };
@@ -426,16 +425,16 @@ async fn test_view_sync_finalize_vote() {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![Left(timeout_vote_send()), Left(timeout_vote_send())],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
         asserts: vec![is_at_view_number(1)],
     };
@@ -461,8 +460,8 @@ async fn test_view_sync_finalize_vote() {
             ViewSyncFinalizeCertificate2Recv(cert),
         ],
         outputs: vec![
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(quorum_vote_send()),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_vote_send(),
         ],
         asserts: vec![],
     };
@@ -531,16 +530,16 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![Left(timeout_vote_send()), Left(timeout_vote_send())],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
         asserts: vec![is_at_view_number(1)],
     };
@@ -627,8 +626,8 @@ async fn test_vid_disperse_storage_failure() {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
             /* Does not vote */
         ],
         asserts: vec![is_at_view_number(1)],

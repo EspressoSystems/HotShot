@@ -1,4 +1,3 @@
-use either::Left;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
@@ -56,9 +55,9 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
-            Left(exact(ViewChange(ViewNumber::new(1)))),
-            Left(exact(QuorumProposalValidated(proposals[0].data.clone()))),
-            Left(exact(QuorumVoteSend(votes[0].clone()))),
+            exact(ViewChange(ViewNumber::new(1))),
+            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
     };
