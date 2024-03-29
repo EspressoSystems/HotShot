@@ -1345,7 +1345,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let Some(null_block_commitment) =
                     null_block_commitment(self.quorum_membership.total_nodes())
                 else {
-                    debug!("Failed to calculate null block commitment");
+                    /// This should never happen.
+                    error!("Failed to calculate null block commitment");
                     return false;
                 };
 
@@ -1370,6 +1371,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let Ok(signature) =
                     TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref())
                 else {
+                    // This should never happen.
                     error!("Failed to sign leaf.commit()!");
                     return false;
                 };
@@ -1515,6 +1517,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 }
 
 /// The commitment for a null block payload.
+///
+/// Note: the commitment depends on the network (via `num_storage_nodes`), 
+/// and may change (albeit rarely) during execution.
+///
+/// We memoize the result to avoid having to recalculate it.
 #[memoize(SharedCache, Capacity: 10)]
 fn null_block_commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
     let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
