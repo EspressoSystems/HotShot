@@ -144,7 +144,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         self.check_leader(view)?;
         let consensus = self.consensus.read().await;
         let (leaf, state) = Self::find_parent_leaf_and_state(&consensus)?;
-        let reached_decided = leaf.view_number == consensus.last_decided_view;
+        let reached_decided = leaf.get_view_number() == consensus.last_decided_view;
 
         let parent_leaf = leaf.clone();
         let original_parent_hash = parent_leaf.commit();
@@ -157,10 +157,10 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
                 self.view_number
             );
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
-                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                if next_parent_leaf.get_view_number() <= consensus.last_decided_view {
                     break;
                 }
-                next_parent_hash = next_parent_leaf.parent_commitment;
+                next_parent_hash = next_parent_leaf.get_parent_commitment();
             }
             debug!("updated saved leaves");
             // TODO do some sort of sanity check on the view number that it matches decided
@@ -174,18 +174,6 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commit_and_metadata.metadata.clone(),
         )
         .await;
-        let leaf = Leaf {
-            view_number: view,
-            justify_qc: consensus.high_qc.clone(),
-            parent_commitment: parent_leaf.commit(),
-            block_header: block_header.clone(),
-            block_payload: None,
-        };
-
-        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref())
-        else {
-            bail!("Failed to sign leaf.commit()!");
-        };
 
         let upgrade_cert = if self
             .upgrade_cert
@@ -210,10 +198,19 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 
         let proposal = QuorumProposal {
             block_header,
-            view_number: leaf.view_number,
+            view_number: view,
             justify_qc: consensus.high_qc.clone(),
             proposal_certificate,
             upgrade_certificate: upgrade_cert,
+        };
+
+        let mut new_leaf = Leaf::from_quorum_proposal(&proposal);
+        new_leaf.set_parent_commitment(parent_leaf.commit());
+
+        let Ok(signature) =
+            TYPES::SignatureKey::sign(&self.private_key, new_leaf.commit().as_ref())
+        else {
+            bail!("Failed to sign leaf.commit()!");
         };
 
         let message = Proposal {
@@ -221,7 +218,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             signature,
             _pd: PhantomData,
         };
-        debug!("Sending proposal for view {:?}", leaf.view_number);
+        debug!("Sending proposal for view {:?}", view);
 
         broadcast_event(
             Arc::new(HotShotEvent::DummyQuorumProposalSend(
@@ -385,7 +382,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
 
-                    ProposalDependency::ProposalCertificate => {
+                    ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal) = event {
                             proposal.view_number
                         } else {
@@ -467,7 +464,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalValidated(_) => {
-                proposal_cert_dependency.mark_as_completed(event);
+                proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
@@ -490,7 +487,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ])]),
             OrDependency::from_deps(vec![
                 // 1. A QCFormed event and QuorumProposalValidated event
-                AndDependency::from_deps(vec![qc_dependency, proposal_cert_dependency]),
+                AndDependency::from_deps(vec![qc_dependency, proposal_dependency]),
                 // 2. A timeout cert was received
                 AndDependency::from_deps(vec![timeout_dependency]),
                 // 3. A view sync cert was received.
