@@ -7,7 +7,6 @@ use crate::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-use bincode::Options;
 use either::Either;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -19,13 +18,12 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    utils::bincode_opts,
     vote::HasViewNumber,
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
 use tracing::{debug, error, info, instrument, warn};
-use versioned_binary_serialization::version::StaticVersionType;
+use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -168,7 +166,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             delay: self.delay,
             recipients,
         };
-        let Ok(data) = bincode_opts().serialize(&request) else {
+        let Ok(data) = Serializer::<Ver>::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
             return;
         };
