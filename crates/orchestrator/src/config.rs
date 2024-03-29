@@ -528,7 +528,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub staked_committee_nodes: usize,
     /// Number of non-staking committee nodes
     pub non_staked_committee_nodes: usize,
-    /// Number of fixed leader for GPU VID
+    /// Number of fixed leaders for GPU VID
     pub fixed_leader_for_gpuvid: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
