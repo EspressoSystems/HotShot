@@ -1,5 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use commit::Committable;
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
+use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use either::Either;
@@ -10,12 +12,16 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::Event,
-    simple_certificate::ViewSyncFinalizeCertificate2,
+    message::Proposal,
+    simple_certificate::{UpgradeCertificate, ViewSyncFinalizeCertificate2},
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber},
 };
@@ -60,8 +66,174 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    #[allow(dead_code)]
     consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// Membership for Quorum Certs/votes
+    quorum_membership: Arc<TYPES::Membership>,
+
+    /// Our public key
+    public_key: TYPES::SignatureKey,
+
+    /// Our Private Key
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
+    /// last Upgrade Certificate this node formed
+    upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+}
+
+impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
+    /// Checks if we have somehow initiated a proposal while not being the leader of the next
+    /// `view`.
+    fn check_leader(&self, view: TYPES::Time) -> Result<()> {
+        if self.quorum_membership.get_leader(view) != self.public_key {
+            // This is expected for view 1, so skipping the logging.
+            if view != TYPES::Time::new(1) {
+                bail!(
+                    "Somehow we formed a QC but are not the leader for the next view {:?}",
+                    view
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Find the leaf and state of the parent view to the view that we're currently proposing on.
+    fn find_parent_leaf_and_state(
+        consensus: &Consensus<TYPES>,
+    ) -> Result<(Leaf<TYPES>, Arc<TYPES::ValidatedState>)> {
+        let parent_view_number = &consensus.high_qc.get_view_number();
+
+        let Some(parent_view) = consensus.validated_state_map.get(parent_view_number) else {
+            // This should have been added by the replica?
+            bail!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
+        };
+
+        // Leaf hash in view inner does not match high qc hash - Why?
+        let Some((leaf_commitment, state)) = parent_view.get_leaf_and_state() else {
+            bail!(
+                "Parent of high QC points to a view without a proposal; parent_view_number: {}, parent_view: {:?}",
+                **parent_view_number,
+                parent_view,
+            );
+        };
+
+        if leaf_commitment != consensus.high_qc.get_data().leaf_commit {
+            // NOTE: This happens on the genesis block
+            debug!(
+                "Parent leaf commitment does not equal high qc leaf commitment: {:?} != {:?}",
+                leaf_commitment,
+                consensus.high_qc.get_data().leaf_commit
+            );
+        }
+        let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
+            bail!("Failed to find high QC of parent.");
+        };
+
+        Ok((leaf.clone(), state.clone()))
+    }
+
+    /// Publishes a proposal from a completed payload commitment and metadata and one of several
+    /// optional additional pieces of data which may be attached to the proposal.
+    async fn publish_proposal(
+        &self,
+        view: TYPES::Time,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+        commit_and_metadata: CommitmentAndMetadata<TYPES::BlockPayload>,
+        proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+    ) -> Result<()> {
+        self.check_leader(view)?;
+        let consensus = self.consensus.read().await;
+        let (leaf, state) = Self::find_parent_leaf_and_state(&consensus)?;
+        let reached_decided = leaf.view_number == consensus.last_decided_view;
+
+        let parent_leaf = leaf.clone();
+        let original_parent_hash = parent_leaf.commit();
+        let mut next_parent_hash = original_parent_hash;
+
+        // Walk back until we find a decide
+        if !reached_decided {
+            debug!(
+                "We have not reached decide from view {:?}",
+                self.view_number
+            );
+            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                    break;
+                }
+                next_parent_hash = next_parent_leaf.parent_commitment;
+            }
+            debug!("updated saved leaves");
+            // TODO do some sort of sanity check on the view number that it matches decided
+        }
+
+        let block_header = TYPES::BlockHeader::new(
+            &state,
+            &consensus.instance_state,
+            &parent_leaf,
+            commit_and_metadata.commitment,
+            commit_and_metadata.metadata.clone(),
+        )
+        .await;
+        let leaf = Leaf {
+            view_number: view,
+            justify_qc: consensus.high_qc.clone(),
+            parent_commitment: parent_leaf.commit(),
+            block_header: block_header.clone(),
+            block_payload: None,
+        };
+
+        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, leaf.commit().as_ref())
+        else {
+            bail!("Failed to sign leaf.commit()!");
+        };
+
+        let upgrade_cert = if self
+            .upgrade_cert
+            .as_ref()
+            .is_some_and(|cert| cert.view_number == view)
+        {
+            // If the cert view number matches, set upgrade_cert to self.upgrade_cert
+            // and set self.upgrade_cert to None.
+            //
+            // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
+            self.upgrade_cert.clone()
+        } else {
+            // Otherwise, set upgrade_cert to None.
+            None
+        };
+
+        // We only want to proposal to be attached if any of them are valid.
+        let proposal_certificate = proposal_cert
+            .as_ref()
+            .filter(|cert| cert.is_valid_for_view(&view))
+            .cloned();
+
+        let proposal = QuorumProposal {
+            block_header,
+            view_number: leaf.view_number,
+            justify_qc: consensus.high_qc.clone(),
+            proposal_certificate,
+            upgrade_certificate: upgrade_cert,
+        };
+
+        let message = Proposal {
+            data: proposal,
+            signature,
+            _pd: PhantomData,
+        };
+        debug!("Sending proposal for view {:?}", leaf.view_number);
+
+        broadcast_event(
+            Arc::new(HotShotEvent::DummyQuorumProposalSend(
+                message.clone(),
+                self.public_key.clone(),
+            )),
+            event_stream,
+        )
+        .await;
+
+        Ok(())
+    }
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -69,23 +241,12 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
-        let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
+        let mut timeout_certificate = None;
+        let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten() {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
-                    if let Some(comm) = payload_commitment {
-                        if proposal_payload_comm != comm {
-                            return;
-                        }
-                    } else {
-                        payload_commitment = Some(proposal_payload_comm);
-                    }
-                }
+                /* TODO Add QuorumProposalValidated */
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
                     payload_commitment,
                     metadata,
@@ -99,14 +260,12 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
                     either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
+                        timeout_certificate = Some(timeout.clone());
                     }
-                    either::Left(qc) => {
-                        _quorum_certificate = Some(qc.clone());
-                    }
+                    either::Left(_) => { /* unhandled */ }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
+                    view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
             }
@@ -119,6 +278,14 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
+        let view_change_evidence = {
+            if let Some(timeout_certificate) = timeout_certificate {
+                Some(ViewChangeEvidence::Timeout(timeout_certificate))
+            } else {
+                view_sync_finalize_cert.map(ViewChangeEvidence::ViewSync)
+            }
+        };
+
         broadcast_event(
             Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
                 self.view_number,
@@ -126,11 +293,18 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             &self.sender,
         )
         .await;
-        broadcast_event(
-            Arc::new(HotShotEvent::DummyQuorumProposalSend(self.view_number)),
-            &self.sender,
-        )
-        .await;
+
+        if let Err(e) = self
+            .publish_proposal(
+                self.view_number,
+                &self.sender,
+                commit_and_metadata.unwrap(),
+                view_change_evidence,
+            )
+            .await
+        {
+            error!("Failed to propse; error = {:?}", e);
+        }
     }
 }
 
@@ -159,6 +333,15 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
+
+    /// Our public key
+    pub public_key: TYPES::SignatureKey,
+
+    /// Our Private Key
+    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
+    /// last Upgrade Certificate this node formed
+    pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// The node's id
     pub id: u64,
@@ -315,12 +498,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ]),
         ]);
 
+        // We only want to pass down the upgrade cert if we already have one *and* it is for this
+        // view, otherwise we can just ignore it.
+        let upgrade_cert = match &self.upgrade_cert {
+            Some(cert) => {
+                // Is this cert for the correct view?
+                if cert.view_number == view_number {
+                    Some(cert.clone())
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
+
         let dependency_task = DependencyTask::new(
             combined,
             ProposalDependencyHandle {
                 view_number,
                 sender: event_sender,
                 consensus: self.consensus.clone(),
+                quorum_membership: self.quorum_membership.clone(),
+                public_key: self.public_key.clone(),
+                private_key: self.private_key.clone(),
+                upgrade_cert,
             },
         );
         self.propose_dependencies
@@ -345,6 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
 
             self.latest_proposed_view = new_view;
+            self.upgrade_cert = None;
 
             return true;
         }
@@ -368,6 +570,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::UpgradeCertificateFormed(cert) => {
+                debug!(
+                    "Upgrade certificate received for view {}!",
+                    *cert.view_number
+                );
+
+                // Update our current upgrade_cert as long as it's still relevant.
+                if cert.view_number >= self.latest_proposed_view {
+                    self.upgrade_cert = Some(cert.clone());
+                }
+            }
             HotShotEvent::QCFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {

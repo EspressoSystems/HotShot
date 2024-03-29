@@ -226,6 +226,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus,
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            upgrade_cert: None,
             id: handle.hotshot.id,
         }
     }

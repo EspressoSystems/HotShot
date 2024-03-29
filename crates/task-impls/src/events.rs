@@ -140,7 +140,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /** Quorum Proposal Task **/
     /// Dummy quorum proposal to test if the quorum proposal dependency task works.
-    DummyQuorumProposalSend(TYPES::Time),
+    DummyQuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// All required dependencies of the quorum proposal have been validated and the task is ready
     /// to propose.
     QuorumProposalDependenciesValidated(TYPES::Time),
