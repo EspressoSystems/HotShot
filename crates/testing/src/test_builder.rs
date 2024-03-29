@@ -1,4 +1,5 @@
 use hotshot::traits::NetworkReliability;
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -34,6 +35,12 @@ pub struct TimingData {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
+    /// time to wait until we request data associated with a proposal
+    pub data_request_delay: Duration,
+    /// Delay before sending through the secondary network in CombinedNetworks
+    pub secondary_network_delay: Duration,
+    /// view sync timeout
+    pub view_sync_timeout: Duration,
 }
 
 /// metadata describing a test
@@ -81,6 +88,9 @@ impl Default for TimingData {
             start_delay: 100,
             propose_min_round_time: Duration::new(0, 0),
             propose_max_round_time: Duration::from_millis(100),
+            data_request_delay: Duration::from_millis(200),
+            secondary_network_delay: Duration::from_millis(1000),
+            view_sync_timeout: Duration::from_millis(2000),
         }
     }
 }
@@ -278,12 +288,14 @@ impl TestMetadata {
             da_staked_committee_size,
             da_non_staked_committee_size,
             next_view_timeout: 500,
+            view_sync_timeout: Duration::from_millis(250),
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
+            data_request_delay: Duration::from_millis(200),
             // TODO what's the difference between this and the second config?
             election_config: Some(TYPES::Membership::default_election_config(
                 num_nodes_with_stake as u64,
@@ -297,6 +309,9 @@ impl TestMetadata {
             start_delay,
             propose_min_round_time,
             propose_max_round_time,
+            data_request_delay,
+            secondary_network_delay,
+            view_sync_timeout,
         } = timing_data;
         let mod_config =
             // TODO this should really be using the timing config struct
@@ -307,6 +322,8 @@ impl TestMetadata {
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;
+                a.data_request_delay = data_request_delay;
+                a.view_sync_timeout = view_sync_timeout;
             };
 
         TestLauncher {
@@ -316,8 +333,9 @@ impl TestMetadata {
                     num_bootstrap_nodes,
                     da_staked_committee_size,
                     unreliable_network,
+                    secondary_network_delay,
                 ),
-                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
             },
             metadata: self,

@@ -4,17 +4,16 @@ use std::sync::Arc;
 
 use async_compatibility_layer::logging::setup_logging;
 use hotshot::traits::election::static_committee::{GeneralStaticCommittee, StaticElectionConfig};
-use hotshot::traits::implementations::{
-    MasterMap, MemoryNetwork, MemoryStorage, NetworkingMetricsValue,
-};
+use hotshot::traits::implementations::{MasterMap, MemoryNetwork, NetworkingMetricsValue};
 use hotshot::traits::NodeImplementation;
 use hotshot::types::SignatureKey;
 use hotshot_example_types::state_types::TestInstanceState;
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestValidatedState,
 };
-use hotshot_types::constants::VERSION_0_1;
+use hotshot_types::constants::STATIC_VER_0_1;
 use hotshot_types::message::Message;
 use hotshot_types::signature_key::BLSPubKey;
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -67,9 +66,9 @@ pub type ViewSyncNetwork = MemoryNetwork<Message<Test>, <Test as NodeType>::Sign
 pub type VIDNetwork = MemoryNetwork<Message<Test>, <Test as NodeType>::SignatureKey>;
 
 impl NodeImplementation<Test> for TestImpl {
-    type Storage = MemoryStorage<Test>;
     type QuorumNetwork = QuorumNetwork;
     type CommitteeNetwork = DANetwork;
+    type Storage = TestStorage<Test>;
 }
 
 /// fake Eq
@@ -106,7 +105,6 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
         rng.fill_bytes(&mut bytes);
 
         let message = Message {
-            version: VERSION_0_1,
             sender: pk,
             kind: MessageKind::Data(DataMessage::SubmitTransaction(
                 TestTransaction(bytes.to_vec()),
@@ -175,7 +173,7 @@ async fn memory_network_direct_queue() {
     // Send messages
     for sent_message in first_messages {
         network1
-            .direct_message(sent_message.clone(), pub_key_2)
+            .direct_message(sent_message.clone(), pub_key_2, STATIC_VER_0_1)
             .await
             .expect("Failed to message node");
         let mut recv_messages = network2
@@ -193,7 +191,7 @@ async fn memory_network_direct_queue() {
     // Send messages
     for sent_message in second_messages {
         network2
-            .direct_message(sent_message.clone(), pub_key_1)
+            .direct_message(sent_message.clone(), pub_key_1, STATIC_VER_0_1)
             .await
             .expect("Failed to message node");
         let mut recv_messages = network1
@@ -239,6 +237,7 @@ async fn memory_network_broadcast_queue() {
             .broadcast_message(
                 sent_message.clone(),
                 vec![pub_key_2].into_iter().collect::<BTreeSet<_>>(),
+                STATIC_VER_0_1,
             )
             .await
             .expect("Failed to message node");
@@ -260,6 +259,7 @@ async fn memory_network_broadcast_queue() {
             .broadcast_message(
                 sent_message.clone(),
                 vec![pub_key_1].into_iter().collect::<BTreeSet<_>>(),
+                STATIC_VER_0_1,
             )
             .await
             .expect("Failed to message node");
@@ -306,14 +306,18 @@ async fn memory_network_test_in_flight_message_count() {
 
     for (count, message) in messages.iter().enumerate() {
         network1
-            .direct_message(message.clone(), pub_key_2)
+            .direct_message(message.clone(), pub_key_2, STATIC_VER_0_1)
             .await
             .unwrap();
         // network 2 has received `count` broadcast messages and `count + 1` direct messages
         assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
 
         network2
-            .broadcast_message(message.clone(), broadcast_recipients.clone())
+            .broadcast_message(
+                message.clone(),
+                broadcast_recipients.clone(),
+                STATIC_VER_0_1,
+            )
             .await
             .unwrap();
         // network 1 has received `count` broadcast messages

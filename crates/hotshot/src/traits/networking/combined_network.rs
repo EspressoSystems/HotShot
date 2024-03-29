@@ -50,6 +50,7 @@ use std::hash::Hash;
 use std::time::Duration;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use versioned_binary_serialization::version::StaticVersionType;
 
 /// Helper function to calculate a hash of a type that implements Hash
 pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
@@ -64,9 +65,9 @@ type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, Vec<JoinHandle<Result<(), 
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone, Debug)]
-pub struct CombinedNetworks<TYPES: NodeType> {
+pub struct CombinedNetworks<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// The two networks we'll use for send/recv
-    networks: Arc<UnderlyingCombinedNetworks<TYPES>>,
+    networks: Arc<UnderlyingCombinedNetworks<TYPES, NetworkVersion>>,
 
     /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<LruCache<u64, ()>>>,
@@ -81,14 +82,17 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     delay_duration: Arc<RwLock<Duration>>,
 }
 
-impl<TYPES: NodeType> CombinedNetworks<TYPES> {
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType> CombinedNetworks<TYPES, NetworkVersion> {
     /// Constructor
     ///
     /// # Panics
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>) -> Self {
+    pub fn new(
+        networks: Arc<UnderlyingCombinedNetworks<TYPES, NetworkVersion>>,
+        delay_duration: Duration,
+    ) -> Self {
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -96,13 +100,13 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             ))),
             primary_down: Arc::new(AtomicU64::new(0)),
             delayed_tasks: Arc::default(),
-            delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
+            delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
     }
 
     /// Get a ref to the primary network
     #[must_use]
-    pub fn primary(&self) -> &WebServerNetwork<TYPES> {
+    pub fn primary(&self) -> &WebServerNetwork<TYPES, NetworkVersion> {
         &self.networks.0
     }
 
@@ -173,13 +177,15 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
 #[derive(Debug, Clone)]
-pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
-    pub WebServerNetwork<TYPES>,
+pub struct UnderlyingCombinedNetworks<TYPES: NodeType, NetworkVersion: StaticVersionType>(
+    pub WebServerNetwork<TYPES, NetworkVersion>,
     pub Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
 );
 
 #[cfg(feature = "hotshot-testing")]
-impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES> {
+impl<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>
+    TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES, NetworkVersion>
+{
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -187,17 +193,17 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         da_committee_size: usize,
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
+        secondary_network_delay: Duration,
     ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
         let generators = (
-            <WebServerNetwork<
-                TYPES,
-            > as TestableNetworkingImplementation<_>>::generator(
+            <WebServerNetwork<TYPES, NetworkVersion> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
                 da_committee_size,
                 is_da,
                 None,
+                Duration::default(),
             ),
             <Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> as TestableNetworkingImplementation<_>>::generator(
                 expected_node_count,
@@ -206,17 +212,18 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 da_committee_size,
                 is_da,
                 reliability_config,
+                Duration::default(),
             )
         );
         Box::new(move |node_id| {
             let (quorum_web, da_web) = generators.0(node_id);
             let (quorum_p2p, da_p2p) = generators.1(node_id);
             let da_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES>>::into_inner(da_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(da_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
             );
             let quorum_networks = UnderlyingCombinedNetworks(
-                Arc::<WebServerNetwork<TYPES>>::into_inner(quorum_web).unwrap(),
+                Arc::<WebServerNetwork<TYPES, NetworkVersion>>::into_inner(quorum_web).unwrap(),
                 Arc::<Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>>::unwrap_or_clone(
                     quorum_p2p,
                 ),
@@ -228,7 +235,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
                 delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             let da_net = Self {
                 networks: Arc::new(da_networks),
@@ -237,7 +244,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 ))),
                 primary_down: Arc::new(AtomicU64::new(0)),
                 delayed_tasks: Arc::default(),
-                delay_duration: Arc::new(RwLock::new(Duration::from_millis(1000))),
+                delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
             };
             (quorum_net.into(), da_net.into())
         })
@@ -252,21 +259,28 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 }
 
 #[async_trait]
-impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for CombinedNetworks<TYPES>
+impl<TYPES: NodeType, NetworkVersion: 'static + StaticVersionType>
+    ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for CombinedNetworks<TYPES, NetworkVersion>
 {
-    async fn request_data<T: NodeType>(
+    async fn request_data<T: NodeType, VER: 'static + StaticVersionType>(
         &self,
         request: Message<TYPES>,
         recipient: TYPES::SignatureKey,
+        bind_version: VER,
     ) -> Result<ResponseMessage<T>, NetworkError> {
-        self.secondary().request_data(request, recipient).await
+        self.secondary()
+            .request_data(request, recipient, bind_version)
+            .await
     }
 
-    async fn spawn_request_receiver_task(
+    async fn spawn_request_receiver_task<VER: 'static + StaticVersionType>(
         &self,
+        bind_version: VER,
     ) -> Option<mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>> {
-        self.secondary().spawn_request_receiver_task().await
+        self.secondary()
+            .spawn_request_receiver_task(bind_version)
+            .await
     }
 
     fn pause(&self) {
@@ -299,10 +313,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         boxed_sync(closure)
     }
 
-    async fn broadcast_message(
+    async fn broadcast_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -313,22 +328,23 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             message,
             async move {
                 primary
-                    .broadcast_message(primary_message, primary_recipients)
+                    .broadcast_message(primary_message, primary_recipients, bind_version)
                     .await
             },
             async move {
                 secondary
-                    .broadcast_message(secondary_message, recipients)
+                    .broadcast_message(secondary_message, recipients, bind_version)
                     .await
             },
         )
         .await
     }
 
-    async fn da_broadcast_message(
+    async fn da_broadcast_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipients: BTreeSet<TYPES::SignatureKey>,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -339,22 +355,23 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             message,
             async move {
                 primary
-                    .da_broadcast_message(primary_message, primary_recipients)
+                    .da_broadcast_message(primary_message, primary_recipients, bind_version)
                     .await
             },
             async move {
                 secondary
-                    .da_broadcast_message(secondary_message, recipients)
+                    .da_broadcast_message(secondary_message, recipients, bind_version)
                     .await
             },
         )
         .await
     }
 
-    async fn direct_message(
+    async fn direct_message<VER: StaticVersionType + 'static>(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
+        bind_version: VER,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
@@ -365,10 +382,14 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             message,
             async move {
                 primary
-                    .direct_message(primary_message, primary_recipient)
+                    .direct_message(primary_message, primary_recipient, bind_version)
                     .await
             },
-            async move { secondary.direct_message(secondary_message, recipient).await },
+            async move {
+                secondary
+                    .direct_message(secondary_message, recipient, bind_version)
+                    .await
+            },
         )
         .await
     }
@@ -420,8 +441,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <WebServerNetwork<_> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
-            inject_consensus_info(self.primary(), event.clone()).await;
+        <WebServerNetwork<_, NetworkVersion> as ConnectedNetwork<
+            Message<TYPES>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(self.primary(), event.clone())
+        .await;
 
         <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
             inject_consensus_info(self.secondary(), event).await;

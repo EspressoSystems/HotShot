@@ -19,12 +19,9 @@ pub use self::{
 
 use self::behaviours::{
     dht::DHTEvent,
-    direct_message::DMEvent,
     request_response::{Request, Response},
 };
-use bincode::Options;
 use futures::channel::oneshot::{self, Sender};
-use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
@@ -78,22 +75,6 @@ impl FromStr for NetworkNodeType {
             ),
         }
     }
-}
-
-/// Serialize an arbitrary message
-/// # Errors
-/// When unable to serialize a message
-pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-    bincode_opts().serialize(&msg)
-}
-
-/// Deserialize an arbitrary message
-/// # Errors
-/// When unable to deserialize a message
-pub fn deserialize_msg<'a, T: Deserialize<'a>>(
-    msg: &'a [u8],
-) -> Result<T, Box<bincode::ErrorKind>> {
-    bincode_opts().deserialize(msg)
 }
 
 impl Default for NetworkNodeType {
@@ -206,7 +187,7 @@ pub enum NetworkEventInternal {
     /// a gossip  event
     GossipEvent(Box<GossipEvent>),
     /// a direct message event
-    DMEvent(DMEvent),
+    DMEvent(libp2p::request_response::Event<Vec<u8>, Vec<u8>>),
     /// a request response event
     RequestResponseEvent(libp2p::request_response::Event<Request, Response>),
 }

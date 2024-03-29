@@ -8,10 +8,10 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
-                    "test_basic_web_server", 
-                    "--", 
+                    "test_basic_web_server",
+                    "--",
                     "--nocapture"
                 ],
                 "filter": {
@@ -31,7 +31,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::broadcast_queue"
                 ],
@@ -51,7 +51,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::direct_queue"
                 ],
@@ -71,7 +71,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::spawn_double"
                 ],
@@ -91,7 +91,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::spawn_single"
                 ],
@@ -111,7 +111,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::networking::memory_network::tests::test_in_flight_message_count"
                 ],
@@ -131,7 +131,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "traits::storage::memory_storage::test::memory_storage"
                 ],
@@ -150,7 +150,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "--example=libp2p-validator"
                 ],
@@ -169,7 +169,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "--example=orchestrator-libp2p"
                 ],
@@ -188,7 +188,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "--example=orchestrator-webserver"
                 ],
@@ -207,7 +207,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "--example=webserver"
                 ],
@@ -226,7 +226,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
                     "--example=validator-webserver"
                 ],
@@ -246,7 +246,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-centralized-server",
                     "run_results_can_be_serialized"
                 ],
@@ -266,7 +266,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-web-server",
                     "test::test_web_server"
                 ],
@@ -286,7 +286,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "centralized_server_network"
                 ],
@@ -306,7 +306,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "centralized_server_network_vrf"
                 ],
@@ -326,7 +326,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_stress_centralized_server_network"
                 ],
@@ -346,7 +346,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "centralized_server_network"
                 ],
@@ -366,7 +366,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_bad_proposal"
                 ],
@@ -386,7 +386,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_chain_height"
                 ],
@@ -406,7 +406,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_decide_leaf_chain"
                 ],
@@ -426,7 +426,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_max_propose"
                 ],
@@ -446,7 +446,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_min_propose"
                 ],
@@ -466,7 +466,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_single_node_network"
                 ],
@@ -486,7 +486,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_validating_proposal_queueing"
                 ],
@@ -506,7 +506,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_vote_queueing"
                 ],
@@ -526,7 +526,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure"
                 ],
@@ -546,7 +546,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure"
                 ],
@@ -566,7 +566,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "libp2p_network"
                 ],
@@ -586,7 +586,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_stress_libp2p_network"
                 ],
@@ -606,7 +606,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_asynchronous_network"
                 ],
@@ -626,7 +626,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_no_loss_network"
                 ],
@@ -646,7 +646,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_partially_synchronous_network"
                 ],
@@ -666,7 +666,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "test_synchronous_network"
                 ],
@@ -686,7 +686,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "sequencing_centralized_server_test"
                 ],
@@ -706,7 +706,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "sequencing_libp2p_test"
                 ],
@@ -726,7 +726,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "sequencing_memory_network_test"
                 ],
@@ -746,7 +746,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes"
                 ],
@@ -766,7 +766,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
                     "ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes"
                 ],
@@ -786,7 +786,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-types",
                     "traits::metrics::test::test"
                 ],
@@ -806,7 +806,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-types",
                     "traits::signature_key::ed25519::tests::base64_deserialize"
                 ],
@@ -826,7 +826,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-types",
                     "traits::signature_key::ed25519::tests::serialize_key"
                 ],
@@ -846,7 +846,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-types",
                     "traits::signature_key::ed25519::tests::signature_should_validate"
                 ],
@@ -866,7 +866,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_dht_many_rounds"
                 ],
@@ -886,7 +886,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_dht_one_round"
                 ],
@@ -906,7 +906,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_gossip_many_rounds"
                 ],
@@ -926,7 +926,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_gossip_one_round"
                 ],
@@ -946,7 +946,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_intersperse_many_rounds"
                 ],
@@ -966,7 +966,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_request_response_many_rounds"
                 ],
@@ -986,7 +986,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_coverage_request_response_one_round"
                 ],
@@ -1006,7 +1006,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_dht_many_rounds"
                 ],
@@ -1026,7 +1026,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_dht_one_round"
                 ],
@@ -1046,7 +1046,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_gossip_many_rounds"
                 ],
@@ -1066,7 +1066,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_gossip_one_round"
                 ],
@@ -1086,7 +1086,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_intersperse_many_rounds"
                 ],
@@ -1106,7 +1106,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_request_response_many_rounds"
                 ],
@@ -1126,7 +1126,7 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "test_stress_request_response_one_round"
                 ],
@@ -1145,7 +1145,7 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--features=full-ci,channel-async-std",
+                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=libp2p-networking",
                     "--example=counter"
                 ],

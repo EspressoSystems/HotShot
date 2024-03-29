@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  lint:
     strategy:
       matrix:
         just_variants:
@@ -33,11 +33,6 @@ jobs:
         with:
           shared-key: ""
           prefix-key: ${{ matrix.just_variants }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
 
       - name: Install Just
         run: |

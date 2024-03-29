@@ -11,6 +11,7 @@ use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
+use std::fs::OpenOptions;
 use std::{
     collections::HashSet,
     io,
@@ -35,6 +36,19 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
+use versioned_binary_serialization::version::{StaticVersion, StaticVersionType};
+
+/// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
+/// Orchestrator Version (major)
+pub const ORCHESTRATOR_MAJOR_VERSION: u16 = 0;
+/// Orchestrator Version (minor)
+pub const ORCHESTRATOR_MINOR_VERSION: u16 = 1;
+/// Orchestrator Version as a type
+pub type OrchestratorVersion =
+    StaticVersion<ORCHESTRATOR_MAJOR_VERSION, ORCHESTRATOR_MINOR_VERSION>;
+/// Orchestrator Version as a type-binding instance
+pub const ORCHESTRATOR_VERSION: OrchestratorVersion = StaticVersion {};
+
 /// Generate an keypair based on a `seed` and an `index`
 /// # Panics
 /// This panics if libp2p is unable to generate a secret key from the seed
@@ -112,8 +126,14 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             total_num_views: self.bench_results.total_num_views,
             failed_num_views: self.bench_results.failed_num_views,
         };
+        // Open the CSV file in append mode
+        let results_csv_file = OpenOptions::new()
+            .create(true)
+            .append(true) // Open in append mode
+            .open("scripts/benchmarks_results/results.csv")
+            .unwrap();
         // Open a file for writing
-        let mut wtr = Writer::from_path("scripts/benchmarks_results/results.csv").unwrap();
+        let mut wtr = Writer::from_writer(results_csv_file);
         let _ = wtr.serialize(output_csv);
         let _ = wtr.flush();
         println!("Results successfully saved in scripts/benchmarks_results/results.csv");
@@ -253,8 +273,8 @@ where
         }
         self.pub_posted.insert(node_index);
 
-        // The guess is the first extra 8 bytes are from orchestrator serialization
-        pubkey.drain(..8);
+        // The guess is the first extra 12 bytes are from orchestrator serialization
+        pubkey.drain(..12);
         let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
         self.config.config.known_nodes_with_stake[node_index as usize] =
             register_pub_key_with_stake;
@@ -360,20 +380,21 @@ where
 }
 
 /// Sets up all API routes
-fn define_api<KEY: SignatureKey, ELECTION: ElectionConfig, State>(
-) -> Result<Api<State, ServerError>, ApiError>
+fn define_api<KEY: SignatureKey, ELECTION: ElectionConfig, State, VER: StaticVersionType>(
+) -> Result<Api<State, ServerError, VER>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ELECTION>,
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
+    VER: 'static,
 {
     let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/api.toml"
     )))
     .expect("API file is not valid toml");
-    let mut api = Api::<State, ServerError>::new(api_toml)?;
+    let mut api = Api::<State, ServerError, VER>::new(api_toml)?;
     api.post("post_identity", |req, state| {
         async move {
             let identity = req.string_param("identity")?.parse::<IpAddr>();
@@ -447,9 +468,12 @@ where
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 
-    let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
+    let mut app = App::<
+        RwLock<OrchestratorState<KEY, ELECTION>>,
+        ServerError, OrchestratorVersion
+    >::with_state(state);
     app.register_module("api", web_api.unwrap())
         .expect("Error registering api");
     tracing::error!("listening on {:?}", url);
-    app.serve(url).await
+    app.serve(url, ORCHESTRATOR_VERSION).await
 }

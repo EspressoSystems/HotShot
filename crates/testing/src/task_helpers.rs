@@ -45,6 +45,7 @@ use hotshot_types::vote::Vote;
 
 use jf_primitives::vid::VidScheme;
 
+use hotshot_types::data::VidDisperseShare;
 use serde::Serialize;
 use std::{fmt::Debug, hash::Hash, sync::Arc};
 
@@ -55,8 +56,8 @@ pub async fn build_system_handle(
     node_id: u64,
 ) -> (
     SystemContextHandle<TestTypes, MemoryImpl>,
-    Sender<HotShotEvent<TestTypes>>,
-    Receiver<HotShotEvent<TestTypes>>,
+    Sender<Arc<HotShotEvent<TestTypes>>>,
+    Receiver<Arc<HotShotEvent<TestTypes>>>,
 ) {
     let builder = TestMetadata::default_multiple_rounds();
 
@@ -117,11 +118,11 @@ pub async fn build_system_handle(
         private_key,
         node_id,
         config,
-        storage,
         memberships,
         networks_bundle,
         initializer,
         ConsensusMetricsValue::default(),
+        storage,
     )
     .await
     .expect("Could not init hotshot")
@@ -256,7 +257,6 @@ async fn build_quorum_proposal_and_signature(
         parent_commitment: parent_leaf.commit(),
         block_header: block_header.clone(),
         block_payload: None,
-        proposer_id: *handle.public_key(),
     };
 
     let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
@@ -265,9 +265,8 @@ async fn build_quorum_proposal_and_signature(
         block_header: block_header.clone(),
         view_number: ViewNumber::new(1),
         justify_qc: QuorumCertificate::genesis(),
-        timeout_certificate: None,
         upgrade_certificate: None,
-        proposer_id: leaf.proposer_id,
+        proposal_certificate: None,
     };
 
     // Only view 2 is tested, higher views are not tested
@@ -315,7 +314,6 @@ async fn build_quorum_proposal_and_signature(
             parent_commitment: parent_leaf.commit(),
             block_header: block_header.clone(),
             block_payload: None,
-            proposer_id: quorum_membership.get_leader(ViewNumber::new(cur_view)),
         };
         let signature_new_view =
             <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
@@ -324,9 +322,8 @@ async fn build_quorum_proposal_and_signature(
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
             justify_qc: created_qc,
-            timeout_certificate: None,
             upgrade_certificate: None,
-            proposer_id: leaf_new_view.clone().proposer_id,
+            proposal_certificate: None,
         };
         proposal = proposal_new_view;
         signature = signature_new_view;
@@ -379,7 +376,7 @@ pub fn vid_payload_commitment(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(encoded_transactions).unwrap();
 
@@ -395,32 +392,26 @@ pub fn da_payload_commitment(
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
+/// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 pub fn build_vid_proposal(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> Proposal<TestTypes, VidDisperse<TestTypes>> {
-    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+) -> Proposal<TestTypes, VidDisperseShare<TestTypes>> {
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
-    let payload_commitment = vid_disperse.commit;
-
-    let vid_signature =
-        <TestTypes as NodeType>::SignatureKey::sign(private_key, payload_commitment.as_ref())
-            .expect("Failed to sign payload commitment");
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(&encoded_transactions).unwrap(),
+        vid.disperse(encoded_transactions).unwrap(),
         &quorum_membership.clone().into(),
     );
 
-    Proposal {
-        data: vid_disperse.clone(),
-        signature: vid_signature,
-        _pd: PhantomData,
-    }
+    VidDisperseShare::from_vid_disperse(vid_disperse)
+        .swap_remove(0)
+        .to_proposal(private_key)
+        .expect("Failed to sign payload commitment")
 }
 
 pub fn build_da_certificate(
@@ -454,7 +445,6 @@ pub async fn build_vote(
 ) -> GeneralConsensusMessage<TestTypes> {
     let consensus_lock = handle.get_consensus();
     let consensus = consensus_lock.read().await;
-    let membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let justify_qc = proposal.justify_qc.clone();
     let view = ViewNumber::new(*proposal.view_number);
@@ -485,7 +475,6 @@ pub async fn build_vote(
         parent_commitment,
         block_header: proposal.block_header,
         block_payload: None,
-        proposer_id: membership.get_leader(view),
     };
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
         QuorumData {
