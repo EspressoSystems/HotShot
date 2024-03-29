@@ -142,6 +142,13 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -283,5 +290,12 @@
     </span>UpgradeVoteSend(UpgradeVote&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade certificate has been sent to the network
     </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
+
+    <span class="doccomment">/** Quorum Proposal Task **/
+    /// Dummy quorum proposal to test if the quorum proposal dependency task works.
+    </span>DummyQuorumProposalSend(TYPES::Time),
+    <span class="doccomment">/// All required dependencies of the quorum proposal have been validated and the task is ready
+    /// to propose.
+    </span>QuorumProposalDependenciesValidated(TYPES::Time),
 }
 </code></pre></div></section></main></body></html>
