@@ -46,8 +46,8 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-and-test"
-          cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          prefix-key: ${{ matrix.just_variants }}
+          save-if: false
 
       - name: Install cargo-semver-checks and cargo-workspaces
         run: |
