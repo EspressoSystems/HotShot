@@ -14,7 +14,9 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::ViewNumber, simple_vote::UpgradeProposalData, traits::{node_implementation::ConsensusTime, election::Membership},
+    data::ViewNumber,
+    simple_vote::UpgradeProposalData,
+    traits::{election::Membership, node_implementation::ConsensusTime},
 };
 use versioned_binary_serialization::version::Version;
 
@@ -526,9 +528,9 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![
-                    quorum_proposal_send_with_null_block(quorum_membership.total_nodes()),
-                ],
+                output_asserts: vec![quorum_proposal_send_with_null_block(
+                    quorum_membership.total_nodes(),
+                )],
                 task_state_asserts: vec![],
             },
             Expectations {
