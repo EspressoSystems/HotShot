@@ -68,7 +68,7 @@ enum ProposalDependency {
     TimeoutCert,
 
     /// For the `QuroumProposalRecv` event.
-    ProposalCertificate,
+    Proposal,
 }
 
 /// Handler for the proposal dependency
@@ -222,7 +222,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
 
-                    ProposalDependency::ProposalCertificate => {
+                    ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
                             proposal.data.view_number
                         } else {
@@ -269,8 +269,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        let mut proposal_cert_dependency = self.create_event_dependency(
-            ProposalDependency::ProposalCertificate,
+        let mut proposal_dependency = self.create_event_dependency(
+            ProposalDependency::Proposal,
             view_number,
             event_receiver.clone(),
         );
@@ -304,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalRecv(_, _) => {
-                proposal_cert_dependency.mark_as_completed(event);
+                proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
@@ -327,7 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ])]),
             OrDependency::from_deps(vec![
                 // 1. A QCFormed event and QuorumProposalRecv event
-                AndDependency::from_deps(vec![qc_dependency, proposal_cert_dependency]),
+                AndDependency::from_deps(vec![qc_dependency, proposal_dependency]),
                 // 2. A timeout cert was received
                 AndDependency::from_deps(vec![timeout_dependency]),
                 // 3. A view sync cert was received.

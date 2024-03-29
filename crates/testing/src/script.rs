@@ -7,14 +7,7 @@ use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, time::Duration};
 
-#[cfg(async_executor_impl = "async-std")]
-use async_std::future::timeout;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::time::timeout;
-
-use std::time::Duration;
-
-const RECV_TIMEOUT_SEC: Duration = Duration::from_secs(1);
+const RECV_TIMEOUT_SEC: Duration = Duration::from_millis(250);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -116,7 +109,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         }
 
         for assert in &stage.outputs {
-            match timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await {
+            match async_timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await {
                 Ok(Ok(received_output)) => {
                     tracing::debug!("Test received: {:?}", received_output);
                     validate_output_or_panic(stage_number, &received_output, assert);
