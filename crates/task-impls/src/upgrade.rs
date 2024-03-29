@@ -14,7 +14,7 @@ use hotshot_types::{
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
