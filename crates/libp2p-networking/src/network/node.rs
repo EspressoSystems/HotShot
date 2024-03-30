@@ -628,7 +628,26 @@ impl NetworkNode {
                         self.request_response_state.handle_request_response(e)
                     }
                     NetworkEventInternal::AutonatEvent(e) => {
-                        debug!("Autonat event: {:?}", e);
+                        match e {
+                            autonat::Event::InboundProbe(_) => {}
+                            autonat::Event::OutboundProbe(e) => match e {
+                                autonat::OutboundProbeEvent::Request { .. } => {}
+                                autonat::OutboundProbeEvent::Response { .. } => {}
+                                autonat::OutboundProbeEvent::Error {
+                                    probe_id: _,
+                                    peer,
+                                    error,
+                                } => {
+                                    warn!(
+                                        "Autonat Probe failed to peer {:?}, with error: {:?}",
+                                        peer, error
+                                    );
+                                }
+                            },
+                            autonat::Event::StatusChanged { old, new } => {
+                                info!("autonat Status changed. Old: {:?}, New: {:?}", old, new);
+                            }
+                        };
                         None
                     }
                 };
