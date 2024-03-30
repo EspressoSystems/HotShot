@@ -632,8 +632,8 @@ impl NetworkNode {
                         match e {
                             autonat::Event::InboundProbe(_) => {}
                             autonat::Event::OutboundProbe(e) => match e {
-                                autonat::OutboundProbeEvent::Request { .. } => {}
-                                autonat::OutboundProbeEvent::Response { .. } => {}
+                                autonat::OutboundProbeEvent::Request { .. }
+                                | autonat::OutboundProbeEvent::Response { .. } => {}
                                 autonat::OutboundProbeEvent::Error {
                                     probe_id: _,
                                     peer,
