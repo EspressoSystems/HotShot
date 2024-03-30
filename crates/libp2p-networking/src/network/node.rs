@@ -295,6 +295,11 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
 
+            let autonat_config = autonat::Config {
+                only_global_ips: false,
+                ..Default::default()
+            };
+
             let network = NetworkDef::new(
                 gossipsub,
                 DHTBehaviour::new(
@@ -307,7 +312,7 @@ impl NetworkNode {
                 identify,
                 direct_message,
                 request_response,
-                autonat::Behaviour::new(peer_id, autonat::Config::default()),
+                autonat::Behaviour::new(peer_id, autonat_config),
             );
 
             // build swarm
