@@ -138,6 +138,7 @@ impl NetworkNode {
                 Some(peer_id) => {
                     // if we know the peerid, add address.
                     if *peer_id != self.peer_id {
+                        behaviour.autonat.add_server(*peer_id, Some(addr.clone()));
                         behaviour.dht.add_address(peer_id, addr.clone());
                         bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
                     }
