@@ -9,8 +9,15 @@ use hotshot::types::SystemContextHandle;
 
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
+#[derive(Clone, Copy, Debug)]
+pub enum PredicateState {
+    Pass,
+    Fail,
+    Incomplete,
+}
+
 pub struct Predicate<INPUT> {
-    pub function: Box<dyn Fn(&INPUT) -> bool>,
+    pub function: Box<dyn Fn(&INPUT) -> PredicateState>,
     pub info: String,
 }
 
