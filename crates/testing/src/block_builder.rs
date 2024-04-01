@@ -201,6 +201,12 @@ impl BuilderDataSource<TestTypes> for RandomBuilderSource {
         };
         Ok(header_input)
     }
+
+    async fn get_builder_address(
+        &self,
+    ) -> Result<<TestTypes as NodeType>::SignatureKey, BuildError> {
+        Ok(self.pub_key)
+    }
 }
 
 /// Construct a tide disco app that mocks the builder API.
@@ -296,6 +302,12 @@ impl BuilderDataSource<TestTypes> for SimpleBuilderSource {
         let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
         entry.header_input.take().ok_or(BuildError::Missing)
     }
+
+    async fn get_builder_address(
+        &self,
+    ) -> Result<<TestTypes as NodeType>::SignatureKey, BuildError> {
+        Ok(self.pub_key)
+    }
 }
 
 impl SimpleBuilderSource {
@@ -348,7 +360,7 @@ impl TaskState for SimpleBuilderTask {
             HotShotEvent::LeafDecided(leaf_chain) => {
                 let mut queue = this.transactions.write().await;
                 for leaf in leaf_chain.iter() {
-                    if let Some(ref payload) = leaf.block_payload {
+                    if let Some(ref payload) = leaf.get_block_payload() {
                         for txn in payload.transaction_commitments(&()) {
                             queue.remove(&txn);
                         }

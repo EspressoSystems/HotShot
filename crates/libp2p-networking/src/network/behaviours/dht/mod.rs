@@ -1,7 +1,7 @@
 /// Task for doing bootstraps at a regular interval
 pub mod bootstrap;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::HashMap,
     num::NonZeroUsize,
     time::Duration,
 };
@@ -15,13 +15,10 @@ use futures::{
 use lazy_static::lazy_static;
 use libp2p::kad::{store::RecordStore, Behaviour as KademliaBehaviour};
 use libp2p::kad::{BootstrapError, Event as KademliaEvent};
-use libp2p::{
-    kad::{
+use libp2p::kad::{
         /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
         GetRecordOk, GetRecordResult, ProgressStep, PutRecordResult, QueryId, QueryResult, Record,
-    },
-    Multiaddr,
-};
+    };
 use libp2p_identity::PeerId;
 use tracing::{error, info, warn};
 
@@ -268,7 +265,7 @@ impl DHTBehaviour {
         };
 
         // if the query has completed and we need to retry
-        // or if the query has enoguh replicas to return to the client
+        // or if the query has enough replicas to return to the client
         // trigger retry or completion logic
         if num >= NUM_REPLICATED_TO_TRUST || last {
             if let Some(KadGetQuery {

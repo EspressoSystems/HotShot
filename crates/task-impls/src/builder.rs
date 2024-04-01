@@ -14,7 +14,7 @@ use tagged_base64::TaggedBase64;
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Snafu, Serialize, Deserialize)]
-/// Represents errors thant builder client may return
+/// Represents errors than builder client may return
 pub enum BuilderClientError {
     // NOTE: folds BuilderError::NotFound & builderError::Missing
     // into one. Maybe we'll want to handle that separately in
@@ -39,9 +39,11 @@ impl From<BuilderApiError> for BuilderClientError {
                     message: source.to_string(),
                 }
             }
-            BuilderApiError::TxnSubmit { source } => Self::Api {
-                message: source.to_string(),
-            },
+            BuilderApiError::TxnSubmit { source } | BuilderApiError::BuilderAddress { source } => {
+                Self::Api {
+                    message: source.to_string(),
+                }
+            }
             BuilderApiError::Custom { message, .. } => Self::Api { message },
             BuilderApiError::BlockAvailable { source, .. }
             | BuilderApiError::BlockClaim { source, .. } => match source {

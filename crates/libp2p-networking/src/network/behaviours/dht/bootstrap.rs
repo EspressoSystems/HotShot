@@ -38,7 +38,7 @@ impl DHTBootstrapTask {
                         }
                         _ => {}
                     },
-                    Err(e) => self.bootstrap().await,
+                    Err(_) => self.bootstrap().await,
                 }
             } else if matches!(self.rx.next().await, Some(InputEvent::BootstrapFinished)) {
                 self.in_progress = false;

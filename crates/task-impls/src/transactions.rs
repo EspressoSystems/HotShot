@@ -59,7 +59,7 @@ pub struct TransactionTaskState<
     /// Network for all nodes
     pub network: Arc<I::QuorumNetwork>,
 
-    /// Membership for teh quorum
+    /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
 
     /// This Nodes Public Key
@@ -127,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let mut included_txn_size = 0;
                 let mut included_txn_count = 0;
                 for leaf in leaf_chain {
-                    if let Some(ref payload) = leaf.block_payload {
+                    if let Some(ref payload) = leaf.get_block_payload() {
                         for txn in
                             payload.transaction_commitments(leaf.get_block_header().metadata())
                         {
