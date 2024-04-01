@@ -3,9 +3,11 @@ use std::sync::Arc;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
+    consensus::{null_block, ConsensusTaskState},
+    events::HotShotEvent,
+    events::HotShotEvent::*,
 };
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
 
 pub struct Predicate<INPUT> {
     pub function: Box<dyn Fn(&INPUT) -> bool>,
