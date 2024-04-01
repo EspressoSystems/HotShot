@@ -6,7 +6,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, time::Duration};
 
-const RECV_TIMEOUT: Duration = Duration::from_secs(1);
+pub const RECV_TIMEOUT: Duration = Duration::from_secs(1);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -65,8 +65,6 @@ where
         output
     );
 }
-
-pub const RECV_TIMEOUT_MILLIS: u64 = 250;
 
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
 /// It broadcasts all given inputs (in order) and waits to receive all outputs (in order).
