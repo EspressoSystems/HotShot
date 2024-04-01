@@ -9,7 +9,7 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 async fn test_quorum_vote_task_success() {
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
-        predicates::{consecutive, exact},
+        predicates::consecutive,
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
@@ -31,7 +31,7 @@ async fn test_quorum_vote_task_success() {
     let view_success = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(view.quorum_proposal.clone(), view.leader_public_key),
-            DACRecv(view.da_certificate.clone()),
+            DACertificateRecv(view.da_certificate.clone()),
             VidDisperseRecv(view.vid_proposal.0[0].clone()),
         ],
         outputs: vec![
@@ -43,8 +43,10 @@ async fn test_quorum_vote_task_success() {
                 DACertificateValidated(view.da_certificate.clone()),
                 VIDShareValidated(view.vid_proposal.0[0].data.clone()),
             )),
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
-            exact(DummyQuorumVoteSend(ViewNumber::new(1))),
+            consecutive((
+                QuorumVoteDependenciesValidated(ViewNumber::new(1)),
+                DummyQuorumVoteSend(ViewNumber::new(1)),
+            )),
         ],
         asserts: vec![],
     };
@@ -91,7 +93,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     // Send two of quorum proposal, DAC, and VID disperse data, in which case there's no vote.
     let view_no_quorum_proposal = TestScriptStage {
         inputs: vec![
-            DACRecv(dacs[0].clone()),
+            DACertificateRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![consecutive((
@@ -117,7 +119,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_vid = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            DACRecv(dacs[2].clone()),
+            DACertificateRecv(dacs[2].clone()),
         ],
         outputs: vec![
             consecutive((

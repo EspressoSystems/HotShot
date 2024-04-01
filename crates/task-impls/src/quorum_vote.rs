@@ -33,7 +33,7 @@ use tracing::{debug, error, instrument, warn};
 enum VoteDependency {
     /// For the `QuorumProposalRecv` event.
     QuorumProposal,
-    /// For the `DACRecv` event.
+    /// For the `DACertificateRecv` event.
     Dac,
     /// For the `VidDisperseRecv` event.
     Vid,
@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender);
             }
-            HotShotEvent::DACRecv(cert) => {
+            HotShotEvent::DACertificateRecv(cert) => {
                 let view = cert.view_number;
                 debug!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -370,7 +370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
-                | HotShotEvent::DACRecv(_)
+                | HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VidDisperseRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)

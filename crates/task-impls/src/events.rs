@@ -41,7 +41,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A DA vote has been received by the network; handled by the DA task
     DAVoteRecv(DAVote<TYPES>),
     /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
-    DACRecv(DACertificate<TYPES>),
+    DACertificateRecv(DACertificate<TYPES>),
     /// A DAC is validated.
     DACertificateValidated(DACertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task

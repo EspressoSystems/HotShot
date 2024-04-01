@@ -46,7 +46,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="WsWUFxSsiAewtnnMHRLG-8" value="&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;QuorumProposalRecv&lt;/div&gt;&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;DACRecv&lt;/div&gt;&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;TimeoutVoteRecv&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=none;fontColor=#000000;" vertex="1" connectable="0" parent="WsWUFxSsiAewtnnMHRLG-7">
+        <mxCell id="WsWUFxSsiAewtnnMHRLG-8" value="&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;QuorumProposalRecv&lt;/div&gt;&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;DACertificateRecv&lt;/div&gt;&lt;div style=&quot;font-size: 11px; line-height: 18px;&quot;&gt;TimeoutVoteRecv&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=none;fontColor=#000000;" vertex="1" connectable="0" parent="WsWUFxSsiAewtnnMHRLG-7">
           <mxGeometry x="-0.0581" y="-2" relative="1" as="geometry">
             <mxPoint x="61" y="-92" as="offset" />
           </mxGeometry>
