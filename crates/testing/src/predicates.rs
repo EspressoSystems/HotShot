@@ -171,6 +171,27 @@ where
     })
 }
 
+pub fn quorum_proposal_send_with_null_block<TYPES>(
+    num_storage_nodes: usize,
+) -> EventPredicate<TYPES>
+where
+    TYPES: NodeType,
+{
+    let info = "QuorumProposalSend with null block payload".to_string();
+    let function = move |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
+        QuorumProposalSend(proposal, _) => {
+            Some(proposal.data.block_header.payload_commitment())
+                == null_block::commitment(num_storage_nodes)
+        }
+        _ => false,
+    };
+
+    EventPredicate::One(Predicate {
+        function: Box::new(function),
+        info,
+    })
+}
+
 pub fn timeout_vote_send<TYPES>() -> EventPredicate<TYPES>
 where
     TYPES: NodeType,
