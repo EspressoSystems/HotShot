@@ -183,8 +183,23 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
+    autonat,
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
     request_response::{cbor, OutboundRequestId, ResponseChannel},
@@ -236,6 +251,11 @@
     <span class="doccomment">/// Behaviour for requesting and receiving data
     </span><span class="attr">#[debug(skip)]
     </span><span class="kw">pub </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Request, Response&gt;,
+
+    <span class="doccomment">/// Auto NAT behaviour to determine if we are publically reachable and
+    /// by which address
+    </span><span class="attr">#[debug(skip)]
+    </span><span class="kw">pub </span>autonat: libp2p::autonat::Behaviour,
 }
 
 <span class="kw">impl </span>NetworkDef {
@@ -247,6 +267,7 @@
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         request_response: cbor::Behaviour&lt;Request, Response&gt;,
+        autonat: autonat::Behaviour,
     ) -&gt; NetworkDef {
         <span class="self">Self </span>{
             gossipsub,
@@ -254,6 +275,7 @@
             identify,
             direct_message,
             request_response,
+            autonat,
         }
     }
 }
@@ -364,6 +386,12 @@
 <span class="kw">impl </span>From&lt;libp2p::request_response::Event&lt;Request, Response&gt;&gt; <span class="kw">for </span>NetworkEventInternal {
     <span class="kw">fn </span>from(event: libp2p::request_response::Event&lt;Request, Response&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::RequestResponseEvent(event)
+    }
+}
+
+<span class="kw">impl </span>From&lt;libp2p::autonat::Event&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: libp2p::autonat::Event) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::AutonatEvent(event)
     }
 }
 </code></pre></div></section></main></body></html>

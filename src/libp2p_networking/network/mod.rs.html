@@ -234,6 +234,8 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p's behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
@@ -426,6 +428,8 @@
     </span>DMEvent(libp2p::request_response::Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;),
     <span class="doccomment">/// a request response event
     </span>RequestResponseEvent(libp2p::request_response::Event&lt;Request, Response&gt;),
+    <span class="doccomment">/// a autonat event
+    </span>AutonatEvent(libp2p::autonat::Event),
 }
 
 <span class="doccomment">/// Bind all interfaces on port `port`

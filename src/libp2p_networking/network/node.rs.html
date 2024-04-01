@@ -716,6 +716,42 @@
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -751,7 +787,7 @@
 };
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-<span class="kw">use </span>libp2p::{core::transport::ListenerId, StreamProtocol};
+<span class="kw">use </span>libp2p::{autonat, core::transport::ListenerId, StreamProtocol};
 <span class="kw">use </span>libp2p::{
     gossipsub::{
         Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder, Event <span class="kw">as </span>GossipEvent,
@@ -856,6 +892,7 @@
                 <span class="prelude-val">Some</span>(peer_id) =&gt; {
                     <span class="comment">// if we know the peerid, add address.
                     </span><span class="kw">if </span><span class="kw-2">*</span>peer_id != <span class="self">self</span>.peer_id {
+                        behaviour.autonat.add_server(<span class="kw-2">*</span>peer_id, <span class="prelude-val">Some</span>(addr.clone()));
                         behaviour.dht.add_address(peer_id, addr.clone());
                         bs_nodes.insert(<span class="kw-2">*</span>peer_id, iter::once(addr.clone()).collect());
                     }
@@ -1013,6 +1050,11 @@
                     rrconfig.clone(),
                 );
 
+            <span class="kw">let </span>autonat_config = autonat::Config {
+                only_global_ips: <span class="bool-val">false</span>,
+                ..Default::default()
+            };
+
             <span class="kw">let </span>network = NetworkDef::new(
                 gossipsub,
                 DHTBehaviour::new(
@@ -1025,6 +1067,7 @@
                 identify,
                 direct_message,
                 request_response,
+                autonat::Behaviour::new(peer_id, autonat_config),
             );
 
             <span class="comment">// build swarm
@@ -1272,7 +1315,6 @@
                 address: <span class="kw">_</span>,
             }
             | SwarmEvent::NewExternalAddrCandidate { .. }
-            | SwarmEvent::ExternalAddrConfirmed { .. }
             | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: <span class="kw">_</span>,
@@ -1340,6 +1382,29 @@
                     NetworkEventInternal::RequestResponseEvent(e) =&gt; {
                         <span class="self">self</span>.request_response_state.handle_request_response(e)
                     }
+                    NetworkEventInternal::AutonatEvent(e) =&gt; {
+                        <span class="kw">match </span>e {
+                            autonat::Event::InboundProbe(<span class="kw">_</span>) =&gt; {}
+                            autonat::Event::OutboundProbe(e) =&gt; <span class="kw">match </span>e {
+                                autonat::OutboundProbeEvent::Request { .. }
+                                | autonat::OutboundProbeEvent::Response { .. } =&gt; {}
+                                autonat::OutboundProbeEvent::Error {
+                                    probe_id: <span class="kw">_</span>,
+                                    peer,
+                                    error,
+                                } =&gt; {
+                                    <span class="macro">warn!</span>(
+                                        <span class="string">"Autonat Probe failed to peer {:?}, with error: {:?}"</span>,
+                                        peer, error
+                                    );
+                                }
+                            },
+                            autonat::Event::StatusChanged { old, new } =&gt; {
+                                <span class="macro">info!</span>(<span class="string">"autonat Status changed. Old: {:?}, New: {:?}"</span>, old, new);
+                            }
+                        };
+                        <span class="prelude-val">None
+                    </span>}
                 };
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = maybe_event {
@@ -1370,6 +1435,13 @@
             }
             SwarmEvent::ListenerError { listener_id, error } =&gt; {
                 <span class="macro">info!</span>(<span class="string">"LISTENER ERROR {:?} {:?}"</span>, listener_id, error);
+            }
+            SwarmEvent::ExternalAddrConfirmed { address } =&gt; {
+                <span class="kw">let </span>my_id = <span class="kw-2">*</span><span class="self">self</span>.swarm.local_peer_id();
+                <span class="self">self</span>.swarm
+                    .behaviour_mut()
+                    .dht
+                    .add_address(<span class="kw-2">&amp;</span>my_id, address.clone());
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">error!</span>(
