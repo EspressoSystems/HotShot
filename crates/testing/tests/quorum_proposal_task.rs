@@ -27,8 +27,7 @@ fn make_payload_commitment(
     // later calls. We need the VID commitment to be able to propose later.
     let mut vid = vid_scheme_from_view_number::<TestTypes>(membership, view);
     let encoded_transactions = Vec::new();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    vid_disperse.commit
+    vid.commit_only(&encoded_transactions).unwrap()
 }
 
 #[cfg(test)]

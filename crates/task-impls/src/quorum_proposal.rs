@@ -682,7 +682,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
             HotShotEvent::QuorumProposalValidated(proposal) => {
-                let view = proposal.get_view_number() + 1;
+                let view = proposal.get_view_number();
                 if view < self.latest_proposed_view {
                     debug!("Proposal is from an older view {:?}", proposal.clone());
                     return;
@@ -694,7 +694,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
 
                 self.create_dependency_task_if_new(
-                    view,
+                    view + 1,
                     event_receiver,
                     event_sender,
                     event.clone(),
