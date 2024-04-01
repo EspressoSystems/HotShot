@@ -3152,7 +3152,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3170,7 +3170,7 @@ dependencies = [
  "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tide-disco",
  "toml",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3247,7 +3247,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3281,7 +3281,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3343,7 +3343,7 @@ dependencies = [
  "time 0.3.34",
  "tokio",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3379,7 +3379,7 @@ dependencies = [
  "tide-disco",
  "tokio",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3456,7 +3456,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3474,7 +3474,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4565,7 +4565,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "versioned-binary-serialization",
+ "vbs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "void",
 ]
 
@@ -7995,7 +7995,7 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "url",
- "vbs",
+ "vbs 0.1.4 (git+https://github.com/EspressoSystems/versioned-binary-serialization.git?tag=v0.1.4)",
 ]
 
 [[package]]
@@ -8661,6 +8661,19 @@ dependencies = [
  "sval_json",
  "sval_ref",
  "sval_serde",
+]
+
+[[package]]
+name = "vbs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "971bcbd6c41e4e53fa9eab95b2a8ddaf1826be2f3e86b4101efebc8c3a17fde0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "derive_more",
+ "serde",
+ "serde_with",
 ]
 
 [[package]]

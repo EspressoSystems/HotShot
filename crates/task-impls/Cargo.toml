@@ -28,7 +28,7 @@ surf-disco = { workspace = true }
 tagged-base64 = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
-versioned-binary-serialization = { workspace = true }
+vbs = { workspace = true }
 
 [features]
 gpu-vid = ["hotshot-types/gpu-vid"]

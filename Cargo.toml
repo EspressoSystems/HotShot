@@ -86,8 +86,7 @@ time = "0.3.34"
 toml = "0.8.11"
 tracing = "0.1.40"
 typenum = "1.17.0"
-versioned-binary-serialization = { git = "https://github.com/EspressoSystems/versioned-binary-serialization.git", tag = "0.1.2" }
-# vbs = "0.1.4"
+vbs = "0.1.4"
 
 libp2p = { package = "libp2p", version = "0.53.2", features = [
   "macros",

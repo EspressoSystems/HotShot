@@ -38,7 +38,7 @@ sha3 = "^0.10"
 snafu = { workspace = true }
 tide-disco = { workspace = true }
 tracing = { workspace = true }
-versioned-binary-serialization = { workspace = true }
+vbs = { workspace = true }
 lru = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]

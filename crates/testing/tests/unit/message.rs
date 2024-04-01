@@ -13,7 +13,7 @@ use hotshot_types::{
     simple_vote::ViewSyncCommitData,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
-use versioned_binary_serialization::{
+use vbs::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
 };

@@ -20,7 +20,7 @@ toml = { workspace = true }
 thiserror = "1.0.50"
 serde-inline-default = "0.1.1"
 csv = "1.3.0"
-versioned-binary-serialization = { workspace = true }
+vbs = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

@@ -12,7 +12,7 @@ use crate::{
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
-use versioned_binary_serialization::version::Version;
+use vbs::version::Version;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a yes vote.

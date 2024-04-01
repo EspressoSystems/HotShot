@@ -62,7 +62,7 @@ use std::{
 #[cfg(feature = "hotshot-testing")]
 use std::{collections::HashSet, num::NonZeroUsize, str::FromStr};
 use tracing::{debug, error, info, instrument, warn};
-use versioned_binary_serialization::{
+use vbs::{
     version::{StaticVersionType, Version},
     BinarySerializer, Serializer,
 };

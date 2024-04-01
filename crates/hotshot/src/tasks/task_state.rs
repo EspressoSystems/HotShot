@@ -16,7 +16,7 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 /// Trait for creating task states.
 #[async_trait]

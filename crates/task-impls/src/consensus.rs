@@ -36,7 +36,7 @@ use hotshot_types::{
 };
 use hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
 use tracing::warn;
-use versioned_binary_serialization::version::Version;
+use vbs::version::Version;
 
 use crate::vote_collection::HandleVoteEvent;
 use chrono::Utc;

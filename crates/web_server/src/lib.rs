@@ -23,7 +23,7 @@ use tide_disco::{
     Api, App, StatusCode, Url,
 };
 use tracing::{debug, info};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 /// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline

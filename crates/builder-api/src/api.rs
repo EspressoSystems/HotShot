@@ -14,7 +14,7 @@ use std::fs;
 use std::path::Path;
 use tide_disco::api::{Api, ApiError};
 use toml::{map::Entry, Value};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 pub(crate) fn load_api<State, Error, Ver: StaticVersionType>(
     path: Option<impl AsRef<Path>>,

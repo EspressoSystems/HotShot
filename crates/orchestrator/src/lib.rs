@@ -36,7 +36,7 @@ use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
     Keypair,
 };
-use versioned_binary_serialization::version::{StaticVersion, StaticVersionType};
+use vbs::version::{StaticVersion, StaticVersionType};
 
 /// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)
