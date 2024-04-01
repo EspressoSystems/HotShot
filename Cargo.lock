@@ -3129,7 +3129,7 @@ dependencies = [
  "jf-primitives",
  "libp2p-identity",
  "libp2p-networking",
- "lru",
+ "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -3222,7 +3222,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
- "lru",
+ "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -3321,6 +3321,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-types",
  "jf-primitives",
+ "memoize",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3356,7 +3357,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "jf-primitives",
- "lru",
+ "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -4347,7 +4348,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
- "lru",
+ "lru 0.12.3",
  "quick-protobuf",
  "quick-protobuf-codec 0.3.1",
  "smallvec",
@@ -4920,6 +4921,15 @@ dependencies = [
 
 [[package]]
 name = "lru"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e999beba7b6e8345721bd280141ed958096a2e4abdf74f67ff4ce49b4b54e47a"
+dependencies = [
+ "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
@@ -5006,6 +5016,29 @@ name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "523dc4f511e55ab87b694dc30d0f820d60906ef06413f93d4d7a1385599cc149"
+
+[[package]]
+name = "memoize"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5df4051db13d0816cf23196d3baa216385ae099339f5d0645a8d9ff2305e82b8"
+dependencies = [
+ "lazy_static",
+ "lru 0.7.8",
+ "memoize-inner",
+]
+
+[[package]]
+name = "memoize-inner"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27bdece7e91f0d1e33df7b46ec187a93ea0d4e642113a1039ac8bfdd4a3273ac"
+dependencies = [
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "merlin"
