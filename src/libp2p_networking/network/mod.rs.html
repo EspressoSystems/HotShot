@@ -364,7 +364,7 @@
     <span class="doccomment">/// prune a peer
     </span>Prune(PeerId),
     <span class="doccomment">/// add vec of known peers or addresses
-    </span>AddKnownPeers(Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;),
+    </span>AddKnownPeers(Vec&lt;(PeerId, Multiaddr)&gt;),
     <span class="doccomment">/// Ignore peers. Only here for debugging purposes.
     /// Allows us to have nodes that are never pruned
     </span>IgnorePeers(Vec&lt;PeerId&gt;),

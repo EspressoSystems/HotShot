@@ -726,6 +726,8 @@
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -860,6 +862,8 @@
     </span>CouldNotDeliver,
     <span class="doccomment">/// Attempted to deliver a message to an unknown node
     </span>NoSuchNode,
+    <span class="doccomment">/// No bootstrap nodes were specified on network creation
+    </span>NoBootstrapNodesSpecified,
     <span class="doccomment">/// Failed to serialize a network message
     </span>FailedToSerialize {
         <span class="doccomment">/// Originating bincode error

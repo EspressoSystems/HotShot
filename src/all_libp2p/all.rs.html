@@ -61,6 +61,13 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -76,6 +83,7 @@
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
+<span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
 <span class="kw">use </span>tracing::instrument;
 
@@ -106,13 +114,19 @@
 
     <span class="comment">// nodes
     </span><span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
-    <span class="kw">for _ in </span><span class="number">0</span>..config.config.num_nodes_with_stake.into() {
+    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.num_nodes_with_stake.into() {
+        <span class="comment">// Calculate our libp2p advertise address, which we will later derive the
+        // bind address from for example purposes.
+        </span><span class="kw">let </span>advertise_address = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            <span class="number">8000 </span>+ (u16::try_from(i).expect(<span class="string">"failed to create advertise address"</span>)),
+        );
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
             infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(
                 ValidatorArgs {
                     url: orchestrator_url,
-                    public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                    advertise_address: <span class="prelude-val">Some</span>(advertise_address),
                     network_config_file: <span class="prelude-val">None</span>,
                 },
             )

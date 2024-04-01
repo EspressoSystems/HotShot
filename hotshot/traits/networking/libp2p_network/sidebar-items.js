@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["QC_TOPIC"],"struct":["Empty","Libp2pNetwork","Libp2pNetworkInner"],"type":["BootstrapAddrs","PeerInfoVec","TakeReceiver"]};
+window.SIDEBAR_ITEMS = {"constant":["QC_TOPIC"],"fn":["derive_libp2p_keypair","derive_libp2p_peer_id"],"struct":["Empty","Libp2pNetwork","Libp2pNetworkInner"],"type":["BootstrapAddrs","PeerInfoVec","TakeReceiver"]};

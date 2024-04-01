@@ -358,7 +358,30 @@
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::IpAddr, time::Duration};
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use crate</span>::{config::NetworkConfig, OrchestratorVersion};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -366,17 +389,18 @@
 <span class="kw">use </span>futures::{Future, FutureExt};
 
 <span class="kw">use </span>hotshot_types::{
+    constants::Version01,
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
+<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
+<span class="kw">use </span>versioned_binary_serialization::BinarySerializer;
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     <span class="doccomment">/// the client
     </span>client: surf_disco::Client&lt;ClientError, OrchestratorVersion&gt;,
-    <span class="doccomment">/// the identity
-    </span><span class="kw">pub </span>identity: String,
 }
 
 <span class="doccomment">/// Struct describing a benchmark result
@@ -475,9 +499,8 @@
 </span><span class="kw">pub struct </span>ValidatorArgs {
     <span class="doccomment">/// The address the orchestrator runs on
     </span><span class="kw">pub </span>url: Url,
-    <span class="doccomment">/// This node's public IP address, for libp2p
-    /// If no IP address is passed in, it will default to 127.0.0.1
-    </span><span class="kw">pub </span>public_ip: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    <span class="doccomment">/// The optional advertise address to use for Libp2p
+    </span><span class="kw">pub </span>advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     <span class="doccomment">/// An optional network config file to save to/load from
     /// Allows for rejoining the network on a complete state loss
     </span><span class="attr">#[arg(short, long)]
@@ -491,9 +514,8 @@
     </span><span class="kw">pub </span>num_nodes: u16,
     <span class="doccomment">/// The address the orchestrator runs on
     </span><span class="kw">pub </span>url: Url,
-    <span class="doccomment">/// This node's public IP address, for libp2p
-    /// If no IP address is passed in, it will default to 127.0.0.1
-    </span><span class="kw">pub </span>public_ip: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    <span class="doccomment">/// The optional advertise address to use for Libp2p
+    </span><span class="kw">pub </span>advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     <span class="doccomment">/// An optional network config file to save to/load from
     /// Allows for rejoining the network on a complete state loss
     </span><span class="attr">#[arg(short, long)]
@@ -528,7 +550,7 @@
     </span><span class="kw">pub fn </span>from_multi_args(multi_args: MultiValidatorArgs, node_index: u16) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             url: multi_args.url,
-            public_ip: multi_args.public_ip,
+            advertise_address: multi_args.advertise_address,
             network_config_file: multi_args
                 .network_config_file
                 .map(|s| <span class="macro">format!</span>(<span class="string">"{s}-{node_index}"</span>)),
@@ -539,10 +561,10 @@
 <span class="kw">impl </span>OrchestratorClient {
     <span class="doccomment">/// Creates the client that will connect to the orchestrator
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(args: ValidatorArgs, identity: String) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(args: ValidatorArgs) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>client = surf_disco::Client::&lt;ClientError, OrchestratorVersion&gt;::new(args.url);
         <span class="comment">// TODO ED: Add healthcheck wait here
-        </span>OrchestratorClient { client, identity }
+        </span>OrchestratorClient { client }
     }
 
     <span class="doccomment">/// Get the config from the orchestrator.
@@ -552,19 +574,43 @@
     /// # Panics
     /// if unable to convert the node index from usize into u64
     /// (only applicable on 32 bit systems)
+    ///
+    /// # Errors
+    /// If we were unable to serialize the Libp2p data
     </span><span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub async fn </span>get_config_without_peer&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        identity: String,
-    ) -&gt; NetworkConfig&lt;K, E&gt; {
-        <span class="comment">// get the node index
-        </span><span class="kw">let </span>identity = identity.as_str();
+        libp2p_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
+        libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+    ) -&gt; anyhow::Result&lt;NetworkConfig&lt;K, E&gt;&gt; {
+        <span class="comment">// Get the (possible) Libp2p advertise address from our args
+        </span><span class="kw">let </span>libp2p_address = libp2p_address.map(|f| {
+            Multiaddr::try_from(<span class="macro">format!</span>(
+                <span class="string">"/{}/{}/udp/{}/quic-v1"</span>,
+                <span class="kw">if </span>f.is_ipv4() { <span class="string">"ip4" </span>} <span class="kw">else </span>{ <span class="string">"ip6" </span>},
+                f.ip(),
+                f.port()
+            ))
+            .expect(<span class="string">"failed to create multiaddress"</span>)
+        });
+
+        <span class="comment">// Serialize our (possible) libp2p-specific data
+        </span><span class="kw">let </span>request_body = versioned_binary_serialization::Serializer::&lt;Version01&gt;::serialize(<span class="kw-2">&amp;</span>(
+            libp2p_address,
+            libp2p_public_key,
+        ))<span class="question-mark">?</span>;
+
         <span class="kw">let </span>identity = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
+            <span class="comment">// We need to clone here to move it into the closure
+            </span><span class="kw">let </span>request_body = request_body.clone();
             <span class="kw">async move </span>{
                 <span class="kw">let </span>node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; = client
-                    .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/identity/{identity}"</span>))
+                    .post(<span class="string">"api/identity"</span>)
+                    .body_binary(<span class="kw-2">&amp;</span>request_body)
+                    .expect(<span class="string">"failed to set request body"</span>)
                     .send()
                     .<span class="kw">await</span>;
+
                 node_index
             }
             .boxed()
@@ -586,7 +632,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await</span>;
         config.node_index = From::&lt;u16&gt;::from(node_index);
 
-        config
+        <span class="prelude-val">Ok</span>(config)
     }
 
     <span class="doccomment">/// Post to the orchestrator and get the latest `node_index`

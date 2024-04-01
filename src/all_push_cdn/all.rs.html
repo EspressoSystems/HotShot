@@ -131,7 +131,6 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
@@ -147,7 +146,6 @@
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
 
 <span class="doccomment">/// The infra implementation
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
@@ -254,7 +252,7 @@
             infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(
                 ValidatorArgs {
                     url: orchestrator_url,
-                    public_ip: <span class="prelude-val">Some</span>(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                    advertise_address: <span class="prelude-val">None</span>,
                     network_config_file: <span class="prelude-val">None</span>,
                 },
             )

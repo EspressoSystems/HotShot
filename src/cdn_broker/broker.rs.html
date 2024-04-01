@@ -101,13 +101,13 @@
 //! a `Broker` object.
 
 </span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>cdn_broker::{reexports::crypto::signature::KeyPair, Broker, Config, ConfigBuilder};
+<span class="kw">use </span>cdn_broker::{Broker, Config, ConfigBuilder};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::traits::implementations::{ProductionDef, WrappedSignatureKey};
-<span class="kw">use </span>hotshot::types::SignatureKey;
+
+<span class="kw">use </span>hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>local_ip_address::local_ip;
+<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>sha2::Digest;
 
 <span class="attr">#[derive(Parser, Debug)]
@@ -121,7 +121,7 @@
     </span>discovery_endpoint: String,
 
     <span class="doccomment">/// Whether or not metric collection and serving is enabled
-    </span><span class="attr">#[arg(long, default_value_t = <span class="bool-val">true</span>)]
+    </span><span class="attr">#[arg(long, default_value_t = <span class="bool-val">false</span>)]
     </span>metrics_enabled: bool,
 
     <span class="doccomment">/// The IP to bind to for externalizing metrics
@@ -132,17 +132,22 @@
     </span><span class="attr">#[arg(long, default_value_t = <span class="number">9090</span>)]
     </span>metrics_port: u16,
 
-    <span class="doccomment">/// The port to bind to for connections from users
-    </span><span class="attr">#[arg(long, default_value = <span class="string">"127.0.0.1:1738"</span>)]
+    <span class="doccomment">/// The user-facing address to bind to for connections from users
+    </span><span class="attr">#[arg(long, default_value = <span class="string">"0.0.0.0:1738"</span>)]
+    </span>public_bind_address: String,
+
+    <span class="doccomment">/// The user-facing address to advertise
+    </span><span class="attr">#[arg(long, default_value = <span class="string">"local_ip:1738"</span>)]
     </span>public_advertise_address: String,
 
-    <span class="doccomment">/// The (public) port to bind to for connections from users
-    </span><span class="attr">#[arg(long, default_value_t = <span class="number">1738</span>)]
-    </span>public_bind_port: u16,
+    <span class="doccomment">/// The broker-facing address to bind to for connections from  
+    /// other brokers
+    </span><span class="attr">#[arg(long, default_value = <span class="string">"0.0.0.0:1739"</span>)]
+    </span>private_bind_address: String,
 
-    <span class="doccomment">/// The (private) port to bind to for connections from other brokers
-    </span><span class="attr">#[arg(long, default_value_t = <span class="number">1739</span>)]
-    </span>private_bind_port: u16,
+    <span class="doccomment">/// The broker-facing address to advertise
+    </span><span class="attr">#[arg(long, default_value = <span class="string">"local_ip:1739"</span>)]
+    </span>private_advertise_address: String,
 
     <span class="doccomment">/// The seed for broker key generation
     </span><span class="attr">#[arg(long, default_value_t = <span class="number">0</span>)]
@@ -158,22 +163,17 @@
     <span class="comment">// Initialize tracing
     </span>tracing_subscriber::fmt::init();
 
-    <span class="comment">// Get our local IP address
-    </span><span class="kw">let </span>private_ip_address = local_ip().with_context(|| <span class="string">"failed to get local IP address"</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"{}:{}"</span>, private_ip_address, args.private_bind_port);
-
     <span class="comment">// Generate the broker key from the supplied seed
     </span><span class="kw">let </span>key_hash = sha2::Sha256::digest(args.key_seed.to_le_bytes());
     <span class="kw">let </span>(public_key, private_key) =
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed(key_hash.into(), <span class="number">1337</span>);
 
-    <span class="comment">// Create a broker configuration with all the supplied arguments
-    </span><span class="kw">let </span>broker_config: Config&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
+    <span class="kw">let </span>broker_config: Config&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
         ConfigBuilder::default()
+            .public_bind_address(args.public_bind_address)
             .public_advertise_address(args.public_advertise_address)
-            .public_bind_address(<span class="macro">format!</span>(<span class="string">"0.0.0.0:{}"</span>, args.public_bind_port))
-            .private_advertise_address(private_address.clone())
-            .private_bind_address(private_address)
+            .private_bind_address(args.private_bind_address)
+            .private_advertise_address(args.private_advertise_address)
             .metrics_enabled(args.metrics_enabled)
             .metrics_ip(args.metrics_ip)
             .discovery_endpoint(args.discovery_endpoint)

@@ -96,7 +96,7 @@
     </span><span class="kw">pub </span>mesh_params: <span class="prelude-ty">Option</span>&lt;MeshParams&gt;,
 
     <span class="doccomment">/// list of addresses to connect to at initialization
-    </span><span class="kw">pub </span>to_connect_addrs: HashSet&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;,
+    </span><span class="kw">pub </span>to_connect_addrs: HashSet&lt;(PeerId, Multiaddr)&gt;,
     <span class="doccomment">/// republication interval in DHT, must be much less than `ttl`
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>republication_interval: <span class="prelude-ty">Option</span>&lt;Duration&gt;,

@@ -740,18 +740,6 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -881,27 +869,17 @@
     /// the `spawn_listeners` function
     /// will start connecting to peers
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
-    </span><span class="kw">pub fn </span>add_known_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, known_peers: <span class="kw-2">&amp;</span>[(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)]) {
+    </span><span class="kw">pub fn </span>add_known_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, known_peers: <span class="kw-2">&amp;</span>[(PeerId, Multiaddr)]) {
         <span class="macro">info!</span>(<span class="string">"Adding nodes {:?} to {:?}"</span>, known_peers, <span class="self">self</span>.peer_id);
         <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
         <span class="kw">let </span><span class="kw-2">mut </span>bs_nodes = HashMap::&lt;PeerId, HashSet&lt;Multiaddr&gt;&gt;::new();
         <span class="kw">let </span><span class="kw-2">mut </span>shuffled = known_peers.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         shuffled.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
         <span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>shuffled {
-            <span class="kw">match </span>peer_id {
-                <span class="prelude-val">Some</span>(peer_id) =&gt; {
-                    <span class="comment">// if we know the peerid, add address.
-                    </span><span class="kw">if </span><span class="kw-2">*</span>peer_id != <span class="self">self</span>.peer_id {
-                        behaviour.autonat.add_server(<span class="kw-2">*</span>peer_id, <span class="prelude-val">Some</span>(addr.clone()));
-                        behaviour.dht.add_address(peer_id, addr.clone());
-                        bs_nodes.insert(<span class="kw-2">*</span>peer_id, iter::once(addr.clone()).collect());
-                    }
-                }
-                <span class="prelude-val">None </span>=&gt; {
-                    <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/290&gt;
-                    // TODO actually implement this part
-                    // if we don't know the peerid, dial to find out what the peerid is
-                </span>}
+            <span class="kw">if </span><span class="kw-2">*</span>peer_id != <span class="self">self</span>.peer_id {
+                behaviour.dht.add_address(peer_id, addr.clone());
+                behaviour.autonat.add_server(<span class="kw-2">*</span>peer_id, <span class="prelude-val">Some</span>(addr.clone()));
+                bs_nodes.insert(<span class="kw-2">*</span>peer_id, iter::once(addr.clone()).collect());
             }
         }
         behaviour.dht.add_bootstrap_nodes(bs_nodes);
@@ -1085,10 +1063,8 @@
                 .build()
         };
         <span class="kw">for </span>(peer, addr) <span class="kw">in </span><span class="kw-2">&amp;</span>config.to_connect_addrs {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
-                <span class="kw">if </span>peer != swarm.local_peer_id() {
-                    swarm.behaviour_mut().add_address(peer, addr.clone());
-                }
+            <span class="kw">if </span>peer != swarm.local_peer_id() {
+                swarm.behaviour_mut().add_address(peer, addr.clone());
             }
         }
 

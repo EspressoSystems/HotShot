@@ -482,6 +482,16 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -576,7 +586,17 @@
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;, delay_duration: Duration) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(
+        primary_network: PushCdnNetwork&lt;TYPES&gt;,
+        secondary_network: Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+        delay_duration: Duration,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="comment">// Create networks from the ones passed in
+        </span><span class="kw">let </span>networks = Arc::from(UnderlyingCombinedNetworks(
+            primary_network,
+            secondary_network,
+        ));
+
         <span class="self">Self </span>{
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(

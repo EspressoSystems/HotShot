@@ -22,12 +22,16 @@
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Sortition trait
 </span><span class="kw">pub mod </span>election;
 <span class="kw">mod </span>networking;
 <span class="kw">mod </span>node_implementation;
 
 <span class="kw">pub use </span>hotshot_types::traits::{BlockPayload, ValidatedState};
+<span class="kw">pub use </span>libp2p_networking::network::NetworkNodeConfigBuilder;
 <span class="kw">pub use </span>networking::{NetworkError, NetworkReliability};
 <span class="kw">pub use </span>node_implementation::{NodeImplementation, TestableNodeImplementation};
 
@@ -35,7 +39,9 @@
 </span><span class="kw">pub mod </span>implementations {
     <span class="kw">pub use </span><span class="kw">super</span>::networking::{
         combined_network::{CombinedNetworks, UnderlyingCombinedNetworks},
-        libp2p_network::{Libp2pNetwork, PeerInfoVec},
+        libp2p_network::{
+            derive_libp2p_keypair, derive_libp2p_peer_id, Libp2pNetwork, PeerInfoVec,
+        },
         memory_network::{MasterMap, MemoryNetwork},
         push_cdn_network::{
             KeyPair, ProductionDef, PushCdnNetwork, TestingDef, WrappedSignatureKey,

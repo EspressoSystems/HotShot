@@ -27,10 +27,26 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A validator using libp2p
-</span><span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+</span><span class="kw">use </span>std::{net::SocketAddr, str::FromStr};
+
+<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>local_ip_address::local_ip;
 <span class="kw">use </span>tracing::{info, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
@@ -50,7 +66,17 @@
 </span><span class="kw">async fn </span>main() {
     setup_logging();
     setup_backtrace();
-    <span class="kw">let </span>args = ValidatorArgs::parse();
+    <span class="kw">let </span><span class="kw-2">mut </span>args = ValidatorArgs::parse();
+
+    <span class="comment">// If we did not set the advertise address, use our local IP and port 8000
+    </span><span class="kw">let </span>local_ip = local_ip().expect(<span class="string">"failed to get local IP"</span>);
+    args.advertise_address = <span class="prelude-val">Some</span>(
+        args.advertise_address.unwrap_or(
+            SocketAddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{local_ip}:8000"</span>))
+                .expect(<span class="string">"failed to convert local IP to socket address"</span>),
+        ),
+    );
+
     <span class="macro">info!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
     infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(args).<span class="kw">await</span>;
 }
