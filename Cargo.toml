@@ -81,12 +81,14 @@ sha2 = "0.10"
 snafu = "0.8"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.5.0" }
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.3.4" }
+# tagged-base64 = "0.4"
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.5.0" }
 time = "0.3.34"
 toml = "0.8.11"
 tracing = "0.1.40"
 typenum = "1.17.0"
 versioned-binary-serialization = { git = "https://github.com/EspressoSystems/versioned-binary-serialization.git", tag = "0.1.2" }
+# vbs = "0.1.4"
 
 libp2p = { package = "libp2p", version = "0.53.2", features = [
   "macros",
@@ -135,6 +137,18 @@ anyhow = "1.0.81"
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.17" }
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.17" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.17" }
+
+[patch."https://github.com/EspressoSystems/jellyfish"]
+jf-plonk = { path = "../jellyfish/plonk" }
+jf-primitives = { path = "../jellyfish/primitives" }
+jf-relation = { path = "../jellyfish/relation" }
+jf-utils = { path = "../jellyfish/utilities" }
+
+# [patch."https://github.com/EspressoSystems/tide-disco.git"]
+# tide-disco = { path = "../tide-disco" }
+
+# [patch."https://github.com/EspressoSystems/surf-disco.git"]
+# surf-disco = { path = "../surf-disco" }
 
 ### Profiles
 ###
