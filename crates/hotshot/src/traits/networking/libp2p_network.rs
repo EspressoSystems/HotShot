@@ -460,6 +460,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         // Error if there were no bootstrap nodes specified
+        #[cfg(not(feature = "hotshot-testing"))]
         if bootstrap_addrs.read().await.len() == 0 {
             return Err(NetworkError::NoBootstrapNodesSpecified);
         }
