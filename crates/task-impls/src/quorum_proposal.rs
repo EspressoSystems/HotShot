@@ -468,7 +468,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
                 let view = proposal.data.get_view_number() + 1;
-                if view < self.latest_proposed_view {
+                if view <= self.latest_proposed_view {
                     debug!("Proposal is from an older view {:?}", proposal.data.clone());
                     return;
                 }
