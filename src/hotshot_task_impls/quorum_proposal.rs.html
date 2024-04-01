@@ -541,6 +541,9 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -611,7 +614,7 @@
     </span>TimeoutCert,
 
     <span class="doccomment">/// For the `QuroumProposalRecv` event.
-    </span>ProposalCertificate,
+    </span>Proposal,
 }
 
 <span class="doccomment">/// Handler for the proposal dependency
@@ -740,7 +743,6 @@
             event_receiver,
             Box::new(<span class="kw">move </span>|event| {
                 <span class="kw">let </span>event = event.as_ref();
-                <span class="macro">debug!</span>(<span class="string">"Dependency {:?} got event {:?}"</span>, dependency_type, event);
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     ProposalDependency::QC =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QCFormed(either::Left(qc)) = event {
@@ -766,7 +768,7 @@
                         }
                     }
 
-                    ProposalDependency::ProposalCertificate =&gt; {
+                    ProposalDependency::Proposal =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QuorumProposalRecv(proposal, <span class="kw">_</span>) = event {
                             proposal.data.view_number
                         } <span class="kw">else </span>{
@@ -786,7 +788,11 @@
                         }
                     }
                 };
-                event_view == view_number
+                <span class="kw">let </span>valid = event_view == view_number;
+                <span class="kw">if </span>valid {
+                    <span class="macro">debug!</span>(<span class="string">"Depencency {:?} is complete!"</span>, dependency_type);
+                }
+                valid
             }),
         )
     }
@@ -809,8 +815,8 @@
             <span class="kw">return</span>;
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>proposal_cert_validated_dependency = <span class="self">self</span>.create_event_dependency(
-            ProposalDependency::ProposalCertificate,
+        <span class="kw">let </span><span class="kw-2">mut </span>proposal_dependency = <span class="self">self</span>.create_event_dependency(
+            ProposalDependency::Proposal,
             view_number,
             event_receiver.clone(),
         );
@@ -844,7 +850,7 @@
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                proposal_cert_validated_dependency.mark_as_completed(event);
+                proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
                 Either::Right(<span class="kw">_</span>) =&gt; {
@@ -867,7 +873,7 @@
             ])]),
             OrDependency::from_deps(<span class="macro">vec!</span>[
                 <span class="comment">// 1. A QCFormed event and QuorumProposalRecv event
-                </span>AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency, proposal_cert_validated_dependency]),
+                </span>AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency, proposal_dependency]),
                 <span class="comment">// 2. A timeout cert was received
                 </span>AndDependency::from_deps(<span class="macro">vec!</span>[timeout_dependency]),
                 <span class="comment">// 3. A view sync cert was received.
@@ -1035,7 +1041,7 @@
                 .<span class="kw">await</span>;
 
                 <span class="self">self</span>.create_dependency_task_if_new(
-                    view,
+                    view + <span class="number">1</span>,
                     event_receiver,
                     event_sender,
                     event.clone(),

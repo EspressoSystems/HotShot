@@ -209,9 +209,33 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState, da::DATaskState, request::NetworkRequestState,
     transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
@@ -415,6 +439,28 @@
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: handle.storage.clone(),
+        }
+    }
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+    <span class="kw">for </span>QuorumProposalTaskState&lt;TYPES, I&gt;
+{
+    <span class="kw">async fn </span>create_from(
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+    ) -&gt; QuorumProposalTaskState&lt;TYPES, I&gt; {
+        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        QuorumProposalTaskState {
+            latest_proposed_view: handle.get_cur_view().<span class="kw">await</span>,
+            propose_dependencies: HashMap::new(),
+            quorum_network: handle.hotshot.networks.quorum_network.clone(),
+            committee_network: handle.hotshot.networks.da_network.clone(),
+            output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
+            consensus,
+            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            id: handle.hotshot.id,
         }
     }
 }
