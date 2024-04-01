@@ -38,7 +38,7 @@ struct Args {
     public_bind_address: String,
 
     /// The user-facing address to advertise
-    #[arg(long, default_value = "127.0.0.1:1738")]
+    #[arg(long, default_value = "local_ip:1738")]
     public_advertise_address: String,
 
     /// The broker-facing address to bind to for connections from  
@@ -47,7 +47,7 @@ struct Args {
     private_bind_address: String,
 
     /// The broker-facing address to advertise
-    #[arg(long, default_value = "127.0.0.1:1739")]
+    #[arg(long, default_value = "local_ip:1739")]
     private_advertise_address: String,
 
     /// The seed for broker key generation
