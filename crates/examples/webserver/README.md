@@ -1,38 +1,24 @@
 Commands to run da examples: 
 1a)Start web servers by either running 3 servers:
 ```
-just async_std example webserver -- <URL_FOR_CDN> <PORT_FOR_CDN>
-just async_std example webserver -- <URL_FOR_DA> <PORT_FOR_DA> 
-```
-
-1b)Or use multi-webserver to spin up all three:
-```
-just async_std example multi-webserver -- <URL_FOR_CDN> <URL_FOR_DA> <PORT_FOR_CDN> <PORT_FOR_DA>
+just async_std example webserver -- <URL_FOR_CDN>
+just async_std example webserver -- <URL_FOR_DA>
 ```
 
 2) Start orchestrator:
 ```
-just async_std example orchestrator-webserver -- <ORCHESTRATOR_URL> <ORCHESTRATOR_PORT> <ORCHESTRATOR_CONFIG_FILE> 
+just async_std example orchestrator-webserver -- --orchestrator_url <ORCHESTRATOR_URL> --config_file <ORCHESTRATOR_CONFIG_FILE> 
 ```
 
 3a) Start validator:
 ```
-just async_std example validator-webserver -- <ORCHESTRATOR_URL> <ORCHESTRATOR_PORT>
+just async_std example validator-webserver -- <ORCHESTRATOR_URL>
 ```
 
 3b) Or start multiple validators:
 ```
-just async_std example multi-validator-webserver -- <NUM_VALIDATORS> <ORCHESTRATOR_URL> <ORCHESTRATOR_PORT>
+just async_std example multi-validator-webserver -- <NUM_VALIDATORS> <ORCHESTRATOR_URL>
 ```
-
-I.e.
-```
-just async_std example multi-webserver -- 9000 9001
-just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://127.0.0.1:4444
-just async_std example multi-validator-webserver -- 10 http://127.0.0.1:4444
-```
-
-================All of the above are out-dated================
 
 I.e. 
 ```
