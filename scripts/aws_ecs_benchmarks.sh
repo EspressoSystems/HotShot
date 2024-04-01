@@ -35,7 +35,7 @@ do
             do
                 for transaction_size in 512 4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
-                    rounds=100
+                    rounds=10 #100
                     # start webserver
                     just async_std example webserver -- http://0.0.0.0:9000 &
                     just async_std example webserver -- http://0.0.0.0:9001 &

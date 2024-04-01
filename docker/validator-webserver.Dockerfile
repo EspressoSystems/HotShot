@@ -10,7 +10,7 @@ ARG ASYNC_EXECUTOR
 COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/validator-webserver /usr/local/bin/validator-webserver
 
 # logging
-ENV RUST_LOG="warn"
+ENV RUST_LOG="warn",hotshot_orchestrator::config="info"
 
 # log format. JSON no ansi
 ENV RUST_LOG_FORMAT="json"

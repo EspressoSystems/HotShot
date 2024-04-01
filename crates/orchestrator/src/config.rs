@@ -268,7 +268,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
     ) -> (NetworkConfig<K, E>, NetworkConfigSource) {
         let (mut run_config, source) = Self::from_file_or_orchestrator(client, file).await;
         let node_index = run_config.node_index;
-
+        println!("finish retrieving config");
         // Assign my_own_validator_config to the run_config if not loading from file
         match source {
             NetworkConfigSource::Orchestrator => {
