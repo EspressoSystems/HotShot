@@ -22,7 +22,8 @@ use versioned_binary_serialization::version::Version;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-async fn test_upgrade_task() {
+/// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
+async fn test_consensus_task_upgrade() {
     use hotshot_testing::script::{run_test_script, TestScriptStage};
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -309,7 +310,12 @@ async fn test_upgrade_and_consensus_task() {
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-/// Test that we correctly handle blank blocks between versions
+/// Test that we correctly handle blank blocks between versions.
+/// Specifically, this test schedules an upgrade between views 4 and 8,
+/// and ensures that:
+///   - we correctly vote affirmatively on a QuorumProposal with a null block payload in view 5
+///   - we correctly propose with a null block payload in view 6, even if we have indications to do otherwise (via SendPayloadCommitmentAndMetadata, VID etc).
+///   - we correctly reject a QuorumProposal with a non-null block payload in view 7.
 async fn test_upgrade_and_consensus_task_blank_blocks() {
     use hotshot_testing::task_helpers::build_system_handle;
 

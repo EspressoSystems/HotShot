@@ -1590,6 +1590,7 @@ pub mod null_block {
     ///
     /// We memoize the result to avoid having to recalculate it.
     #[memoize(SharedCache, Capacity: 10)]
+    #[must_use]
     pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
         let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
 
