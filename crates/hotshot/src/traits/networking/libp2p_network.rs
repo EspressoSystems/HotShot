@@ -15,12 +15,14 @@ use futures::{
     FutureExt, StreamExt,
 };
 #[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::network::{AsyncGenerator, NetworkReliability};
+use hotshot_types::traits::network::{
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation, ViewMessage,
+};
 use hotshot_types::{
     boxed_sync,
     constants::{Version01, LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1},
     data::ViewNumber,
-    message::DataMessage::DataResponse,
+    message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         network::{
             self, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
@@ -30,11 +32,6 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
-};
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::{
-    message::{Message, MessageKind},
-    traits::network::{TestableNetworkingImplementation, ViewMessage},
 };
 use libp2p_identity::PeerId;
 #[cfg(feature = "hotshot-testing")]
