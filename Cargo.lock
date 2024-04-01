@@ -1286,7 +1286,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1309,7 +1309,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1325,7 +1325,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1340,7 +1340,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.17#6b0b86340a117bb55781cb0362388b824d0973df"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3122,6 +3122,7 @@ dependencies = [
  "either",
  "ethereum-types",
  "futures",
+ "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -3250,15 +3251,18 @@ dependencies = [
 name = "hotshot-orchestrator"
 version = "0.5.26"
 dependencies = [
+ "anyhow",
  "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-std",
+ "bincode",
  "blake3",
  "clap",
  "csv",
  "futures",
  "hotshot-types",
  "libp2p",
+ "multiaddr",
  "serde",
  "serde-inline-default",
  "serde_json",
