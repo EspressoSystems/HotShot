@@ -30,7 +30,7 @@ async fn main() {
     let local_ip = local_ip().expect("failed to get local IP");
     args.advertise_address = Some(
         args.advertise_address.unwrap_or(
-            SocketAddr::from_str(&format!("{}:8000", local_ip.to_string()))
+            SocketAddr::from_str(&format!("{local_ip}:8000"))
                 .expect("failed to convert local IP to socket address"),
         ),
     );
