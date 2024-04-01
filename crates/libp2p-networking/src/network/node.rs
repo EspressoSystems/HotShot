@@ -33,7 +33,7 @@ use async_compatibility_layer::{
 };
 use futures::{select, FutureExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::{core::transport::ListenerId, StreamProtocol};
+use libp2p::{autonat, core::transport::ListenerId, StreamProtocol};
 use libp2p::{
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
@@ -136,6 +136,7 @@ impl NetworkNode {
         for (peer_id, addr) in shuffled {
             if *peer_id != self.peer_id {
                 behaviour.dht.add_address(peer_id, addr.clone());
+                behaviour.autonat.add_server(*peer_id, Some(addr.clone()));
                 bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
             }
         }
@@ -285,6 +286,11 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
 
+            let autonat_config = autonat::Config {
+                only_global_ips: false,
+                ..Default::default()
+            };
+
             let network = NetworkDef::new(
                 gossipsub,
                 DHTBehaviour::new(
@@ -297,6 +303,7 @@ impl NetworkNode {
                 identify,
                 direct_message,
                 request_response,
+                autonat::Behaviour::new(peer_id, autonat_config),
             );
 
             // build swarm
@@ -542,7 +549,6 @@ impl NetworkNode {
                 address: _,
             }
             | SwarmEvent::NewExternalAddrCandidate { .. }
-            | SwarmEvent::ExternalAddrConfirmed { .. }
             | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: _,
@@ -610,6 +616,29 @@ impl NetworkNode {
                     NetworkEventInternal::RequestResponseEvent(e) => {
                         self.request_response_state.handle_request_response(e)
                     }
+                    NetworkEventInternal::AutonatEvent(e) => {
+                        match e {
+                            autonat::Event::InboundProbe(_) => {}
+                            autonat::Event::OutboundProbe(e) => match e {
+                                autonat::OutboundProbeEvent::Request { .. }
+                                | autonat::OutboundProbeEvent::Response { .. } => {}
+                                autonat::OutboundProbeEvent::Error {
+                                    probe_id: _,
+                                    peer,
+                                    error,
+                                } => {
+                                    warn!(
+                                        "Autonat Probe failed to peer {:?}, with error: {:?}",
+                                        peer, error
+                                    );
+                                }
+                            },
+                            autonat::Event::StatusChanged { old, new } => {
+                                info!("autonat Status changed. Old: {:?}, New: {:?}", old, new);
+                            }
+                        };
+                        None
+                    }
                 };
 
                 if let Some(event) = maybe_event {
@@ -640,6 +669,13 @@ impl NetworkNode {
             }
             SwarmEvent::ListenerError { listener_id, error } => {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
+            }
+            SwarmEvent::ExternalAddrConfirmed { address } => {
+                let my_id = *self.swarm.local_peer_id();
+                self.swarm
+                    .behaviour_mut()
+                    .dht
+                    .add_address(&my_id, address.clone());
             }
             _ => {
                 error!(
