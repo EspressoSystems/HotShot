@@ -622,7 +622,6 @@ pub trait RunDA<
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
-                                // use println for tmp debugging on Datadog
                                 info!("Decide event for leaf: {}", *leaf.get_view_number());
 
                                 // iterate all the decided transactions to calculate latency
