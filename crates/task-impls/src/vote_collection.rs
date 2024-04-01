@@ -272,7 +272,6 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
         certificate: UpgradeCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        tracing::error!("Upgrade certificate formed!");
         HotShotEvent::UpgradeCertificateFormed(certificate)
     }
 }
