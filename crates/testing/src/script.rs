@@ -113,17 +113,14 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         for assert in &stage.outputs {
             match assert {
                 EventPredicate::One(assert) => {
-                    match async_timeout(
-                        RECV_TIMEOUT,
-                        test_receiver.recv_direct(),
-                    )
-                    .await
-                    {
+                    match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
                         Ok(Ok(received_output)) => {
-                            tracing::debug!("Test received: {:?}", received_output);
+                            tracing::debug!("Test sent: {:?}", received_output);
                             validate_output_or_panic(stage_number, &received_output, assert);
-                            if !task.state_mut().filter(&received_output.clone()) {            
-                                if let Some(res) = S::handle_event(received_output.clone(), &mut task).await {
+                            if !task.state_mut().filter(&received_output.clone()) {
+                                if let Some(res) =
+                                    S::handle_event(received_output.clone(), &mut task).await
+                                {
                                     task.state_mut().handle_result(&res).await;
                                 }
                             }
@@ -132,37 +129,33 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     }
                 }
                 EventPredicate::Consecutive(asserts) => {
-                    match async_timeout(
-                        RECV_TIMEOUT,
-                        test_receiver.recv_direct(),
-                    )
-                    .await
-                    {
+                    match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
                         Ok(Ok(received_output_0)) => {
-                            match async_timeout(
-                                RECV_TIMEOUT,
-                                test_receiver.recv_direct(),
-                            )
-                            .await
-                            {
+                            match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
                                 Ok(Ok(received_output_1)) => {
                                     tracing::debug!(
-                                        "Test received: {:?} and {:?}",
+                                        "Test sent: {:?} and {:?}",
                                         received_output_0,
                                         received_output_1
                                     );
                                     validate_output_or_panic(
                                         stage_number,
-                                        &(received_output_0, received_output_1),
+                                        &(received_output_0.clone(), received_output_1.clone()),
                                         asserts,
                                     );
-                                    if !task.state_mut().filter(&received_output_0.clone()) {            
-                                        if let Some(res) = S::handle_event(received_output_0.clone(), &mut task).await {
+                                    if !task.state_mut().filter(&received_output_0.clone()) {
+                                        if let Some(res) =
+                                            S::handle_event(received_output_0.clone(), &mut task)
+                                                .await
+                                        {
                                             task.state_mut().handle_result(&res).await;
                                         }
                                     }
-                                    if !task.state_mut().filter(&received_output_1.clone()) {            
-                                        if let Some(res) = S::handle_event(received_output_1.clone(), &mut task).await {
+                                    if !task.state_mut().filter(&received_output_1.clone()) {
+                                        if let Some(res) =
+                                            S::handle_event(received_output_1.clone(), &mut task)
+                                                .await
+                                        {
                                             task.state_mut().handle_result(&res).await;
                                         }
                                     }
