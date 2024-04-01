@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["validate_proposal"],"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"fn":["validate_proposal","view_is_between_versions"],"mod":["null_block"],"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};
