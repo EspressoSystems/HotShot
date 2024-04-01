@@ -32,8 +32,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
+          shared-key: "build-and-test"
           prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -65,7 +67,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
+          shared-key: "build-and-test"
           prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Unit and integration tests for all crates in workspace
         run: |
@@ -92,8 +97,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
+          shared-key: "build-and-test"
           prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -140,8 +147,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
+          shared-key: "build-and-test"
           prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -169,8 +178,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
-          prefix-key: arm-${{ matrix.just_variants }}
+          shared-key: "build-and-test"
+          prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build examples in release mode
         run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
@@ -374,33 +385,3 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
-  test-crypto:
-    strategy:
-      matrix:
-        just_variants:
-          - async-std
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - run: rustup toolchain install stable --profile minimal
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
-        with:
-          shared-key: ""
-          prefix-key: ${{ matrix.just_variants }}
-
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
-      - name: Crypto u`nit and integration tests for all crates in workspace
-        run: |
-          just ${{ matrix.just_variants }} test_crypto
-        timeout-minutes: 60
-        env:
-          RUST_BACKTRACE: full

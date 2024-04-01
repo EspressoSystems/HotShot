@@ -6,6 +6,8 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, time::Duration};
 
+const RECV_TIMEOUT: Duration = Duration::from_secs(1);
+
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
     // Verify either one or two consecutive events at a time. It should be the former in most
@@ -86,24 +88,21 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (test_input, task_receiver) = broadcast(1024);
-    // let (task_input, mut test_receiver) = broadcast(1024);
+    let (to_task, from_test) = broadcast(1024);
+    let (to_test, mut from_task) = broadcast(1024);
 
-    let task_input = test_input.clone();
-    let mut test_receiver = task_receiver.clone();
-
-    let mut task = Task::new(
-        task_input.clone(),
-        task_receiver.clone(),
-        registry.clone(),
-        state,
-    );
+    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
         for input in &stage.inputs {
             if !task.state_mut().filter(&Arc::new(input.clone())) {
                 tracing::debug!("Test sent: {:?}", input.clone());
+
+                to_task
+                    .broadcast(input.clone().into())
+                    .await
+                    .expect("Failed to broadcast input message");
 
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
@@ -115,7 +114,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             match assert {
                 EventPredicate::One(assert) => {
                     match async_timeout(
-                        Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                        RECV_TIMEOUT,
                         test_receiver.recv_direct(),
                     )
                     .await
@@ -123,20 +122,25 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                         Ok(Ok(received_output)) => {
                             tracing::debug!("Test received: {:?}", received_output);
                             validate_output_or_panic(stage_number, &received_output, assert);
+                            if !task.state_mut().filter(&received_output.clone()) {            
+                                if let Some(res) = S::handle_event(received_output.clone(), &mut task).await {
+                                    task.state_mut().handle_result(&res).await;
+                                }
+                            }
                         }
                         _ => panic_missing_output(stage_number, assert),
                     }
                 }
                 EventPredicate::Consecutive(asserts) => {
                     match async_timeout(
-                        Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                        RECV_TIMEOUT,
                         test_receiver.recv_direct(),
                     )
                     .await
                     {
                         Ok(Ok(received_output_0)) => {
                             match async_timeout(
-                                Duration::from_millis(RECV_TIMEOUT_MILLIS),
+                                RECV_TIMEOUT,
                                 test_receiver.recv_direct(),
                             )
                             .await
@@ -152,6 +156,16 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                                         &(received_output_0, received_output_1),
                                         asserts,
                                     );
+                                    if !task.state_mut().filter(&received_output_0.clone()) {            
+                                        if let Some(res) = S::handle_event(received_output_0.clone(), &mut task).await {
+                                            task.state_mut().handle_result(&res).await;
+                                        }
+                                    }
+                                    if !task.state_mut().filter(&received_output_1.clone()) {            
+                                        if let Some(res) = S::handle_event(received_output_1.clone(), &mut task).await {
+                                            task.state_mut().handle_result(&res).await;
+                                        }
+                                    }
                                 }
                                 _ => panic_missing_output(stage_number, asserts),
                             }
@@ -166,7 +180,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
-        if let Ok(received_output) = test_receiver.try_recv() {
+        if let Ok(received_output) = from_task.try_recv() {
             panic_extra_output(stage_number, &received_output);
         }
     }
