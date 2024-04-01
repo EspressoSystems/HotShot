@@ -1,5 +1,6 @@
 use futures::channel::oneshot::Sender;
 use libp2p::{
+    autonat,
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
     request_response::{cbor, OutboundRequestId, ResponseChannel},
@@ -29,7 +30,7 @@ use libp2p_swarm_derive::NetworkBehaviour;
 #[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
-    /// NOTE gossipsub works ONLY for sharing messsages right now
+    /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
     /// <https://github.com/libp2p/rust-libp2p/issues/2398>
     #[debug(skip)]
@@ -51,6 +52,11 @@ pub struct NetworkDef {
     /// Behaviour for requesting and receiving data
     #[debug(skip)]
     pub request_response: libp2p::request_response::cbor::Behaviour<Request, Response>,
+
+    /// Auto NAT behaviour to determine if we are publically reachable and
+    /// by which address
+    #[debug(skip)]
+    pub autonat: libp2p::autonat::Behaviour,
 }
 
 impl NetworkDef {
@@ -62,6 +68,7 @@ impl NetworkDef {
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
         request_response: cbor::Behaviour<Request, Response>,
+        autonat: autonat::Behaviour,
     ) -> NetworkDef {
         Self {
             gossipsub,
@@ -69,6 +76,7 @@ impl NetworkDef {
             identify,
             direct_message,
             request_response,
+            autonat,
         }
     }
 }
@@ -98,14 +106,14 @@ impl NetworkDef {
     /// Subscribe to a given topic
     pub fn subscribe_gossip(&mut self, t: &str) {
         if let Err(e) = self.gossipsub.subscribe(&IdentTopic::new(t)) {
-            error!("Failed to subsribe to topic {:?}. Error: {:?}", t, e);
+            error!("Failed to subscribe to topic {:?}. Error: {:?}", t, e);
         }
     }
 
     /// Unsubscribe from a given topic
     pub fn unsubscribe_gossip(&mut self, t: &str) {
         if let Err(e) = self.gossipsub.unsubscribe(&IdentTopic::new(t)) {
-            error!("Failed to unsubsribe from topic {:?}. Error: {:?}", t, e);
+            error!("Failed to unsubscribe from topic {:?}. Error: {:?}", t, e);
         }
     }
 }
@@ -179,5 +187,11 @@ impl From<libp2p::request_response::Event<Vec<u8>, Vec<u8>>> for NetworkEventInt
 impl From<libp2p::request_response::Event<Request, Response>> for NetworkEventInternal {
     fn from(event: libp2p::request_response::Event<Request, Response>) -> Self {
         Self::RequestResponseEvent(event)
+    }
+}
+
+impl From<libp2p::autonat::Event> for NetworkEventInternal {
+    fn from(event: libp2p::autonat::Event) -> Self {
+        Self::AutonatEvent(event)
     }
 }

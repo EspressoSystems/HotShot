@@ -29,6 +29,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
+        with:
+          shared-key: "build-and-test"
+          save-if: false
 
       - name: Test Docs
         run: |

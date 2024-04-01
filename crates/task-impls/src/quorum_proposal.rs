@@ -404,7 +404,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
 
                 let valid = event_view == view_number;
-
                 // NOTE: This will *not* emit when a dependency was short circuited on creation.
                 // This is only for dependencies that were awaiting a result.
                 if valid {

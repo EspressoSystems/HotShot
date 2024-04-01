@@ -35,7 +35,6 @@ fn make_payload_commitment(
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal() {
     use hotshot_example_types::state_types::TestValidatedState;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -85,6 +84,11 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     // Release the write lock before proceeding with the test
     drop(consensus);
+    for view in (&mut generator).take(2) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+    }
+
     let cert = proposals[1].data.justify_qc.clone();
 
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
