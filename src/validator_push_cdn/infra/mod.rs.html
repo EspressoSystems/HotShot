@@ -1068,6 +1068,24 @@
 <a href="#1066" id="1066">1066</a>
 <a href="#1067" id="1067">1067</a>
 <a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1126,7 +1144,7 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>std::{fs, time::Instant};
 <span class="kw">use </span>surf_disco::Url;
-<span class="kw">use </span>tracing::{debug, error, info, warn};
+<span class="kw">use </span>tracing::{error, info, warn};
 <span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -1250,6 +1268,14 @@
                 .help(<span class="string">"Sets the url of the da webserver"</span>)
                 .required(<span class="bool-val">false</span>),
         )
+        .arg(
+            Arg::new(<span class="string">"fixed_leader_for_gpuvid"</span>)
+                .short(<span class="string">'f'</span>)
+                .long(<span class="string">"fixed_leader_for_gpuvid"</span>)
+                .value_name(<span class="string">"BOOL"</span>)
+                .help(<span class="string">"Sets the number of fixed leader for gpu vid, only be used when leaders running on gpu"</span>)
+                .required(<span class="bool-val">false</span>),
+        )
         .get_matches();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(config_file_string) = matches.get_one::&lt;String&gt;(<span class="string">"config_file"</span>) {
@@ -1273,6 +1299,12 @@
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(da_committee_size_string) = matches.get_one::&lt;String&gt;(<span class="string">"da_committee_size"</span>) {
         config.config.da_staked_committee_size = da_committee_size_string.parse::&lt;usize&gt;().unwrap();
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(fixed_leader_for_gpuvid_string) =
+        matches.get_one::&lt;String&gt;(<span class="string">"fixed_leader_for_gpuvid"</span>)
+    {
+        config.config.fixed_leader_for_gpuvid =
+            fixed_leader_for_gpuvid_string.parse::&lt;usize&gt;().unwrap();
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(transactions_per_round_string) = matches.get_one::&lt;String&gt;(<span class="string">"transactions_per_round"</span>)
     {
@@ -1455,18 +1487,22 @@
             quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config.clone(),
+                config.config.fixed_leader_for_gpuvid,
             ),
             da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 committee_election_config,
+                config.config.fixed_leader_for_gpuvid,
             ),
             vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config.clone(),
+                config.config.fixed_leader_for_gpuvid,
             ),
             view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                 known_nodes_with_stake.clone(),
                 quorum_election_config,
+                config.config.fixed_leader_for_gpuvid,
             ),
         };
 
@@ -1509,10 +1545,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>total_latency = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>num_latency = <span class="number">0</span>;
 
-        <span class="macro">debug!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
+        <span class="macro">info!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
         async_sleep(Duration::from_secs(start_delay_seconds)).<span class="kw">await</span>;
 
-        <span class="macro">debug!</span>(<span class="string">"Starting HotShot example!"</span>);
+        <span class="macro">info!</span>(<span class="string">"Starting HotShot example!"</span>);
         <span class="kw">let </span>start = Instant::now();
 
         <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
@@ -2047,7 +2083,7 @@
     setup_logging();
     setup_backtrace();
 
-    <span class="macro">debug!</span>(<span class="string">"Starting validator"</span>);
+    <span class="macro">info!</span>(<span class="string">"Starting validator"</span>);
 
     <span class="kw">let </span>orchestrator_client: OrchestratorClient = OrchestratorClient::new(args.clone());
 
@@ -2078,7 +2114,7 @@
         .<span class="kw">await
         </span>.expect(<span class="string">"failed to get config"</span>);
 
-    <span class="macro">error!</span>(<span class="string">"Initializing networking"</span>);
+    <span class="macro">info!</span>(<span class="string">"Initializing networking"</span>);
     <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).<span class="kw">await</span>;
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
@@ -2119,13 +2155,13 @@
         }
     }
     <span class="kw">if let </span>NetworkConfigSource::Orchestrator = source {
-        <span class="macro">debug!</span>(<span class="string">"Waiting for the start command from orchestrator"</span>);
+        <span class="macro">info!</span>(<span class="string">"Waiting for the start command from orchestrator"</span>);
         orchestrator_client
             .wait_for_all_nodes_ready(run_config.clone().node_index)
             .<span class="kw">await</span>;
     }
 
-    <span class="macro">println!</span>(<span class="string">"Starting HotShot"</span>);
+    <span class="macro">info!</span>(<span class="string">"Starting HotShot"</span>);
     <span class="kw">let </span>bench_results = run
         .run_hotshot(
             hotshot,

@@ -190,6 +190,8 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span><span class="kw">crate</span>::utils::bincode_opts;
 <span class="kw">use </span>bincode::Options;
@@ -359,6 +361,8 @@
     </span><span class="kw">pub </span>da_staked_committee_size: usize,
     <span class="doccomment">/// List of DA committee nodes (non-staking)nodes for static DA committee
     </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
+    <span class="doccomment">/// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID
+    </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
     </span><span class="kw">pub </span>next_view_timeout: u64,
     <span class="doccomment">/// Duration of view sync round timeouts

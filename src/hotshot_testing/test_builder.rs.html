@@ -345,6 +345,7 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
 <span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
@@ -634,6 +635,7 @@
             my_own_validator_config,
             da_staked_committee_size,
             da_non_staked_committee_size,
+            fixed_leader_for_gpuvid: <span class="number">0</span>,
             next_view_timeout: <span class="number">500</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">250</span>),
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),

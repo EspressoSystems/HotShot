@@ -667,6 +667,10 @@
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -678,7 +682,7 @@
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>toml;
-<span class="kw">use </span>tracing::error;
+<span class="kw">use </span>tracing::{error, info};
 
 <span class="kw">use </span><span class="kw">crate</span>::client::OrchestratorClient;
 
@@ -865,7 +869,7 @@
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
     ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K, E&gt;, NetworkConfigSource)&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = file {
-            <span class="macro">error!</span>(<span class="string">"Retrieving config from the file"</span>);
+            <span class="macro">info!</span>(<span class="string">"Retrieving config from the file"</span>);
             <span class="comment">// if we pass in file, try there first
             </span><span class="kw">match </span><span class="self">Self</span>::from_file(file.clone()) {
                 <span class="prelude-val">Ok</span>(config) =&gt; <span class="prelude-val">Ok</span>((config, NetworkConfigSource::File)),
@@ -886,7 +890,7 @@
                 }
             }
         } <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Retrieving config from the orchestrator"</span>);
+            <span class="macro">info!</span>(<span class="string">"Retrieving config from the orchestrator"</span>);
 
             <span class="comment">// otherwise just get from orchestrator
             </span><span class="prelude-val">Ok</span>((
@@ -945,7 +949,7 @@
             .<span class="kw">await</span>;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        <span class="macro">error!</span>(<span class="string">"Retrieved config; our node index is {node_index}."</span>);
+        <span class="macro">info!</span>(<span class="string">"Retrieved config; our node index is {node_index}."</span>);
         <span class="prelude-val">Ok</span>((run_config, source))
     }
 
@@ -1178,6 +1182,8 @@
     </span><span class="kw">pub </span>staked_committee_nodes: usize,
     <span class="doccomment">/// Number of non-staking committee nodes
     </span><span class="kw">pub </span>non_staked_committee_nodes: usize,
+    <span class="doccomment">/// Number of fixed leaders for GPU VID
+    </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
     <span class="doccomment">/// Maximum transactions per block
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
     <span class="doccomment">/// Minimum transactions per block
@@ -1267,6 +1273,7 @@
             my_own_validator_config: val.my_own_validator_config,
             da_staked_committee_size: val.staked_committee_nodes,
             da_non_staked_committee_size: val.non_staked_committee_nodes,
+            fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
             timeout_ratio: val.timeout_ratio,
@@ -1320,6 +1327,7 @@
             known_nodes_without_stake: <span class="macro">vec!</span>[],
             staked_committee_nodes: <span class="number">5</span>,
             non_staked_committee_nodes: <span class="number">0</span>,
+            fixed_leader_for_gpuvid: <span class="number">0</span>,
             max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
             min_transactions: <span class="number">1</span>,
             next_view_timeout: <span class="number">10000</span>,

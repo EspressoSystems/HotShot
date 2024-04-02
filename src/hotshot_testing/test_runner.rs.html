@@ -451,6 +451,10 @@
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use super</span>::{
     completion_task::CompletionTask,
@@ -799,6 +803,7 @@
                 quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
@@ -806,14 +811,17 @@
                         config.da_staked_committee_size <span class="kw">as </span>u64,
                         config.num_nodes_without_stake <span class="kw">as </span>u64,
                     ),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config,
+                    config.fixed_leader_for_gpuvid,
                 ),
             };
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;

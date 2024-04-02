@@ -452,6 +452,10 @@
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 
@@ -552,18 +556,22 @@
         quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         da_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             committee_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
         vid_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         view_sync_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
     };
 
