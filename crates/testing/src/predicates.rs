@@ -10,7 +10,7 @@ use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
 pub struct Predicate<INPUT> {
-    pub function: Box<dyn Fn(&INPUT) -> bool>,
+    pub function: Box<dyn Fn(&INPUT) -> Option<bool>>,
     pub info: String,
 }
 
@@ -28,7 +28,7 @@ where
     let event = Arc::new(event);
 
     Predicate {
-        function: Box::new(move |e| e == &event),
+        function: Box::new(move |e| Some(e == &event)),
         info,
     }
 }
@@ -38,7 +38,7 @@ where
     TYPES: NodeType,
 {
     let info = "LeafDecided".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), LeafDecided(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), LeafDecided(_)));
 
     Predicate {
         function: Box::new(function),
@@ -51,7 +51,7 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumVoteSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumVoteSend(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumVoteSend(_)));
 
     Predicate {
         function: Box::new(function),
@@ -64,7 +64,7 @@ where
     TYPES: NodeType,
 {
     let info = "ViewChange".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), ViewChange(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), ViewChange(_)));
 
     Predicate {
         function: Box::new(function),
@@ -77,7 +77,7 @@ where
     TYPES: NodeType,
 {
     let info = "UpgradeCertificateFormed".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), UpgradeCertificateFormed(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), UpgradeCertificateFormed(_)));
 
     Predicate {
         function: Box::new(function),
@@ -91,8 +91,8 @@ where
 {
     let info = "QuorumProposalSend with UpgradeCertificate attached".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
-        QuorumProposalSend(proposal, _) => proposal.data.upgrade_certificate.is_some(),
-        _ => false,
+        QuorumProposalSend(proposal, _) => Some(proposal.data.upgrade_certificate.is_some()),
+        _ => Some(false),
     };
 
     Predicate {
@@ -106,7 +106,7 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumProposalValidated".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumProposalValidated(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumProposalValidated(_)));
 
     Predicate {
         function: Box::new(function),
@@ -119,7 +119,7 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumProposalSend(_, _));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumProposalSend(_, _)));
 
     Predicate {
         function: Box::new(function),
@@ -132,7 +132,7 @@ where
     TYPES: NodeType,
 {
     let info = "TimeoutVoteSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), TimeoutVoteSend(_));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), TimeoutVoteSend(_)));
 
     Predicate {
         function: Box::new(function),
@@ -147,8 +147,10 @@ pub fn consensus_predicate(
     function: Box<dyn for<'a> Fn(&'a ConsensusTaskTestState) -> bool>,
     info: &str,
 ) -> Predicate<ConsensusTaskTestState> {
+    let wrapped_function = move |e: &ConsensusTaskTestState| Some(function(e));
+
     Predicate {
-        function,
+        function: Box::new(wrapped_function),
         info: info.to_string(),
     }
 }

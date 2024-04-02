@@ -41,7 +41,7 @@ where
 
 pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &Predicate<S>) {
     assert!(
-        (assert.function)(state),
+        (assert.function)(state) == Some(true),
         "Stage {} | Task state failed to satisfy: {:?}",
         stage_number,
         assert
@@ -53,7 +53,7 @@ where
     S: std::fmt::Debug,
 {
     assert!(
-        (assert.function)(output),
+        (assert.function)(output) == Some(true),
         "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
         stage_number,
         assert,
@@ -166,7 +166,7 @@ pub fn validate_task_state_or_panic_in_script<S>(
     assert: &Predicate<S>,
 ) {
     assert!(
-        (assert.function)(state),
+        (assert.function)(state) == Some(true),
         "Stage {} | Task state in {} failed to satisfy: {:?}",
         stage_number,
         script_name,
@@ -181,7 +181,7 @@ pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
     assert: &Predicate<S>,
 ) {
     assert!(
-        (assert.function)(output),
+        (assert.function)(output) == Some(true),
         "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
         stage_number,
         script_name,
