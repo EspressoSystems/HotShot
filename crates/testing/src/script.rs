@@ -62,18 +62,14 @@ where
     let result = (assert.function)(output);
 
     match result {
-        PredicateResult::Pass => {
-            return result;
-        }
-        PredicateResult::Incomplete => {
-            return result;
-        }
+        PredicateResult::Pass => result,
+        PredicateResult::Incomplete => result,
         PredicateResult::Fail => {
             format!(
                 "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
                 stage_number, assert, output
             );
-            return result;
+            result
         }
     }
 }
@@ -131,7 +127,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                 result = validate_output_or_panic(stage_number, &received_output, assert);
 
                 to_task
-                    .broadcast(received_output.clone().into())
+                    .broadcast(received_output.clone())
                     .await
                     .expect("Failed to re-broadcast output message");
 
