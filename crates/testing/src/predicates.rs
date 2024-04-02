@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
+    consensus::{null_block, ConsensusTaskState},
+    events::HotShotEvent,
+    events::HotShotEvent::*,
 };
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
 
 use hotshot::types::SystemContextHandle;
 
@@ -31,6 +33,25 @@ where
         function: Box::new(move |e| Some(e == &event)),
         info,
     }
+}
+
+pub fn multi_exact<TYPES>(
+    events: Vec<HotShotEvent<TYPES>>,
+) -> Vec<Predicate<Arc<HotShotEvent<TYPES>>>>
+where
+    TYPES: NodeType,
+{
+    events
+        .into_iter()
+        .map(|event| {
+            let event = Arc::new(event);
+            let info = format!("{:?}", event);
+            Predicate {
+                function: Box::new(move |e| e == &event),
+                info,
+            }
+        })
+        .collect()
 }
 
 pub fn leaf_decided<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
@@ -120,6 +141,27 @@ where
 {
     let info = "QuorumProposalSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumProposalSend(_, _)));
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
+}
+
+pub fn quorum_proposal_send_with_null_block<TYPES>(
+    num_storage_nodes: usize,
+) -> Predicate<Arc<HotShotEvent<TYPES>>>
+where
+    TYPES: NodeType,
+{
+    let info = "QuorumProposalSend with null block payload".to_string();
+    let function = move |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
+        QuorumProposalSend(proposal, _) => {
+            Some(proposal.data.block_header.payload_commitment())
+                == null_block::commitment(num_storage_nodes)
+        }
+        _ => false,
+    };
 
     Predicate {
         function: Box::new(function),

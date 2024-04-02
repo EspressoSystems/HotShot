@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  lint:
     strategy:
       matrix:
         just_variants:
@@ -31,8 +31,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: ""
+          shared-key: "build-and-test"
           prefix-key: ${{ matrix.just_variants }}
+          save-if: false
 
       - name: Install Just
         run: |

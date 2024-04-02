@@ -7,7 +7,10 @@ use async_compatibility_layer::art::async_sleep;
 use async_std::future::TimeoutError;
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use futures::channel::{mpsc, oneshot};
+use futures::{
+    channel::{mpsc, oneshot},
+    Future,
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
@@ -31,6 +34,7 @@ use std::{
     collections::{BTreeSet, HashMap},
     fmt::Debug,
     hash::Hash,
+    pin::Pin,
     sync::Arc,
     time::Duration,
 };
@@ -96,7 +100,7 @@ pub enum NetworkError {
         /// source of error
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// collection of libp2p secific errors
+    /// collection of libp2p specific errors
     Libp2pMulti {
         /// sources of errors
         sources: Vec<Box<dyn std::error::Error + Send + Sync>>,
@@ -128,6 +132,8 @@ pub enum NetworkError {
     CouldNotDeliver,
     /// Attempted to deliver a message to an unknown node
     NoSuchNode,
+    /// No bootstrap nodes were specified on network creation
+    NoBootstrapNodesSpecified,
     /// Failed to serialize a network message
     FailedToSerialize {
         /// Originating bincode error
@@ -271,7 +277,7 @@ pub enum RequestKind<TYPES: NodeType> {
     DAProposal(TYPES::Time),
 }
 
-/// A resopnse for a request.  `SequencingMessage` is the same as other network messages
+/// A response for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -416,6 +422,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     fn update_view(&self, _view: u64) {}
 }
 
+/// A channel generator for types that need asynchronous execution
+pub type AsyncGenerator<T> = Pin<Box<dyn Fn(u64) -> Pin<Box<dyn Future<Output = T>>>>>;
+
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<TYPES: NodeType>
 where
@@ -431,7 +440,7 @@ where
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static>;
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)>;
 
     /// Get the number of messages in-flight.
     ///
@@ -597,7 +606,7 @@ impl NetworkReliability for PartiallySynchronousNetwork {
         true
     }
     fn sample_delay(&self) -> Duration {
-        // act asyncronous before gst
+        // act asynchronous before gst
         if self.start.elapsed() < self.gst {
             if self.asynchronous.sample_keep() {
                 self.asynchronous.sample_delay()
@@ -606,7 +615,7 @@ impl NetworkReliability for PartiallySynchronousNetwork {
                 self.synchronous.sample_delay() + self.gst
             }
         } else {
-            // act syncronous after gst
+            // act synchronous after gst
             self.synchronous.sample_delay()
         }
     }

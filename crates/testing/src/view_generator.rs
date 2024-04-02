@@ -42,7 +42,7 @@ pub struct TestView {
     pub view_number: ViewNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
     pub vid_proposal: (
-        Proposal<TestTypes, VidDisperseShare<TestTypes>>,
+        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
@@ -94,7 +94,6 @@ impl TestView {
             proposal_certificate: None,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -113,16 +112,11 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let leaf = Leaf {
-            view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(),
-            parent_commitment: Leaf::genesis(&TestInstanceState {}).commit(),
-            block_header: block_header.clone(),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            block_payload: Some(TestBlockPayload {
-                transactions: transactions.clone(),
-            }),
-        };
+        let mut leaf = Leaf::from_quorum_proposal(&quorum_proposal_inner);
+        leaf.fill_block_payload_unchecked(TestBlockPayload {
+            transactions: transactions.clone(),
+        });
+        leaf.set_parent_commitment(Leaf::genesis(&TestInstanceState {}).commit());
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment!");
@@ -274,20 +268,6 @@ impl TestView {
             payload_commitment,
         };
 
-        let leaf = Leaf {
-            view_number: next_view,
-            justify_qc: quorum_certificate.clone(),
-            parent_commitment: old.leaf.commit(),
-            block_header: block_header.clone(),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            block_payload: Some(TestBlockPayload {
-                transactions: transactions.clone(),
-            }),
-        };
-
-        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
-            .expect("Failed to sign leaf commitment.");
-
         let proposal = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: next_view,
@@ -296,13 +276,20 @@ impl TestView {
             proposal_certificate,
         };
 
+        let mut leaf = Leaf::from_quorum_proposal(&proposal);
+        leaf.fill_block_payload_unchecked(TestBlockPayload {
+            transactions: transactions.clone(),
+        });
+
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment.");
+
         let quorum_proposal = Proposal {
             data: proposal,
             signature,
             _pd: PhantomData,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -433,6 +420,17 @@ impl TestViewGenerator {
             });
         } else {
             tracing::error!("Cannot attach view sync finalize to the genesis view.");
+        }
+    }
+
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                timeout_cert_data: Some(timeout_data),
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach timeout cert to the genesis view.")
         }
     }
 

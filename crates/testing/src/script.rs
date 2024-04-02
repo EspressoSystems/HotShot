@@ -2,9 +2,12 @@ use crate::predicates::Predicate;
 use async_broadcast::broadcast;
 use hotshot_task_impls::events::HotShotEvent;
 
+use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+
+const RECV_TIMEOUT_SEC: Duration = Duration::from_secs(1);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -81,24 +84,21 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (test_input, task_receiver) = broadcast(1024);
-    // let (task_input, mut test_receiver) = broadcast(1024);
+    let (to_task, from_test) = broadcast(1024);
+    let (to_test, mut from_task) = broadcast(1024);
 
-    let task_input = test_input.clone();
-    let mut test_receiver = task_receiver.clone();
-
-    let mut task = Task::new(
-        task_input.clone(),
-        task_receiver.clone(),
-        registry.clone(),
-        state,
-    );
+    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
         for input in &stage.inputs {
             if !task.state_mut().filter(&Arc::new(input.clone())) {
                 tracing::debug!("Test sent: {:?}", input.clone());
+
+                to_task
+                    .broadcast(input.clone().into())
+                    .await
+                    .expect("Failed to broadcast input message");
 
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
@@ -107,9 +107,18 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
         }
 
         for assert in &stage.outputs {
-            if let Ok(received_output) = test_receiver.try_recv() {
+            if let Ok(Ok(received_output)) =
+                async_timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await
+            {
                 tracing::debug!("Test received: {:?}", received_output);
                 validate_output_or_panic(stage_number, &received_output, assert);
+                if !task.state_mut().filter(&received_output.clone()) {
+                    tracing::debug!("Test sent: {:?}", received_output.clone());
+
+                    if let Some(res) = S::handle_event(received_output.clone(), &mut task).await {
+                        task.state_mut().handle_result(&res).await;
+                    }
+                }
             } else {
                 panic_missing_output(stage_number, assert);
             }
@@ -119,7 +128,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
-        if let Ok(received_output) = test_receiver.try_recv() {
+        if let Ok(received_output) = from_task.try_recv() {
             panic_extra_output(stage_number, &received_output);
         }
     }

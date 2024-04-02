@@ -127,7 +127,7 @@ where
         Storage = TestStorage<TYPES>,
     >,
 {
-    /// excecute test
+    /// execute test
     ///
     /// # Panics
     /// if the test fails
@@ -363,7 +363,7 @@ where
                     quorum_election_config,
                 ),
             };
-            let networks = (self.launcher.resource_generator.channel_generator)(node_id);
+            let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
 
             if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
