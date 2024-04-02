@@ -200,7 +200,36 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::predicates::Predicate;
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::predicates::{Predicate, PredicateResult};
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 
@@ -244,26 +273,36 @@
     <span class="macro">panic!</span>(<span class="string">"{}"</span>, output_missing_error);
 }
 
-<span class="kw">pub fn </span>validate_task_state_or_panic&lt;S&gt;(stage_number: usize, state: <span class="kw-2">&amp;</span>S, assert: <span class="kw-2">&amp;</span>Predicate&lt;S&gt;) {
+<span class="kw">pub fn </span>validate_task_state_or_panic&lt;S&gt;(stage_number: usize, state: <span class="kw-2">&amp;</span>S, assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;) {
     <span class="macro">assert!</span>(
-        (assert.function)(state),
+        (assert.function)(state) == PredicateResult::Pass,
         <span class="string">"Stage {} | Task state failed to satisfy: {:?}"</span>,
         stage_number,
         assert
     );
 }
 
-<span class="kw">pub fn </span>validate_output_or_panic&lt;S&gt;(stage_number: usize, output: <span class="kw-2">&amp;</span>S, assert: <span class="kw-2">&amp;</span>Predicate&lt;S&gt;)
+<span class="kw">pub fn </span>validate_output_or_panic&lt;S&gt;(
+    stage_number: usize,
+    output: <span class="kw-2">&amp;</span>S,
+    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
+) -&gt; PredicateResult
 <span class="kw">where
     </span>S: std::fmt::Debug,
 {
-    <span class="macro">assert!</span>(
-        (assert.function)(output),
-        <span class="string">"Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
-        stage_number,
-        assert,
-        output
-    );
+    <span class="kw">let </span>result = (assert.function)(output);
+
+    <span class="kw">match </span>result {
+        PredicateResult::Pass =&gt; result,
+        PredicateResult::Incomplete =&gt; result,
+        PredicateResult::Fail =&gt; {
+            <span class="macro">format!</span>(
+                <span class="string">"Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
+                stage_number, assert, output
+            );
+            result
+        }
+    }
 }
 
 <span class="doccomment">/// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
@@ -286,7 +325,7 @@
 {
     <span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
 
-    <span class="kw">let </span>(to_task, from_test) = broadcast(<span class="number">1024</span>);
+    <span class="kw">let </span>(to_task, <span class="kw-2">mut </span>from_test) = broadcast(<span class="number">1024</span>);
     <span class="kw">let </span>(to_test, <span class="kw-2">mut </span>from_task) = broadcast(<span class="number">1024</span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
@@ -294,26 +333,37 @@
     <span class="kw">for </span>(stage_number, stage) <span class="kw">in </span>script.iter_mut().enumerate() {
         <span class="macro">tracing::debug!</span>(<span class="string">"Beginning test stage {}"</span>, stage_number);
         <span class="kw">for </span>input <span class="kw">in </span><span class="kw-2">&amp;</span>stage.inputs {
+            to_task
+                .broadcast(input.clone().into())
+                .<span class="kw">await
+                </span>.expect(<span class="string">"Failed to broadcast input message"</span>);
+
             <span class="kw">if </span>!task.state_mut().filter(<span class="kw-2">&amp;</span>Arc::new(input.clone())) {
                 <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input.clone());
-
-                to_task
-                    .broadcast(input.clone().into())
-                    .<span class="kw">await
-                    </span>.expect(<span class="string">"Failed to broadcast input message"</span>);
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = S::handle_event(input.clone().into(), <span class="kw-2">&amp;mut </span>task).<span class="kw">await </span>{
                     task.state_mut().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
                 }
             }
+
+            <span class="kw">while </span>from_test.try_recv().is_ok() {}
         }
 
-        <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;</span>stage.outputs {
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) =
+        <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;mut </span>stage.outputs {
+            <span class="kw">let </span><span class="kw-2">mut </span>result = PredicateResult::Incomplete;
+
+            <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) =
                 async_timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).<span class="kw">await
             </span>{
                 <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
-                validate_output_or_panic(stage_number, <span class="kw-2">&amp;</span>received_output, assert);
+
+                result = validate_output_or_panic(stage_number, <span class="kw-2">&amp;</span>received_output, assert);
+
+                to_task
+                    .broadcast(received_output.clone())
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">"Failed to re-broadcast output message"</span>);
+
                 <span class="kw">if </span>!task.state_mut().filter(<span class="kw-2">&amp;</span>received_output.clone()) {
                     <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, received_output.clone());
 
@@ -321,12 +371,20 @@
                         task.state_mut().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
                     }
                 }
-            } <span class="kw">else </span>{
+
+                <span class="kw">while </span>from_test.try_recv().is_ok() {}
+
+                <span class="kw">if </span>result == PredicateResult::Pass {
+                    <span class="kw">break</span>;
+                }
+            }
+
+            <span class="kw">if </span>result == PredicateResult::Incomplete {
                 panic_missing_output(stage_number, assert);
             }
         }
 
-        <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;</span>stage.asserts {
+        <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;mut </span>stage.asserts {
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
@@ -374,10 +432,10 @@
     stage_number: usize,
     script_name: String,
     state: <span class="kw-2">&amp;</span>S,
-    assert: <span class="kw-2">&amp;</span>Predicate&lt;S&gt;,
+    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
 ) {
     <span class="macro">assert!</span>(
-        (assert.function)(state),
+        (assert.function)(state) == PredicateResult::Pass,
         <span class="string">"Stage {} | Task state in {} failed to satisfy: {:?}"</span>,
         stage_number,
         script_name,
@@ -389,10 +447,10 @@
     stage_number: usize,
     script_name: String,
     output: <span class="kw-2">&amp;</span>S,
-    assert: <span class="kw-2">&amp;</span>Predicate&lt;S&gt;,
+    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
 ) {
     <span class="macro">assert!</span>(
-        (assert.function)(output),
+        (assert.function)(output) == PredicateResult::Pass,
         <span class="string">"Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
         stage_number,
         script_name,

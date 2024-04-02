@@ -279,13 +279,13 @@
                     <span class="kw">while let </span><span class="prelude-val">Ok</span>(received_output) = test_receiver.try_recv() {
                         <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
-                        <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;</span>#task_expectations[stage_number].output_asserts;
+                        <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].output_asserts;
 
                         <span class="kw">if </span>#output_index_names &gt;= output_asserts.len() {
                             panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
                         };
 
-                        <span class="kw">let </span>assert = <span class="kw-2">&amp;</span>output_asserts[#output_index_names];
+                        <span class="kw">let </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
 
                         validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, assert);
 
@@ -307,13 +307,13 @@
                     <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(Duration::from_millis(<span class="number">250</span>), test_receiver.recv_direct()).<span class="kw">await </span>{
                         <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
-                        <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;</span>#task_expectations[stage_number].output_asserts;
+                        <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].output_asserts;
 
                         <span class="kw">if </span>#output_index_names &gt;= output_asserts.len() {
                             panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
                         };
 
-                        <span class="kw">let </span>assert = <span class="kw-2">&amp;</span>output_asserts[#output_index_names];
+                        <span class="kw">let </span><span class="kw-2">mut </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
 
                         validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, assert);
 
@@ -330,7 +330,7 @@
                 panic_missing_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>output_asserts[#output_index_names]);
             }
 
-            <span class="kw">let </span>task_state_asserts = <span class="kw-2">&amp;</span>#task_expectations[stage_number].task_state_asserts;
+            <span class="kw">let </span>task_state_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].task_state_asserts;
 
             <span class="kw">for </span>assert <span class="kw">in </span>task_state_asserts {
                 validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), assert);
