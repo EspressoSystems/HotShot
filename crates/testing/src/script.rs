@@ -86,10 +86,17 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (to_task, mut from_test) = broadcast(1024);
-    let (to_test, mut from_task) = broadcast(1024);
+    let (test_input, task_receiver) = broadcast(1024);
 
-    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
+    let task_input = test_input.clone();
+    let mut test_receiver = task_receiver.clone();
+
+    let mut task = Task::new(
+        task_input.clone(),
+        task_receiver.clone(),
+        registry.clone(),
+        state,
+    );
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
@@ -97,26 +104,16 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             if !task.state_mut().filter(&Arc::new(input.clone())) {
                 tracing::debug!("Test sent: {:?}", input.clone());
 
-                to_task
-                    .broadcast(input.clone().into())
-                    .await
-                    .expect("Failed to broadcast input message");
-
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
                 }
-
-                // Drain `from_test` to avoid missing events.
-                // TODO: This doesn't seem to guarantee that all expected outputs are received.
-                // Also, will this cause extra outputs?
-                while from_test.try_recv().is_ok() {}
             }
         }
 
         for assert in &stage.outputs {
             match assert {
                 EventPredicate::One(assert) => {
-                    match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
+                    match async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
                         Ok(Ok(received_output)) => {
                             tracing::debug!("Test sent: {:?}", received_output);
                             validate_output_or_panic(stage_number, &received_output, assert);
@@ -132,9 +129,9 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     }
                 }
                 EventPredicate::Consecutive(asserts) => {
-                    match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
+                    match async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
                         Ok(Ok(received_output_0)) => {
-                            match async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await {
+                            match async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
                                 Ok(Ok(received_output_1)) => {
                                     tracing::debug!(
                                         "Test sent: {:?} and {:?}",
@@ -154,6 +151,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                                             task.state_mut().handle_result(&res).await;
                                         }
                                     }
+
                                     if !task.state_mut().filter(&received_output_1.clone()) {
                                         if let Some(res) =
                                             S::handle_event(received_output_1.clone(), &mut task)
@@ -176,7 +174,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
-        if let Ok(received_output) = from_task.try_recv() {
+        if let Ok(received_output) = test_receiver.try_recv() {
             panic_extra_output(stage_number, &received_output);
         }
     }
