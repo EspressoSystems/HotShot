@@ -1026,7 +1026,6 @@ pub async fn main_entry_point<
         .await
         .expect("failed to get config");
 
-
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
     let hotshot = run.initialize_state_and_hotshot().await;
