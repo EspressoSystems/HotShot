@@ -3,12 +3,12 @@
 source "$HOME/.cargo/env"
 
 # assign local ip
-# these are fixed because nginx config is fixed in other servers 
+ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
+# when you run it, these ips are fixed because nginx config is fixed in other servers 
 # which we are not able to access and update in this script.
-# ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
-webserver_url=http://172.31.28.184:80
-da_webserver_url=http://172.31.44.172:81
-orchestrator_url=http://172.31.8.82:4444 #http://172.31.7.196:5555  if using nginx for orchestrator
+webserver_url=http://[nginx_webserver_ip_address]:80
+da_webserver_url=http://[nginx_da_webserver_ip_address]:81
+orchestrator_url=http://"$ip":4444
 
 
 # build
@@ -29,10 +29,6 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # docker run --network=host [YOUR-NAME]:latest
 
 # docker build . -f Dockerfile_da -t [YOUR-NAME]
-# docker run --network=host [YOUR-NAME]:latest
-
-# start this docker if using orchestrator with nginx
-# docker build . -f Dockerfile_orchestrator -t [YOUR-NAME]
 # docker run --network=host [YOUR-NAME]:latest
 
 OLDIFS=$IFS; IFS=',';
