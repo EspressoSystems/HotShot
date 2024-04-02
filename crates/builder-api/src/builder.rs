@@ -5,7 +5,7 @@ use crate::{
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
 use clap::Args;
-use commit::Committable;
+use committable::Committable;
 use derive_more::From;
 use futures::FutureExt;
 use hotshot_types::{

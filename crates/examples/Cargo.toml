@@ -107,7 +107,7 @@ async-lock = { workspace = true }
 async-trait = { workspace = true }
 bimap = "0.6"
 clap = { workspace = true, optional = true }
-commit = { workspace = true }
+committable = { workspace = true }
 custom_debug = { workspace = true }
 dashmap = "5"
 either = { workspace = true }

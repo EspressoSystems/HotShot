@@ -17,7 +17,7 @@ async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { workspace = true }
-commit = { workspace = true }
+committable = { workspace = true }
 either = { workspace = true }
 ethereum-types = { workspace = true }
 futures = { workspace = true }

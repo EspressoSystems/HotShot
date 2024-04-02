@@ -24,7 +24,7 @@ use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use commit::Committable;
+use committable::Committable;
 use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;

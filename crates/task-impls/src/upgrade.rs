@@ -208,7 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 #[cfg(feature = "example-upgrade")]
                 {
-                    use commit::Committable;
+                    use committable::Committable;
                     use std::marker::PhantomData;
 
                     use hotshot_types::{

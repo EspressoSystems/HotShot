@@ -1552,9 +1552,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "commit"
-version = "0.2.2"
-source = "git+https://github.com/EspressoSystems/commit#709f181de703edd5a53dffd47ee9d930911f21c3"
+name = "committable"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93c989a517928da3346fce6f6f75794285420edc3ef42c995ced45519f065acd"
 dependencies = [
  "arbitrary",
  "ark-serialize",
@@ -3115,7 +3116,7 @@ dependencies = [
  "cdn-client",
  "cdn-marshal",
  "clap",
- "commit",
+ "committable",
  "custom_debug",
  "dashmap",
  "derive_more",
@@ -3149,7 +3150,7 @@ version = "0.1.6"
 dependencies = [
  "async-trait",
  "clap",
- "commit",
+ "committable",
  "derive_more",
  "futures",
  "hotshot-types",
@@ -3172,7 +3173,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bitvec",
- "commit",
+ "committable",
  "either",
  "ethereum-types",
  "futures",
@@ -3207,7 +3208,7 @@ dependencies = [
  "cdn-marshal",
  "chrono",
  "clap",
- "commit",
+ "committable",
  "custom_debug",
  "dashmap",
  "derive_more",
@@ -3318,7 +3319,7 @@ dependencies = [
  "bincode",
  "bitvec",
  "chrono",
- "commit",
+ "committable",
  "either",
  "futures",
  "hotshot-builder-api",
@@ -3348,7 +3349,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bitvec",
- "commit",
+ "committable",
  "either",
  "ethereum-types",
  "futures",
@@ -3384,7 +3385,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "blake3",
- "commit",
+ "committable",
  "derive_builder",
  "either",
  "futures",
@@ -3422,7 +3423,7 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "commit",
+ "committable",
  "custom_debug",
  "derivative",
  "digest 0.10.7",
@@ -7763,7 +7764,8 @@ dependencies = [
 [[package]]
 name = "tagged-base64"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
 dependencies = [
  "ark-serialize",
  "ark-std",
@@ -7786,7 +7788,8 @@ dependencies = [
 [[package]]
 name = "tagged-base64-macros"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcdea3c0150898fad2f7196a173ec3264f7fc455ba570939163c558f48ae85ac"
 dependencies = [
  "quote",
  "syn 1.0.109",
