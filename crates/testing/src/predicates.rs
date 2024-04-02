@@ -1,19 +1,61 @@
-use std::sync::Arc;
-
 use hotshot_task_impls::{
     consensus::{null_block, ConsensusTaskState},
     events::HotShotEvent,
     events::HotShotEvent::*,
 };
 use hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use hotshot::types::SystemContextHandle;
 
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum PredicateResult {
+    Pass,
+
+    Fail,
+
+    Incomplete,
+}
+
+impl PredicateResult {
+    pub fn from_bool(boolean: bool) -> Self {
+        match boolean {
+            true => PredicateResult::Pass,
+            false => PredicateResult::Fail,
+        }
+    }
+}
+
 pub struct Predicate<INPUT> {
-    pub function: Box<dyn Fn(&INPUT) -> Option<bool>>,
+    pub function: Box<dyn FnMut(&INPUT) -> PredicateResult>,
     pub info: String,
+}
+
+pub fn all<TYPES>(events: Vec<HotShotEvent<TYPES>>) -> Predicate<Arc<HotShotEvent<TYPES>>>
+where
+    TYPES: NodeType,
+{
+    let info = format!("{:?}", events);
+    let mut set: HashSet<_> = events.into_iter().collect();
+
+    let function = move |e: &Arc<HotShotEvent<TYPES>>| match set.take(e.as_ref()) {
+        Some(_) => {
+            if set.is_empty() {
+                PredicateResult::Pass
+            } else {
+                PredicateResult::Incomplete
+            }
+        }
+        None => PredicateResult::Fail,
+    };
+
+    Predicate {
+        function: Box::new(function),
+        info,
+    }
 }
 
 impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
@@ -30,7 +72,7 @@ where
     let event = Arc::new(event);
 
     Predicate {
-        function: Box::new(move |e| Some(e == &event)),
+        function: Box::new(move |e| PredicateResult::from_bool(e == &event)),
         info,
     }
 }
@@ -47,7 +89,7 @@ where
             let event = Arc::new(event);
             let info = format!("{:?}", event);
             Predicate {
-                function: Box::new(move |e| e == &event),
+                function: Box::new(move |e| PredicateResult::from_bool(e == &event)),
                 info,
             }
         })
@@ -59,7 +101,9 @@ where
     TYPES: NodeType,
 {
     let info = "LeafDecided".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), LeafDecided(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), LeafDecided(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -72,7 +116,9 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumVoteSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumVoteSend(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), QuorumVoteSend(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -85,7 +131,9 @@ where
     TYPES: NodeType,
 {
     let info = "ViewChange".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), ViewChange(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), ViewChange(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -98,7 +146,9 @@ where
     TYPES: NodeType,
 {
     let info = "UpgradeCertificateFormed".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), UpgradeCertificateFormed(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), UpgradeCertificateFormed(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -112,8 +162,10 @@ where
 {
     let info = "QuorumProposalSend with UpgradeCertificate attached".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
-        QuorumProposalSend(proposal, _) => Some(proposal.data.upgrade_certificate.is_some()),
-        _ => Some(false),
+        QuorumProposalSend(proposal, _) => {
+            PredicateResult::from_bool(proposal.data.upgrade_certificate.is_some())
+        }
+        _ => PredicateResult::Fail,
     };
 
     Predicate {
@@ -127,7 +179,9 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumProposalValidated".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumProposalValidated(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), QuorumProposalValidated(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -140,7 +194,9 @@ where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), QuorumProposalSend(_, _)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), QuorumProposalSend(_, _)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -156,11 +212,11 @@ where
 {
     let info = "QuorumProposalSend with null block payload".to_string();
     let function = move |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
-        QuorumProposalSend(proposal, _) => {
+        QuorumProposalSend(proposal, _) => PredicateResult::from_bool(
             Some(proposal.data.block_header.payload_commitment())
-                == null_block::commitment(num_storage_nodes)
-        }
-        _ => false,
+                == null_block::commitment(num_storage_nodes),
+        ),
+        _ => PredicateResult::Fail,
     };
 
     Predicate {
@@ -174,7 +230,9 @@ where
     TYPES: NodeType,
 {
     let info = "TimeoutVoteSend".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| Some(matches!(e.as_ref(), TimeoutVoteSend(_)));
+    let function = |e: &Arc<HotShotEvent<TYPES>>| {
+        PredicateResult::from_bool(matches!(e.as_ref(), TimeoutVoteSend(_)))
+    };
 
     Predicate {
         function: Box::new(function),
@@ -189,7 +247,8 @@ pub fn consensus_predicate(
     function: Box<dyn for<'a> Fn(&'a ConsensusTaskTestState) -> bool>,
     info: &str,
 ) -> Predicate<ConsensusTaskTestState> {
-    let wrapped_function = move |e: &ConsensusTaskTestState| Some(function(e));
+    let wrapped_function =
+        move |e: &ConsensusTaskTestState| PredicateResult::from_bool(function(e));
 
     Predicate {
         function: Box::new(wrapped_function),
