@@ -849,8 +849,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .vid_shares
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
-                                        .iter()
-                                        .filter_map(|(key, proposal)| if *key == self.public_key {Some(&proposal.data) } else {None})
+                                        .get(&self.public_key).map(|f| &f.data).into_iter()
                                 );
 
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
