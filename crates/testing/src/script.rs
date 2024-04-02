@@ -141,11 +141,11 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     }
                 }
 
+                while from_test.try_recv().is_ok() {}
+
                 if result == PredicateResult::Pass {
                     break;
                 }
-
-                while from_test.try_recv().is_ok() {}
             }
 
             if result == PredicateResult::Incomplete {
