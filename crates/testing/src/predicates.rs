@@ -20,8 +20,8 @@ pub enum PredicateResult {
     Incomplete,
 }
 
-impl PredicateResult {
-    pub fn from_bool(boolean: bool) -> Self {
+impl From<bool> for PredicateResult {
+    fn from(boolean: bool) -> Self {
         match boolean {
             true => PredicateResult::Pass,
             false => PredicateResult::Fail,
@@ -72,7 +72,7 @@ where
     let event = Arc::new(event);
 
     Predicate {
-        function: Box::new(move |e| PredicateResult::from_bool(e == &event)),
+        function: Box::new(move |e| PredicateResult::from(e == &event)),
         info,
     }
 }
@@ -89,7 +89,7 @@ where
             let event = Arc::new(event);
             let info = format!("{:?}", event);
             Predicate {
-                function: Box::new(move |e| PredicateResult::from_bool(e == &event)),
+                function: Box::new(move |e| PredicateResult::from(e == &event)),
                 info,
             }
         })
@@ -101,9 +101,8 @@ where
     TYPES: NodeType,
 {
     let info = "LeafDecided".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), LeafDecided(_)))
-    };
+    let function =
+        |e: &Arc<HotShotEvent<TYPES>>| PredicateResult::from(matches!(e.as_ref(), LeafDecided(_)));
 
     Predicate {
         function: Box::new(function),
@@ -117,7 +116,7 @@ where
 {
     let info = "QuorumVoteSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), QuorumVoteSend(_)))
+        PredicateResult::from(matches!(e.as_ref(), QuorumVoteSend(_)))
     };
 
     Predicate {
@@ -131,9 +130,8 @@ where
     TYPES: NodeType,
 {
     let info = "ViewChange".to_string();
-    let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), ViewChange(_)))
-    };
+    let function =
+        |e: &Arc<HotShotEvent<TYPES>>| PredicateResult::from(matches!(e.as_ref(), ViewChange(_)));
 
     Predicate {
         function: Box::new(function),
@@ -147,7 +145,7 @@ where
 {
     let info = "UpgradeCertificateFormed".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), UpgradeCertificateFormed(_)))
+        PredicateResult::from(matches!(e.as_ref(), UpgradeCertificateFormed(_)))
     };
 
     Predicate {
@@ -163,7 +161,7 @@ where
     let info = "QuorumProposalSend with UpgradeCertificate attached".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
         QuorumProposalSend(proposal, _) => {
-            PredicateResult::from_bool(proposal.data.upgrade_certificate.is_some())
+            PredicateResult::from(proposal.data.upgrade_certificate.is_some())
         }
         _ => PredicateResult::Fail,
     };
@@ -180,7 +178,7 @@ where
 {
     let info = "QuorumProposalValidated".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), QuorumProposalValidated(_)))
+        PredicateResult::from(matches!(e.as_ref(), QuorumProposalValidated(_)))
     };
 
     Predicate {
@@ -195,7 +193,7 @@ where
 {
     let info = "QuorumProposalSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), QuorumProposalSend(_, _)))
+        PredicateResult::from(matches!(e.as_ref(), QuorumProposalSend(_, _)))
     };
 
     Predicate {
@@ -212,7 +210,7 @@ where
 {
     let info = "QuorumProposalSend with null block payload".to_string();
     let function = move |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
-        QuorumProposalSend(proposal, _) => PredicateResult::from_bool(
+        QuorumProposalSend(proposal, _) => PredicateResult::from(
             Some(proposal.data.block_header.payload_commitment())
                 == null_block::commitment(num_storage_nodes),
         ),
@@ -231,7 +229,7 @@ where
 {
     let info = "TimeoutVoteSend".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from_bool(matches!(e.as_ref(), TimeoutVoteSend(_)))
+        PredicateResult::from(matches!(e.as_ref(), TimeoutVoteSend(_)))
     };
 
     Predicate {
@@ -247,8 +245,7 @@ pub fn consensus_predicate(
     function: Box<dyn for<'a> Fn(&'a ConsensusTaskTestState) -> bool>,
     info: &str,
 ) -> Predicate<ConsensusTaskTestState> {
-    let wrapped_function =
-        move |e: &ConsensusTaskTestState| PredicateResult::from_bool(function(e));
+    let wrapped_function = move |e: &ConsensusTaskTestState| PredicateResult::from(function(e));
 
     Predicate {
         function: Box::new(wrapped_function),
