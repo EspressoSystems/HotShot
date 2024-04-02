@@ -36,7 +36,7 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
@@ -92,7 +92,17 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>, delay_duration: Duration) -> Self {
+    pub fn new(
+        primary_network: PushCdnNetwork<TYPES>,
+        secondary_network: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        delay_duration: Duration,
+    ) -> Self {
+        // Create networks from the ones passed in
+        let networks = Arc::from(UnderlyingCombinedNetworks(
+            primary_network,
+            secondary_network,
+        ));
+
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -398,6 +408,17 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             },
         )
         .await
+    }
+
+    async fn vid_broadcast_message<VER: StaticVersionType + 'static>(
+        &self,
+        messages: HashMap<TYPES::SignatureKey, Message<TYPES>>,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        self.networks
+            .0
+            .vid_broadcast_message(messages, bind_version)
+            .await
     }
 
     /// Receive one or many messages from the underlying network.
