@@ -1130,6 +1130,10 @@
 <a href="#1128" id="1128">1128</a>
 <a href="#1129" id="1129">1129</a>
 <a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1149,11 +1153,14 @@
 };
 <span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::network::{AsyncGenerator, NetworkReliability};
+</span><span class="kw">use </span>hotshot_types::traits::network::{
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation, ViewMessage,
+};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{Version01, LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1},
     data::ViewNumber,
+    message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         network::{
             <span class="self">self</span>, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
@@ -1163,11 +1170,6 @@
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
-};
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::{
-    message::{Message, MessageKind},
-    traits::network::{TestableNetworkingImplementation, ViewMessage},
 };
 <span class="kw">use </span>libp2p_identity::{
     ed25519::{<span class="self">self</span>, SecretKey},
@@ -1952,9 +1954,15 @@
         </span>{
             <span class="prelude-val">Ok</span>(response) =&gt; <span class="kw">match </span>response {
                 <span class="prelude-val">Some</span>(msg) =&gt; {
-                    <span class="kw">let </span>res = Serializer::&lt;VER&gt;::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
+                    <span class="kw">let </span>res: Message&lt;TYPES&gt; = Serializer::&lt;VER&gt;::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
-                    <span class="prelude-val">Ok</span>(ResponseMessage::Found(res))
+                    <span class="kw">let </span>DataResponse(res) = (<span class="kw">match </span>res.kind {
+                        MessageKind::Data(data) =&gt; data,
+                        MessageKind::Consensus(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ResponseMessage::NotFound),
+                    }) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(ResponseMessage::NotFound);
+                    };
+                    <span class="prelude-val">Ok</span>(res)
                 }
                 <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(ResponseMessage::NotFound),
             },

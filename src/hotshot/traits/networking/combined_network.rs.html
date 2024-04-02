@@ -492,6 +492,17 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -530,7 +541,7 @@
     },
     BoxSyncFuture,
 };
-<span class="kw">use </span>std::collections::BTreeMap;
+<span class="kw">use </span>std::collections::{BTreeMap, HashMap};
 <span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::{collections::hash_map::DefaultHasher, sync::Arc};
 
@@ -902,6 +913,17 @@
             </span>},
         )
         .<span class="kw">await
+    </span>}
+
+    <span class="kw">async fn </span>vid_broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        messages: HashMap&lt;TYPES::SignatureKey, Message&lt;TYPES&gt;&gt;,
+        bind_version: VER,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.networks
+            .<span class="number">0
+            </span>.vid_broadcast_message(messages, bind_version)
+            .<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Receive one or many messages from the underlying network.

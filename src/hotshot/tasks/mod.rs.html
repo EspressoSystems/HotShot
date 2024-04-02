@@ -318,6 +318,8 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -389,13 +391,15 @@
     rx: RequestReceiver&lt;TYPES&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>state = NetworkResponseState::new(
+    <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.get_consensus(),
         rx,
         handle.hotshot.memberships.quorum_membership.clone(),
         handle.public_key().clone(),
     );
-    task_reg.register(run_response_task(state, hs_rx)).<span class="kw">await</span>;
+    task_reg
+        .register(run_response_task::&lt;TYPES, Version01&gt;(state, hs_rx))
+        .<span class="kw">await</span>;
 }
 <span class="doccomment">/// Add the network task to handle messages and publish events.
 </span><span class="kw">pub async fn </span>add_network_message_task&lt;

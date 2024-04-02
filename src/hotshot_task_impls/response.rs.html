@@ -183,6 +183,12 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -191,7 +197,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>either::Either::Right;
 <span class="kw">use </span>futures::{channel::mpsc, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
@@ -207,11 +212,11 @@
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    utils::bincode_opts,
 };
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 
@@ -253,13 +258,16 @@
 
     <span class="doccomment">/// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    </span><span class="kw">async fn </span>run_loop(<span class="kw-2">mut </span><span class="self">self</span>, shutdown: EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) {
+    </span><span class="kw">async fn </span>run_loop&lt;Ver: StaticVersionType&gt;(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        shutdown: EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    ) {
         <span class="kw">let </span><span class="kw-2">mut </span>shutdown = Box::pin(shutdown.completed().fuse());
         <span class="kw">loop </span>{
             <span class="macro">futures::select! </span>{
                 req = <span class="self">self</span>.receiver.next() =&gt; {
                     <span class="kw">match </span>req {
-                        <span class="prelude-val">Some</span>((msg, chan)) =&gt; <span class="self">self</span>.handle_message(msg, chan).<span class="kw">await</span>,
+                        <span class="prelude-val">Some</span>((msg, chan)) =&gt; <span class="self">self</span>.handle_message::&lt;Ver&gt;(msg, chan).<span class="kw">await</span>,
                         <span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
                     }
                 },
@@ -272,7 +280,11 @@
 
     <span class="doccomment">/// Handle an incoming message.  First validates the sender, then handles the contained request.
     /// Sends the response via `chan`
-    </span><span class="kw">async fn </span>handle_message(<span class="kw-2">&amp;</span><span class="self">self</span>, req: Message&lt;TYPES&gt;, chan: ResponseChannel&lt;Message&lt;TYPES&gt;&gt;) {
+    </span><span class="kw">async fn </span>handle_message&lt;Ver: StaticVersionType&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        req: Message&lt;TYPES&gt;,
+        chan: ResponseChannel&lt;Message&lt;TYPES&gt;&gt;,
+    ) {
         <span class="kw">let </span>sender = req.sender.clone();
         <span class="kw">if </span>!<span class="self">self</span>.valid_sender(<span class="kw-2">&amp;</span>sender) {
             <span class="kw">let _ </span>= chan.<span class="number">0</span>.send(<span class="self">self</span>.make_msg(ResponseMessage::Denied));
@@ -281,7 +293,7 @@
 
         <span class="kw">match </span>req.kind {
             MessageKind::Data(DataMessage::RequestData(req)) =&gt; {
-                <span class="kw">if </span>!valid_signature(<span class="kw-2">&amp;</span>req, <span class="kw-2">&amp;</span>sender) {
+                <span class="kw">if </span>!valid_signature::&lt;TYPES, Ver&gt;(<span class="kw-2">&amp;</span>req, <span class="kw-2">&amp;</span>sender) {
                     <span class="kw">let _ </span>= chan.<span class="number">0</span>.send(<span class="self">self</span>.make_msg(ResponseMessage::Denied));
                     <span class="kw">return</span>;
                 }
@@ -343,11 +355,11 @@
 }
 
 <span class="doccomment">/// Check the signature
-</span><span class="kw">fn </span>valid_signature&lt;TYPES: NodeType&gt;(
+</span><span class="kw">fn </span>valid_signature&lt;TYPES: NodeType, Ver: StaticVersionType&gt;(
     req: <span class="kw-2">&amp;</span>DataRequest&lt;TYPES&gt;,
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
 ) -&gt; bool {
-    <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = bincode_opts().serialize(<span class="kw-2">&amp;</span>req.request) <span class="kw">else </span>{
+    <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>req.request) <span class="kw">else </span>{
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
     sender.validate(<span class="kw-2">&amp;</span>req.signature, <span class="kw-2">&amp;</span>Sha256::digest(data))
@@ -356,7 +368,7 @@
 <span class="doccomment">/// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-</span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;(
     task_state: NetworkResponseState&lt;TYPES&gt;,
     event_stream: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; JoinHandle&lt;()&gt; {
@@ -364,6 +376,6 @@
         event_stream,
         Box::new(|e| <span class="macro">matches!</span>(e.as_ref(), HotShotEvent::Shutdown)),
     );
-    async_spawn(task_state.run_loop(dep))
+    async_spawn(task_state.run_loop::&lt;Ver&gt;(dep))
 }
 </code></pre></div></section></main></body></html>
