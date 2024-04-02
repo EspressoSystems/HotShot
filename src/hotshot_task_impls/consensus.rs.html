@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/consensus.rs`."><title>consensus.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/consensus.rs`."><title>consensus.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -1629,6 +1629,22 @@
 <a href="#1627" id="1627">1627</a>
 <a href="#1628" id="1628">1628</a>
 <a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
@@ -1666,7 +1682,6 @@
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-<span class="kw">use </span>tracing::warn;
 <span class="kw">use </span>versioned_binary_serialization::version::Version;
 
 <span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
@@ -1679,7 +1694,7 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
 </span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {
@@ -1831,6 +1846,8 @@
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
+    <span class="doccomment">/// Round start delay from config, in milliseconds.
+    </span><span class="kw">pub </span>round_start_delay: u64,
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
@@ -1878,9 +1895,8 @@
     <span class="doccomment">/// most recent decided upgrade certificate
     </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// The current version of the network.
-    /// Updated on view change based on the most recent decided upgrade certificate.
-    </span><span class="kw">pub </span>current_network_version: Version,
+    <span class="doccomment">/// Globally shared reference to the current network version.
+    </span><span class="kw">pub </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -2733,6 +2749,7 @@
 
                 <span class="comment">// Update our current upgrade_cert as long as it's still relevant.
                 </span><span class="kw">if </span>cert.view_number &gt;= <span class="self">self</span>.cur_view {
+                    <span class="macro">debug!</span>(<span class="string">"Updating current upgrade_cert"</span>);
                     <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
@@ -2823,21 +2840,34 @@
                     ))
                     .<span class="kw">await</span>;
 
-                <span class="comment">// update the view in state to the one in the message
-                // Publish a view change event to the application
-                </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
-                    <span class="macro">debug!</span>(<span class="string">"view not updated"</span>);
-                    <span class="kw">return</span>;
-                }
-
                 <span class="comment">// If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) = <span class="self">self</span>.decided_upgrade_cert {
                     <span class="kw">if </span>new_view &gt;= cert.data.new_version_first_block {
-                        <span class="self">self</span>.current_network_version = cert.data.new_version;
+                        <span class="macro">warn!</span>(
+                            <span class="string">"Updating version based on a decided upgrade cert: {:?}"</span>,
+                            cert
+                        );
+                        <span class="kw">let </span><span class="kw-2">mut </span>version = <span class="self">self</span>.version.write().<span class="kw">await</span>;
+                        <span class="kw-2">*</span>version = cert.data.new_version;
+
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VersionUpgrade(cert.data.new_version)),
+                            <span class="kw-2">&amp;</span>event_stream,
+                        )
+                        .<span class="kw">await</span>;
+
                         <span class="comment">// Discard the old upgrade certificate, which is no longer relevant.
                         </span><span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">None</span>;
                     }
+                }
+
+                <span class="comment">// update the view in state to the one in the message
+                // Publish a view change event to the application
+                // Returns if the view does not need updating.
+                </span><span class="kw">if </span>!<span class="self">self</span>.update_view(new_view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
+                    <span class="macro">debug!</span>(<span class="string">"view not updated"</span>);
+                    <span class="kw">return</span>;
                 }
 
                 broadcast_event(
@@ -3129,6 +3159,7 @@
                 .as_ref()
                 .is_some_and(|cert| cert.view_number == view)
             {
+                <span class="macro">debug!</span>(<span class="string">"Attaching upgrade certificate to proposal."</span>);
                 <span class="comment">// If the cert view number matches, set upgrade_cert to self.upgrade_cert
                 // and set self.upgrade_cert to None.
                 //
@@ -3173,6 +3204,7 @@
             };
             <span class="macro">debug!</span>(<span class="string">"Sending proposal for view {:?}"</span>, view);
 
+            async_sleep(Duration::from_millis(<span class="self">self</span>.round_start_delay)).<span class="kw">await</span>;
             broadcast_event(
                 Arc::new(HotShotEvent::QuorumProposalSend(
                     message.clone(),

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -507,6 +507,36 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -514,13 +544,12 @@
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>hotshot_types::{event::HotShotAction, traits::storage::Storage};
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::constants::STATIC_VER_0_1;
+<span class="kw">use </span>hotshot_types::constants::{BASE_VERSION, STATIC_VER_0_1};
 <span class="kw">use </span>hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
     message::{
@@ -535,7 +564,8 @@
     vote::{HasViewNumber, Vote},
 };
 <span class="kw">use </span>tracing::instrument;
-<span class="kw">use </span>tracing::{error, warn};
+<span class="kw">use </span>tracing::{debug, error, warn};
+<span class="kw">use </span>versioned_binary_serialization::version::Version;
 
 <span class="doccomment">/// quorum filter
 </span><span class="kw">pub fn </span>quorum_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -543,10 +573,16 @@
         event.as_ref(),
         HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::Shutdown
             | HotShotEvent::DACSend(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::ViewChange(<span class="kw">_</span>)
             | HotShotEvent::TimeoutVoteSend(<span class="kw">_</span>)
+    )
+}
+
+<span class="doccomment">/// upgrade filter
+</span><span class="kw">pub fn </span>upgrade_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+    !<span class="macro">matches!</span>(
+        event.as_ref(),
+        HotShotEvent::UpgradeProposalSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::UpgradeVoteSend(<span class="kw">_</span>)
     )
 }
 
@@ -554,19 +590,13 @@
 </span><span class="kw">pub fn </span>committee_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
     !<span class="macro">matches!</span>(
         event.as_ref(),
-        HotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::DAVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::Shutdown
-            | HotShotEvent::ViewChange(<span class="kw">_</span>)
+        HotShotEvent::DAProposalSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::DAVoteSend(<span class="kw">_</span>)
     )
 }
 
 <span class="doccomment">/// vid filter
 </span><span class="kw">pub fn </span>vid_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
-    !<span class="macro">matches!</span>(
-        event.as_ref(),
-        HotShotEvent::Shutdown | HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::ViewChange(<span class="kw">_</span>)
-    )
+    !<span class="macro">matches!</span>(event.as_ref(), HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>))
 }
 
 <span class="doccomment">/// view sync filter
@@ -579,8 +609,6 @@
             | HotShotEvent::ViewSyncPreCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncFinalizeVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::Shutdown
-            | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
 <span class="doccomment">/// the network message task state
@@ -620,8 +648,8 @@
             <span class="kw">let </span>sender = message.sender;
             <span class="kw">match </span>message.kind {
                 MessageKind::Consensus(consensus_message) =&gt; {
-                    <span class="kw">let </span>event = <span class="kw">match </span>consensus_message.<span class="number">0 </span>{
-                        Either::Left(general_message) =&gt; <span class="kw">match </span>general_message {
+                    <span class="kw">let </span>event = <span class="kw">match </span>consensus_message {
+                        SequencingMessage::General(general_message) =&gt; <span class="kw">match </span>general_message {
                             GeneralConsensusMessage::Proposal(proposal) =&gt; {
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
@@ -656,23 +684,26 @@
                                 HotShotEvent::UpgradeProposalRecv(message, sender)
                             }
                             GeneralConsensusMessage::UpgradeVote(message) =&gt; {
+                                <span class="macro">error!</span>(<span class="string">"Received upgrade vote!"</span>);
                                 HotShotEvent::UpgradeVoteRecv(message)
                             }
                         },
-                        Either::Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
-                            CommitteeConsensusMessage::DAProposal(proposal) =&gt; {
-                                HotShotEvent::DAProposalRecv(proposal, sender)
+                        SequencingMessage::Committee(committee_message) =&gt; {
+                            <span class="kw">match </span>committee_message {
+                                CommitteeConsensusMessage::DAProposal(proposal) =&gt; {
+                                    HotShotEvent::DAProposalRecv(proposal, sender)
+                                }
+                                CommitteeConsensusMessage::DAVote(vote) =&gt; {
+                                    HotShotEvent::DAVoteRecv(vote.clone())
+                                }
+                                CommitteeConsensusMessage::DACertificate(cert) =&gt; {
+                                    HotShotEvent::DACRecv(cert)
+                                }
+                                CommitteeConsensusMessage::VidDisperseMsg(proposal) =&gt; {
+                                    HotShotEvent::VidDisperseRecv(proposal)
+                                }
                             }
-                            CommitteeConsensusMessage::DAVote(vote) =&gt; {
-                                HotShotEvent::DAVoteRecv(vote.clone())
-                            }
-                            CommitteeConsensusMessage::DACertificate(cert) =&gt; {
-                                HotShotEvent::DACRecv(cert)
-                            }
-                            CommitteeConsensusMessage::VidDisperseMsg(proposal) =&gt; {
-                                HotShotEvent::VidDisperseRecv(proposal)
-                            }
-                        },
+                        }
                     };
                     <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
@@ -680,7 +711,7 @@
                     </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.event_stream).<span class="kw">await</span>;
                 }
                 MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
-                    hotshot_types::message::DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
+                    DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
                         transactions.push(transaction);
                     }
                     DataMessage::DataResponse(<span class="kw">_</span>) | DataMessage::RequestData(<span class="kw">_</span>) =&gt; {
@@ -709,6 +740,8 @@
     </span><span class="kw">pub </span>channel: Arc&lt;COMMCHANNEL&gt;,
     <span class="doccomment">/// view number
     </span><span class="kw">pub </span>view: TYPES::Time,
+    <span class="doccomment">/// version
+    </span><span class="kw">pub </span>version: Version,
     <span class="doccomment">/// membership for the channel
     </span><span class="kw">pub </span>membership: TYPES::Membership,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?
@@ -746,6 +779,12 @@
 
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         (<span class="self">self</span>.filter)(event)
+            &amp;&amp; !<span class="macro">matches!</span>(
+                event.as_ref(),
+                HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+                    | HotShotEvent::ViewChange(<span class="kw">_</span>)
+                    | HotShotEvent::Shutdown
+            )
     }
 }
 
@@ -758,8 +797,6 @@
     <span class="doccomment">/// Handle the given event.
     ///
     /// Returns the completion status.
-    /// # Panics
-    /// Panic sif a direct message event is received with no recipient
     </span><span class="attr">#[allow(clippy::too_many_lines)] </span><span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/1704
     </span><span class="attr">#[instrument(skip_all, fields(view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">"Network Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle_event(
@@ -768,139 +805,155 @@
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>maybe_action = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>(sender, message_kind, transmit_type, recipient) = <span class="kw">match </span>event.as_ref().clone() {
-            HotShotEvent::QuorumProposalSend(proposal, sender) =&gt; {
-                maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Propose);
-                (
-                    sender,
-                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                        GeneralConsensusMessage::Proposal(proposal),
-                    ))),
-                    TransmitType::Broadcast,
-                    <span class="prelude-val">None</span>,
-                )
-            }
+        <span class="kw">let </span>(sender, message_kind, transmit): (<span class="kw">_</span>, <span class="kw">_</span>, TransmitType&lt;TYPES&gt;) =
+            <span class="kw">match </span>event.as_ref().clone() {
+                HotShotEvent::QuorumProposalSend(proposal, sender) =&gt; {
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Propose);
+                    (
+                        sender,
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::Proposal(proposal),
+                        )),
+                        TransmitType::Broadcast,
+                    )
+                }
 
-            <span class="comment">// ED Each network task is subscribed to all these message types.  Need filters per network task
-            </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
-                maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
-                (
+                <span class="comment">// ED Each network task is subscribed to all these message types.  Need filters per network task
+                </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
+                    (
+                        vote.get_signing_key(),
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::Vote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
+                    )
+                }
+                HotShotEvent::VidDisperseSend(proposal, sender) =&gt; {
+                    <span class="kw">return </span><span class="self">self</span>.handle_vid_disperse_proposal(proposal, <span class="kw-2">&amp;</span>sender);
+                }
+                HotShotEvent::DAProposalSend(proposal, sender) =&gt; {
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DAPropose);
+                    (
+                        sender,
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Committee(
+                            CommitteeConsensusMessage::DAProposal(proposal),
+                        )),
+                        TransmitType::DACommitteeBroadcast,
+                    )
+                }
+                HotShotEvent::DAVoteSend(vote) =&gt; {
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DAVote);
+                    (
+                        vote.get_signing_key(),
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Committee(
+                            CommitteeConsensusMessage::DAVote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                    )
+                }
+                <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
+                </span>HotShotEvent::DACSend(certificate, sender) =&gt; {
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DACert);
+                    (
+                        sender,
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Committee(
+                            CommitteeConsensusMessage::DACertificate(certificate),
+                        )),
+                        TransmitType::Broadcast,
+                    )
+                }
+                HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; (
                     vote.get_signing_key(),
-                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                        GeneralConsensusMessage::Vote(vote.clone()),
-                    ))),
-                    TransmitType::Direct,
-                    <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
-                )
-            }
-            HotShotEvent::VidDisperseSend(proposal, sender) =&gt; {
-                <span class="kw">return </span><span class="self">self</span>.handle_vid_disperse_proposal(proposal, <span class="kw-2">&amp;</span>sender);
-            }
-            HotShotEvent::DAProposalSend(proposal, sender) =&gt; {
-                maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DAPropose);
-                (
-                    sender,
-                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
-                        CommitteeConsensusMessage::DAProposal(proposal),
-                    ))),
-                    TransmitType::DACommitteeBroadcast,
-                    <span class="prelude-val">None</span>,
-                )
-            }
-            HotShotEvent::DAVoteSend(vote) =&gt; {
-                maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DAVote);
-                (
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(
+                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
+                    ),
+                ),
+                HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; (
                     vote.get_signing_key(),
-                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
-                        CommitteeConsensusMessage::DAVote(vote.clone()),
-                    ))),
-                    TransmitType::Direct,
-                    <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number())),
-                )
-            }
-            <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            </span>HotShotEvent::DACSend(certificate, sender) =&gt; {
-                maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DACert);
-                (
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(
+                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
+                    ),
+                ),
+                HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; (
+                    vote.get_signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(
+                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
+                    ),
+                ),
+                HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; (
                     sender,
-                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Right(
-                        CommitteeConsensusMessage::DACertificate(certificate),
-                    ))),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
+                    )),
                     TransmitType::Broadcast,
-                    <span class="prelude-val">None</span>,
-                )
-            }
-            HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; (
-                vote.get_signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
-            ),
-            HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; (
-                vote.get_signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
-            ),
-            HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; (
-                vote.get_signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number() + vote.get_data().relay)),
-            ),
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
-                ))),
-                TransmitType::Broadcast,
-                <span class="prelude-val">None</span>,
-            ),
-            HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
-                ))),
-                TransmitType::Broadcast,
-                <span class="prelude-val">None</span>,
-            ),
-
-            HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) =&gt; (
-                sender,
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),
-                ))),
-                TransmitType::Broadcast,
-                <span class="prelude-val">None</span>,
-            ),
-            HotShotEvent::TimeoutVoteSend(vote) =&gt; (
-                vote.get_signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(Left(
-                    GeneralConsensusMessage::TimeoutVote(vote.clone()),
-                ))),
-                TransmitType::Direct,
-                <span class="prelude-val">Some</span>(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
-            ),
-            HotShotEvent::ViewChange(view) =&gt; {
-                <span class="self">self</span>.view = view;
-                <span class="self">self</span>.channel.update_view(<span class="self">self</span>.view.get_u64());
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            }
-            HotShotEvent::Shutdown =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Networking task shutting down"</span>);
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
-            }
-            event =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Receieved unexpected message in network task {:?}"</span>, event);
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            }
-        };
+                ),
+                HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) =&gt; (
+                    sender,
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) =&gt; (
+                    sender,
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::TimeoutVoteSend(vote) =&gt; (
+                    vote.get_signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::TimeoutVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
+                ),
+                HotShotEvent::UpgradeProposalSend(proposal, sender) =&gt; (
+                    sender,
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::UpgradeProposal(proposal),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::UpgradeVoteSend(vote) =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Sending upgrade vote!"</span>);
+                    (
+                        vote.get_signing_key(),
+                        MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::UpgradeVote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                    )
+                }
+                HotShotEvent::ViewChange(view) =&gt; {
+                    <span class="self">self</span>.view = view;
+                    <span class="self">self</span>.channel.update_view(<span class="self">self</span>.view.get_u64());
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+                HotShotEvent::VersionUpgrade(version) =&gt; {
+                    <span class="macro">debug!</span>(<span class="string">"Updating internal version in network task to {:?}"</span>, version);
+                    <span class="self">self</span>.version = version;
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+                HotShotEvent::Shutdown =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Networking task shutting down"</span>);
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
+                }
+                event =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Receieved unexpected message in network task {:?}"</span>, event);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+            };
         <span class="kw">let </span>message = Message {
             sender,
             kind: message_kind,
@@ -909,6 +962,7 @@
         <span class="kw">let </span>committee = membership.get_whole_committee(view);
         <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
         <span class="kw">let </span>storage = <span class="self">self</span>.storage.clone();
+        <span class="kw">let </span>version = <span class="self">self</span>.version;
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, COMMCHANNEL, S&gt;::maybe_record_action(
                 maybe_action,
@@ -921,19 +975,23 @@
                 <span class="kw">return</span>;
             }
 
-            <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit_type {
-                TransmitType::Direct =&gt; {
-                    net.direct_message(message, recipient.unwrap(), STATIC_VER_0_1)
-                        .<span class="kw">await
-                </span>}
-                TransmitType::Broadcast =&gt; {
-                    net.broadcast_message(message, committee, STATIC_VER_0_1)
-                        .<span class="kw">await
-                </span>}
-                TransmitType::DACommitteeBroadcast =&gt; {
-                    net.da_broadcast_message(message, committee, STATIC_VER_0_1)
-                        .<span class="kw">await
-                </span>}
+            <span class="kw">let </span>transmit_result = <span class="kw">if </span>version == BASE_VERSION {
+                <span class="kw">match </span>transmit {
+                    TransmitType::Direct(recipient) =&gt; {
+                        net.direct_message(message, recipient, STATIC_VER_0_1).<span class="kw">await
+                    </span>}
+                    TransmitType::Broadcast =&gt; {
+                        net.broadcast_message(message, committee, STATIC_VER_0_1)
+                            .<span class="kw">await
+                    </span>}
+                    TransmitType::DACommitteeBroadcast =&gt; {
+                        net.da_broadcast_message(message, committee, STATIC_VER_0_1)
+                            .<span class="kw">await
+                    </span>}
+                }
+            } <span class="kw">else </span>{
+                <span class="macro">error!</span>(<span class="string">"The network has upgraded to {:?}, which is not implemented in this instance of HotShot."</span>, version);
+                <span class="kw">return</span>;
             };
 
             <span class="kw">match </span>transmit_result {
@@ -960,9 +1018,11 @@
                     proposal.data.recipient_key.clone(),
                     Message {
                         sender: sender.clone(),
-                        kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage(
-                            Right(CommitteeConsensusMessage::VidDisperseMsg(proposal)),
-                        )), <span class="comment">// TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                        kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(
+                            SequencingMessage::Committee(
+                                CommitteeConsensusMessage::VidDisperseMsg(proposal),
+                            ),
+                        ), <span class="comment">// TODO not a CommitteeConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
                     </span>},
                 )
             })

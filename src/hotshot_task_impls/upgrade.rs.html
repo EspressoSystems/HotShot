@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -239,6 +239,70 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -263,7 +327,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
@@ -313,29 +377,37 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) =&gt; {
-                <span class="kw">let </span>should_vote = <span class="self">self</span>.should_vote;
+                <span class="macro">info!</span>(<span class="string">"Received upgrade proposal: {:?}"</span>, proposal);
+
                 <span class="comment">// If the proposal does not match our upgrade target, we immediately exit.
-                </span><span class="kw">if </span>!should_vote(proposal.data.upgrade_proposal.clone()) {
-                    <span class="macro">warn!</span>(<span class="string">"Received unexpected upgrade proposal:\n{:?}"</span>, proposal.data);
+                </span><span class="kw">if </span>!(<span class="self">self</span>.should_vote)(proposal.data.upgrade_proposal.clone()) {
+                    <span class="macro">info!</span>(<span class="string">"Received unexpected upgrade proposal:\n{:?}"</span>, proposal.data);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
                 <span class="comment">// If we have an upgrade target, we validate that the proposal is relevant for the current view.
-
-                </span><span class="macro">debug!</span>(
+                </span><span class="macro">info!</span>(
                     <span class="string">"Upgrade proposal received for view: {:?}"</span>,
                     proposal.data.get_view_number()
                 );
-                <span class="comment">// NOTE: Assuming that the next view leader is the one who sends an upgrade proposal for this view
-                </span><span class="kw">let </span>view = proposal.data.get_view_number();
 
-                <span class="comment">// Allow an upgrade proposal that is one view older, in case we have voted on a quorum
+                <span class="kw">let </span>view = proposal.data.get_view_number();
+
+                <span class="comment">// At this point, we could choose to validate
+                // that the proposal was issued by the correct leader
+                // for the indiciated view.
+                //
+                // We choose not to, because we don't gain that much from it.
+                // The certificate itself is only useful to the leader for that view anyway,
+                // and from the node's perspective it doesn't matter who the sender is.
+                // All we'd save is the cost of signing the vote, and we'd lose some flexibility.
+
+                // Allow an upgrade proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
                 // `self.cur_view` should be at least 1 since there is a view change before getting
                 // the `UpgradeProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO Come back to this - we probably don't need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn't make one for the genesis block
-
                 </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}."</span>,
                       view,
@@ -354,7 +426,6 @@
                 <span class="comment">// At this point, we've checked that:
                 //   * the proposal was expected,
                 //   * the proposal is valid, and
-                //   * the proposal is recent,
                 // so we notify the application layer
                 </span><span class="self">self</span>.api
                     .send_event(Event {
@@ -381,16 +452,20 @@
             }
             HotShotEvent::UpgradeVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Upgrade vote recv, Main Task {:?}"</span>, vote.get_view_number());
+
                 <span class="comment">// Check if we are the leader.
-                </span><span class="kw">let </span>view = vote.get_view_number();
-                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
-                    <span class="macro">error!</span>(
-                        <span class="string">"We are not the leader for view {} are we leader for next view? {}"</span>,
-                        <span class="kw-2">*</span>view,
-                        <span class="self">self</span>.quorum_membership.get_leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key
-                    );
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                </span>{
+                    <span class="kw">let </span>view = vote.get_view_number();
+                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
+                        <span class="macro">error!</span>(
+                            <span class="string">"We are not the leader for view {} are we leader for next view? {}"</span>,
+                            <span class="kw-2">*</span>view,
+                            <span class="self">self</span>.quorum_membership.get_leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
                 }
+
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
                 <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
@@ -422,6 +497,9 @@
                     }
                 }
             }
+            HotShotEvent::VersionUpgrade(version) =&gt; {
+                <span class="macro">error!</span>(<span class="string">"The network was upgraded to {:?}. This instance of HotShot did not expect an upgrade."</span>, version);
+            }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
@@ -432,6 +510,55 @@
                     <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
+
+                <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
+                </span>{
+                    <span class="kw">use </span>commit::Committable;
+                    <span class="kw">use </span>std::marker::PhantomData;
+
+                    <span class="kw">use </span>hotshot_types::{
+                        data::UpgradeProposal, message::Proposal,
+                        traits::node_implementation::ConsensusTime,
+                    };
+                    <span class="kw">use </span>versioned_binary_serialization::version::Version;
+
+                    <span class="kw">if </span><span class="kw-2">*</span>view == <span class="number">5 </span>&amp;&amp; <span class="self">self</span>.quorum_membership.get_leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key
+                    {
+                        <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
+                            old_version: Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>},
+                            new_version: Version { major: <span class="number">1</span>, minor: <span class="number">0 </span>},
+                            new_version_hash: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>],
+                            old_version_last_block: TYPES::Time::new(<span class="number">15</span>),
+                            new_version_first_block: TYPES::Time::new(<span class="number">18</span>),
+                        };
+
+                        <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
+                            upgrade_proposal: upgrade_proposal_data.clone(),
+                            view_number: view + <span class="number">5</span>,
+                        };
+
+                        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                            upgrade_proposal_data.commit().as_ref(),
+                        )
+                        .expect(<span class="string">"Failed to sign upgrade proposal commitment!"</span>);
+
+                        <span class="kw">let </span>message = Proposal {
+                            data: upgrade_proposal,
+                            signature,
+                            _pd: PhantomData,
+                        };
+
+                        broadcast_event(
+                            Arc::new(HotShotEvent::UpgradeProposalSend(
+                                message,
+                                <span class="self">self</span>.public_key.clone(),
+                            )),
+                            <span class="kw-2">&amp;</span>tx,
+                        )
+                        .<span class="kw">await</span>;
+                    }
+                }
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
@@ -475,6 +602,7 @@
                 | HotShotEvent::UpgradeVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
+                | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
         )
     }
 }

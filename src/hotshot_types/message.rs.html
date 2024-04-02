@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/message.rs`."><title>message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/types/src/message.rs`."><title>message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_types/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -318,6 +318,9 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -344,7 +347,6 @@
     },
 };
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
@@ -400,7 +402,9 @@
     <span class="doccomment">/// VID disperse, like [`Proposal`].
     </span>VidDisperse,
     <span class="doccomment">/// Message with an upgrade proposal.
-    </span>Upgrade,
+    </span>UpgradeProposal,
+    <span class="doccomment">/// Upgrade vote.
+    </span>UpgradeVote,
 }
 
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -512,17 +516,19 @@
 <span class="doccomment">/// Messages for sequencing consensus.
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>, serialize = <span class="string">""</span>))]
-</span><span class="kw">pub struct </span>SequencingMessage&lt;TYPES: NodeType&gt;(
-    <span class="kw">pub </span>Either&lt;GeneralConsensusMessage&lt;TYPES&gt;, CommitteeConsensusMessage&lt;TYPES&gt;&gt;,
-);
+</span><span class="kw">pub enum </span>SequencingMessage&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Messages related to validating and sequencing consensus
+    </span>General(GeneralConsensusMessage&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Messages related to the sequencing consensus protocol for the DA committee.
+    </span>Committee(CommitteeConsensusMessage&lt;TYPES&gt;),
+}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; SequencingMessage&lt;TYPES&gt; {
-    <span class="comment">// TODO: Disable panic after the `ViewSync` case is implemented.
-    </span><span class="doccomment">/// Get the view number this message relates to
-    </span><span class="attr">#[allow(clippy::panic)]
+    <span class="doccomment">/// Get the view number this message relates to
     </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-            Left(general_message) =&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            SequencingMessage::General(general_message) =&gt; {
                 <span class="kw">match </span>general_message {
                     GeneralConsensusMessage::Proposal(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
@@ -555,7 +561,7 @@
                     GeneralConsensusMessage::UpgradeVote(message) =&gt; message.get_view_number(),
                 }
             }
-            Right(committee_message) =&gt; {
+            SequencingMessage::Committee(committee_message) =&gt; {
                 <span class="kw">match </span>committee_message {
                     CommitteeConsensusMessage::DAProposal(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
@@ -578,8 +584,8 @@
     </span><span class="doccomment">/// Get the message purpos
     </span><span class="attr">#[allow(clippy::panic)]
     </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-            Left(general_message) =&gt; <span class="kw">match </span>general_message {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            SequencingMessage::General(general_message) =&gt; <span class="kw">match </span>general_message {
                 GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(<span class="kw">_</span>) | GeneralConsensusMessage::TimeoutVote(<span class="kw">_</span>) =&gt; {
                     MessagePurpose::Vote
@@ -594,10 +600,10 @@
                     MessagePurpose::ViewSyncCertificate
                 }
 
-                GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>)
-                | GeneralConsensusMessage::UpgradeVote(<span class="kw">_</span>) =&gt; MessagePurpose::Upgrade,
+                GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>) =&gt; MessagePurpose::UpgradeProposal,
+                GeneralConsensusMessage::UpgradeVote(<span class="kw">_</span>) =&gt; MessagePurpose::UpgradeVote,
             },
-            Right(committee_message) =&gt; <span class="kw">match </span>committee_message {
+            SequencingMessage::Committee(committee_message) =&gt; <span class="kw">match </span>committee_message {
                 CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(<span class="kw">_</span>) =&gt; MessagePurpose::DAC,
