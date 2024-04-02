@@ -151,6 +151,9 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -195,14 +198,17 @@
     <span class="doccomment">/// A DA vote has been received by the network; handled by the DA task
     </span>DAVoteRecv(DAVote&lt;TYPES&gt;),
     <span class="doccomment">/// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
-    </span>DACRecv(DACertificate&lt;TYPES&gt;),
+    </span>DACertificateRecv(DACertificate&lt;TYPES&gt;),
     <span class="doccomment">/// A DAC is validated.
-    </span>DACValidated(DACertificate&lt;TYPES&gt;),
+    </span>DACertificateValidated(DACertificate&lt;TYPES&gt;),
     <span class="doccomment">/// Send a quorum proposal to the network; emitted by the leader in the consensus task
     </span>QuorumProposalSend(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     </span>QuorumVoteSend(QuorumVote&lt;TYPES&gt;),
-    <span class="doccomment">/// Dummy quorum vote to test if the quorum vote dependency works.
+    <span class="comment">// TODO: Complete the dependency implementation.
+    // &lt;https://github.com/EspressoSystems/HotShot/issues/2710&gt;
+    </span><span class="doccomment">/// Dummy quorum vote to test if the quorum vote dependency works. Should be removed and
+    /// replaced by `QuorumVoteSend` once the above TODO is done.
     </span>DummyQuorumVoteSend(TYPES::Time),
     <span class="doccomment">/// All dependencies for the quorum vote are validated.
     </span>QuorumVoteDependenciesValidated(TYPES::Time),
@@ -281,8 +287,8 @@
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
     </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
-    <span class="doccomment">/// A VID disperse data is validated.
-    </span>VidDisperseValidated(VidDisperseShare&lt;TYPES&gt;),
+    <span class="doccomment">/// VID share data is validated.
+    </span>VIDShareValidated(VidDisperseShare&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network

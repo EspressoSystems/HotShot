@@ -334,6 +334,20 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -592,7 +606,21 @@
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
-<span class="doccomment">/// add the VID task
+<span class="comment">// TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
+// &lt;https://github.com/EspressoSystems/HotShot/issues/2712&gt;
+// /// Add the quorum vote task.
+// pub async fn add_quorum_vote_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+//     task_reg: Arc&lt;TaskRegistry&gt;,
+//     tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+//     rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+//     handle: &amp;SystemContextHandle&lt;TYPES, I&gt;,
+// ) {
+//     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
+//     let task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
+//     task_reg.run_task(task).await;
+// }
+
+</span><span class="doccomment">/// add the VID task
 </span><span class="kw">pub async fn </span>add_vid_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     task_reg: Arc&lt;TaskRegistry&gt;,
     tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,

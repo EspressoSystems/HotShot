@@ -2753,7 +2753,7 @@
                     <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
-            HotShotEvent::DACRecv(cert) =&gt; {
+            HotShotEvent::DACertificateRecv(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
 
@@ -3235,7 +3235,7 @@
                 | HotShotEvent::QuorumProposalValidated(<span class="kw">_</span>)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
                 | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
-                | HotShotEvent::DACRecv(<span class="kw">_</span>)
+                | HotShotEvent::DACertificateRecv(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(<span class="kw">_</span>)

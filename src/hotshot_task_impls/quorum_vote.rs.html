@@ -381,6 +381,18 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
@@ -409,15 +421,14 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::warn;
-<span class="kw">use </span>tracing::{debug, instrument};
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="doccomment">/// Vote dependency types.
-</span><span class="attr">#[derive(PartialEq)]
+</span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">enum </span>VoteDependency {
     <span class="doccomment">/// For the `QuorumProposalRecv` event.
     </span>QuorumProposal,
-    <span class="doccomment">/// For the `DACRecv` event.
+    <span class="doccomment">/// For the `DACertificateRecv` event.
     </span>Dac,
     <span class="doccomment">/// For the `VidDisperseRecv` event.
     </span>Vid,
@@ -478,16 +489,18 @@
                     <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>proposal_payload_comm != comm {
+                            <span class="macro">error!</span>(<span class="string">"Quorum proposal and DAC have inconsistent payload commitment."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
                         payload_commitment = <span class="prelude-val">Some</span>(proposal_payload_comm);
                     }
                 }
-                HotShotEvent::DACValidated(cert) =&gt; {
+                HotShotEvent::DACertificateValidated(cert) =&gt; {
                     <span class="kw">let </span>cert_payload_comm = cert.get_data().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
+                            <span class="macro">error!</span>(<span class="string">"Quorum proposal and DAC have inconsistent payload commitment."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
@@ -557,32 +570,37 @@
                         }
                     }
                     VoteDependency::Dac =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::DACValidated(cert) = event {
+                        <span class="kw">if let </span>HotShotEvent::DACertificateValidated(cert) = event {
                             cert.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                     VoteDependency::Vid =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::VidDisperseValidated(disperse) = event {
+                        <span class="kw">if let </span>HotShotEvent::VIDShareValidated(disperse) = event {
                             disperse.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                 };
-                event_view == view_number
-            }),
+                <span class="kw">if </span>event_view == view_number {
+                    <span class="macro">debug!</span>(<span class="string">"Vote dependency {:?} completed"</span>, dependency_type);
+                    <span class="kw">return </span><span class="bool-val">true</span>;
+                }
+                <span class="bool-val">false
+            </span>}),
         )
     }
 
     <span class="doccomment">/// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
     /// given view number if it doesn't exist.
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote crete dependency task if new"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>create_dependency_task_if_new(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::Time,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">if </span><span class="self">self</span>.vote_dependencies.get(<span class="kw-2">&amp;</span>view_number).is_some() {
             <span class="kw">return</span>;
@@ -601,7 +619,7 @@
             vote_dependency,
             VoteDependencyHandle {
                 view_number,
-                sender: event_sender,
+                sender: event_sender.clone(),
             },
         );
         <span class="self">self</span>.vote_dependencies
@@ -621,6 +639,7 @@
             </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_voted_view + <span class="number">1</span>)..=(<span class="kw-2">*</span>new_view) {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view)) {
                     cancel_task(dependency).<span class="kw">await</span>;
+                    <span class="macro">debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
                 }
             }
 
@@ -631,7 +650,7 @@
         <span class="bool-val">false
     </span>}
 
-    <span class="doccomment">/// Handles a consensus event received on the event stream
+    <span class="doccomment">/// Handle a vote dependent event received on the event stream
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote handle"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -642,10 +661,10 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, _sender) =&gt; {
                 <span class="kw">let </span>view = proposal.data.view_number;
+                <span class="macro">debug!</span>(<span class="string">"Received Quorum Proposal for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
                     <span class="kw">return</span>;
                 }
-                <span class="macro">debug!</span>(<span class="string">"Received Quorum Proposal for view {}"</span>, <span class="kw-2">*</span>view);
 
                 <span class="comment">// stop polling for the received proposal
                 </span><span class="self">self</span>.quorum_network
@@ -660,11 +679,11 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
             }
-            HotShotEvent::DACRecv(cert) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
+            HotShotEvent::DACertificateRecv(cert) =&gt; {
                 <span class="kw">let </span>view = cert.view_number;
+                <span class="macro">debug!</span>(<span class="string">"Received DAC for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
                     <span class="kw">return</span>;
                 }
@@ -681,14 +700,15 @@
                     <span class="kw">return</span>;
                 }
                 broadcast_event(
-                    Arc::new(HotShotEvent::DACValidated(cert.clone())),
+                    Arc::new(HotShotEvent::DACertificateValidated(cert.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
             }
             HotShotEvent::VidDisperseRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.get_view_number();
+                <span class="macro">debug!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
                     <span class="kw">return</span>;
                 }
@@ -704,13 +724,14 @@
                     <span class="kw">return</span>;
                 }
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidDisperseValidated(disperse.data.clone())),
+                    Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view);
                 <span class="kw">if </span>!<span class="self">self</span>.update_latest_voted_view(<span class="kw-2">*</span>view).<span class="kw">await </span>{
                     <span class="macro">debug!</span>(<span class="string">"view not updated"</span>);
                     <span class="kw">return</span>;
@@ -718,7 +739,10 @@
             }
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="kw">let </span>new_view = <span class="kw-2">*</span>new_view;
-                <span class="macro">debug!</span>(<span class="string">"View Change event for view {} in consensus task"</span>, <span class="kw-2">*</span>new_view);
+                <span class="macro">debug!</span>(
+                    <span class="string">"View Change event for view {} in quorum vote task"</span>,
+                    <span class="kw-2">*</span>new_view
+                );
 
                 <span class="kw">let </span>old_voted_view = <span class="self">self</span>.latest_voted_view;
 
@@ -741,7 +765,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::DACRecv(<span class="kw">_</span>)
+                | HotShotEvent::DACertificateRecv(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::VidDisperseRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(<span class="kw">_</span>)

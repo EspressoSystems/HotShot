@@ -697,7 +697,7 @@
                                     HotShotEvent::DAVoteRecv(vote.clone())
                                 }
                                 CommitteeConsensusMessage::DACertificate(cert) =&gt; {
-                                    HotShotEvent::DACRecv(cert)
+                                    HotShotEvent::DACertificateRecv(cert)
                                 }
                                 CommitteeConsensusMessage::VidDisperseMsg(proposal) =&gt; {
                                     HotShotEvent::VidDisperseRecv(proposal)
