@@ -18,7 +18,6 @@ async fn push_cdn_network() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestMetadata {
         timing_data: TimingData {
-            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 

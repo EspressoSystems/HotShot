@@ -173,8 +173,6 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub view_sync_timeout: Duration,
     /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
-    /// The delay a leader inserts before starting pre-commit, in milliseconds
-    pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
     /// Number of network bootstrap nodes

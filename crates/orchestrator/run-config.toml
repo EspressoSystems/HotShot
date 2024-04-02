@@ -51,7 +51,6 @@ timeout_ratio = [
     11,
     10,
 ]
-round_start_delay = 1
 start_delay = 1
 num_bootstrap = 5
 

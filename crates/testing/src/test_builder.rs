@@ -27,8 +27,6 @@ pub struct TimingData {
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
-    /// The delay a leader inserts before starting pre-commit, in milliseconds
-    pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
     /// The minimum amount of time a leader has to wait to start a round
@@ -84,7 +82,6 @@ impl Default for TimingData {
         Self {
             next_view_timeout: 4000,
             timeout_ratio: (11, 10),
-            round_start_delay: 100,
             start_delay: 100,
             propose_min_round_time: Duration::new(0, 0),
             propose_max_round_time: Duration::from_millis(100),
@@ -120,7 +117,6 @@ impl TestMetadata {
                 next_view_timeout: 2000,
                 timeout_ratio: (1, 1),
                 start_delay: 20000,
-                round_start_delay: 25,
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
@@ -151,7 +147,6 @@ impl TestMetadata {
             },
             timing_data: TimingData {
                 start_delay: 120_000,
-                round_start_delay: 25,
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
@@ -290,7 +285,6 @@ impl TestMetadata {
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             timeout_ratio: (11, 10),
-            round_start_delay: 1,
             start_delay: 1,
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
@@ -305,7 +299,6 @@ impl TestMetadata {
         let TimingData {
             next_view_timeout,
             timeout_ratio,
-            round_start_delay,
             start_delay,
             propose_min_round_time,
             propose_max_round_time,
@@ -318,7 +311,6 @@ impl TestMetadata {
             |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
-                a.round_start_delay = round_start_delay;
                 a.start_delay = start_delay;
                 a.propose_min_round_time = propose_min_round_time;
                 a.propose_max_round_time = propose_max_round_time;

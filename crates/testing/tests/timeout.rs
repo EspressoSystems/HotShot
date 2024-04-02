@@ -83,7 +83,6 @@ async fn test_timeout_libp2p() {
     let timing_data = TimingData {
         next_view_timeout: 2000,
         start_delay: 2000,
-        round_start_delay: 1000,
         ..Default::default()
     };
 

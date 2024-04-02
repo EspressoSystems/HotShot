@@ -186,7 +186,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         ConsensusTaskState {
             consensus,
             timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
             cur_view: handle.get_cur_view().await,
             payload_commitment_and_metadata: None,
             api: handle.clone(),
