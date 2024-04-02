@@ -66,13 +66,7 @@ impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
 
 pub type ConsecutiveEvents<TYPES> = (Arc<HotShotEvent<TYPES>>, Arc<HotShotEvent<TYPES>>);
 
-#[derive(Debug)]
-pub enum EventPredicate<TYPES: NodeType> {
-    One(Predicate<Arc<HotShotEvent<TYPES>>>),
-    Consecutive(Predicate<ConsecutiveEvents<TYPES>>),
-}
-
-pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> EventPredicate<TYPES>
+pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -82,24 +76,7 @@ where
     Predicate {
         function: Box::new(move |e| PredicateResult::from(e == &event)),
         info,
-    })
-}
-
-pub fn consecutive<TYPES>(
-    events: (HotShotEvent<TYPES>, HotShotEvent<TYPES>),
-) -> EventPredicate<TYPES>
-where
-    TYPES: NodeType,
-{
-    let info = format!("{:?}", events);
-    let (event_0, event_1) = (Arc::new(events.0), Arc::new(events.1));
-
-    EventPredicate::Consecutive(Predicate {
-        function: Box::new(move |(e0, e1)| {
-            (e0 == &event_0 && e1 == &event_1) || (e0 == &event_1 && e1 == &event_0)
-        }),
-        info,
-    })
+    }
 }
 
 pub fn multi_exact<TYPES>(
@@ -121,7 +98,7 @@ where
         .collect()
 }
 
-pub fn leaf_decided<TYPES>() -> EventPredicate<TYPES>
+pub fn leaf_decided<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -129,13 +106,13 @@ where
     let function =
         |e: &Arc<HotShotEvent<TYPES>>| PredicateResult::from(matches!(e.as_ref(), LeafDecided(_)));
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn quorum_vote_send<TYPES>() -> EventPredicate<TYPES>
+pub fn quorum_vote_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -144,13 +121,13 @@ where
         PredicateResult::from(matches!(e.as_ref(), QuorumVoteSend(_)))
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn view_change<TYPES>() -> EventPredicate<TYPES>
+pub fn view_change<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -158,13 +135,13 @@ where
     let function =
         |e: &Arc<HotShotEvent<TYPES>>| PredicateResult::from(matches!(e.as_ref(), ViewChange(_)));
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn upgrade_certificate_formed<TYPES>() -> EventPredicate<TYPES>
+pub fn upgrade_certificate_formed<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -173,13 +150,13 @@ where
         PredicateResult::from(matches!(e.as_ref(), UpgradeCertificateFormed(_)))
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> EventPredicate<TYPES>
+pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -191,13 +168,13 @@ where
         _ => PredicateResult::Fail,
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn quorum_proposal_validated<TYPES>() -> EventPredicate<TYPES>
+pub fn quorum_proposal_validated<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -206,13 +183,13 @@ where
         PredicateResult::from(matches!(e.as_ref(), QuorumProposalValidated(_)))
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn quorum_proposal_send<TYPES>() -> EventPredicate<TYPES>
+pub fn quorum_proposal_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -221,15 +198,15 @@ where
         PredicateResult::from(matches!(e.as_ref(), QuorumProposalSend(_, _)))
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
 pub fn quorum_proposal_send_with_null_block<TYPES>(
     num_storage_nodes: usize,
-) -> EventPredicate<TYPES>
+) -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -242,13 +219,13 @@ where
         _ => PredicateResult::Fail,
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
-pub fn timeout_vote_send<TYPES>() -> EventPredicate<TYPES>
+pub fn timeout_vote_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
 {
@@ -257,10 +234,10 @@ where
         PredicateResult::from(matches!(e.as_ref(), TimeoutVoteSend(_)))
     };
 
-    EventPredicate::One(Predicate {
+    Predicate {
         function: Box::new(function),
         info,
-    })
+    }
 }
 
 type ConsensusTaskTestState =

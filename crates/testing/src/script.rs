@@ -10,10 +10,7 @@ pub const RECV_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
-    // Verify either one or two consecutive events at a time. It should be the former in most
-    // cases, but the latter is useful when we won't want to require the order of consecutive
-    // events.
-    pub outputs: Vec<EventPredicate<TYPES>>,
+    pub outputs: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
     pub asserts: Vec<Predicate<S>>,
 }
 
@@ -99,12 +96,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
     let (to_task, mut from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
 
-    let mut task = Task::new(
-        task_input.clone(),
-        task_receiver.clone(),
-        registry.clone(),
-        state,
-    );
+    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
@@ -129,7 +121,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             let mut result = PredicateResult::Incomplete;
 
             while let Ok(Ok(received_output)) =
-                async_timeout(RECV_TIMEOUT_SEC, from_task.recv_direct()).await
+                async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await
             {
                 tracing::debug!("Test received: {:?}", received_output);
 
@@ -164,7 +156,7 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
-        if let Ok(received_output) = test_receiver.try_recv() {
+        if let Ok(received_output) = from_task.try_recv() {
             panic_extra_output(stage_number, &received_output);
         }
     }
@@ -176,7 +168,7 @@ pub struct TaskScript<TYPES: NodeType, S> {
 }
 
 pub struct Expectations<TYPES: NodeType, S> {
-    pub output_asserts: Vec<EventPredicate<TYPES>>,
+    pub output_asserts: Vec<Predicate<Arc<HotShotEvent<TYPES>>>>,
     pub task_state_asserts: Vec<Predicate<S>>,
 }
 
