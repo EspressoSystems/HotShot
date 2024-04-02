@@ -12,6 +12,8 @@ pub mod types;
 
 pub mod tasks;
 
+#[cfg(feature = "proposal-task")]
+use crate::tasks::add_quorum_proposal_task;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -56,7 +58,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tasks::{add_quorum_proposal_task, add_request_network_task, add_response_task, add_vid_task};
+use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 
 // -- Rexports
@@ -580,6 +582,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
+        #[cfg(feature = "proposal-task")]
         add_quorum_proposal_task(
             registry.clone(),
             event_tx.clone(),

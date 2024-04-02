@@ -1471,6 +1471,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ""
                 );
 
+                #[cfg(not(feature = "proposal-task"))]
                 broadcast_event(
                     Arc::new(HotShotEvent::QuorumProposalSend(
                         message.clone(),

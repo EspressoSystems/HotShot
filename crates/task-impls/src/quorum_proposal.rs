@@ -221,7 +221,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         debug!("Sending proposal for view {:?}", view);
 
         broadcast_event(
-            Arc::new(HotShotEvent::DummyQuorumProposalSend(
+            Arc::new(HotShotEvent::QuorumProposalSend(
                 message.clone(),
                 self.public_key.clone(),
             )),
@@ -723,7 +723,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::Shutdown,
+                | HotShotEvent::QuorumProposalDependenciesValidated(_)
+                | HotShotEvent::Shutdown
         )
     }
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>

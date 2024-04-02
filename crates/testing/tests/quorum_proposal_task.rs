@@ -3,7 +3,7 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent::*;
 use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
-use hotshot_testing::predicates::{dummy_quorum_proposal_send, exact};
+use hotshot_testing::predicates::{exact, quorum_proposal_send};
 use hotshot_testing::task_helpers::vid_scheme_from_view_number;
 use hotshot_testing::{
     script::{run_test_script, TestScriptStage},
@@ -100,7 +100,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
         ],
         outputs: vec![
             exact(QuorumProposalDependenciesValidated(view_number)),
-            dummy_quorum_proposal_send(),
+            quorum_proposal_send(),
         ],
         asserts: vec![],
     };
@@ -156,7 +156,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         ],
         outputs: vec![
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
-            dummy_quorum_proposal_send(),
+            quorum_proposal_send(),
         ],
         asserts: vec![],
     };
@@ -215,7 +215,7 @@ async fn test_quorum_proposal_task_view_sync() {
         ],
         outputs: vec![
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
-            dummy_quorum_proposal_send(),
+            quorum_proposal_send(),
         ],
         asserts: vec![],
     };

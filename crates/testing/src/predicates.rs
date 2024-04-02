@@ -223,21 +223,6 @@ where
     }
 }
 
-/// NOTE: This will be deleted when integration completes.
-pub fn dummy_quorum_proposal_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
-where
-    TYPES: NodeType,
-{
-    let info = "QuorumProposalSend".to_string();
-    let function =
-        |e: &Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), DummyQuorumProposalSend(_, _));
-
-    Predicate {
-        function: Box::new(function),
-        info,
-    }
-}
-
 pub fn timeout_vote_send<TYPES>() -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
