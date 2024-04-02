@@ -64,8 +64,6 @@ impl<INPUT> std::fmt::Debug for Predicate<INPUT> {
     }
 }
 
-pub type ConsecutiveEvents<TYPES> = (Arc<HotShotEvent<TYPES>>, Arc<HotShotEvent<TYPES>>);
-
 pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Predicate<Arc<HotShotEvent<TYPES>>>
 where
     TYPES: NodeType,
