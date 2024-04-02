@@ -113,8 +113,6 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                 if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
                     task.state_mut().handle_result(&res).await;
                 }
-
-                while from_test.try_recv().is_ok() {}
             }
 
             while from_test.try_recv().is_ok() {}
