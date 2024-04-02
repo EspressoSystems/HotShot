@@ -850,7 +850,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
                                         .iter()
-                                        .map(|(_key, proposal)| &proposal.data)
+                                        .filter_map(|(key, proposal)| if *key == self.public_key {Some(&proposal.data) } else {None})
                                 );
 
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
