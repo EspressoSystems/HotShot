@@ -15,7 +15,7 @@ use crate::{
     },
     utils::{StateAndDelta, Terminator},
 };
-use committable::Commitment;
+use commit::Commitment;
 
 use std::{
     collections::{BTreeMap, HashMap},

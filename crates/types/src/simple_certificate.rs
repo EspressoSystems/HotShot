@@ -6,7 +6,7 @@ use std::{
     marker::PhantomData,
 };
 
-use committable::{Commitment, CommitmentBoundsArkless, Committable};
+use commit::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
 
 use crate::{
@@ -85,7 +85,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
             Some(sigs) => serialize_signature2::<TYPES>(sigs),
             None => vec![],
         };
-        committable::RawCommitmentBuilder::new("Certificate")
+        commit::RawCommitmentBuilder::new("Certificate")
             .field("data", self.data.commit())
             .field("vote_commitment", self.vote_commitment)
             .field("view number", self.view_number.commit())

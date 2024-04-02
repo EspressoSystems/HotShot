@@ -1,5 +1,5 @@
 //! Implementations for examples and tests only
-use committable::{Commitment, Committable};
+use commit::{Commitment, Committable};
 
 use hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -40,7 +40,7 @@ pub struct TestValidatedState {
 
 impl Committable for TestValidatedState {
     fn commit(&self) -> Commitment<Self> {
-        committable::RawCommitmentBuilder::new("Test State Commit")
+        commit::RawCommitmentBuilder::new("Test State Commit")
             .u64_field("block_height", self.block_height)
             .field("prev_state_commitment", self.prev_state_commitment)
             .finalize()

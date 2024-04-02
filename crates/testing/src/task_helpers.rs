@@ -8,7 +8,7 @@ use hotshot_example_types::{
 };
 
 use crate::test_builder::TestMetadata;
-use committable::Committable;
+use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},

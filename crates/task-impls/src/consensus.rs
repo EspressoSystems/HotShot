@@ -8,7 +8,7 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use committable::Committable;
+use commit::Committable;
 use core::time::Duration;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::event::LeafInfo;

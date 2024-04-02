@@ -25,7 +25,7 @@ async-trait = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 blake3 = { workspace = true }
-committable = { workspace = true }
+commit = { workspace = true }
 custom_debug = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }

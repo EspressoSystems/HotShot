@@ -11,7 +11,7 @@ async-trait = { workspace = true }
 # needed for vrf demo
 # so non-optional for now
 blake3 = { workspace = true }
-committable = { workspace = true }
+commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot", default-features = false }

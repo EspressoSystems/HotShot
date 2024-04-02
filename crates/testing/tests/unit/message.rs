@@ -1,7 +1,7 @@
 #[cfg(test)]
 use std::marker::PhantomData;
 
-use committable::Committable;
+use commit::Committable;
 
 use hotshot_example_types::node_types::TestTypes;
 

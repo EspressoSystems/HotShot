@@ -9,7 +9,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use bincode::config::Options;
-use committable::{Commitment, Committable};
+use commit::{Commitment, Committable};
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{

@@ -17,7 +17,7 @@ async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 sha3 = "^0.10"
-committable = { workspace = true }
+commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot" }

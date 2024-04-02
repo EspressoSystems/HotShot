@@ -9,7 +9,7 @@ use std::{
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use committable::{Commitment, Committable};
+use commit::{Commitment, Committable};
 use futures::future::BoxFuture;
 use hotshot::{traits::BlockPayload, types::SignatureKey};
 use hotshot_builder_api::{

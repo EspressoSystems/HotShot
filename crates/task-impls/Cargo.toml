@@ -18,7 +18,7 @@ async-trait = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 chrono = "0.4"
-committable = { workspace = true }
+commit = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-task = { path = "../task" }
