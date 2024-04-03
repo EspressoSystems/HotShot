@@ -3,6 +3,7 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 use async_broadcast::{Receiver, Sender};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot_task::{
@@ -11,14 +12,17 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    data::{QuorumProposal, VidDisperseShare},
+    consensus::Consensus,
+    data::QuorumProposal,
     event::Event,
     message::Proposal,
-    simple_certificate::DACertificate,
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
+        storage::Storage,
     },
     vote::{Certificate, HasViewNumber},
 };
@@ -50,28 +54,6 @@ fn validate_quorum_proposal<TYPES: NodeType>(
     true
 }
 
-/// Validate the DAC.
-// TODO: Complete the dependency implementation.
-// <https://github.com/EspressoSystems/HotShot/issues/2710>
-#[allow(clippy::needless_pass_by_value)]
-fn validate_dac<TYPES: NodeType>(
-    _dac: DACertificate<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate the VID share.
-// TODO: Complete the dependency implementation.
-// <https://github.com/EspressoSystems/HotShot/issues/2710>
-#[allow(clippy::needless_pass_by_value)]
-fn validate_vid<TYPES: NodeType>(
-    _disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
 /// Handler for the vote dependency.
 struct VoteDependencyHandle<TYPES: NodeType> {
     /// View number to vote on.
@@ -82,11 +64,6 @@ struct VoteDependencyHandle<TYPES: NodeType> {
 impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     async fn handle_dep_result(self, res: Self::Output) {
-        // Add this commitment check to test if the handler works, but this isn't the only thing
-        // that we'll need to check. E.g., we also need to check that VID commitment matches
-        // `payload_commitment`.
-        // TODO: Complete the dependency implementation.
-        // <https://github.com/EspressoSystems/HotShot/issues/2710>
         let mut payload_commitment = None;
         for event in res {
             match event.as_ref() {
@@ -94,7 +71,7 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
-                            error!("Quorum proposal and DAC have inconsistent payload commitment.");
+                            error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
                     } else {
@@ -105,11 +82,22 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
-                            error!("Quorum proposal and DAC have inconsistent payload commitment.");
+                            error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
                     } else {
                         payload_commitment = Some(cert_payload_comm);
+                    }
+                }
+                HotShotEvent::VIDShareValidated(share) => {
+                    let vid_payload_commitment = share.payload_commitment;
+                    if let Some(comm) = payload_commitment {
+                        if vid_payload_commitment != comm {
+                            error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
+                            return;
+                        }
+                    } else {
+                        payload_commitment = Some(vid_payload_commitment);
                     }
                 }
                 _ => {}
@@ -122,6 +110,8 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
             &self.sender,
         )
         .await;
+
+        // TODO(Keyao)): Send the real vote.
         broadcast_event(
             Arc::new(HotShotEvent::DummyQuorumVoteSend(self.view_number)),
             &self.sender,
@@ -134,6 +124,12 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
 ///
 /// Contains all of the information for the quorum vote.
 pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Our public key
+    pub public_key: TYPES::SignatureKey,
+
+    /// Reference to consensus. The replica will require a write lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+
     /// Latest view number that has been voted for.
     pub latest_voted_view: TYPES::Time,
 
@@ -146,11 +142,20 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network for DA committee
     pub committee_network: Arc<I::CommitteeNetwork>,
 
+    /// Membership for Quorum certs/votes.
+    pub quorum_membership: Arc<TYPES::Membership>,
+
+    /// Membership for DA committee certs/votes.
+    pub da_membership: Arc<TYPES::Membership>,
+
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// The node's id
     pub id: u64,
+
+    /// Reference to the storage.
+    pub storage: Arc<RwLock<I::Storage>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
@@ -293,6 +298,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
+                // Validate the DAC.
+                if !cert.is_valid_cert(self.da_membership.as_ref()) {
+                    return;
+                }
+
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
                     .await;
@@ -301,9 +311,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
                     .await;
 
-                if !validate_dac(cert.clone(), event_sender.clone()) {
-                    return;
-                }
+                // Add to the storage.
+                self.consensus
+                    .write()
+                    .await
+                    .saved_da_certs
+                    .insert(view, cert.clone());
+
                 broadcast_event(
                     Arc::new(HotShotEvent::DACertificateValidated(cert.clone())),
                     &event_sender.clone(),
@@ -318,6 +332,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
+                // Validate the VID share.
+                let payload_commitment = disperse.data.payload_commitment;
+                // Check whether the data satisfies one of the following.
+                // * From the right leader for this view.
+                // * Calculated and signed by the current node.
+                // * Signed by one of the staked DA committee members.
+                if !self
+                    .quorum_membership
+                    .get_leader(view)
+                    .validate(&disperse.signature, payload_commitment.as_ref())
+                    && !self
+                        .public_key
+                        .validate(&disperse.signature, payload_commitment.as_ref())
+                {
+                    let mut validated = false;
+                    for da_member in self.da_membership.get_staked_committee(view) {
+                        if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
+                            validated = true;
+                            break;
+                        }
+                    }
+                    if !validated {
+                        return;
+                    }
+                }
+
                 // stop polling for the received disperse after verifying it's valid
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
@@ -325,9 +365,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     ))
                     .await;
 
-                if !validate_vid(disperse.clone(), event_sender.clone()) {
+                // Add to the storage.
+                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
+                    error!("Failed to store VID share with error {:?}", e);
                     return;
                 }
+                self.consensus
+                    .write()
+                    .await
+                    .vid_shares
+                    .entry(view)
+                    .or_default()
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
                     &event_sender.clone(),

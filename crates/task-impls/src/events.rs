@@ -127,6 +127,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ///
     /// Like [`HotShotEvent::DAProposalSend`].
     VidDisperseSend(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
+    // TODO (Keyao) Rename to `VIDShareRecv` to be consistent with the diagram.
     /// Vid disperse data has been received from the network; handled by the DA task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
