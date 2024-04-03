@@ -828,8 +828,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
                                 if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
+                                  if upgrade_cert.data.decide_by > view {
+                                    warn!("Failed to decide an upgrade certificate in time. Discarding.");
+                                  } else {
                                     info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
                                     self.decided_upgrade_cert = Some(upgrade_cert.clone());
+                                  }
                                 }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
@@ -1196,7 +1200,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
                 if let Some(ref cert) = self.decided_upgrade_cert {
-                    if new_view >= cert.data.new_version_first_block {
+                    if new_view >= cert.data.new_version_first_view {
                         warn!(
                             "Updating version based on a decided upgrade cert: {:?}",
                             cert
@@ -1641,5 +1645,5 @@ fn view_is_between_versions<TYPES: NodeType>(
     view: TYPES::Time,
     upgrade_data: &UpgradeProposalData<TYPES>,
 ) -> bool {
-    view > upgrade_data.old_version_last_block && view < upgrade_data.new_version_first_block
+    view > upgrade_data.old_version_last_view && view < upgrade_data.new_version_first_view
 }

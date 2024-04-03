@@ -50,7 +50,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
-    /// All the upgrade certs we've received for current and future views.
+    /// All the upgrade certs we've received
     /// view -> upgrade cert
     pub saved_upgrade_certs: HashMap<TYPES::Time, UpgradeCertificate<TYPES>>,
 
@@ -337,7 +337,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.saved_da_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.saved_upgrade_certs
-            .retain(|view_number, _| *view_number >= old_anchor_view);
+            .retain(|_, cert| cert.data.decide_by < old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
