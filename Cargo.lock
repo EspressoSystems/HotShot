@@ -3240,8 +3240,9 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.1.0"
+version = "0.5.26"
 dependencies = [
+ "derive_builder",
  "proc-macro2",
  "quote",
  "syn 2.0.57",
@@ -3372,35 +3373,6 @@ dependencies = [
  "tokio",
  "tracing",
  "versioned-binary-serialization",
-]
-
-[[package]]
-name = "hotshot-testing-macros"
-version = "0.5.26"
-dependencies = [
- "ark-bls12-381",
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "blake3",
- "commit",
- "derive_builder",
- "either",
- "futures",
- "hotshot",
- "hotshot-example-types",
- "hotshot-testing",
- "hotshot-types",
- "jf-primitives",
- "proc-macro2",
- "quote",
- "rand 0.8.5",
- "serde",
- "snafu 0.8.2",
- "syn 2.0.57",
- "tokio",
- "tracing",
 ]
 
 [[package]]
