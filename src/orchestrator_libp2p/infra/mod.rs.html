@@ -1085,7 +1085,6 @@
 <a href="#1083" id="1083">1083</a>
 <a href="#1084" id="1084">1084</a>
 <a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -1837,8 +1836,7 @@
             topics.iter().map(ToString::to_string).collect(),
             keypair,
         )
-        .<span class="kw">await
-        </span>.expect(<span class="string">"failed to perform initial client connection"</span>);
+        .expect(<span class="string">"failed to create network"</span>);
 
         PushCdnDaRun {
             config,

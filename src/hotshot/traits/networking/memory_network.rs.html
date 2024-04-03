@@ -375,11 +375,6 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -605,11 +600,6 @@
     <span class="kw">fn </span>resume(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">unimplemented!</span>(<span class="string">"Resuming not implemented for the Memory network"</span>);
     }
-
-    <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::ready_nonblocking"</span>)]
-    </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="bool-val">true
-    </span>}
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::shut_down"</span>)]
     </span><span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;

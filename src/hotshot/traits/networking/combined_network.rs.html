@@ -498,10 +498,6 @@
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -816,10 +812,6 @@
             <span class="self">self</span>.secondary().wait_for_ready()
         );
     }
-
-    <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.primary().is_ready().<span class="kw">await </span>&amp;&amp; <span class="self">self</span>.secondary().is_ready().<span class="kw">await
-    </span>}
 
     <span class="kw">fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
     <span class="kw">where
