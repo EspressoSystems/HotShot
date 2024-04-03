@@ -1343,8 +1343,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
     }
 
+    /// Dummy proposal send when the quorum proposal task is active.
+    #[cfg(feature = "proposal-task")]
+    pub async fn publish_proposal_if_able(
+        &mut self,
+        _view: TYPES::Time,
+        _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> bool {
+        false
+    }
+
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
+    #[cfg(not(feature = "proposal-task"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,
@@ -1471,7 +1482,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ""
                 );
 
-                #[cfg(not(feature = "proposal-task"))]
                 broadcast_event(
                     Arc::new(HotShotEvent::QuorumProposalSend(
                         message.clone(),

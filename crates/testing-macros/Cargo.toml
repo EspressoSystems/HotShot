@@ -16,6 +16,7 @@ either = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot", default-features = false }
 hotshot-types = { path = "../types" }
+# hotshot-testing = { path = "../testing", default-features = false }
 hotshot-testing = { path = "../testing", default-features = false }
 hotshot-example-types = { path = "../example-types" }
 jf-primitives = { workspace = true }
@@ -28,6 +29,9 @@ quote = "1.0.33"
 syn = { version = "2.0.57", features = ["full", "extra-traits"] }
 proc-macro2 = "1.0.79"
 derive_builder = "0.20.0"
+
+[features]
+proposal-task = ["hotshot-testing/proposal-task"]
 
 [dev-dependencies]
 async-lock = { workspace = true }
