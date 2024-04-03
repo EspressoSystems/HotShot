@@ -977,8 +977,8 @@ dependencies = [
  "bytes 1.5.0",
  "futures-util",
  "http 0.2.12",
- "http-body",
- "hyper",
+ "http-body 0.4.6",
+ "hyper 0.14.28",
  "itoa",
  "matchit",
  "memchr",
@@ -1003,7 +1003,7 @@ dependencies = [
  "bytes 1.5.0",
  "futures-util",
  "http 0.2.12",
- "http-body",
+ "http-body 0.4.6",
  "mime",
  "rustversion",
  "tower-layer",
@@ -1565,7 +1565,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
@@ -2867,6 +2867,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "h2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51ee2dd2e4f378392eeff5d51618cd9a63166a2513846bbc55f21cfacd9199d4"
+dependencies = [
+ "bytes 1.5.0",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "http 1.1.0",
+ "indexmap 2.2.5",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3156,7 +3175,7 @@ dependencies = [
  "serde",
  "snafu 0.8.2",
  "tagged-base64 0.3.4",
- "tide-disco",
+ "tide-disco 0.6.0",
  "toml",
  "versioned-binary-serialization",
 ]
@@ -3268,7 +3287,7 @@ dependencies = [
  "serde_json",
  "surf-disco",
  "thiserror",
- "tide-disco",
+ "tide-disco 0.6.0",
  "tokio",
  "toml",
  "tracing",
@@ -3368,7 +3387,7 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "snafu 0.8.2",
- "tide-disco",
+ "tide-disco 0.6.0",
  "tokio",
  "tracing",
  "versioned-binary-serialization",
@@ -3462,7 +3481,7 @@ dependencies = [
  "futures",
  "hotshot-types",
  "rand 0.8.5",
- "tide-disco",
+ "tide-disco 0.6.0",
  "tokio",
  "toml",
  "tracing",
@@ -3499,6 +3518,29 @@ checksum = "7ceab25649e9960c0311ea418d17bee82c0dcec1bd053b5f9a66e265a693bed2"
 dependencies = [
  "bytes 1.5.0",
  "http 0.2.12",
+ "pin-project-lite 0.2.13",
+]
+
+[[package]]
+name = "http-body"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cac85db508abc24a2e48553ba12a996e87244a0395ce011e62b37158745d643"
+dependencies = [
+ "bytes 1.5.0",
+ "http 1.1.0",
+]
+
+[[package]]
+name = "http-body-util"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0475f8b2ac86659c21b64320d5d653f9efe42acd2a4e560073ec61a155a34f1d"
+dependencies = [
+ "bytes 1.5.0",
+ "futures-core",
+ "http 1.1.0",
+ "http-body 1.0.0",
  "pin-project-lite 0.2.13",
 ]
 
@@ -3566,9 +3608,9 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2",
+ "h2 0.3.25",
  "http 0.2.12",
- "http-body",
+ "http-body 0.4.6",
  "httparse",
  "httpdate",
  "itoa",
@@ -3581,15 +3623,71 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "186548d73ac615b32a73aafe38fb4f56c0d340e110e5a200bcadbaf2e199263a"
+dependencies = [
+ "bytes 1.5.0",
+ "futures-channel",
+ "futures-util",
+ "h2 0.4.3",
+ "http 1.1.0",
+ "http-body 1.0.0",
+ "httparse",
+ "itoa",
+ "pin-project-lite 0.2.13",
+ "smallvec",
+ "tokio",
+ "want",
+]
+
+[[package]]
 name = "hyper-timeout"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbb958482e8c7be4bc3cf272a766a2b0bf1a6755e7a6ae777f017a31d11b13b1"
 dependencies = [
- "hyper",
+ "hyper 0.14.28",
  "pin-project-lite 0.2.13",
  "tokio",
  "tokio-io-timeout",
+]
+
+[[package]]
+name = "hyper-tls"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
+dependencies = [
+ "bytes 1.5.0",
+ "http-body-util",
+ "hyper 1.2.0",
+ "hyper-util",
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
+ "tower-service",
+]
+
+[[package]]
+name = "hyper-util"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca38ef113da30126bbff9cd1705f9273e15d45498615d138b0c20279ac7a76aa"
+dependencies = [
+ "bytes 1.5.0",
+ "futures-channel",
+ "futures-util",
+ "http 1.1.0",
+ "http-body 1.0.0",
+ "hyper 1.2.0",
+ "pin-project-lite 0.2.13",
+ "socket2 0.5.6",
+ "tokio",
+ "tower",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -3715,7 +3813,7 @@ dependencies = [
  "bytes 1.5.0",
  "futures",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "log",
  "rand 0.8.5",
  "tokio",
@@ -6370,6 +6468,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d66674f2b6fb864665eea7a3c1ac4e3dfacd2fda83cf6f935a612e01b0e3338"
+dependencies = [
+ "base64 0.21.7",
+ "bytes 1.5.0",
+ "encoding_rs",
+ "futures-core",
+ "futures-util",
+ "h2 0.4.3",
+ "http 1.1.0",
+ "http-body 1.0.0",
+ "http-body-util",
+ "hyper 1.2.0",
+ "hyper-tls",
+ "hyper-util",
+ "ipnet",
+ "js-sys",
+ "log",
+ "mime",
+ "native-tls",
+ "once_cell",
+ "percent-encoding",
+ "pin-project-lite 0.2.13",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "system-configuration",
+ "tokio",
+ "tokio-native-tls",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "winreg",
+]
+
+[[package]]
 name = "resolv-conf"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7602,7 +7742,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
- "tide-disco",
+ "tide-disco 0.5.0",
  "versioned-binary-serialization",
 ]
 
@@ -7763,6 +7903,22 @@ dependencies = [
 [[package]]
 name = "tagged-base64"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
+dependencies = [
+ "ark-serialize",
+ "ark-std",
+ "base64 0.22.0",
+ "crc-any",
+ "serde",
+ "snafu 0.8.2",
+ "tagged-base64-macros 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tagged-base64"
+version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
 dependencies = [
  "ark-serialize",
@@ -7771,13 +7927,23 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu 0.8.2",
- "tagged-base64-macros 0.4.0",
+ "tagged-base64-macros 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
 name = "tagged-base64-macros"
 version = "0.3.3"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcdea3c0150898fad2f7196a173ec3264f7fc455ba570939163c558f48ae85ac"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -7925,6 +8091,58 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "versioned-binary-serialization",
+]
+
+[[package]]
+name = "tide-disco"
+version = "0.6.0"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.6.0#6235193c90dd2eb0e96895958e4c46072e2ffa4f"
+dependencies = [
+ "anyhow",
+ "async-std",
+ "async-trait",
+ "clap",
+ "config",
+ "derivative",
+ "derive_more",
+ "dirs",
+ "edit-distance",
+ "futures",
+ "futures-util",
+ "http 1.1.0",
+ "include_dir",
+ "itertools 0.12.1",
+ "lazy_static",
+ "libc",
+ "markdown",
+ "maud",
+ "num-derive",
+ "num-traits",
+ "parking_lot",
+ "prometheus",
+ "reqwest",
+ "routefinder",
+ "semver 1.0.22",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "shellexpand",
+ "signal-hook",
+ "signal-hook-async-std",
+ "snafu 0.8.2",
+ "strum",
+ "strum_macros",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tide",
+ "tide-websockets",
+ "toml",
+ "tracing",
+ "tracing-distributed",
+ "tracing-futures",
+ "tracing-log",
+ "tracing-subscriber",
+ "url",
+ "vbs",
 ]
 
 [[package]]
@@ -8080,6 +8298,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-native-tls"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
+dependencies = [
+ "native-tls",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-retry"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8183,10 +8411,10 @@ dependencies = [
  "axum",
  "base64 0.21.7",
  "bytes 1.5.0",
- "h2",
+ "h2 0.3.25",
  "http 0.2.12",
- "http-body",
- "hyper",
+ "http-body 0.4.6",
+ "hyper 0.14.28",
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
@@ -8583,6 +8811,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "vbs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "971bcbd6c41e4e53fa9eab95b2a8ddaf1826be2f3e86b4101efebc8c3a17fde0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "derive_more",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8638,7 +8879,7 @@ dependencies = [
  "futures-util",
  "headers",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "log",
  "mime",
  "mime_guess",
