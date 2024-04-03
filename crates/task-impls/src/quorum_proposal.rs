@@ -236,7 +236,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
 
-    #[allow(clippy::no_effect_underscore_binding)]
+    #[instrument(skip_all, fields(view_number = *self.view_number), name = "Proposal Dependency handle dep result", level = "error")]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
         let mut timeout_certificate = None;
@@ -420,6 +420,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// dependency as already completed. This allows for the task to receive a proposable event
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
+
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal create new dependency task", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -484,20 +486,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             _ => {}
         };
 
-        // We have three cases to consider:
-        let combined = AndDependency::from_deps(vec![
-            OrDependency::from_deps(vec![AndDependency::from_deps(vec![
-                payload_commitment_dependency,
-            ])]),
-            OrDependency::from_deps(vec![
-                // 1. A QCFormed event and QuorumProposalValidated event
-                AndDependency::from_deps(vec![qc_dependency, proposal_dependency]),
-                // 2. A timeout cert was received
-                AndDependency::from_deps(vec![timeout_dependency]),
-                // 3. A view sync cert was received.
-                AndDependency::from_deps(vec![view_sync_dependency]),
-            ]),
-        ]);
+        let combined = if *view_number > 0 {
+            // We have three cases to consider in non genesis:
+            AndDependency::from_deps(vec![
+                OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                    payload_commitment_dependency,
+                ])]),
+                OrDependency::from_deps(vec![
+                    // 1. A QCFormed event and QuorumProposalValidated event
+                    AndDependency::from_deps(vec![qc_dependency, proposal_dependency]),
+                    // 2. A timeout cert was received
+                    AndDependency::from_deps(vec![timeout_dependency]),
+                    // 3. A view sync cert was received.
+                    AndDependency::from_deps(vec![view_sync_dependency]),
+                ]),
+            ])
+        } else {
+            // We have three cases to consider in genesis:
+            AndDependency::from_deps(vec![
+                OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                    payload_commitment_dependency,
+                ])]),
+                OrDependency::from_deps(vec![
+                    // 1. A QCFormed event. We do not need a QuorumProposalValidated event in this
+                    //    case because we are not using previous state (since we're in the genesis
+                    //    view), so we can move on with just QCFormed.
+                    AndDependency::from_deps(vec![qc_dependency]),
+                    // 2. A timeout cert was received
+                    AndDependency::from_deps(vec![timeout_dependency]),
+                    // 3. A view sync cert was received.
+                    AndDependency::from_deps(vec![view_sync_dependency]),
+                ]),
+            ])
+        };
 
         // We only want to pass down the upgrade cert if we already have one *and* it is for this
         // view, otherwise we can just ignore it.
@@ -629,10 +650,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                         // We need to drop our handle here to make the borrow checker happy.
                         drop(consensus);
-                        debug!(
-                            "Attempting to publish proposal after forming a QC for view {}",
-                            *qc.view_number
-                        );
 
                         let view = qc.view_number + 1;
 

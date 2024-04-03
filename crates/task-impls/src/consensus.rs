@@ -750,7 +750,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         let qc = high_qc.clone();
                         if should_propose {
                             debug!(
-                                "Attempting to publish proposal after voting; now in view: {}",
+                                "Attempting to publish proposal before voting; now in view: {}",
                                 *new_view
                             );
                             self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
@@ -1482,6 +1482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ""
                 );
 
+                #[cfg(not(feature = "proposal-task"))]
                 broadcast_event(
                     Arc::new(HotShotEvent::QuorumProposalSend(
                         message.clone(),
@@ -1553,6 +1554,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             };
             debug!("Sending proposal for view {:?}", view);
 
+            #[cfg(not(feature = "proposal-task"))]
             broadcast_event(
                 Arc::new(HotShotEvent::QuorumProposalSend(
                     message.clone(),
