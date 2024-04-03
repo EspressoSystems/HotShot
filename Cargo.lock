@@ -1085,7 +1085,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -1294,7 +1294,7 @@ dependencies = [
  "dashmap",
  "derivative",
  "derive_builder",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1315,7 +1315,7 @@ dependencies = [
  "cdn-proto",
  "clap",
  "derive_builder",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "rand 0.8.5",
  "tokio",
  "tracing",
@@ -1331,7 +1331,7 @@ dependencies = [
  "cdn-proto",
  "clap",
  "derive_builder",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1348,7 +1348,7 @@ dependencies = [
  "async-trait",
  "capnp",
  "derivative",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "kanal",
  "lazy_static",
  "mnemonic",
@@ -1565,7 +1565,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
@@ -3127,7 +3127,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-web-server",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.3",
@@ -3287,8 +3287,8 @@ dependencies = [
  "digest 0.10.7",
  "ethereum-types",
  "hotshot-types",
- "jf-primitives",
- "jf-utils",
+ "jf-primitives 0.4.0-pre.0",
+ "jf-utils 0.4.0-pre.0",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64 0.3.4",
@@ -3324,7 +3324,7 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "memoize",
  "rand 0.8.5",
  "serde",
@@ -3360,7 +3360,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
@@ -3392,7 +3392,7 @@ dependencies = [
  "hotshot-example-types",
  "hotshot-testing",
  "hotshot-types",
- "jf-primitives",
+ "jf-primitives 0.4.0-pre.0",
  "proc-macro2",
  "quote",
  "rand 0.8.5",
@@ -3434,8 +3434,8 @@ dependencies = [
  "futures",
  "generic-array",
  "jf-plonk",
- "jf-primitives",
- "jf-utils",
+ "jf-primitives 0.4.0-pre.0",
+ "jf-utils 0.4.0-pre.0",
  "lazy_static",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3937,8 +3937,8 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
 name = "jf-plonk"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
+version = "0.4.3"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3952,16 +3952,16 @@ dependencies = [
  "espresso-systems-common 0.4.0",
  "hashbrown 0.14.4",
  "itertools 0.12.1",
- "jf-primitives",
- "jf-relation",
- "jf-utils",
+ "jf-primitives 0.4.3",
+ "jf-relation 0.4.3",
+ "jf-utils 0.4.3",
  "merlin",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
  "serde",
  "sha3",
- "tagged-base64 0.3.4",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3997,8 +3997,8 @@ dependencies = [
  "icicle-core",
  "icicle-cuda-runtime",
  "itertools 0.12.1",
- "jf-relation",
- "jf-utils",
+ "jf-relation 0.4.0-pre.0",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -4009,6 +4009,50 @@ dependencies = [
  "sha3",
  "tagged-base64 0.3.4",
  "typenum",
+ "zeroize",
+]
+
+[[package]]
+name = "jf-primitives"
+version = "0.4.3"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+dependencies = [
+ "anyhow",
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-381",
+ "ark-ed-on-bn254",
+ "ark-ff",
+ "ark-pallas",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "blst",
+ "chacha20poly1305",
+ "crypto_kx",
+ "derivative",
+ "digest 0.10.7",
+ "displaydoc",
+ "espresso-systems-common 0.4.0",
+ "generic-array",
+ "hashbrown 0.14.4",
+ "itertools 0.12.1",
+ "jf-relation 0.4.3",
+ "jf-utils 0.4.3",
+ "merlin",
+ "num-bigint",
+ "num-traits",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "sha3",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "zeroize",
 ]
 
@@ -4032,7 +4076,33 @@ dependencies = [
  "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.4",
  "itertools 0.12.1",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
+ "num-bigint",
+ "rand_chacha 0.3.1",
+ "rayon",
+]
+
+[[package]]
+name = "jf-relation"
+version = "0.4.3"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
+ "displaydoc",
+ "downcast-rs",
+ "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.14.4",
+ "itertools 0.12.1",
+ "jf-utils 0.4.3",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
@@ -4052,6 +4122,22 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "tagged-base64 0.3.4",
+]
+
+[[package]]
+name = "jf-utils"
+version = "0.4.3"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4130,7 +4216,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.4",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -7763,6 +7849,22 @@ dependencies = [
 [[package]]
 name = "tagged-base64"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
+dependencies = [
+ "ark-serialize",
+ "ark-std",
+ "base64 0.22.0",
+ "crc-any",
+ "serde",
+ "snafu 0.8.2",
+ "tagged-base64-macros 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tagged-base64"
+version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
 dependencies = [
  "ark-serialize",
@@ -7771,13 +7873,23 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu 0.8.2",
- "tagged-base64-macros 0.4.0",
+ "tagged-base64-macros 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
 name = "tagged-base64-macros"
 version = "0.3.3"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcdea3c0150898fad2f7196a173ec3264f7fc455ba570939163c558f48ae85ac"
 dependencies = [
  "quote",
  "syn 1.0.109",

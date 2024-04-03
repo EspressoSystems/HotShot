@@ -63,7 +63,7 @@ generic-array = { version = "0.14.7", features = ["serde"] }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2", features = [
   "test-srs",
 ] }
-jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.3" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
 lazy_static = "1"
