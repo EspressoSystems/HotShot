@@ -50,35 +50,6 @@ jobs:
         env:
           RUST_BACKTRACE: full
 
-
-  test-self-hosted:
-    strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
-      fail-fast: false
-    runs-on: [self-hosted]
-    container: ghcr.io/espressosystems/devops-rust:stable
-    steps:
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
-        with:
-          shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}
-          cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Unit and integration tests for all crates in workspace
-        run: |
-          just ${{ matrix.just_variants }} test-ci-fail-fast
-        timeout-minutes: 60
-        env:
-          RUST_BACKTRACE: full
-
   build-release:
     strategy:
       matrix:
