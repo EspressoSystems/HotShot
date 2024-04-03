@@ -68,6 +68,10 @@ where
         for<'a> TryFrom<&'a TaggedBase64> + Into<TaggedBase64>,
 {
     /// Construct a new client from base url
+    ///
+    /// # Panics
+    ///
+    /// If the URL is malformed.
     pub fn new(base_url: impl Into<Url>) -> Self {
         Self {
             inner: Client::new(base_url.into().join("api").unwrap()),
