@@ -51,7 +51,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACRecv(dacs[0].clone()),
+            DACertificateRecv(dacs[0].clone()),
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
@@ -82,8 +82,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     } else {
         vec![
             exact(ViewChange(ViewNumber::new(2))),
-            quorum_proposal_send(),
             exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_send(),
         ]
     };
 

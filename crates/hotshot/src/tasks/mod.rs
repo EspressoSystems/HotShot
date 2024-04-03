@@ -25,6 +25,7 @@ use hotshot_task_impls::{
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::constants::VERSION_0_1;
 use hotshot_types::{
     constants::Version01,
     message::Message,
@@ -133,6 +134,7 @@ pub async fn add_network_event_task<
     let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
+        version: VERSION_0_1,
         membership,
         filter,
         storage,
@@ -153,6 +155,18 @@ pub async fn inject_consensus_polls<
     consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Poll (forever) for upgrade proposals
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeProposal(0))
+        .await;
+
+    // Poll (forever) for upgrade votes
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeVotes(0))
         .await;
 
     // See if we're in the DA committee
@@ -241,6 +255,20 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
     task_reg.run_task(task).await;
 }
+
+// TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
+// <https://github.com/EspressoSystems/HotShot/issues/2712>
+// /// Add the quorum vote task.
+// pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+//     task_reg: Arc<TaskRegistry>,
+//     tx: Sender<Arc<HotShotEvent<TYPES>>>,
+//     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+//     handle: &SystemContextHandle<TYPES, I>,
+// ) {
+//     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
+//     let task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
+//     task_reg.run_task(task).await;
+// }
 
 /// add the VID task
 pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(

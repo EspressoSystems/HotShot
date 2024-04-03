@@ -5,6 +5,11 @@ edition = { workspace = true }
 name = "hotshot-task-impls"
 version = { workspace = true }
 
+[features]
+example-upgrade = []
+gpu-vid = ["hotshot-types/gpu-vid"]
+proposal-task = []
+
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
@@ -31,10 +36,6 @@ time = { workspace = true }
 tracing = { workspace = true }
 versioned-binary-serialization = { workspace = true }
 anyhow = { workspace = true }
-
-[features]
-gpu-vid = ["hotshot-types/gpu-vid"]
-proposal-task = []
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
