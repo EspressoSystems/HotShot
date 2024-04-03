@@ -70,7 +70,7 @@ where
     /// Construct a new client from base url
     pub fn new(base_url: impl Into<Url>) -> Self {
         Self {
-            inner: Client::new(base_url.into()),
+            inner: Client::new(base_url.into().join("api").unwrap()),
             _marker: std::marker::PhantomData,
         }
     }

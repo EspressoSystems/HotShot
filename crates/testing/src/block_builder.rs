@@ -225,7 +225,7 @@ pub fn run_random_builder(url: Url) {
         )
         .expect("Failed to construct the builder API");
     let mut app: App<RandomBuilderSource, Error> = App::with_state(source);
-    app.register_module::<Error, Version01>("/", builder_api)
+    app.register_module::<Error, Version01>("api", builder_api)
         .expect("Failed to register the builder API");
 
     async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -317,7 +317,7 @@ impl SimpleBuilderSource {
             )
             .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource, Error> = App::with_state(self);
-        app.register_module::<Error, Version01>("/", builder_api)
+        app.register_module::<Error, Version01>("api", builder_api)
             .expect("Failed to register the builder API");
 
         async_spawn(app.serve(url, STATIC_VER_0_1));
