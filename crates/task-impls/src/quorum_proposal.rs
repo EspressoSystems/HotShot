@@ -30,7 +30,7 @@ use hotshot_types::{
 use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use crate::{
     consensus::CommitmentAndMetadata,
@@ -79,6 +79,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// last Upgrade Certificate this node formed
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+
+    /// The node id that spawned this dependency task
+    pub id: u64,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
@@ -105,7 +108,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 
         let Some(parent_view) = consensus.validated_state_map.get(parent_view_number) else {
             // This should have been added by the replica?
-            bail!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
+            bail!("Couldn't find parent view in state map, waiting for replica to see proposal; parent view number: {}", **parent_view_number);
         };
 
         // Leaf hash in view inner does not match high qc hash - Why?
@@ -134,6 +137,10 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 
     /// Publishes a proposal from a completed payload commitment and metadata and one of several
     /// optional additional pieces of data which may be attached to the proposal.
+    #[instrument(skip_all, fields(
+        id = self.id,
+        view_number = *self.view_number
+    ), name = "Proposal Dependency handle dep result", level = "error")]
     async fn publish_proposal(
         &self,
         view: TYPES::Time,
@@ -236,7 +243,10 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
 
-    #[instrument(skip_all, fields(view_number = *self.view_number), name = "Proposal Dependency handle dep result", level = "error")]
+    #[instrument(skip_all, fields(
+        id = self.id,
+        view_number = *self.view_number
+    ), name = "Proposal Dependency handle dep result", level = "error")]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
         let mut timeout_certificate = None;
@@ -346,7 +356,10 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
     /// Create an event dependency
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal create event dependency", level = "error")]
+    #[instrument(skip_all, fields(
+        id = self.id,
+        latest_proposed_view = *self.latest_proposed_view
+    ), name = "Quorum proposal create event dependency", level = "error")]
     fn create_event_dependency(
         &self,
         dependency_type: ProposalDependency,
@@ -421,7 +434,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
 
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal create new dependency task", level = "error")]
+    #[instrument(skip_all, fields(
+        id = self.id,
+        latest_proposed_view = *self.latest_proposed_view,
+        view_number = *view_number
+    ), name = "Quorum proposal create new dependency task", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -486,7 +503,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             _ => {}
         };
 
-        let combined = if *view_number > 0 {
+        let combined = if *view_number > 1 {
             // We have three cases to consider in non genesis:
             AndDependency::from_deps(vec![
                 OrDependency::from_deps(vec![AndDependency::from_deps(vec![
@@ -502,6 +519,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 ]),
             ])
         } else {
+            debug!(
+                "Not requiring a quorum proposal for this task due to being in the genesis view"
+            );
             // We have three cases to consider in genesis:
             AndDependency::from_deps(vec![
                 OrDependency::from_deps(vec![AndDependency::from_deps(vec![
@@ -544,6 +564,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 upgrade_cert,
+                id: self.id,
             },
         );
         self.propose_dependencies
@@ -552,7 +573,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
     /// Update the latest proposed view number. This function destructively removes all old
     /// dependency tasks (tasks whose view is < the latest view).
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal update latest proposed view", level = "error")]
+    #[instrument(skip_all, fields(
+        id = self.id,
+        latest_proposed_view = *self.latest_proposed_view
+    ), name = "Quorum proposal update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
             debug!(
@@ -705,7 +729,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 debug!(
-                    "Received Quorum Proposal for view {}",
+                    "Received Valiated Quorum Proposal for view {}",
                     *proposal.view_number
                 );
 
@@ -719,7 +743,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalDependenciesValidated(view) => {
                 debug!("All proposal dependencies verified for view {:?}", view);
                 if !self.update_latest_proposed_view(*view).await {
-                    debug!("proposal not updated");
+                    error!("Proposal not updated");
                     return;
                 }
             }

@@ -63,7 +63,7 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
-async fn validate_proposal<TYPES: NodeType>(
+pub async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -1145,7 +1145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                debug!("VID disperse data is not more than one view older.");
+                // debug!("VID disperse data is not more than one view older.");
 
                 if !self.validate_disperse(disperse) {
                     warn!("Could not verify VID dispersal/share sig.");
@@ -1364,7 +1364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         _view: TYPES::Time,
         _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
-        false
+        true
     }
 
     /// Sends a proposal if possible from the high qc we have
@@ -1567,6 +1567,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 signature,
                 _pd: PhantomData,
             };
+
             debug!("Sending proposal for view {:?}", view);
 
             async_sleep(Duration::from_millis(self.round_start_delay)).await;
