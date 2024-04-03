@@ -21,6 +21,13 @@ jobs:
         just_variants:
           - async-std
           - tokio
+        test_suites:
+          - test-ci-1
+          - test-ci-2
+          - test-ci-3
+          - test-ci-4
+          - test-ci-5
+          - test-ci-rest
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +52,7 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          just ${{ matrix.just_variants }} test-ci
+          just ${{ matrix.just_variants }} ${{ matrix.test_suites }}
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
@@ -57,7 +64,6 @@ jobs:
           - async-std
           - tokio
       fail-fast: false
-    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,39 +105,6 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
 
-
-
-  build:
-    strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
-      fail-fast: false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        name: Checkout Repository
-
-      - run: rustup toolchain install stable --profile minimal
-
-      - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
-        with:
-          shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}
-          cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
-
-      - name: Build all crates in workspace
-        run: just ${{ matrix.just_variants }} build
-
   build-arm-release:
     strategy:
       matrix:
@@ -139,7 +112,6 @@ jobs:
           - async-std
           - tokio
       fail-fast: false
-    needs: [test]
     runs-on: [self-hosted, arm64]
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:
@@ -182,7 +154,7 @@ jobs:
           - tokio
       fail-fast: false
     runs-on: ubuntu-latest
-    needs: [build-release, build-arm-release]
+    needs: [build-release, build-arm-release, test]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

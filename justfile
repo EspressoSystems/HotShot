@@ -55,9 +55,29 @@ test-ci *ARGS:
   echo Testing {{ARGS}}
   RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
-test-ci-fail-fast *ARGS:
+test-ci-rest *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1
+
+test-ci-1 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-2 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-3 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-4 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-5 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
