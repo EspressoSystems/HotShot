@@ -7,7 +7,6 @@ use crate::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-use either::Either;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -22,7 +21,7 @@ use hotshot_types::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
 
 /// Amount of time to try for a request before timing out.
@@ -56,6 +55,8 @@ pub struct NetworkRequestState<
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Version discrimination
     pub _phantom: PhantomData<fn(&Ver)>,
+    /// The node's id
+    pub id: u64,
 }
 
 /// Alias for a signature
@@ -141,6 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 
     /// run a delayed request task for a request.  The first response
     /// received will be sent over `sender`
+    #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
         &self,
         request: RequestKind<TYPES>,
@@ -172,6 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             error!("Failed to sign Data Request");
             return;
         };
+        debug!("Requesting data: {:?}", request);
         async_spawn(requester.run::<Ver>(request, signature));
     }
 }
@@ -265,13 +268,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
 
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
-        let event = match message.0 {
-            Either::Right(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
-                Arc::new(HotShotEvent::VidDisperseRecv(prop))
+        let event = match message {
+            SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
+                HotShotEvent::VidDisperseRecv(prop)
             }
             _ => return,
         };
-        broadcast_event(event, &self.sender).await;
+        broadcast_event(Arc::new(event), &self.sender).await;
     }
 }
 

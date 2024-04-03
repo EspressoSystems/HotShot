@@ -29,21 +29,20 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
-    message::Message,
+    message::{Message, SequencingMessage},
     traits::{
         network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::{collections::hash_map::DefaultHasher, sync::Arc};
 
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use either::Either;
 use futures::future::join_all;
 use hotshot_task_impls::helpers::cancel_task;
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
@@ -92,7 +91,17 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     ///
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     #[must_use]
-    pub fn new(networks: Arc<UnderlyingCombinedNetworks<TYPES>>, delay_duration: Duration) -> Self {
+    pub fn new(
+        primary_network: PushCdnNetwork<TYPES>,
+        secondary_network: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        delay_duration: Duration,
+    ) -> Self {
+        // Create networks from the ones passed in
+        let networks = Arc::from(UnderlyingCombinedNetworks(
+            primary_network,
+            secondary_network,
+        ));
+
         Self {
             networks,
             message_cache: Arc::new(RwLock::new(LruCache::new(
@@ -119,11 +128,11 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     /// a helper function returning a bool whether a given message is of delayable type
     fn should_delay(message: &Message<TYPES>) -> bool {
         match &message.kind {
-            MessageKind::Consensus(consensus_message) => match &consensus_message.0 {
-                Either::Left(general_consensus_message) => {
+            MessageKind::Consensus(consensus_message) => match &consensus_message {
+                SequencingMessage::General(general_consensus_message) => {
                     matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
-                Either::Right(_) => true,
+                SequencingMessage::Committee(_) => true,
             },
             MessageKind::Data(_) => false,
         }
@@ -398,6 +407,17 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             },
         )
         .await
+    }
+
+    async fn vid_broadcast_message<VER: StaticVersionType + 'static>(
+        &self,
+        messages: HashMap<TYPES::SignatureKey, Message<TYPES>>,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        self.networks
+            .0
+            .vid_broadcast_message(messages, bind_version)
+            .await
     }
 
     /// Receive one or many messages from the underlying network.
