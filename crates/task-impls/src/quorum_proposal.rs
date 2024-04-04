@@ -111,7 +111,7 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     pub async fn publish_proposal(
-        &mut self,
+        &self,
         view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         commit_and_metadata: CommitmentAndMetadata<TYPES::BlockPayload>,
@@ -334,18 +334,21 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
 
-    #[allow(clippy::no_effect_underscore_binding)]
+    #[instrument(skip_all, fields(
+        id = self.id,
+        view_number = *self.view_number
+    ), name = "Quorum proposal create event dependency", level = "error")]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
         let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
+        let mut timeout_certificate = None;
+        let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten() {
             error!("Dependency task got event {:?}", event);
             match event.as_ref() {
-                HotShotEvent::QuorumProposalRecv(proposal, _) => {
-                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
+                HotShotEvent::QuorumProposalValidated(proposal) => {
+                    let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             return;
@@ -367,39 +370,47 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
                     either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
+                        timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
                         _quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
+                    view_sync_finalize_cert = Some(cert.clone());
                 }
                 _ => {}
             }
         }
 
-        if commit_and_metadata.is_none() {
+        let Some(commit_and_metadata) = commit_and_metadata else {
             error!(
                 "Somehow completed the proposal dependency task without a commitment and metadata"
             );
             return;
-        }
+        };
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
+        let proposal_cert = {
+            if let Some(timeout_certificate) = timeout_certificate {
+                Some(ViewChangeEvidence::Timeout(timeout_certificate))
+            } else if let Some(view_sync_finalize_cert) = view_sync_finalize_cert {
+                Some(ViewChangeEvidence::ViewSync(view_sync_finalize_cert))
+            } else {
+                None
+            }
+        };
+
+        if let Err(e) = self
+            .publish_proposal(
                 self.view_number,
-            )),
-            &self.sender,
-        )
-        .await;
-
-        broadcast_event(
-            Arc::new(HotShotEvent::DummyQuorumProposalSend(self.view_number)),
-            &self.sender,
-        )
-        .await;
+                &self.sender,
+                commit_and_metadata,
+                proposal_cert,
+            )
+            .await
+        {
+            warn!("Failed to publish proposal; error = {:?}", e);
+        }
     }
 }
 
@@ -496,8 +507,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
 
                     ProposalDependency::Proposal => {
-                        if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
-                            proposal.data.view_number
+                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
+                            proposal.view_number
                         } else {
                             return false;
                         }
@@ -580,7 +591,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
-            HotShotEvent::QuorumProposalRecv(_, _) => {
+            HotShotEvent::QuorumProposalValidated(_) => {
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
@@ -872,35 +883,42 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let view = proposal.data.get_view_number();
-                if let Err(e) = self
+                match self
                     .handle_quorum_proposal_recv(proposal, sender, &event_sender)
                     .await
                 {
-                    error!("Failed to handle QuorumProposalRecv event; error = {:?}", e);
-                }
-
-                // async_spawn(validate_proposal(
-                //     proposal.clone(),
-                //     parent_leaf,
-                //     self.consensus.clone(),
-                //     parent_state.clone(),
-                //     view_leader_key,
-                //     event_stream.clone(),
-                //     sender,
-                //     self.output_event_stream.clone(),
-                //     self.storage.clone(),
-                // ));
-
-                self.create_dependency_task_if_new(
-                    view + 1,
-                    event_receiver,
-                    event_sender,
-                    event.clone(),
-                );
+                    Ok((parent_leaf, parent_state)) => {
+                        let view_leader_key = self.quorum_membership.get_leader(view);
+                        async_spawn(validate_proposal(
+                            proposal.clone(),
+                            parent_leaf,
+                            self.consensus.clone(),
+                            parent_state.clone(),
+                            view_leader_key,
+                            event_sender.clone(),
+                            sender.clone(),
+                            self.output_event_stream.clone(),
+                            self.storage.clone(),
+                        ));
+                    }
+                    Err(e) => error!("Failed to handle QuorumProposalRecv event; error = {:?}", e),
+                };
             }
-            HotShotEvent::QuorumProposalDependenciesValidated(view) => {
+            HotShotEvent::QuorumProposalValidated(proposal) => {
+                if let Err(e) = self
+                    .handle_quorum_proposal_validated(proposal, &event_sender)
+                    .await
+                {
+                    error!(
+                        "Failed to handle QuorumProposalValidated event; error = {:?}",
+                        e
+                    );
+                }
+            }
+            HotShotEvent::QuorumProposalSend(message, _) => {
+                let view = message.data.view_number;
                 debug!("All proposal dependencies verified for view {:?}", view);
-                if !self.update_latest_proposed_view(*view).await {
+                if !self.update_latest_proposed_view(view).await {
                     debug!("proposal not updated");
                     return;
                 }
@@ -914,7 +932,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
         sender: &<TYPES as NodeType>::SignatureKey,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<()> {
+    ) -> Result<(Leaf<TYPES>, Arc<TYPES::ValidatedState>)> {
         let sender = sender.clone();
         debug!(
             "Received Quorum Proposal for view {}",
@@ -929,48 +947,53 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             .await;
 
         let view = proposal.data.get_view_number();
-        if view < self.cur_view {
-            bail!("Proposal is from an older view {:?}", proposal.data.clone());
-        }
+        ensure!(
+            view >= self.cur_view,
+            format!("Proposal is from an older view {:?}", proposal.data.clone())
+        );
 
         let view_leader_key = self.quorum_membership.get_leader(view);
-        if view_leader_key != sender {
-            bail!("Leader key does not match key in proposal");
-        }
+        ensure!(
+            view_leader_key == sender,
+            "Leader key does not match key in proposal"
+        );
 
         // Verify a timeout certificate OR a view sync certificate exists and is valid.
         if proposal.data.justify_qc.get_view_number() != view - 1 {
-            if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone() {
-                match received_proposal_cert {
-                    ViewChangeEvidence::Timeout(timeout_cert) => {
-                        if timeout_cert.get_data().view != view - 1 {
-                            bail!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                        }
-
-                        if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                            bail!("Timeout certificate for view {} was invalid", *view);
-                        }
-                    }
-                    ViewChangeEvidence::ViewSync(view_sync_cert) => {
-                        if view_sync_cert.view_number != view {
-                            bail!(
-                                "Cert view number {:?} does not match proposal view number {:?}",
-                                view_sync_cert.view_number,
-                                view
-                            );
-                        }
-
-                        // View sync certs must also be valid.
-                        if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                            bail!("Invalid ViewSyncFinalize cert provided");
-                        }
-                    }
+            let received_proposal_cert = proposal
+                .data
+                .proposal_certificate
+                .clone()
+                .context(
+                    "Quorum proposal for view {view:?} needed a timeout or view sync certificate, but did not have one"
+                )?;
+            match received_proposal_cert {
+                ViewChangeEvidence::Timeout(timeout_cert) => {
+                    ensure!(
+                        timeout_cert.get_data().view == view - 1,
+                        format!("Timeout certificate for view {view:?} was not for the immediately preceding view")
+                    );
+                    ensure!(
+                        timeout_cert.is_valid_cert(self.timeout_membership.as_ref()),
+                        format!("Timeout certificate for view {view:?} was invalid")
+                    );
                 }
-            } else {
-                bail!(
-                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
-                            *view);
-            };
+                ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                    ensure!(
+                        view_sync_cert.view_number == view,
+                        format!(
+                            "Cert view number {:?} does not match proposal view number {:?}",
+                            view_sync_cert.view_number, view
+                        )
+                    );
+
+                    // View sync certs must also be valid.
+                    ensure!(
+                        view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()),
+                        "Invalid ViewSyncFinalize cert provided"
+                    );
+                }
+            }
         }
 
         let justify_qc = proposal.data.justify_qc.clone();
@@ -996,16 +1019,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         //
         // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
         // that we do not support.
-        if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
-            if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                self.consensus
-                    .write()
-                    .await
-                    .saved_upgrade_certs
-                    .insert(view, upgrade_cert.clone());
-            } else {
-                bail!("Invalid upgrade_cert in proposal for view {}", *view);
-            }
+        let upgrade_cert = proposal
+            .data
+            .upgrade_certificate
+            .clone()
+            .context("Invalid upgrade_cert in proposal for view {view:?}")?;
+        if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+            self.consensus
+                .write()
+                .await
+                .saved_upgrade_certs
+                .insert(view, upgrade_cert.clone());
         }
 
         // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
@@ -1056,19 +1080,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
         };
 
+        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         if justify_qc.get_view_number() > consensus.high_qc.view_number {
             self.storage
                 .write()
                 .await
                 .update_high_qc(justify_qc.clone())
                 .await
-                .context("Failed to store High QC, not voting")?
-        }
-
-        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-
-        if justify_qc.get_view_number() > consensus.high_qc.view_number {
-            debug!("Updating high QC");
+                .context("Failed to store High QC, not voting")?;
             consensus.high_qc = justify_qc.clone();
         }
 
@@ -1147,9 +1166,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 proposal.data.clone(),
                 locked_view
             );
-            bail!("Failed liveness check, cannot find the parent either");
+            bail!("Failed liveness check, cannot find the parent");
         };
-        Ok(())
+        Ok((parent_leaf, parent_state))
     }
 
     async fn handle_quorum_proposal_validated(
@@ -1322,7 +1341,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         // todo get rid of this clone
         let qc = consensus.high_qc.clone();
 
-        drop(consensus);
+        // drop(consensus);
         // if should_propose {
         //     debug!(
         //         "Attempting to publish proposal after voting; now in view: {}",
