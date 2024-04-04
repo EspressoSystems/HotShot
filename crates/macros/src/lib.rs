@@ -114,7 +114,7 @@ impl TestData {
                 async_executor_impl = "tokio",
                 tokio::test(flavor = "multi_thread")
             )]
-            #[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+            #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
             #[tracing::instrument]
             async fn #test_name() {
                 async_compatibility_layer::logging::setup_logging();
