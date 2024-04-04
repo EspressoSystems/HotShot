@@ -156,7 +156,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub fn from_membership(
         view_number: TYPES::Time,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: &Arc<TYPES::Membership>,
+        membership: Arc<TYPES::Membership>,
     ) -> Self {
         let shares = membership
             .get_staked_committee(view_number)
@@ -209,7 +209,7 @@ pub struct VidDisperseShare<TYPES: NodeType> {
 
 impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     /// Create a vector of `VidDisperseShare` from `VidDisperse`
-    pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
+    pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<VidDisperseShare<TYPES>> {
         vid_disperse
             .shares
             .into_iter()
