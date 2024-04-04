@@ -21,7 +21,6 @@ use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestS
 use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
 
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::constants::EVENT_CHANNEL_SIZE;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::Leaf,
@@ -31,6 +30,7 @@ use hotshot_types::{
     },
     HotShotConfig, ValidatorConfig,
 };
+use hotshot_types::{constants::EVENT_CHANNEL_SIZE, simple_certificate::QuorumCertificate};
 use hotshot_types::{
     message::Message,
     traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
@@ -128,7 +128,7 @@ where
         Storage = TestStorage<TYPES>,
     >,
 {
-    /// excecute test
+    /// execute test
     ///
     /// # Panics
     /// if the test fails
@@ -220,6 +220,7 @@ where
             latest_view: None,
             changes,
             last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
+            high_qc: QuorumCertificate::genesis(),
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
@@ -350,6 +351,7 @@ where
                 quorum_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
@@ -357,14 +359,17 @@ where
                         config.da_staked_committee_size as u64,
                         config.num_nodes_without_stake as u64,
                     ),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
             };
 
@@ -372,11 +377,12 @@ where
                 B::start(Arc::new(<TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 )))
                 .await;
             config.builder_url = builder_url;
 
-            let networks = (self.launcher.resource_generator.channel_generator)(node_id);
+            let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
 
             if self.launcher.metadata.skip_late && late_start.contains(&node_id) {

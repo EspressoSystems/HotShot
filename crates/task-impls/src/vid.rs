@@ -5,10 +5,11 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 
+use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::VidDisperse,
+    data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
@@ -79,7 +80,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
 
                 #[cfg(async_executor_impl = "tokio")]
-                // Unwrap here will just propogate any panic from the spawned task, it's not a new place we can panic.
+                // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
                 let vid_disperse = vid_disperse.unwrap();
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(
@@ -107,7 +108,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    vid_disperse.payload_commitment.as_ref().as_ref(),
+                    vid_disperse.payload_commitment.as_ref(),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
@@ -154,6 +155,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return None;
             }
 
+            HotShotEvent::DAProposalValidated(proposal, _sender) => {
+                let txns = proposal.data.encoded_transactions.clone();
+                let num_nodes = self.membership.total_nodes();
+                let vid_disperse = spawn_blocking(move || {
+                    #[allow(clippy::panic)]
+                    vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+                })
+                .await;
+                #[cfg(async_executor_impl = "tokio")]
+                let vid_disperse = vid_disperse.unwrap();
+
+                let vid_disperse = VidDisperse::from_membership(
+                    proposal.data.view_number,
+                    vid_disperse,
+                    &self.membership,
+                );
+
+                let vid_disperse_tasks = VidDisperseShare::from_vid_disperse(vid_disperse)
+                    .into_iter()
+                    .filter_map(|vid_share| {
+                        Some(broadcast_event(
+                            Arc::new(HotShotEvent::VidDisperseRecv(
+                                vid_share.to_proposal(&self.private_key)?,
+                            )),
+                            &event_stream,
+                        ))
+                    });
+
+                join_all(vid_disperse_tasks).await;
+            }
+
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
             }
@@ -188,6 +220,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::BlockRecv(_, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
+                | HotShotEvent::DAProposalValidated(_, _)
         )
     }
     fn should_shutdown(event: &Self::Event) -> bool {

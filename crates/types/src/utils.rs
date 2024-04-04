@@ -44,7 +44,21 @@ pub enum ViewInner<TYPES: NodeType> {
     /// Leaf has failed
     Failed,
 }
-
+impl<TYPES: NodeType> Clone for ViewInner<TYPES> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::DA { payload_commitment } => Self::DA {
+                payload_commitment: *payload_commitment,
+            },
+            Self::Leaf { leaf, state, delta } => Self::Leaf {
+                leaf: *leaf,
+                state: state.clone(),
+                delta: delta.clone(),
+            },
+            Self::Failed => Self::Failed,
+        }
+    }
+}
 /// The hash of a leaf.
 type LeafCommitment<TYPES> = Commitment<Leaf<TYPES>>;
 
@@ -117,7 +131,7 @@ impl<TYPES: NodeType> Deref for View<TYPES> {
 }
 
 /// This exists so we can perform state transitions mutably
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct View<TYPES: NodeType> {
     /// The view data. Wrapped in a struct so we can mutate
     pub view_inner: ViewInner<TYPES>,
@@ -168,7 +182,7 @@ impl AsRef<Sha256Digest> for BuilderCommitment {
 
 /// For the wire format, we use bincode with the following options:
 ///   - No upper size limit
-///   - Litte endian encoding
+///   - Little endian encoding
 ///   - Varint encoding
 ///   - Reject trailing bytes
 #[allow(clippy::type_complexity)]
