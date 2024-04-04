@@ -11,6 +11,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use commit::Committable;
 use core::time::Duration;
+use futures::future::FutureExt;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::event::LeafInfo;
 use hotshot_types::{
@@ -828,20 +829,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
-                async_spawn(validate_proposal(
-                    proposal.clone(),
-                    parent_leaf,
-                    self.consensus.clone(),
-                    self.decided_upgrade_cert.clone(),
-                    self.upgrade_cert.clone(),
-                    self.quorum_membership.clone(),
-                    parent_state.clone(),
-                    view_leader_key,
-                    event_stream.clone(),
-                    sender,
-                    self.output_event_stream.clone(),
-                    self.storage.clone(),
-                ));
+                async_spawn(
+                    validate_proposal(
+                        proposal.clone(),
+                        parent_leaf,
+                        self.consensus.clone(),
+                        self.decided_upgrade_cert.clone(),
+                        self.upgrade_cert.clone(),
+                        self.quorum_membership.clone(),
+                        parent_state.clone(),
+                        view_leader_key,
+                        event_stream.clone(),
+                        sender,
+                        self.output_event_stream.clone(),
+                        self.storage.clone(),
+                    )
+                    .map(AnyhowTracing::err_as_debug),
+                );
             }
             HotShotEvent::QuorumProposalValidated(proposal) => {
                 let consensus = self.consensus.upgradable_read().await;
@@ -1715,4 +1719,16 @@ fn view_is_between_versions<TYPES: NodeType>(
     upgrade_data: &UpgradeProposalData<TYPES>,
 ) -> bool {
     view > upgrade_data.old_version_last_view && view < upgrade_data.new_version_first_view
+}
+
+/// Utilities to print anyhow logs.
+pub trait AnyhowTracing {
+    /// Print logs as debug
+    fn err_as_debug(self);
+}
+
+impl<T> AnyhowTracing for anyhow::Result<T> {
+    fn err_as_debug(self) {
+        let _ = self.inspect_err(|e| debug!("{}", format!("{:?}", e)));
+    }
 }
