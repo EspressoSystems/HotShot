@@ -204,7 +204,7 @@ impl Default for TestMetadata {
         let num_nodes_without_stake = 0;
         Self {
             timing_data: TimingData::default(),
-            min_transactions: 0,
+            min_transactions: 1,
             num_nodes_with_stake: num_nodes_with_stake,
             num_nodes_without_stake: num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,

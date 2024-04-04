@@ -106,8 +106,6 @@ impl<
                     return None;
                 }
             
-                async_sleep(Duration::from_millis(25)).await;
-
                 if let Some((block, _)) = self.wait_for_block().await {
                     // send the sequenced transactions to VID and DA tasks
                     let block_view = if make_block { view } else { view + 1 };
