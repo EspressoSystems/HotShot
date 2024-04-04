@@ -105,6 +105,8 @@ impl<
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
+            
+                async_sleep(Duration::from_millis(25)).await;
 
                 if let Some((block, _)) = self.wait_for_block().await {
                     // send the sequenced transactions to VID and DA tasks
@@ -214,7 +216,6 @@ impl<
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }
-            async_sleep(Duration::from_millis(10)).await;
         }
         latest_block
     }

@@ -26,9 +26,6 @@ async fn test_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let count = std::thread::available_parallelism().unwrap().get();
-    panic!("available threads: {}", count);
-
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
