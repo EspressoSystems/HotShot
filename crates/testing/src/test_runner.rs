@@ -5,7 +5,7 @@ use super::{
     txn_task::TxnTask,
 };
 use crate::{
-    block_builder::{BuilderTask, TestBuilderImplementation},
+    block_builder::TestBuilderImplementation,
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Networks, TestLauncher},
@@ -72,7 +72,6 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     /// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     pub context: LateNodeContext<TYPES, I>,
-    pub builder_task: Option<Box<dyn BuilderTask<TYPES = TYPES>>>,
 }
 
 /// The runner of a test network
@@ -334,18 +333,27 @@ where
         late_start: &HashSet<u64>,
     ) -> Vec<u64> {
         let mut results = vec![];
+        let config = self.launcher.resource_generator.config.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+            TYPES::Membership::default_election_config(
+                config.num_nodes_with_stake.get() as u64,
+                config.num_nodes_without_stake as u64,
+            )
+        });
+        let (mut builder_task, builder_url) =
+            B::start(Arc::new(<TYPES as NodeType>::Membership::create_election(
+                known_nodes_with_stake.clone(),
+                quorum_election_config.clone(),
+                config.fixed_leader_for_gpuvid,
+            )))
+            .await;
         for i in 0..total {
+            let mut config = config.clone();
             let node_id = self.next_node_id;
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
-            let mut config = self.launcher.resource_generator.config.clone();
-            let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-            let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-                TYPES::Membership::default_election_config(
-                    config.num_nodes_with_stake.get() as u64,
-                    config.num_nodes_without_stake as u64,
-                )
-            });
+
             let committee_election_config = I::committee_election_config_generator();
             let memberships = Memberships {
                 quorum_membership: <TYPES as NodeType>::Membership::create_election(
@@ -372,15 +380,7 @@ where
                     config.fixed_leader_for_gpuvid,
                 ),
             };
-
-            let (builder_task, builder_url) =
-                B::start(Arc::new(<TYPES as NodeType>::Membership::create_election(
-                    known_nodes_with_stake.clone(),
-                    quorum_election_config.clone(),
-                    config.fixed_leader_for_gpuvid,
-                )))
-                .await;
-            config.builder_url = builder_url;
+            config.builder_url = builder_url.clone();
 
             let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
@@ -391,7 +391,6 @@ where
                     LateStartNode {
                         networks,
                         context: Right((storage, memberships, config)),
-                        builder_task,
                     },
                 );
             } else {
@@ -416,14 +415,14 @@ where
                         LateStartNode {
                             networks,
                             context: Left(hotshot),
-                            builder_task,
                         },
                     );
                 } else {
                     let handle = hotshot.run_tasks().await;
-
-                    if let Some(task) = builder_task {
-                        task.start(Box::new(handle.get_event_stream()))
+                    if node_id == 1 {
+                        if let Some(task) = builder_task.take() {
+                            task.start(Box::new(handle.get_event_stream()))
+                        }
                     }
 
                     self.nodes.push(Node {

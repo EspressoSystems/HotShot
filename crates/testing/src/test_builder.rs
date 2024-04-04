@@ -88,7 +88,7 @@ impl Default for TimingData {
             round_start_delay: 100,
             start_delay: 100,
             propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::from_millis(100),
+            propose_max_round_time: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             secondary_network_delay: Duration::from_millis(1000),
             view_sync_timeout: Duration::from_millis(2000),

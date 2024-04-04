@@ -125,6 +125,8 @@ impl<
                         &event_stream,
                     )
                     .await;
+                } else {
+                    error!("Failed to get a block from the builder");
                 };
 
                 return None;
