@@ -57,6 +57,34 @@ jobs:
         env:
           RUST_BACKTRACE: full
       
+  examples:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: "build-and-test"
+          prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
       - name: Test examples
         run: just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
 
