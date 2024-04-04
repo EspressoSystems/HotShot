@@ -10,6 +10,7 @@ use hotshot_task_impls::network::{self, NetworkEventTaskState};
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_testing::view_generator::TestViewGenerator;
 use hotshot_types::{
+    constants::BASE_VERSION,
     data::ViewNumber,
     traits::{
         election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
@@ -33,7 +34,7 @@ async fn test_network_task() {
 
     let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
 
-    let networks = (launcher.resource_generator.channel_generator)(node_id);
+    let networks = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     let config = launcher.resource_generator.config.clone();
@@ -58,6 +59,7 @@ async fn test_network_task() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
+            version: BASE_VERSION,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
@@ -100,7 +102,7 @@ async fn test_network_storage_fail() {
 
     let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
 
-    let networks = (launcher.resource_generator.channel_generator)(node_id);
+    let networks = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     storage.write().await.should_return_err = true;
@@ -126,6 +128,7 @@ async fn test_network_storage_fail() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
+            version: BASE_VERSION,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);

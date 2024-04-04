@@ -45,7 +45,18 @@ async fn test_da_task() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+
+    for view in (&mut generator).take(1) {
+        proposals.push(view.da_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
+    }
+
+    generator.add_transactions(vec![TestTransaction(vec![0])]);
+
+    for view in (&mut generator).take(1) {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
@@ -67,19 +78,15 @@ async fn test_da_task() {
     // Run view 2 and validate proposal.
     let view_2 = TestScriptStage {
         inputs: vec![DAProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![exact(DAProposalValidated(proposals[1].clone(), leaders[1]))],
-        asserts: vec![],
-    };
-
-    // Run view 3 and vote
-    let view_3 = TestScriptStage {
-        inputs: vec![DAProposalValidated(proposals[1].clone(), leaders[1])],
-        outputs: vec![exact(DAVoteSend(votes[1].clone()))],
+        outputs: vec![
+            exact(DAProposalValidated(proposals[1].clone(), leaders[1])),
+            exact(DAVoteSend(votes[1].clone())),
+        ],
         asserts: vec![],
     };
 
     let da_state = DATaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
-    let stages = vec![view_1, view_2, view_3];
+    let stages = vec![view_1, view_2];
 
     run_test_script(stages, da_state).await;
 }
@@ -112,7 +119,18 @@ async fn test_da_task_storage_failure() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+
+    for view in (&mut generator).take(1) {
+        proposals.push(view.da_proposal.clone());
+        leaders.push(view.leader_public_key);
+        votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
+    }
+
+    generator.add_transactions(transactions);
+
+    for view in (&mut generator).take(1) {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));

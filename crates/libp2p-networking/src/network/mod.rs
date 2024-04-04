@@ -126,7 +126,7 @@ pub enum ClientRequest {
     /// prune a peer
     Prune(PeerId),
     /// add vec of known peers or addresses
-    AddKnownPeers(Vec<(Option<PeerId>, Multiaddr)>),
+    AddKnownPeers(Vec<(PeerId, Multiaddr)>),
     /// Ignore peers. Only here for debugging purposes.
     /// Allows us to have nodes that are never pruned
     IgnorePeers(Vec<PeerId>),
@@ -190,6 +190,8 @@ pub enum NetworkEventInternal {
     DMEvent(libp2p::request_response::Event<Vec<u8>, Vec<u8>>),
     /// a request response event
     RequestResponseEvent(libp2p::request_response::Event<Request, Response>),
+    /// a autonat event
+    AutonatEvent(libp2p::autonat::Event),
 }
 
 /// Bind all interfaces on port `port`

@@ -1,4 +1,4 @@
-rounds = 10
+rounds = 100
 transactions_per_round = 10
 transaction_size = 1000
 node_index = 0
@@ -57,7 +57,6 @@ start_delay = 1
 num_bootstrap = 5
 
 [libp2p_config]
-index_ports = true
 bootstrap_mesh_n_high = 4
 bootstrap_mesh_n_low = 4
 bootstrap_mesh_outbound_min = 2
@@ -67,7 +66,6 @@ mesh_n_low = 4
 mesh_outbound_min = 2
 mesh_n = 4
 online_time = 10
-base_port = 9000
 
 [web_server_config]
 url = "http://localhost:9000"
@@ -75,6 +73,9 @@ url = "http://localhost:9000"
 [da_web_server_config]
 url = "http://localhost:9001"
 
+[combined_network_config.delay_duration]
+secs = 1
+nanos = 0
 
 [web_server_config.wait_between_polls]
 secs = 0

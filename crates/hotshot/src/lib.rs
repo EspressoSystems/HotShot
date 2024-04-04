@@ -29,7 +29,8 @@ use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
+use hotshot_types::constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
+use versioned_binary_serialization::version::Version;
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
@@ -74,7 +75,7 @@ pub const H_256: usize = 32;
 
 /// Bundle of the networks used in consensus
 pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Newtork for reaching all nodes
+    /// Network for reaching all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for reaching the DA committee
@@ -134,6 +135,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// The network version
+    version: Arc<RwLock<Version>>,
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
@@ -239,6 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
+        let version = Arc::new(RwLock::new(BASE_VERSION));
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
         let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
@@ -253,6 +258,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             public_key,
             private_key,
             config,
+            version,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
@@ -503,8 +509,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_tx.clone(),
             event_rx.activate_cloned(),
             quorum_network.clone(),
-            quorum_membership,
+            quorum_membership.clone(),
             network::quorum_filter,
+            handle.get_storage().clone(),
+        )
+        .await;
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            quorum_network.clone(),
+            quorum_membership,
+            network::upgrade_filter,
             handle.get_storage().clone(),
         )
         .await;
@@ -545,6 +561,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
+        // TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
+        // <https://github.com/EspressoSystems/HotShot/issues/2712>
+        // add_quorum_vote_task(
+        //     registry.clone(),
+        //     event_tx.clone(),
+        //     event_rx.activate_cloned(),
+        //     &handle,
+        // )
+        // .await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),
@@ -632,13 +657,13 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Optional validated state.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
+    /// If it's given, we'll use it to construct the `SystemContext`. Otherwise, we'll construct
     /// the state from the block header.
     validated_state: Option<Arc<TYPES::ValidatedState>>,
 
     /// Optional state delta.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`.
+    /// If it's given, we'll use it to construct the `SystemContext`.
     state_delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
@@ -677,7 +702,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// # Arguments
     /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
     /// after restart.
-    /// * `validated_state` - Optional validated state that if given, will be used to constrcut the
+    /// * `validated_state` - Optional validated state that if given, will be used to construct the
     /// `SystemContext`.
     pub fn from_reload(
         anchor_leaf: Leaf<TYPES>,
