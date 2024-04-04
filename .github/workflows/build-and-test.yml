@@ -57,7 +57,7 @@ jobs:
         env:
           RUST_BACKTRACE: full
       
-  examples:
+  test-examples:
     strategy:
       matrix:
         just_variants:
