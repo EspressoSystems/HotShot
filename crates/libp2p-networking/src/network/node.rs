@@ -23,7 +23,7 @@ use super::{
 
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMEvent},
+    direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
     request_response::{Request, RequestResponseState, Response},
 };
@@ -33,7 +33,7 @@ use async_compatibility_layer::{
 };
 use futures::{select, FutureExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::{core::transport::ListenerId, StreamProtocol};
+use libp2p::{autonat, core::transport::ListenerId, StreamProtocol};
 use libp2p::{
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
@@ -87,6 +87,10 @@ pub struct NetworkNode {
     listener_id: Option<ListenerId>,
     /// Handler for requests and response behavior events.
     request_response_state: RequestResponseState,
+    /// Handler for direct messages
+    direct_message_state: DMBehaviour,
+    /// Channel to resend requests, set to Some when we call `spawn_listeners`
+    resend_tx: Option<UnboundedSender<ClientRequest>>,
 }
 
 impl NetworkNode {
@@ -123,26 +127,17 @@ impl NetworkNode {
     /// the `spawn_listeners` function
     /// will start connecting to peers
     #[instrument(skip(self))]
-    pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
+    pub fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
         info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         let mut shuffled = known_peers.iter().collect::<Vec<_>>();
         shuffled.shuffle(&mut thread_rng());
         for (peer_id, addr) in shuffled {
-            match peer_id {
-                Some(peer_id) => {
-                    // if we know the peerid, add address.
-                    if *peer_id != self.peer_id {
-                        behaviour.dht.add_address(peer_id, addr.clone());
-                        bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
-                    }
-                }
-                None => {
-                    // <https://github.com/EspressoSystems/hotshot/issues/290>
-                    // TODO actually implement this part
-                    // if we don't know the peerid, dial to find out what the peerid is
-                }
+            if *peer_id != self.peer_id {
+                behaviour.dht.add_address(peer_id, addr.clone());
+                behaviour.autonat.add_server(*peer_id, Some(addr.clone()));
+                bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
             }
         }
         behaviour.dht.add_bootstrap_nodes(bs_nodes);
@@ -291,6 +286,11 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
 
+            let autonat_config = autonat::Config {
+                only_global_ips: false,
+                ..Default::default()
+            };
+
             let network = NetworkDef::new(
                 gossipsub,
                 DHTBehaviour::new(
@@ -301,8 +301,9 @@ impl NetworkNode {
                         .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
                 ),
                 identify,
-                DMBehaviour::new(direct_message),
+                direct_message,
                 request_response,
+                autonat::Behaviour::new(peer_id, autonat_config),
             );
 
             // build swarm
@@ -320,10 +321,8 @@ impl NetworkNode {
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {
-            if let Some(peer) = peer {
-                if peer != swarm.local_peer_id() {
-                    swarm.behaviour_mut().add_address(peer, addr.clone());
-                }
+            if peer != swarm.local_peer_id() {
+                swarm.behaviour_mut().add_address(peer, addr.clone());
             }
         }
 
@@ -334,6 +333,8 @@ impl NetworkNode {
             config,
             listener_id: None,
             request_response_state: RequestResponseState::default(),
+            direct_message_state: DMBehaviour::default(),
+            resend_tx: None,
         })
     }
 
@@ -433,7 +434,14 @@ impl NetworkNode {
                         retry_count,
                     } => {
                         info!("pid {:?} adding direct request", self.peer_id);
-                        behaviour.add_direct_request(pid, contents, retry_count);
+                        let id = behaviour.add_direct_request(pid, contents.clone());
+                        let req = DMRequest {
+                            peer_id: pid,
+                            data: contents,
+                            backoff: ExponentialBackoff::default(),
+                            retry_count,
+                        };
+                        self.direct_message_state.add_direct_request(req, id);
                     }
                     ClientRequest::DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
@@ -475,7 +483,7 @@ impl NetworkNode {
         Ok(false)
     }
 
-    /// event handler for events emited from the swarm
+    /// event handler for events emitted from the swarm
     #[allow(clippy::type_complexity)]
     #[instrument(skip(self))]
     async fn handle_swarm_events(
@@ -541,7 +549,6 @@ impl NetworkNode {
                 address: _,
             }
             | SwarmEvent::NewExternalAddrCandidate { .. }
-            | SwarmEvent::ExternalAddrConfirmed { .. }
             | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: _,
@@ -603,16 +610,34 @@ impl NetworkNode {
                             None
                         }
                     },
-                    NetworkEventInternal::DMEvent(e) => Some(match e {
-                        DMEvent::DirectRequest(data, pid, chan) => {
-                            NetworkEvent::DirectRequest(data, pid, chan)
-                        }
-                        DMEvent::DirectResponse(data, pid) => {
-                            NetworkEvent::DirectResponse(data, pid)
-                        }
-                    }),
+                    NetworkEventInternal::DMEvent(e) => self
+                        .direct_message_state
+                        .handle_dm_event(e, self.resend_tx.clone()),
                     NetworkEventInternal::RequestResponseEvent(e) => {
                         self.request_response_state.handle_request_response(e)
+                    }
+                    NetworkEventInternal::AutonatEvent(e) => {
+                        match e {
+                            autonat::Event::InboundProbe(_) => {}
+                            autonat::Event::OutboundProbe(e) => match e {
+                                autonat::OutboundProbeEvent::Request { .. }
+                                | autonat::OutboundProbeEvent::Response { .. } => {}
+                                autonat::OutboundProbeEvent::Error {
+                                    probe_id: _,
+                                    peer,
+                                    error,
+                                } => {
+                                    warn!(
+                                        "Autonat Probe failed to peer {:?}, with error: {:?}",
+                                        peer, error
+                                    );
+                                }
+                            },
+                            autonat::Event::StatusChanged { old, new } => {
+                                info!("autonat Status changed. Old: {:?}, New: {:?}", old, new);
+                            }
+                        };
+                        None
                     }
                 };
 
@@ -645,6 +670,13 @@ impl NetworkNode {
             SwarmEvent::ListenerError { listener_id, error } => {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
+            SwarmEvent::ExternalAddrConfirmed { address } => {
+                let my_id = *self.swarm.local_peer_id();
+                self.swarm
+                    .behaviour_mut()
+                    .dht
+                    .add_address(&my_id, address.clone());
+            }
             _ => {
                 error!(
                     "Unhandled swarm event {:?}. This should not be possible.",
@@ -669,6 +701,8 @@ impl NetworkNode {
     > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
+
+        self.resend_tx = Some(s_input.clone());
 
         async_spawn(
             async move {

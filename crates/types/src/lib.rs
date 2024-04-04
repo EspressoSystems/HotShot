@@ -164,10 +164,12 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub known_nodes_without_stake: Vec<KEY>,
     /// My own validator config, including my public key, private key, stake value, serving as private parameter
     pub my_own_validator_config: ValidatorConfig<KEY>,
-    /// List of DA committee (staking)nodes for static DA committe
+    /// List of DA committee (staking)nodes for static DA committee
     pub da_staked_committee_size: usize,
-    /// List of DA committee nodes (non-staking)nodes for static DA committe
+    /// List of DA committee nodes (non-staking)nodes for static DA committee
     pub da_non_staked_committee_size: usize,
+    /// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID
+    pub fixed_leader_for_gpuvid: usize,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// Duration of view sync round timeouts

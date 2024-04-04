@@ -8,7 +8,7 @@ version = { workspace = true }
 rust-version = "1.65.0"
 
 [features]
-default = ["docs", "doc-images"]
+default = ["docs", "doc-images", "hotshot-testing"]
 gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 # Features required for binaries
@@ -17,8 +17,9 @@ bin-orchestrator = ["clap"]
 # Build the extended documentation
 docs = []
 doc-images = []
-hotshot-testing = []
+hotshot-testing = ["hotshot/hotshot-testing"]
 randomized-leader-election = []
+fixed-leader-election = []
 
 # libp2p
 [[example]]
@@ -89,11 +90,11 @@ name = "validator-push-cdn"
 path = "push-cdn/validator.rs"
 
 [[example]]
-name = "broker-push-cdn"
+name = "cdn-broker"
 path = "push-cdn/broker.rs"
 
 [[example]]
-name = "marshal-push-cdn"
+name = "cdn-marshal"
 path = "push-cdn/marshal.rs"
 
 [[example]]
@@ -105,11 +106,11 @@ async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
-bimap = "0.6.3"
-clap = { version = "4.5", features = ["derive", "env"], optional = true }
+bimap = "0.6"
+clap = { workspace = true, optional = true }
 commit = { workspace = true }
 custom_debug = { workspace = true }
-dashmap = "5.5.1"
+dashmap = "5"
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-web-server = { version = "0.5.26", path = "../web_server", default-features = false }
@@ -123,44 +124,44 @@ serde = { workspace = true, features = ["rc"] }
 snafu = { workspace = true }
 surf-disco = { workspace = true }
 time = { workspace = true }
-derive_more = "0.99.17"
-portpicker = "0.1.1"
-lru = "0.12.3"
+derive_more = "0.99"
+portpicker = "0.1"
+lru = "0.12"
 hotshot-task = { path = "../task" }
 hotshot = { path = "../hotshot" }
 hotshot-example-types = { path = "../example-types" }
 chrono = "0.4"
 versioned-binary-serialization = { workspace = true }
+sha2.workspace = true
+local-ip-address = "0.6"
 
 tracing = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-cdn-client = { workspace = true, features = ["insecure", "runtime-tokio"] }
+cdn-client = { workspace = true, features = ["runtime-tokio"] }
 cdn-broker = { workspace = true, features = [
-  "insecure",
+
   "runtime-tokio",
   "strong_consistency",
 ] }
-cdn-marshal = { workspace = true, features = ["insecure", "runtime-tokio"] }
+cdn-marshal = { workspace = true, features = ["runtime-tokio"] }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
-cdn-client = { workspace = true, features = ["insecure", "runtime-async-std"] }
+cdn-client = { workspace = true, features = ["runtime-async-std"] }
 cdn-broker = { workspace = true, features = [
-  "insecure",
   "runtime-async-std",
   "strong_consistency",
 ] }
-cdn-marshal = { workspace = true, features = ["insecure", "runtime-async-std"] }
+cdn-marshal = { workspace = true, features = ["runtime-async-std"] }
 
 [dev-dependencies]
-clap = { version = "4.5", features = ["derive", "env"] }
+clap.workspace = true
 toml = { workspace = true }
 blake3 = { workspace = true }
-local-ip-address = "0.6.1"
 anyhow.workspace = true
-tracing-subscriber = "0.3.18"
+tracing-subscriber = "0.3"
 
 [lints]
 workspace = true

@@ -1,24 +1,18 @@
-# Use a temporary builder image
-FROM docker.io/rust:1.76-bookworm as BUILDER
+FROM ubuntu:jammy
 
-# Set up the working directory
-WORKDIR /build
-COPY . .
+RUN apt-get update \
+    &&  apt-get install -y curl libcurl4 wait-for-it tini \
+    &&  rm -rf /var/lib/apt/lists/*
 
-# Build our example
-RUN RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' cargo build --profile release-lto --example broker-push-cdn
+ARG TARGETARCH
+ARG ASYNC_EXECUTOR
 
-# Use a minimal image for the final build
-FROM debian:bookworm as RUNNER
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/${TARGETARCH}/release/examples/cdn-broker /usr/local/bin/cdn-broker
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install libcurl4 -y
+# logging
+ENV RUST_LOG="warn"
 
-# Set the Rust log level
-ENV RUST_LOG=info
+# log format. JSON no ansi
+ENV RUST_LOG_FORMAT="json"
 
-# Copy the built binary from the builder image
-COPY --from=BUILDER ./build/target/release-lto/examples/broker-push-cdn /bin/broker-push-cdn
-
-# Set the entrypoint
-ENTRYPOINT ["/bin/broker-push-cdn"]
+ENTRYPOINT ["cdn-broker"]

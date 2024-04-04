@@ -43,7 +43,7 @@ pub struct TransactionTaskState<
     /// Network for all nodes
     pub network: Arc<I::QuorumNetwork>,
 
-    /// Membership for teh quorum
+    /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
 
     /// Builder API client
@@ -153,7 +153,7 @@ impl<
         {
             let mut available_blocks = match self
                 .builder_client
-                .get_available_blocks(last_leaf.block_header.payload_commitment())
+                .get_available_blocks(last_leaf.get_block_header().payload_commitment())
                 .await
             {
                 Ok(blocks) => blocks,
