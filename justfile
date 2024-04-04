@@ -61,11 +61,11 @@ test-ci-rest *ARGS:
 
 test-ci-1 *ARGS:
   echo Testing {{ARGS}}
-  ASYNC_STD_THREAD_COUNT=1 RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-2 *ARGS:
   echo Testing {{ARGS}}
-  ASYNC_STD_THREAD_COUNT=1 RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-3 *ARGS:
   echo Testing {{ARGS}}
