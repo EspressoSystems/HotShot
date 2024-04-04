@@ -222,6 +222,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
         QuorumVoteTaskState {
             public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
             consensus,
             latest_voted_view: handle.get_cur_view().await,
             vote_dependencies: HashMap::new(),

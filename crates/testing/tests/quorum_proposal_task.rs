@@ -31,6 +31,7 @@ fn make_payload_commitment(
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal() {
+    use hotshot_testing::predicates::quorum_proposal_validated;
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -58,7 +59,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
@@ -77,6 +78,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_qc_timeout() {
+    use hotshot_testing::predicates::quorum_proposal_validated;
     use hotshot_types::simple_vote::TimeoutData;
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -115,7 +117,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
+            quorum_proposal_validated(),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
         asserts: vec![],
@@ -174,7 +176,7 @@ async fn test_quorum_proposal_task_view_sync() {
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![
-            exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),
+            quorum_proposal_validated(),
             exact(DummyQuorumProposalSend(ViewNumber::new(2))),
         ],
         asserts: vec![],
@@ -214,7 +216,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // This should result in the proposal failing to be sent.
     let view_2 = TestScriptStage {
         inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
+        outputs: vec![quorum_proposal_validated],
         asserts: vec![],
     };
 

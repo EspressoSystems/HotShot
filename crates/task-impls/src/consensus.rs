@@ -150,7 +150,10 @@ async fn validate_proposal<TYPES: NodeType>(
     .await;
     // Notify other tasks
     broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+        Arc::new(HotShotEvent::QuorumProposalValidated(
+            proposal.data.clone(),
+            parent_leaf,
+        )),
         &event_stream,
     )
     .await;
@@ -776,7 +779,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.storage.clone(),
                 ));
             }
-            HotShotEvent::QuorumProposalValidated(proposal) => {
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let consensus = self.consensus.upgradable_read().await;
                 let view = proposal.get_view_number();
                 self.current_proposal = Some(proposal.clone());
@@ -1585,7 +1588,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
-                | HotShotEvent::QuorumProposalValidated(_)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::UpgradeCertificateFormed(_)
                 | HotShotEvent::DACertificateRecv(_)

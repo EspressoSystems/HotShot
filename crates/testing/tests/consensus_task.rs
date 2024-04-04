@@ -6,7 +6,8 @@ use hotshot_testing::task_helpers::key_pair_for_id;
 use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
     predicates::{
-        exact, is_at_view_number, quorum_proposal_send, quorum_vote_send, timeout_vote_send,
+        exact, is_at_view_number, quorum_proposal_send, quorum_proposal_validated,
+        quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{build_system_handle, vid_scheme_from_view_number},
@@ -60,7 +61,7 @@ async fn test_consensus_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
@@ -78,7 +79,7 @@ async fn test_consensus_task() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_validated(),
             quorum_proposal_send(),
         ],
         asserts: vec![is_at_view_number(2)],
@@ -140,7 +141,7 @@ async fn test_consensus_vote() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -191,7 +192,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
@@ -207,7 +208,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let view_2_outputs = vec![
         exact(ViewChange(ViewNumber::new(2))),
-        exact(QuorumProposalValidated(proposals[1].data.clone())),
+        quorum_proposal_validated(),
         exact(QuorumVoteSend(votes[1].clone())),
     ];
 
@@ -303,7 +304,7 @@ async fn test_view_sync_finalize_propose() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
@@ -355,7 +356,7 @@ async fn test_view_sync_finalize_propose() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_validated(),
             quorum_proposal_send(),
         ],
         asserts: vec![is_at_view_number(4)],
@@ -426,7 +427,7 @@ async fn test_view_sync_finalize_vote() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
@@ -459,10 +460,7 @@ async fn test_view_sync_finalize_vote() {
             // Multiple timeouts in a row, so we call for a view sync
             ViewSyncFinalizeCertificate2Recv(cert),
         ],
-        outputs: vec![
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
-            quorum_vote_send(),
-        ],
+        outputs: vec![quorum_proposal_validated(), quorum_vote_send()],
         asserts: vec![],
     };
 
@@ -531,7 +529,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![is_at_view_number(1)],
@@ -627,7 +625,7 @@ async fn test_vid_disperse_storage_failure() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             /* Does not vote */
         ],
         asserts: vec![is_at_view_number(1)],

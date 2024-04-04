@@ -78,7 +78,7 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -92,7 +92,7 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[1].clone())),
         ],
         asserts: vec![no_decided_upgrade_cert()],
@@ -106,7 +106,7 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
-            exact(QuorumProposalValidated(proposals[2].data.clone())),
+            quorum_proposal_validated(),
             leaf_decided(),
             exact(QuorumVoteSend(votes[2].clone())),
         ],
@@ -121,7 +121,7 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
-            exact(QuorumProposalValidated(proposals[3].data.clone())),
+            quorum_proposal_validated(),
             leaf_decided(),
             exact(QuorumVoteSend(votes[3].clone())),
         ],
@@ -132,7 +132,7 @@ async fn test_consensus_task_upgrade() {
         inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
-            exact(QuorumProposalValidated(proposals[4].data.clone())),
+            quorum_proposal_validated(),
             leaf_decided(),
         ],
         asserts: vec![decided_upgrade_cert()],

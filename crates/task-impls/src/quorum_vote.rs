@@ -6,6 +6,7 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use commit::Committable;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -13,9 +14,10 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::QuorumProposal,
+    data::{Leaf, QuorumProposal},
     event::Event,
-    message::Proposal,
+    message::{GeneralConsensusMessage, Proposal},
+    simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -56,6 +58,10 @@ fn validate_quorum_proposal<TYPES: NodeType>(
 
 /// Handler for the vote dependency.
 struct VoteDependencyHandle<TYPES: NodeType> {
+    /// Public key.
+    pub public_key: TYPES::SignatureKey,
+    /// Private Key.
+    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// View number to vote on.
     view_number: TYPES::Time,
     /// Event sender.
@@ -65,9 +71,10 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
+        let mut leaf = None;
         for event in res {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
+                HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
@@ -77,11 +84,15 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     } else {
                         payload_commitment = Some(proposal_payload_comm);
                     }
+                    let parent_commitment = parent_leaf.commit();
+                    let mut proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                    proposed_leaf.set_parent_commitment(parent_commitment);
+                    leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DACertificateValidated(cert) => {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
-                        if cert_payload_comm != comm {
+                        if !cert.is_genesis && cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
@@ -111,12 +122,31 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
         )
         .await;
 
-        // TODO(Keyao)): Send the real vote.
-        broadcast_event(
-            Arc::new(HotShotEvent::DummyQuorumVoteSend(self.view_number)),
-            &self.sender,
-        )
-        .await;
+        // Create and send the vote.
+        let Some(leaf) = leaf else {
+            error!("Quorum proposal isn't validated, but it should be.");
+            return;
+        };
+        let message = if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
+            QuorumData {
+                leaf_commit: leaf.commit(),
+            },
+            self.view_number,
+            &self.public_key,
+            &self.private_key,
+        ) {
+            GeneralConsensusMessage::<TYPES>::Vote(vote)
+        } else {
+            error!("Unable to sign quorum vote!");
+            return;
+        };
+        if let GeneralConsensusMessage::Vote(vote) = message {
+            debug!(
+                "Sending vote to next quorum leader {:?}",
+                vote.get_view_number() + 1
+            );
+            broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
+        }
     }
 }
 
@@ -124,8 +154,11 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
 ///
 /// Contains all of the information for the quorum vote.
 pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Our public key
+    /// Public key.
     pub public_key: TYPES::SignatureKey,
+
+    /// Private Key.
+    pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -173,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     VoteDependency::QuorumProposal => {
-                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
+                        if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
                             proposal.view_number
                         } else {
                             return false;
@@ -228,6 +261,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         let dependency_task = DependencyTask::new(
             vote_dependency,
             VoteDependencyHandle {
+                public_key: self.public_key.clone(),
+                private_key: self.private_key.clone(),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -281,11 +316,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
                     .await;
                 broadcast_event(Arc::new(HotShotEvent::ViewChange(view + 1)), &event_sender).await;
+
+                // Validate the quorum proposal.
                 if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
                     return;
                 }
+
+                // Vaildate the justify QC.
+                let justify_qc = proposal.data.justify_qc.clone();
+                if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
+                    error!("Invalid justify_qc in proposal for view {}", *view);
+                    let consensus = self.consensus.write().await;
+                    consensus.metrics.invalid_qc.update(1);
+                    return;
+                }
+                let consensus = self.consensus.read().await;
+                let parent = if justify_qc.is_genesis {
+                    Some(Leaf::genesis(&consensus.instance_state))
+                } else {
+                    consensus
+                        .saved_leaves
+                        .get(&justify_qc.get_data().leaf_commit)
+                        .cloned()
+                };
+                drop(consensus);
+                // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
+                let Some(parent) = parent else {
+                    warn!(
+                                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
+                                justify_qc.get_data().leaf_commit,
+                                *view,
+                            );
+                    return;
+                };
+
                 broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+                    Arc::new(HotShotEvent::QuorumProposalValidated(
+                        proposal.data.clone(),
+                        parent.clone(),
+                    )),
                     &event_sender.clone(),
                 )
                 .await;
@@ -386,6 +455,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) => {
+                // TODO(Keyao): Update view after voting?
                 debug!("All vote dependencies verified for view {:?}", view);
                 if !self.update_latest_voted_view(*view).await {
                     debug!("view not updated");
