@@ -1097,7 +1097,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -1576,7 +1576,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
@@ -3300,7 +3300,7 @@ dependencies = [
  "ethereum-types",
  "hotshot-types",
  "jf-primitives",
- "jf-utils",
+ "jf-utils 0.4.3",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64 0.3.4",
@@ -3419,7 +3419,7 @@ dependencies = [
  "generic-array",
  "jf-plonk",
  "jf-primitives",
- "jf-utils",
+ "jf-utils 0.4.3",
  "lazy_static",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3938,7 +3938,7 @@ dependencies = [
  "itertools 0.12.1",
  "jf-primitives",
  "jf-relation",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "rand_chacha 0.3.1",
@@ -3982,7 +3982,7 @@ dependencies = [
  "icicle-cuda-runtime",
  "itertools 0.12.1",
  "jf-relation",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -4016,7 +4016,7 @@ dependencies = [
  "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.4",
  "itertools 0.12.1",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
@@ -4036,6 +4036,22 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "tagged-base64 0.3.4",
+]
+
+[[package]]
+name = "jf-utils"
+version = "0.4.3"
+source = "git+https://github.com/espressosystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4114,7 +4130,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.4",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -7711,6 +7727,22 @@ dependencies = [
 [[package]]
 name = "tagged-base64"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
+dependencies = [
+ "ark-serialize",
+ "ark-std",
+ "base64 0.22.0",
+ "crc-any",
+ "serde",
+ "snafu 0.8.2",
+ "tagged-base64-macros 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tagged-base64"
+version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
 dependencies = [
  "ark-serialize",
@@ -7719,13 +7751,23 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu 0.8.2",
- "tagged-base64-macros 0.4.0",
+ "tagged-base64-macros 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
 name = "tagged-base64-macros"
 version = "0.3.3"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcdea3c0150898fad2f7196a173ec3264f7fc455ba570939163c558f48ae85ac"
 dependencies = [
  "quote",
  "syn 1.0.109",
