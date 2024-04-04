@@ -12,6 +12,9 @@ pub mod types;
 
 pub mod tasks;
 
+#[cfg(feature = "proposal-task")]
+use crate::tasks::add_quorum_proposal_task;
+
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -599,6 +602,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_upgrade_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        #[cfg(feature = "proposal-task")]
+        add_quorum_proposal_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),

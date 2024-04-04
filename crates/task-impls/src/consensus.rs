@@ -63,7 +63,7 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
-async fn validate_proposal<TYPES: NodeType>(
+pub(crate) async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -517,6 +517,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
                 debug!(
@@ -776,6 +777,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.storage.clone(),
                 ));
             }
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QuorumProposalValidated(proposal) => {
                 let consensus = self.consensus.upgradable_read().await;
                 let view = proposal.get_view_number();
@@ -1040,6 +1042,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QCFormed(cert) => {
                 debug!("QC Formed event happened!");
 
@@ -1293,6 +1296,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
                 let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
@@ -1325,6 +1329,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
             }
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
@@ -1357,8 +1362,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
     }
 
+    #[cfg(feature = "proposal-task")]
+    pub async fn publish_proposal_if_able(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> bool {
+        true
+    }
+
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
+    #[cfg(not(feature = "proposal-task"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,

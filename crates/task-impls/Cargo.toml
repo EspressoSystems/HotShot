@@ -8,13 +8,14 @@ version = { workspace = true }
 [features]
 example-upgrade = []
 gpu-vid = ["hotshot-types/gpu-vid"]
-
+proposal-task = []
 
 [dependencies]
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
+anyhow = { workspace = true }
 bincode = { workspace = true }
 bitvec = { workspace = true }
 chrono = "0.4"
