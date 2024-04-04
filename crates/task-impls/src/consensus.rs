@@ -3,6 +3,7 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
+use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -57,6 +58,50 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
 }
 
+/// Validate an attached upgrade certificate
+fn validate_upgrade_certificate<TYPES: NodeType>(
+    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
+    quorum_membership: &TYPES::Membership,
+) -> Result<()> {
+    if let Some(ref cert) = upgrade_certificate {
+        ensure!(
+            cert.is_valid_cert(quorum_membership),
+            "Invalid upgrade certificate."
+        );
+        Ok(())
+    } else {
+        Ok(())
+    }
+}
+
+/// Validate a justify_qc
+async fn validate_justify_qc<TYPES: NodeType>(
+    justify_qc: &QuorumCertificate<TYPES>,
+    quorum_membership: &TYPES::Membership,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
+) -> Result<()> {
+    let consensus = consensus.write().await;
+    ensure!(justify_qc.is_valid_cert(quorum_membership), {
+        consensus.metrics.invalid_qc.update(1);
+        "Invalid justify_qc in proposal."
+    });
+
+    Ok(())
+}
+
+/// Sets the saved upgrade certificate to the given certificate,
+/// if we haven't seen one yet.
+async fn update_internal_cert<TYPES: NodeType>(
+    upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    saved_certificate_lock: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+) {
+    let mut saved_certificate = saved_certificate_lock.write().await;
+
+    if (*saved_certificate).is_none() {
+        *saved_certificate = upgrade_certificate.clone();
+    }
+}
+
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
@@ -68,7 +113,7 @@ async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
-    decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     quorum_membership: Arc<TYPES::Membership>,
     parent_state: Arc<TYPES::ValidatedState>,
@@ -77,72 +122,50 @@ async fn validate_proposal<TYPES: NodeType>(
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
     storage: Arc<RwLock<impl Storage<TYPES>>>,
-) {
-    let Ok((validated_state, state_delta)) = parent_state
+) -> Result<()> {
+    let (validated_state, state_delta) = parent_state
         .validate_and_apply_header(
             &consensus.read().await.instance_state,
             &parent_leaf,
             &proposal.data.block_header.clone(),
         )
         .await
-    else {
-        error!("Block header doesn't extend the proposal",);
-        return;
-    };
+        .context("Block header doesn't extend the proposal!")?;
+
     let state = Arc::new(validated_state);
     let delta = Arc::new(state_delta);
     let parent_commitment = parent_leaf.commit();
     let view = proposal.data.get_view_number();
+
     let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
     proposed_leaf.set_parent_commitment(parent_commitment);
 
-    // Check that the justify_qc is a valid certificate.
-    if !proposal
-        .data
-        .justify_qc
-        .is_valid_cert(quorum_membership.as_ref())
-    {
-        warn!("Invalid justify_qc in proposal for view {}", *view);
-        let consensus = consensus.write().await;
-        consensus.metrics.invalid_qc.update(1);
-        return;
-    }
+    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+    //
+    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
+    //
+    //    proposal.validate_signature(&quorum_membership)?;
+    //
+    // in a future PR.
+    ensure!(
+        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
+        "Could not verify proposal."
+    );
 
-    // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    if !view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()) {
-        error!(?proposal.signature, "Could not verify proposal.");
-        return;
-    }
-
-    // Validate that the upgrade certificate is a valid certificate, if it is attached.
-    {
-        if let Some(ref cert) = proposal.data.upgrade_certificate {
-            if cert.is_valid_cert(quorum_membership.as_ref()) {
-                let mut stored_task_cert = upgrade_cert.write().await;
-                if (*stored_task_cert).is_none() {
-                    *stored_task_cert = Some(cert.clone());
-                }
-            } else {
-                warn!("Invalid upgrade cert in proposal for view {}", *view);
-                return;
-            }
-        }
-    }
+    validate_justify_qc(
+        &proposal.data.justify_qc,
+        &quorum_membership,
+        consensus.clone(),
+    )
+    .await?;
+    validate_upgrade_certificate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
-    {
-        if let Some(cert) = parent_leaf.get_upgrade_certificate() {
-            // The certificate must continue to be reattached if:
-            //   - we have not yet hit `decide_by`, OR
-            //   - we have hit `decide_by` and this specific certificate is not our `decided_upgrade_cert`.
-            if proposal.data.upgrade_certificate != Some(cert.clone())
-                && (view <= cert.data.decide_by
-                    || proposal.data.upgrade_certificate != decided_upgrade_cert)
-            {
-                return;
-            }
-        }
-    }
+    proposed_leaf.extends(parent_leaf, decided_upgrade_certificate)?;
+
+    // Update our saved upgrade cert if it's None.
+    // Do nothing if it's Some(..).
+    update_internal_cert(proposal.data.upgrade_certificate.clone(), upgrade_cert).await;
 
     let justify_qc = proposal.data.justify_qc.clone();
     // Create a positive vote if either liveness or safety check
@@ -166,9 +189,7 @@ async fn validate_proposal<TYPES: NodeType>(
     );
     let safety_check = outcome.is_ok();
 
-    // Skip if both saftey and liveness checks fail.
-    if !safety_check && !liveness_check {
-        error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc, proposal.data.clone(), consensus.locked_view);
+    ensure!(safety_check || liveness_check, {
         if let Err(e) = outcome {
             broadcast_event(
                 Event {
@@ -179,8 +200,9 @@ async fn validate_proposal<TYPES: NodeType>(
             )
             .await;
         }
-        return;
-    }
+
+        format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc, proposal.data.clone(), consensus.locked_view)
+    });
 
     // We accept the proposal, notify the application layer
 
@@ -229,6 +251,8 @@ async fn validate_proposal<TYPES: NodeType>(
     {
         warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
+
+    Ok(())
 }
 
 /// The state for the consensus task.  Contains all of the information for the implementation

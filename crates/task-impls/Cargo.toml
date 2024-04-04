@@ -11,6 +11,7 @@ gpu-vid = ["hotshot-types/gpu-vid"]
 
 
 [dependencies]
+anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
