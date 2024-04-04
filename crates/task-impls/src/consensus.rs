@@ -1652,7 +1652,7 @@ pub mod null_block {
 }
 
 /// Test whether a view is in the range defined by an upgrade certificate.
-fn view_is_between_versions<TYPES: NodeType>(
+pub(crate) fn view_is_between_versions<TYPES: NodeType>(
     view: TYPES::Time,
     upgrade_data: &UpgradeProposalData<TYPES>,
 ) -> bool {

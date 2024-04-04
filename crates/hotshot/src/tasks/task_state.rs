@@ -252,6 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             storage: handle.storage.clone(),
             timeout: handle.hotshot.config.next_view_timeout,
             timeout_task: None,
+            round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
         }
     }
