@@ -292,7 +292,7 @@ impl TestMetadata {
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             timeout_ratio: (11, 10),
-            round_start_delay: 1,
+            round_start_delay: 25,
             start_delay: 1,
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
