@@ -4,8 +4,8 @@ use crate::{
     helpers::broadcast_event,
 };
 use async_broadcast::Sender;
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
-
 use hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -20,7 +20,10 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::{debug, error, instrument};
 use versioned_binary_serialization::version::StaticVersionType;
 
@@ -205,7 +208,13 @@ impl<
                 }
             };
 
+            let num_txns = block.block_payload.get_transactions(&block.metadata).len();
+
             latest_block = Some((block, header_input));
+            if num_txns >= self.api.min_transactions() {
+                return latest_block;
+            }
+            async_sleep(Duration::from_millis(100)).await;
         }
         latest_block
     }
