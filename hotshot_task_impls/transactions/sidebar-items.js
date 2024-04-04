@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TransactionTaskState"],"type":["CommitmentMap"]};
+window.SIDEBAR_ITEMS = {"struct":["TransactionTaskState"]};

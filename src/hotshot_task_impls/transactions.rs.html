@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/transactions.rs`."><title>transactions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/transactions.rs`."><title>transactions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -257,94 +257,15 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    builder::BuilderClient,
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
 <span class="kw">use </span>async_broadcast::Sender;
-<span class="kw">use </span>async_compatibility_layer::{
-    art::async_timeout,
-    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
-};
+<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>bincode::config::Options;
-<span class="kw">use </span>commit::{Commitment, Committable};
-
+<span class="kw">use </span>hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
@@ -357,23 +278,20 @@
         signature_key::SignatureKey,
         BlockPayload,
     },
-    utils::bincode_opts,
 };
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
-
-<span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
-</span><span class="kw">type </span>CommitmentMap&lt;T&gt; = HashMap&lt;Commitment&lt;T&gt;, T&gt;;
+<span class="kw">use </span>tracing::{debug, error, instrument};
+<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
 
 <span class="doccomment">/// Tracks state of a Transaction task
 </span><span class="kw">pub struct </span>TransactionTaskState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
     A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
+    Ver: StaticVersionType,
 &gt; {
     <span class="doccomment">/// The state's api
     </span><span class="kw">pub </span>api: A,
@@ -384,17 +302,14 @@
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
-    <span class="doccomment">/// A list of undecided transactions
-    </span><span class="kw">pub </span>transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
-
-    <span class="doccomment">/// A list of transactions we've seen decided, but didn't receive
-    </span><span class="kw">pub </span>seen_transactions: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
-
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+
+    <span class="doccomment">/// Builder API client
+    </span><span class="kw">pub </span>builder_client: BuilderClient&lt;TYPES, Ver&gt;,
 
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -404,12 +319,15 @@
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
-    TransactionTaskState&lt;TYPES, I, A&gt;
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
+        Ver: StaticVersionType,
+    &gt; TransactionTaskState&lt;TYPES, I, A, Ver&gt;
 {
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction Handling Task"</span>, level = <span class="string">"error"</span>)]
-
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -417,93 +335,14 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) =&gt; {
-                <span class="macro">futures::join! </span>{
-                    <span class="self">self</span>.api
-                        .send_event(Event {
-                            view_number: <span class="self">self</span>.cur_view,
-                            event: EventType::Transactions {
-                                transactions: transactions.clone(),
-                            },
-                        }),
-                    <span class="kw">async </span>{
-                        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                        <span class="self">self</span>.transactions
-                            .modify(|txns| {
-                                <span class="kw">for </span>transaction <span class="kw">in </span>transactions {
-                                    <span class="kw">let </span>size =
-                                        bincode_opts().serialized_size(<span class="kw-2">&amp;</span>transaction).unwrap_or(<span class="number">0</span>);
-
-                                    <span class="comment">// If we didn't already know about this transaction, update our mempool metrics.
-                                    </span><span class="kw">if </span>!<span class="self">self</span>.seen_transactions.remove(<span class="kw-2">&amp;</span>transaction.commit())
-                                        &amp;&amp; txns.insert(transaction.commit(), transaction.clone()).is_none()
-                                    {
-                                        consensus.metrics.outstanding_transactions.update(<span class="number">1</span>);
-                                        consensus
-                                            .metrics
-                                            .outstanding_transactions_memory_size
-                                            .update(i64::try_from(size).unwrap_or_else(|e| {
-                                                <span class="macro">warn!</span>(
-                                                    <span class="string">"Conversion failed: {e}. Using the max value."
-                                                </span>);
-                                                i64::MAX
-                                            }));
-                                    }
-                                }
-                            })
-                            .<span class="kw">await</span>;
-                    }
-                };
-
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            }
-            HotShotEvent::LeafDecided(leaf_chain) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>included_txns = HashSet::new();
-                <span class="kw">let </span><span class="kw-2">mut </span>included_txn_size = <span class="number">0</span>;
-                <span class="kw">let </span><span class="kw-2">mut </span>included_txn_count = <span class="number">0</span>;
-                <span class="kw">for </span>leaf <span class="kw">in </span>leaf_chain {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.get_block_payload() {
-                        <span class="kw">for </span>txn <span class="kw">in
-                            </span>payload.transaction_commitments(leaf.get_block_header().metadata())
-                        {
-                            included_txns.insert(txn);
-                        }
-                    }
-                }
-                <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                <span class="kw">let </span>txns = <span class="self">self</span>.transactions.cloned().<span class="kw">await</span>;
-
-                <span class="kw">let _ </span>= included_txns.iter().map(|hash| {
-                    <span class="kw">if </span>!txns.contains_key(hash) {
-                        <span class="self">self</span>.seen_transactions.insert(<span class="kw-2">*</span>hash);
-                    }
-                });
-                drop(txns);
-                <span class="self">self</span>.transactions
-                    .modify(|txns| {
-                        <span class="kw-2">*</span>txns = txns
-                            .drain()
-                            .filter(|(txn_hash, txn)| {
-                                <span class="kw">if </span>included_txns.contains(txn_hash) {
-                                    included_txn_count += <span class="number">1</span>;
-                                    included_txn_size +=
-                                        bincode_opts().serialized_size(txn).unwrap_or_default();
-                                    <span class="bool-val">false
-                                </span>} <span class="kw">else </span>{
-                                    <span class="bool-val">true
-                                </span>}
-                            })
-                            .collect();
+                <span class="self">self</span>.api
+                    .send_event(Event {
+                        view_number: <span class="self">self</span>.cur_view,
+                        event: EventType::Transactions {
+                            transactions: transactions.clone(),
+                        },
                     })
                     .<span class="kw">await</span>;
-
-                consensus
-                    .metrics
-                    .outstanding_transactions
-                    .update(-included_txn_count);
-                consensus
-                    .metrics
-                    .outstanding_transactions_memory_size
-                    .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
             HotShotEvent::ViewChange(view) =&gt; {
@@ -525,38 +364,29 @@
                     <span class="macro">debug!</span>(<span class="string">"Not next leader for view {:?}"</span>, <span class="self">self</span>.cur_view);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="comment">// TODO (Keyao) Determine whether to allow empty blocks.
-                // &lt;https://github.com/EspressoSystems/HotShot/issues/1822&gt;
-                </span><span class="kw">let </span>txns = <span class="self">self</span>.wait_for_transactions().<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">let </span>(payload, metadata) =
-                    <span class="kw">match </span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(txns) {
-                        <span class="prelude-val">Ok</span>((payload, metadata)) =&gt; (payload, metadata),
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((block, <span class="kw">_</span>)) = <span class="self">self</span>.wait_for_block().<span class="kw">await </span>{
+                    <span class="comment">// send the sequenced transactions to VID and DA tasks
+                    </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
+                    <span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block.block_payload.encode() {
+                        <span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect::&lt;Vec&lt;u8&gt;&gt;(),
                         <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">error!</span>(<span class="string">"Failed to build the block payload: {:?}."</span>, e);
+                            <span class="macro">error!</span>(<span class="string">"Failed to encode the block payload: {:?}."</span>, e);
                             <span class="kw">return </span><span class="prelude-val">None</span>;
                         }
                     };
-
-                <span class="comment">// encode the transactions
-                </span><span class="kw">let </span>encoded_transactions = <span class="kw">match </span>payload.encode() {
-                    <span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect::&lt;Vec&lt;u8&gt;&gt;(),
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">"Failed to encode the block payload: {:?}."</span>, e);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
+                    broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            encoded_transactions,
+                            block.metadata,
+                            block_view,
+                        )),
+                        <span class="kw-2">&amp;</span>event_stream,
+                    )
+                    .<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">"Failed to get a block from the builder"</span>);
                 };
-
-                <span class="comment">// send the sequenced transactions to VID and DA tasks
-                </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
-                broadcast_event(
-                    Arc::new(HotShotEvent::TransactionsSequenced(
-                        encoded_transactions,
-                        metadata,
-                        block_view,
-                    )),
-                    <span class="kw-2">&amp;</span>event_stream,
-                )
-                .<span class="kw">await</span>;
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
@@ -569,74 +399,95 @@
     </span>}
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction Handling Task"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>wait_for_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;TYPES::Transaction&gt;&gt; {
+    </span><span class="kw">async fn </span>wait_for_block(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;(AvailableBlockData&lt;TYPES&gt;, AvailableBlockHeaderInput&lt;TYPES&gt;)&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
-        <span class="comment">// TODO (Keyao) Investigate the use of transaction hash
-        // &lt;https://github.com/EspressoSystems/HotShot/issues/1811&gt;
-        // let parent_leaf = self.parent_leaf().await?;
-        // let previous_used_txns = match parent_leaf.tarnsaction_commitments {
-        //     Some(txns) =&gt; txns,
-        //     None =&gt; HashSet::new(),
-        // };
-
-        </span><span class="kw">let </span>receiver = <span class="self">self</span>.transactions.subscribe().<span class="kw">await</span>;
-
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>all_txns = <span class="self">self</span>.transactions.cloned().<span class="kw">await</span>;
-            <span class="macro">debug!</span>(<span class="string">"Size of transactions: {}"</span>, all_txns.len());
-            <span class="comment">// TODO (Keyao) Investigate the use of transaction hash
-            // &lt;https://github.com/EspressoSystems/HotShot/issues/1811&gt;
-            // let unclaimed_txns: Vec&lt;_&gt; = all_txns
-            //     .iter()
-            //     .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-            //     .collect();
-            </span><span class="kw">let </span>unclaimed_txns = all_txns;
-
-            <span class="kw">let </span>time_past = task_start_time.elapsed();
-            <span class="kw">if </span>unclaimed_txns.len() &lt; <span class="self">self</span>.api.min_transactions()
-                &amp;&amp; (time_past &lt; <span class="self">self</span>.api.propose_max_round_time())
-            {
-                <span class="kw">let </span>duration = <span class="self">self</span>.api.propose_max_round_time() - time_past;
-                <span class="kw">let </span>result = async_timeout(duration, receiver.recv()).<span class="kw">await</span>;
-                <span class="kw">match </span>result {
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="comment">// Fall through below to updating new block
-                        </span><span class="macro">debug!</span>(
-                            <span class="string">"propose_max_round_time passed, sending transactions we have so far"
-                        </span>);
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-                        <span class="comment">// Something unprecedented is wrong, and `transactions` has been dropped
-                        </span><span class="macro">error!</span>(<span class="string">"Channel receiver error for SubscribableRwLock {:?}"</span>, e);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; <span class="kw">continue</span>,
+        <span class="kw">let </span>last_leaf = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_leaf();
+        <span class="kw">let </span><span class="kw-2">mut </span>latest_block: <span class="prelude-ty">Option</span>&lt;(
+            AvailableBlockData&lt;TYPES&gt;,
+            AvailableBlockHeaderInput&lt;TYPES&gt;,
+        )&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.api.propose_max_round_time()
+            &amp;&amp; latest_block.as_ref().map_or(<span class="bool-val">true</span>, |(data, <span class="kw">_</span>)| {
+                data.block_payload.get_transactions(<span class="kw-2">&amp;</span>data.metadata).len()
+                    &lt; <span class="self">self</span>.api.min_transactions()
+            })
+        {
+            <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span><span class="self">self
+                </span>.builder_client
+                .get_available_blocks(last_leaf.get_block_header().payload_commitment())
+                .<span class="kw">await
+            </span>{
+                <span class="prelude-val">Ok</span>(blocks) =&gt; blocks,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">error!</span>(%err, <span class="string">"Couldn't get available blocks"</span>);
+                    <span class="kw">continue</span>;
                 }
+            };
+
+            available_blocks.sort_by_key(|block_info| block_info.offered_fee);
+
+            <span class="kw">let </span><span class="prelude-val">Some</span>(block_info) = available_blocks.pop() <span class="kw">else </span>{
+                <span class="kw">continue</span>;
+            };
+
+            <span class="comment">// Don't try to re-claim the same block if builder advertises it again
+            </span><span class="kw">if </span>latest_block.as_ref().map_or(<span class="bool-val">false</span>, |block| {
+                block.<span class="number">0</span>.block_payload.builder_commitment(<span class="kw-2">&amp;</span>block.<span class="number">0</span>.metadata) == block_info.block_hash
+            }) {
+                <span class="kw">continue</span>;
             }
-            <span class="kw">break</span>;
+
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                block_info.block_hash.as_ref(),
+            ) <span class="kw">else </span>{
+                <span class="macro">error!</span>(<span class="string">"Failed to sign block hash"</span>);
+                <span class="kw">continue</span>;
+            };
+
+            <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join! </span>{
+                <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), <span class="kw-2">&amp;</span>signature),
+                <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash, <span class="kw-2">&amp;</span>signature)
+            };
+
+            <span class="kw">let </span>block = <span class="kw">match </span>block {
+                <span class="prelude-val">Ok</span>(val) =&gt; val,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block"</span>);
+                    <span class="kw">continue</span>;
+                }
+            };
+
+            <span class="kw">let </span>header_input = <span class="kw">match </span>header_input {
+                <span class="prelude-val">Ok</span>(val) =&gt; val,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block"</span>);
+                    <span class="kw">continue</span>;
+                }
+            };
+
+            <span class="kw">let </span>num_txns = block.block_payload.get_transactions(<span class="kw-2">&amp;</span>block.metadata).len();
+
+            latest_block = <span class="prelude-val">Some</span>((block, header_input));
+            <span class="kw">if </span>num_txns &gt;= <span class="self">self</span>.api.min_transactions() {
+                <span class="kw">return </span>latest_block;
+            }
+            async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
         }
-        <span class="kw">let </span>all_txns = <span class="self">self</span>.transactions.cloned().<span class="kw">await</span>;
-        <span class="comment">// TODO (Keyao) Investigate the use of transaction hash
-        // &lt;https://github.com/EspressoSystems/HotShot/issues/1811&gt;
-        </span><span class="kw">let </span>txns: Vec&lt;TYPES::Transaction&gt; = all_txns.values().cloned().collect();
-        <span class="comment">// let txns: Vec&lt;TYPES::Transaction&gt; = all_txns
-        //     .iter()
-        //     .filter_map(|(txn_hash, txn)| {
-        //         if previous_used_txns.contains(txn_hash) {
-        //             None
-        //         } else {
-        //             Some(txn.clone())
-        //         }
-        //     })
-        //     .collect();
-        </span><span class="prelude-val">Some</span>(txns)
+        latest_block
     }
 }
 
 <span class="doccomment">/// task state implementation for Transactions Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
-    <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, A&gt;
+</span><span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
+        Ver: StaticVersionType + <span class="lifetime">'static</span>,
+    &gt; TaskState <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, A, Ver&gt;
 {
     <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
@@ -646,7 +497,6 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::TransactionsRecv(<span class="kw">_</span>)
-                | HotShotEvent::LeafDecided(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
