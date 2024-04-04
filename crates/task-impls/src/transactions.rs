@@ -214,7 +214,6 @@ impl<
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }
-            async_sleep(Duration::from_millis(10)).await;
         }
         latest_block
     }
