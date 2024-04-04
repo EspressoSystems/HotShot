@@ -1,5 +1,6 @@
 use crate::types::SystemContextHandle;
 
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
 use hotshot_task_impls::{
@@ -194,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             timeout_task: None,
-            upgrade_cert: None,
+            upgrade_cert: Arc::new(RwLock::new(None)),
             proposal_cert: None,
             decided_upgrade_cert: None,
             version: handle.hotshot.version.clone(),

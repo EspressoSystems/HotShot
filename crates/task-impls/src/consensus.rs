@@ -63,10 +63,14 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
+    decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    quorum_membership: Arc<TYPES::Membership>,
     parent_state: Arc<TYPES::ValidatedState>,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -92,11 +96,54 @@ async fn validate_proposal<TYPES: NodeType>(
     let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
     proposed_leaf.set_parent_commitment(parent_commitment);
 
+    // Check that the justify_qc is a valid certificate.
+    if !proposal
+        .data
+        .justify_qc
+        .is_valid_cert(quorum_membership.as_ref())
+    {
+        warn!("Invalid justify_qc in proposal for view {}", *view);
+        let consensus = consensus.write().await;
+        consensus.metrics.invalid_qc.update(1);
+        return;
+    }
+
     // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     if !view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()) {
         error!(?proposal.signature, "Could not verify proposal.");
         return;
     }
+
+    // Validate that the upgrade certificate is a valid certificate, if it is attached.
+    {
+        if let Some(ref cert) = proposal.data.upgrade_certificate {
+            if cert.is_valid_cert(quorum_membership.as_ref()) {
+                let mut stored_task_cert = upgrade_cert.write().await;
+                if (*stored_task_cert).is_none() {
+                    *stored_task_cert = Some(cert.clone());
+                }
+            } else {
+                warn!("Invalid upgrade cert in proposal for view {}", *view);
+                return;
+            }
+        }
+    }
+
+    // Validate that the upgrade certificate is re-attached, if we saw one on the parent
+    {
+        if let Some(cert) = parent_leaf.get_upgrade_certificate() {
+            // The certificate must continue to be reattached if:
+            //   - we have not yet hit `decide_by`, OR
+            //   - we have hit `decide_by` and this specific certificate is not our `decided_upgrade_cert`.
+            if proposal.data.upgrade_certificate != Some(cert.clone())
+                && (view <= cert.data.decide_by
+                    || proposal.data.upgrade_certificate != decided_upgrade_cert)
+            {
+                return;
+            }
+        }
+    }
+
     let justify_qc = proposal.data.justify_qc.clone();
     // Create a positive vote if either liveness or safety check
     // passes.
@@ -240,7 +287,7 @@ pub struct ConsensusTaskState<
     pub timeout_task: Option<JoinHandle<()>>,
 
     /// last Upgrade Certificate this node formed
-    pub upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    pub upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 
     /// last View Sync Certificate or Timeout Certificate this node formed.
     pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
@@ -585,13 +632,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let justify_qc = proposal.data.justify_qc.clone();
 
-                if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
-                    error!("Invalid justify_qc in proposal for view {}", *view);
-                    let consensus = self.consensus.write().await;
-                    consensus.metrics.invalid_qc.update(1);
-                    return;
-                }
-
                 // Validate the upgrade certificate, if one is attached.
                 // Continue unless the certificate is invalid.
                 //
@@ -768,6 +808,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     proposal.clone(),
                     parent_leaf,
                     self.consensus.clone(),
+                    self.decided_upgrade_cert.clone(),
+                    self.upgrade_cert.clone(),
+                    self.quorum_membership.clone(),
                     parent_state.clone(),
                     view_leader_key,
                     event_stream.clone(),
@@ -1105,9 +1148,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 );
 
                 // Update our current upgrade_cert as long as it's still relevant.
-                if cert.view_number >= self.cur_view {
+                if cert.data.decide_by >= self.cur_view + 3 {
                     debug!("Updating current upgrade_cert");
-                    self.upgrade_cert = Some(cert.clone());
+                    let mut upgrade_cert = self.upgrade_cert.write().await;
+
+                    // If we already have an `upgrade_cert` stored, it's probably for good reason and we shouldn't touch it.
+                    if (*upgrade_cert).is_none() {
+                        *upgrade_cert = Some(cert.clone());
+                    }
                 }
             }
             HotShotEvent::DACertificateRecv(cert) => {
@@ -1464,7 +1512,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     view_number: view,
                     justify_qc: consensus.high_qc.clone(),
                     proposal_certificate: None,
-                    upgrade_certificate: None,
+                    upgrade_certificate: self.decided_upgrade_cert.clone(),
                 };
 
                 let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal);
@@ -1511,19 +1559,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 commit_and_metadata.metadata.clone(),
             )
             .await;
-            let upgrade_cert = if self
-                .upgrade_cert
-                .as_ref()
-                .is_some_and(|cert| cert.view_number == view)
-            {
+            // As long as our current certificate is still relevant, we should attach it.
+            let mut stored_upgrade_cert = self.upgrade_cert.write().await;
+            let upgrade_cert = if stored_upgrade_cert.as_ref().is_some_and(|cert| {
+                view <= cert.data.decide_by && view < cert.data.new_version_first_view
+            }) {
                 debug!("Attaching upgrade certificate to proposal.");
-                // If the cert view number matches, set upgrade_cert to self.upgrade_cert
-                // and set self.upgrade_cert to None.
-                //
-                // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
-                self.upgrade_cert.take()
+                stored_upgrade_cert.clone()
             } else {
                 // Otherwise, set upgrade_cert to None.
+                *stored_upgrade_cert = None;
                 None
             };
 
