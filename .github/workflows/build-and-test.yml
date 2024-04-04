@@ -56,6 +56,9 @@ jobs:
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
+      
+      - name: Test examples
+        run: just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
 
   build-release:
     strategy:
