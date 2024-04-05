@@ -64,7 +64,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0
 ] }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.2" }
-jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.2" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.3" }
 lazy_static = "1"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5", default-features = false }
@@ -133,9 +133,9 @@ anyhow = "1"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.19" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.19" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.19" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.22" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.22" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.22" }
 
 ### Profiles
 ###
