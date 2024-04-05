@@ -139,12 +139,6 @@ async fn validate_proposal<TYPES: NodeType>(
         "Could not verify proposal."
     );
 
-    validate_justify_qc(
-        &proposal.data.justify_qc,
-        &quorum_membership,
-        consensus.clone(),
-    )
-    .await?;
     validate_upgrade_certificate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
