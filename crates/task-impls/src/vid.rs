@@ -59,7 +59,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number) => {
                 let vid_disperse = calculate_vid_disperse(
                     encoded_transactions.clone(),
                     self.membership.clone(),
@@ -89,7 +89,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    vid_disperse.payload_commitment.as_ref().as_ref(),
+                    vid_disperse.payload_commitment.as_ref(),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
@@ -167,7 +167,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::BlockRecv(_, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )
