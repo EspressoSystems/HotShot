@@ -39,7 +39,7 @@ async fn test_consensus_task_upgrade() {
     let upgrade_data: UpgradeProposalData<TestTypes> = UpgradeProposalData {
         old_version,
         new_version,
-        decide_by: ViewNumber::new(4),
+        decide_by: ViewNumber::new(5),
         new_version_hash: [0u8; 12].to_vec(),
         old_version_last_view: ViewNumber::new(5),
         new_version_first_view: ViewNumber::new(7),

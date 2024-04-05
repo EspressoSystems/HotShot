@@ -11,7 +11,7 @@ use hotshot::types::SystemContextHandle;
 
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum PredicateResult {
     Pass,
 

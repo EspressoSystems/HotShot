@@ -648,6 +648,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let justify_qc = proposal.data.justify_qc.clone();
 
+                if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
+                    error!("Invalid justify_qc in proposal for view {}", *view);
+                    let consensus = self.consensus.write().await;
+                    consensus.metrics.invalid_qc.update(1);
+                    return;
+                }
+
                 // Validate the upgrade certificate -- this is just a signature validation.
                 // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
                 if let Err(e) = validate_upgrade_certificate(
@@ -803,6 +810,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                     return;
                 };
+
+                error!("SPAWNING VALIDATION TASK!!!!!!!!!");
                 async_spawn(
                     validate_proposal(
                         proposal.clone(),
@@ -1148,7 +1157,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *cert.view_number
                 );
 
-                // Update our current upgrade_cert as long as it's still relevant.
+                // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.cur_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
 
