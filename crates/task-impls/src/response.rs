@@ -142,14 +142,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     .or_default()
                     .insert(key, share);
             }
+            return consensus.vid_shares.get(&view)?.get(key).cloned();
         }
-        self.consensus
-            .read()
-            .await
-            .vid_shares
-            .get(&view)?
-            .get(key)
-            .cloned()
+        consensus.vid_shares.get(&view)?.get(key).cloned()
     }
 
     /// Handle the request contained in the message. Returns the response we should send
