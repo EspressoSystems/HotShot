@@ -1,5 +1,6 @@
 use crate::types::SystemContextHandle;
 
+use std::sync::Arc;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
