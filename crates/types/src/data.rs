@@ -209,7 +209,7 @@ pub struct VidDisperseShare<TYPES: NodeType> {
 
 impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     /// Create a vector of `VidDisperseShare` from `VidDisperse`
-    pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<VidDisperseShare<TYPES>> {
+    pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
         vid_disperse
             .shares
             .into_iter()
