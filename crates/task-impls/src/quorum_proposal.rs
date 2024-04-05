@@ -118,7 +118,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
         ensure!(
-            self.quorum_membership.get_leader(view) != self.public_key,
+            self.quorum_membership.get_leader(view) == self.public_key,
             "Somehow we formed a QC but are not the leader for the next view {:?}",
             view
         );
@@ -914,6 +914,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         e
                     );
                 }
+                let view = proposal.view_number;
+                self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
             HotShotEvent::QuorumProposalSend(message, _) => {
                 let view = message.data.view_number;
@@ -1019,12 +1021,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         //
         // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
         // that we do not support.
-        let upgrade_cert = proposal
-            .data
-            .upgrade_certificate
-            .clone()
-            .context("Invalid upgrade_cert in proposal for view {view:?}")?;
-        if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+        if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
+            ensure!(
+                upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()),
+                format!("Invalid upgrade_cert in proposal for view {}", *view),
+            );
             self.consensus
                 .write()
                 .await
