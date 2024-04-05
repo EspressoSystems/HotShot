@@ -6,6 +6,8 @@ use std::{
     marker::PhantomData,
 };
 
+use anyhow::{ensure, Result};
+
 use commit::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
 
@@ -174,6 +176,22 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
             is_genesis: true,
             _pd: PhantomData,
         }
+    }
+}
+
+impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
+    pub fn is_relevant(
+        &self,
+        view_number: TYPES::Time,
+        decided_upgrade_certificate: Option<Self>,
+    ) -> Result<()> {
+        ensure!(
+            self.data.decide_by >= view_number
+                || decided_upgrade_certificate.is_some_and(|cert| cert == *self),
+            "Upgrade certificate is no longer relevant."
+        );
+
+        Ok(())
     }
 }
 
