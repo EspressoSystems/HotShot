@@ -32,7 +32,7 @@ use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
+use futures::{channel::mpsc, select, FutureExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::{autonat, core::transport::ListenerId, kad::Record, StreamProtocol};
 use libp2p::{
@@ -389,7 +389,7 @@ impl NetworkNode {
                 match msg {
                     ClientRequest::BeginBootstrap => {
                         debug!("begin bootstrap");
-                        self.swarm.behaviour_mut().dht.bootstrap();
+                        let _ = self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
                         let id = self.swarm.behaviour_mut().dht.get_closest_peers(pid);

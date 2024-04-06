@@ -1,10 +1,6 @@
 /// Task for doing bootstraps at a regular interval
 pub mod bootstrap;
-use std::{
-    collections::HashMap,
-    num::NonZeroUsize,
-    time::Duration,
-};
+use std::{collections::HashMap, num::NonZeroUsize, time::Duration};
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
 /// a local caching layer for the DHT key value pairs
@@ -13,12 +9,12 @@ use futures::{
     SinkExt,
 };
 use lazy_static::lazy_static;
+use libp2p::kad::{
+    /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
+    GetRecordOk, GetRecordResult, ProgressStep, PutRecordResult, QueryId, QueryResult, Record,
+};
 use libp2p::kad::{store::RecordStore, Behaviour as KademliaBehaviour};
 use libp2p::kad::{BootstrapError, Event as KademliaEvent};
-use libp2p::kad::{
-        /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
-        GetRecordOk, GetRecordResult, ProgressStep, PutRecordResult, QueryId, QueryResult, Record,
-    };
 use libp2p_identity::PeerId;
 use tracing::{error, info, warn};
 
@@ -91,6 +87,7 @@ impl DHTBehaviour {
     pub fn set_retry(&mut self, tx: UnboundedSender<ClientRequest>) {
         self.retry_tx = Some(tx);
     }
+    /// Sets a sender to bootstrap task
     pub fn set_bootstrap_sender(&mut self, tx: mpsc::Sender<bootstrap::InputEvent>) {
         self.bootstrap_tx = Some(tx);
     }
