@@ -1,8 +1,11 @@
 use std::time::Duration;
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
+#[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::{channel::mpsc, StreamExt};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 use crate::network::ClientRequest;
 
