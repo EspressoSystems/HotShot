@@ -2497,7 +2497,7 @@
                                         .vid_shares
                                         .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                         .unwrap_or(<span class="kw-2">&amp;</span>HashMap::new())
-                                        .get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).map(|proposal| proposal.data.clone());
+                                        .get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned();
 
                                 <span class="comment">// Add our data into a new `LeafInfo`
                                 </span>leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
@@ -2821,7 +2821,7 @@
                     </span>.vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
 
                 <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;

@@ -790,7 +790,7 @@
     </span><span class="kw">pub fn </span>from_membership(
         view_number: TYPES::Time,
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
-        membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
+        membership: Arc&lt;TYPES::Membership&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
             .get_staked_committee(view_number)

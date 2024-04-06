@@ -348,6 +348,7 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -423,8 +424,9 @@
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.get_consensus(),
         rx,
-        handle.hotshot.memberships.quorum_membership.clone(),
+        handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
+        handle.private_key().clone(),
     );
     task_reg
         .register(run_response_task::&lt;TYPES, Version01&gt;(state, hs_rx))

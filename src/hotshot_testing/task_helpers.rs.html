@@ -856,7 +856,7 @@
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(encoded_transactions).unwrap(),
-        <span class="kw-2">&amp;</span>quorum_membership.clone().into(),
+        quorum_membership.clone().into(),
     );
 
     VidDisperseShare::from_vid_disperse(vid_disperse)
