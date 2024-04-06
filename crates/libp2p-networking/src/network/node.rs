@@ -388,7 +388,7 @@ impl NetworkNode {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        error!("bootstrap completed");
+                        debug!("begin bootstrap");
                         self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
@@ -742,9 +742,9 @@ impl NetworkNode {
         let (r_input, r_output) = unbounded::<NetworkEvent>();
         let (bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
         self.resend_tx = Some(s_input.clone());
-        self.bootstrap_tx = Some(bootstrap_tx);
+        self.dht_handler.set_bootstrap_sender(bootstrap_tx);
 
-        DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
+        let bootstrap_handle = DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
         async_spawn(
             async move {
                 let mut fuse = s_output.recv().boxed().fuse();
@@ -761,6 +761,10 @@ impl NetworkNode {
                             debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
+                                #[cfg(async_executor_impl = "async-std")]
+                                bootstrap_handle.cancel().await;
+                                #[cfg(async_executor_impl = "tokio")]
+                                bootstrap_handle.abort();
                                 break
                             }
                             fuse = s_output.recv().boxed().fuse();

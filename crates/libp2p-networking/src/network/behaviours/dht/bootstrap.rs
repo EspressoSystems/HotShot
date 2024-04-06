@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
+use async_std::task::JoinHandle;
 use futures::{channel::mpsc, StreamExt};
 
 use crate::network::ClientRequest;
@@ -16,7 +17,7 @@ pub struct DHTBootstrapTask {
 }
 
 impl DHTBootstrapTask {
-    pub fn run(rx: mpsc::Receiver<InputEvent>, tx: UnboundedSender<ClientRequest>) {
+    pub fn run(rx: mpsc::Receiver<InputEvent>, tx: UnboundedSender<ClientRequest>) -> JoinHandle<()> {
         art::async_spawn(async move {
             let state = Self {
                 rx,
@@ -24,16 +25,17 @@ impl DHTBootstrapTask {
                 in_progress: false,
             };
             state.run_loop().await;
-        });
+            ()
+        })
     }
     async fn run_loop(mut self) {
         loop {
-            tracing::error!("looping bootstrap");
+            tracing::debug!("looping bootstrap");
             if !self.in_progress {
                 match art::async_timeout(Duration::from_secs(120), self.rx.next()).await {
                     Ok(maybe_event) => match maybe_event {
                         Some(InputEvent::StartBootstrap) => {
-                            tracing::error!("Start bootsrap in bootstrap task");
+                            tracing::debug!("Start bootstrap in bootstrap task");
                             self.bootstrap().await;
                         }
                         _ => {}
@@ -41,6 +43,7 @@ impl DHTBootstrapTask {
                     Err(_) => self.bootstrap().await,
                 }
             } else if matches!(self.rx.next().await, Some(InputEvent::BootstrapFinished)) {
+                tracing::debug!("Start bootstrap in bootstrap task after timout");
                 self.in_progress = false;
             }
         }
