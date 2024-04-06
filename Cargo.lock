@@ -425,6 +425,7 @@ dependencies = [
  "ark-ff",
  "ark-std",
  "tracing",
+ "tracing-subscriber 0.2.25",
 ]
 
 [[package]]
@@ -593,7 +594,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-error",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -904,7 +905,7 @@ dependencies = [
  "futures-util",
  "log",
  "pin-project-lite 0.2.13",
- "tungstenite 0.13.0",
+ "tungstenite",
 ]
 
 [[package]]
@@ -964,6 +965,17 @@ name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
+
+[[package]]
+name = "automod"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edf3ee19dbc0a46d740f6f0926bde8c50f02bdbc7b536842da28f6ac56513a8b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
 
 [[package]]
 name = "axum"
@@ -1085,7 +1097,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "log",
@@ -1286,7 +1298,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.22#8dbc3a424b95edca2485aa6dd77d6d05a8e3be50"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1303,13 +1315,13 @@ dependencies = [
  "rkyv",
  "tokio",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.22#8dbc3a424b95edca2485aa6dd77d6d05a8e3be50"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1319,13 +1331,13 @@ dependencies = [
  "rand 0.8.5",
  "tokio",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.22#8dbc3a424b95edca2485aa6dd77d6d05a8e3be50"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1334,17 +1346,16 @@ dependencies = [
  "jf-primitives",
  "tokio",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.19#b9b6424db150aee7f78db8172f1324ecc757cc74"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.22#8dbc3a424b95edca2485aa6dd77d6d05a8e3be50"
 dependencies = [
  "anyhow",
  "ark-serialize",
- "async-std",
  "async-trait",
  "capnp",
  "derivative",
@@ -1565,7 +1576,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
@@ -1631,7 +1642,7 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-core",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -2849,9 +2860,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.25"
+version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fbd2820c5e49886948654ab546d0688ff24530286bdcf8fca3cefb16d4618eb"
+checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
 dependencies = [
  "bytes 1.5.0",
  "fnv",
@@ -3234,14 +3245,15 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
  "versioned-binary-serialization",
 ]
 
 [[package]]
 name = "hotshot-macros"
-version = "0.1.0"
+version = "0.5.26"
 dependencies = [
+ "derive_builder",
  "proc-macro2",
  "quote",
  "syn 2.0.58",
@@ -3288,7 +3300,7 @@ dependencies = [
  "ethereum-types",
  "hotshot-types",
  "jf-primitives",
- "jf-utils",
+ "jf-utils 0.4.3",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64 0.3.4",
@@ -3347,6 +3359,7 @@ dependencies = [
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
+ "automod",
  "bitvec",
  "commit",
  "either",
@@ -3372,35 +3385,6 @@ dependencies = [
  "tokio",
  "tracing",
  "versioned-binary-serialization",
-]
-
-[[package]]
-name = "hotshot-testing-macros"
-version = "0.5.26"
-dependencies = [
- "ark-bls12-381",
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "blake3",
- "commit",
- "derive_builder",
- "either",
- "futures",
- "hotshot",
- "hotshot-example-types",
- "hotshot-testing",
- "hotshot-types",
- "jf-primitives",
- "proc-macro2",
- "quote",
- "rand 0.8.5",
- "serde",
- "snafu 0.8.2",
- "syn 2.0.58",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -3435,7 +3419,7 @@ dependencies = [
  "generic-array",
  "jf-plonk",
  "jf-primitives",
- "jf-utils",
+ "jf-utils 0.4.3",
  "lazy_static",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3448,6 +3432,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
+ "url",
  "versioned-binary-serialization",
 ]
 
@@ -3954,7 +3939,7 @@ dependencies = [
  "itertools 0.12.1",
  "jf-primitives",
  "jf-relation",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "rand_chacha 0.3.1",
@@ -3998,7 +3983,7 @@ dependencies = [
  "icicle-cuda-runtime",
  "itertools 0.12.1",
  "jf-relation",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -4032,7 +4017,7 @@ dependencies = [
  "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.4",
  "itertools 0.12.1",
- "jf-utils",
+ "jf-utils 0.4.0-pre.0",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
@@ -4052,6 +4037,22 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "tagged-base64 0.3.4",
+]
+
+[[package]]
+name = "jf-utils"
+version = "0.4.3"
+source = "git+https://github.com/espressosystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "tagged-base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4130,7 +4131,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.4",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5132,24 +5133,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "multer"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01acbdc23469fd8fe07ab135923371d5f5a422fbf9c522158677c8eb15bc51c2"
-dependencies = [
- "bytes 1.5.0",
- "encoding_rs",
- "futures-util",
- "http 0.2.12",
- "httparse",
- "log",
- "memchr",
- "mime",
- "spin 0.9.8",
- "version_check",
-]
-
-[[package]]
 name = "multiaddr"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6121,7 +6104,6 @@ dependencies = [
  "ring 0.16.20",
  "rustc-hash",
  "rustls 0.21.10",
- "rustls-native-certs",
  "slab",
  "thiserror",
  "tinyvec",
@@ -6288,8 +6270,6 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite 0.2.13",
  "ryu",
- "sha1_smol",
- "socket2 0.4.10",
  "tokio",
  "tokio-retry",
  "tokio-util",
@@ -6617,18 +6597,6 @@ dependencies = [
  "ring 0.17.8",
  "rustls-webpki",
  "sct 0.7.1",
-]
-
-[[package]]
-name = "rustls-native-certs"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile",
- "schannel",
- "security-framework",
 ]
 
 [[package]]
@@ -7273,8 +7241,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24ba59a9342a3d9bab6c56c118be528b27c9b60e490080e9711a04dccac83ef6"
 dependencies = [
  "ahash 0.8.11",
- "async-io 1.13.0",
- "async-std",
  "atoi",
  "byteorder",
  "bytes 1.5.0",
@@ -7327,7 +7293,6 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5833ef53aaa16d860e92123292f1f6a3d53c34ba8b1969f152ef1a7bb803f3c8"
 dependencies = [
- "async-std",
  "dotenvy",
  "either",
  "heck 0.4.1",
@@ -7763,6 +7728,22 @@ dependencies = [
 [[package]]
 name = "tagged-base64"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
+dependencies = [
+ "ark-serialize",
+ "ark-std",
+ "base64 0.22.0",
+ "crc-any",
+ "serde",
+ "snafu 0.8.2",
+ "tagged-base64-macros 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tagged-base64"
+version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0#eb449140f2feb597983ebaf0ee2464ed6cee322a"
 dependencies = [
  "ark-serialize",
@@ -7771,13 +7752,23 @@ dependencies = [
  "crc-any",
  "serde",
  "snafu 0.8.2",
- "tagged-base64-macros 0.4.0",
+ "tagged-base64-macros 0.4.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=v0.4.0)",
 ]
 
 [[package]]
 name = "tagged-base64-macros"
 version = "0.3.3"
 source = "git+https://github.com/EspressoSystems/tagged-base64?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "tagged-base64-macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcdea3c0150898fad2f7196a173ec3264f7fc455ba570939163c558f48ae85ac"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -7922,7 +7913,7 @@ dependencies = [
  "tracing-distributed",
  "tracing-futures",
  "tracing-log",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
  "url",
  "versioned-binary-serialization",
 ]
@@ -8102,18 +8093,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-tungstenite"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "212d5dcb2a1ce06d81107c3d0ffa3121fe974b73f068c8282cb1c32328113b6c"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite 0.20.1",
-]
-
-[[package]]
 name = "tokio-util"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8273,7 +8252,7 @@ dependencies = [
  "itertools 0.9.0",
  "tracing",
  "tracing-core",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -8283,7 +8262,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
 dependencies = [
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -8314,6 +8293,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc6b213177105856957181934e4920de57730fc69bf42c37ee5bb664d406d9e1"
 dependencies = [
  "serde",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e0d2eaa99c3c2e41547cfa109e910a68ea03823cccad4a0525dcbc9b01e8c71"
+dependencies = [
  "tracing-core",
 ]
 
@@ -8360,25 +8348,6 @@ dependencies = [
  "native-tls",
  "rand 0.8.5",
  "sha-1",
- "thiserror",
- "url",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e3dac10fd62eaf6617d3a904ae222845979aec67c615d1c842b4002c7666fb9"
-dependencies = [
- "byteorder",
- "bytes 1.5.0",
- "data-encoding",
- "http 0.2.12",
- "httparse",
- "log",
- "rand 0.8.5",
- "sha1 0.10.6",
  "thiserror",
  "url",
  "utf-8",
@@ -8642,7 +8611,6 @@ dependencies = [
  "log",
  "mime",
  "mime_guess",
- "multer",
  "percent-encoding",
  "pin-project",
  "rustls-pemfile",
@@ -8652,7 +8620,6 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-stream",
- "tokio-tungstenite",
  "tokio-util",
  "tower-service",
  "tracing",
