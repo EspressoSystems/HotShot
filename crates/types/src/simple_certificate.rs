@@ -193,6 +193,27 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
 
         Ok(())
     }
+
+    /// Validate an upgrade certificate
+    pub fn validate(
+        upgrade_certificate: &Option<Self>,
+        quorum_membership: &TYPES::Membership,
+    ) -> Result<()> {
+        if let Some(ref cert) = upgrade_certificate {
+            ensure!(
+                cert.is_valid_cert(quorum_membership),
+                "Invalid upgrade certificate."
+            );
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Test whether a view is in the interim period prior to the new version taking effect.
+    pub fn in_interim(&self, view: TYPES::Time) -> bool {
+        view > self.data.old_version_last_view && view < self.data.new_version_first_view
+    }
 }
 
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`

@@ -1,8 +1,7 @@
 use hotshot_task_impls::{
-    consensus::{null_block, ConsensusTaskState},
-    events::HotShotEvent,
-    events::HotShotEvent::*,
+    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::*,
 };
+use hotshot_types::data::null_block;
 use hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
 use std::collections::HashSet;
 use std::sync::Arc;

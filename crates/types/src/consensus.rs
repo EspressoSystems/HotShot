@@ -6,7 +6,7 @@ use displaydoc::Display;
 use crate::{
     data::{Leaf, VidDisperseShare},
     error::HotShotError,
-    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{DACertificate, QuorumCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,

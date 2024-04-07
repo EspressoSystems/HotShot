@@ -670,3 +670,27 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         Leaf::from_proposal(proposal).commit()
     }
 }
+
+pub mod null_block {
+    #![allow(missing_docs)]
+    use crate::vid::{vid_scheme, VidCommitment};
+    use jf_primitives::vid::VidScheme;
+    use memoize::memoize;
+
+    /// The commitment for a null block payload.
+    ///
+    /// Note: the commitment depends on the network (via `num_storage_nodes`),
+    /// and may change (albeit rarely) during execution.
+    ///
+    /// We memoize the result to avoid having to recalculate it.
+    #[memoize(SharedCache, Capacity: 10)]
+    #[must_use]
+    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
+
+        match vid_result {
+            Ok(r) => Some(r),
+            Err(_) => None,
+        }
+    }
+}

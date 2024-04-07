@@ -13,6 +13,7 @@ use commit::Committable;
 use core::time::Duration;
 use futures::future::FutureExt;
 use hotshot_task::task::{Task, TaskState};
+use hotshot_types::data::null_block;
 use hotshot_types::event::LeafInfo;
 use hotshot_types::{
     consensus::{Consensus, View},
@@ -20,7 +21,7 @@ use hotshot_types::{
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData},
+    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         consensus_api::ConsensusApi,
@@ -57,37 +58,6 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     pub commitment: VidCommitment,
     /// Metadata for the block payload
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
-}
-
-/// Validate an attached upgrade certificate
-fn validate_upgrade_certificate<TYPES: NodeType>(
-    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
-    quorum_membership: &TYPES::Membership,
-) -> Result<()> {
-    if let Some(ref cert) = upgrade_certificate {
-        ensure!(
-            cert.is_valid_cert(quorum_membership),
-            "Invalid upgrade certificate."
-        );
-        Ok(())
-    } else {
-        Ok(())
-    }
-}
-
-/// Validate a justify_qc
-async fn validate_justify_qc<TYPES: NodeType>(
-    justify_qc: &QuorumCertificate<TYPES>,
-    quorum_membership: &TYPES::Membership,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
-) -> Result<()> {
-    let consensus = consensus.write().await;
-    ensure!(justify_qc.is_valid_cert(quorum_membership), {
-        consensus.metrics.invalid_qc.update(1);
-        "Invalid justify_qc in proposal."
-    });
-
-    Ok(())
 }
 
 /// Alias for Optional type for Vote Collectors
@@ -139,7 +109,7 @@ async fn validate_proposal<TYPES: NodeType>(
         "Could not verify proposal."
     );
 
-    validate_upgrade_certificate(&proposal.data.upgrade_certificate, &quorum_membership)?;
+    UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
     proposed_leaf.extends(parent_leaf, decided_upgrade_certificate)?;
@@ -347,7 +317,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
 
             if let Some(upgrade_cert) = &self.decided_upgrade_cert {
-                if view_is_between_versions(self.cur_view, &upgrade_cert.data)
+                if upgrade_cert.in_interim(self.cur_view)
                     && Some(proposal.block_header.payload_commitment())
                         != null_block::commitment(self.quorum_membership.total_nodes())
                 {
@@ -651,7 +621,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // Validate the upgrade certificate -- this is just a signature validation.
                 // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-                if let Err(e) = validate_upgrade_certificate(
+                if let Err(e) = UpgradeCertificate::validate(
                     &proposal.data.upgrade_certificate,
                     &self.quorum_membership,
                 ) {
@@ -1480,7 +1450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         if let Some(upgrade_cert) = &self.decided_upgrade_cert {
             error!("we have a decided upgrade cert!!!!");
-            if view_is_between_versions(self.cur_view, &upgrade_cert.data) {
+            if upgrade_cert.in_interim(self.cur_view) {
                 let Ok((_payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
                 else {
@@ -1664,38 +1634,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event.as_ref(), HotShotEvent::Shutdown)
     }
-}
-
-pub mod null_block {
-    #![allow(missing_docs)]
-    use hotshot_types::vid::{vid_scheme, VidCommitment};
-    use jf_primitives::vid::VidScheme;
-    use memoize::memoize;
-
-    /// The commitment for a null block payload.
-    ///
-    /// Note: the commitment depends on the network (via `num_storage_nodes`),
-    /// and may change (albeit rarely) during execution.
-    ///
-    /// We memoize the result to avoid having to recalculate it.
-    #[memoize(SharedCache, Capacity: 10)]
-    #[must_use]
-    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
-        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
-
-        match vid_result {
-            Ok(r) => Some(r),
-            Err(_) => None,
-        }
-    }
-}
-
-/// Test whether a view is in the range defined by an upgrade certificate.
-fn view_is_between_versions<TYPES: NodeType>(
-    view: TYPES::Time,
-    upgrade_data: &UpgradeProposalData<TYPES>,
-) -> bool {
-    view > upgrade_data.old_version_last_view && view < upgrade_data.new_version_first_view
 }
 
 /// Utilities to print anyhow logs.
