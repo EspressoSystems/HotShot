@@ -1,6 +1,6 @@
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
 use anyhow::{ensure, Context, Result};
@@ -775,7 +775,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                error!("SPAWNING VALIDATION TASK!!!!!!!!!");
                 async_spawn(
                     validate_proposal(
                         proposal.clone(),
@@ -1449,7 +1448,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         if let Some(upgrade_cert) = &self.decided_upgrade_cert {
-            error!("we have a decided upgrade cert!!!!");
             if upgrade_cert.in_interim(self.cur_view) {
                 let Ok((_payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
@@ -1633,17 +1631,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
     fn should_shutdown(event: &Self::Event) -> bool {
         matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-}
-
-/// Utilities to print anyhow logs.
-pub trait AnyhowTracing {
-    /// Print logs as debug
-    fn err_as_debug(self);
-}
-
-impl<T> AnyhowTracing for anyhow::Result<T> {
-    fn err_as_debug(self) {
-        let _ = self.inspect_err(|e| debug!("{}", format!("{:?}", e)));
     }
 }
