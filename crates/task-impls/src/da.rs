@@ -170,9 +170,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
                 let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
-                #[cfg(async_executor_impl = "tokio")]
-                let payload_commitment = payload_commitment.unwrap();
+                    match spawn_blocking(move || vid_commitment(&txns, num_nodes)).await {
+                        Ok(commit) => commit,
+                        Err(e) => {
+                            error!("Error calculating payload commitment: {:?}", e);
+                            return None;
+                        }
+                    };
 
                 let view = proposal.data.get_view_number();
                 // Generate and send vote

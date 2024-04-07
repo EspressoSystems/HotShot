@@ -494,7 +494,8 @@ fn build_block(
     let vid_commitment = vid_commitment(
         &block_payload.encode().unwrap().collect(),
         num_storage_nodes,
-    );
+    )
+    .expect("Failed to calculate payload commitment.");
 
     let signature_over_block_info = {
         let mut block_info: Vec<u8> = Vec::new();

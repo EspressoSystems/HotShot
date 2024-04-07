@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
+use anyhow::{Context, Result};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -122,15 +123,18 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         &self,
         view: TYPES::Time,
         key: &TYPES::SignatureKey,
-    ) -> Option<VidDisperseShare<TYPES>> {
+    ) -> Result<VidDisperseShare<TYPES>> {
         let consensus = self.consensus.upgradable_read().await;
         let contained = consensus
             .vid_shares
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let txns = consensus.saved_payloads.get(&view)?;
-            let vid = calculate_vid_disperse(txns.clone(), self.quorum.clone(), view).await;
+            let txns = consensus
+                .saved_payloads
+                .get(&view)
+                .context("Failed to retrieve payload for view {:view?}")?;
+            let vid = calculate_vid_disperse(txns.clone(), self.quorum.clone(), view).await?;
             let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
             for share in shares {
@@ -142,9 +146,21 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     .or_default()
                     .insert(key, share);
             }
-            return consensus.vid_shares.get(&view)?.get(key).cloned();
+            return consensus
+                .vid_shares
+                .get(&view)
+                .context("Failed to retrieve VID shares for view {:view?}")?
+                .get(key)
+                .cloned()
+                .context("Failed to calculate VID shares for key {:key?}");
         }
-        consensus.vid_shares.get(&view)?.get(key).cloned()
+        consensus
+            .vid_shares
+            .get(&view)
+            .context("Failed to retrieve VID shares for view {:view?}")?
+            .get(key)
+            .cloned()
+            .context("Failed to retrieve VID shares for key {:key?}")
     }
 
     /// Handle the request contained in the message. Returns the response we should send
@@ -153,7 +169,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     async fn handle_request(&self, req: DataRequest<TYPES>) -> Message<TYPES> {
         match req.request {
             RequestKind::VID(view, pub_key) => {
-                let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
+                let Ok(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
                 let Some(prop) = share.to_proposal(&self.private_key) else {

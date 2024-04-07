@@ -242,7 +242,8 @@ async fn build_quorum_proposal_and_signature(
     let payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
-    );
+    )
+    .expect("Failed to calculate payload commitment.");
     let mut parent_state = Arc::new(
         <TestValidatedState as ValidatedState<TestTypes>>::from_header(
             parent_leaf.get_block_header(),
@@ -383,6 +384,7 @@ pub fn da_payload_commitment(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+        .expect("Failed to calculate payload commitment.")
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
@@ -421,7 +423,8 @@ pub fn build_da_certificate(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+        vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+            .expect("Failed to calculate payload commitment.");
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

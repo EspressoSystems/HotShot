@@ -23,6 +23,7 @@ use crate::{
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
+use anyhow::{anyhow, ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::Options;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
@@ -438,7 +439,9 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .encode()
             .expect("unable to encode genesis payload")
             .collect();
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        // This isn't an unrecoverable error, but would take quite a bit more work
+        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
+            .expect("Failed to calculate genesis commitment");
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
         Self {
@@ -496,18 +499,20 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
-    ) -> Result<(), BlockError> {
-        let encoded_txns = match block_payload.encode() {
-            // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-            // <https://github.com/EspressoSystems/HotShot/issues/2115>
-            Ok(encoded) => encoded.into_iter().collect(),
-            Err(_) => return Err(BlockError::InvalidTransactionLength),
-        };
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
-        if commitment != self.block_header.payload_commitment() {
-            return Err(BlockError::InconsistentPayloadCommitment);
-        }
+    ) -> Result<()> {
+        // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
+        // <https://github.com/EspressoSystems/HotShot/issues/2115>
+        let encoded_txns = block_payload
+            .encode()
+            .map_err(|_| anyhow!("Unable to encode block payload."))?
+            .into_iter()
+            .collect();
+        let commitment = vid_commitment(&encoded_txns, num_storage_nodes)?;
+
+        ensure!(commitment == self.block_header.payload_commitment(), "Calculated block payload commitment does not match the block header's stated commitment.");
+
         self.block_payload = Some(block_payload);
+
         Ok(())
     }
 
