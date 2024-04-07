@@ -105,7 +105,6 @@ pub trait TestableBlock: BlockPayload + Debug {
 
 /// Compute the VID payload commitment.
 /// TODO(Gus) delete this function?
-#[must_use]
 pub async fn vid_commitment(
     encoded_transactions: Vec<u8>,
     num_storage_nodes: usize,

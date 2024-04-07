@@ -39,7 +39,12 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
         }
     }
 }
+
 /// Calculate the vid disperse information from the payload given a view and membership
+///
+/// # Errors
+///
+/// Errors if the VID calculation fails, which should essentially never happen.
 pub async fn calculate_vid_disperse<TYPES: NodeType>(
     txns: Vec<u8>,
     membership: Arc<TYPES::Membership>,

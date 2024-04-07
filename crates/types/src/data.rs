@@ -507,7 +507,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let encoded_txns = block_payload
             .encode()
             .map_err(|_| anyhow!("Unable to encode block payload."))?
-            .into_iter()
             .collect();
         let commitment = vid_commitment(encoded_txns, num_storage_nodes).await?;
 
