@@ -36,7 +36,7 @@ async fn test_da_task() {
     let payload_commit = vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
-    );
+    ).expect("Failed to calculate VID commitment.");
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -110,7 +110,7 @@ async fn test_da_task_storage_failure() {
     let payload_commit = vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
-    );
+    ).expect("Failed to calculate vid commitment");
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 

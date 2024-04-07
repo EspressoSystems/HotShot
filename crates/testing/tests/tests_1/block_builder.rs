@@ -38,7 +38,7 @@ async fn test_random_block_builder() {
     let mut blocks = loop {
         // Test getting blocks
         let blocks = client
-            .get_available_blocks(vid_commitment(&vec![], 1))
+            .get_available_blocks(vid_commitment(&vec![], 1).expect("Failed to calculate payload commitment."))
             .await
             .expect("Failed to get available blocks");
 
