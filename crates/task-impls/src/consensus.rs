@@ -199,6 +199,8 @@ pub struct ConsensusTaskState<
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// View timeout from config.
     pub timeout: u64,
+    /// Round start delay from config, in milliseconds.
+    pub round_start_delay: u64,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
@@ -1554,6 +1556,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 _pd: PhantomData,
             };
             debug!("Sending proposal for view {:?}", view);
+
+            #[cfg(test)]
+            async_sleep(Duration::from_millis(self.round_start_delay)).await;
 
             broadcast_event(
                 Arc::new(HotShotEvent::QuorumProposalSend(

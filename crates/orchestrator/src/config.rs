@@ -521,6 +521,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub view_sync_timeout: Duration,
     /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
     /// Number of network bootstrap nodes
@@ -604,6 +606,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
             timeout_ratio: val.timeout_ratio,
+            round_start_delay: val.round_start_delay,
             start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
             propose_min_round_time: val.propose_min_round_time,
@@ -660,6 +663,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             next_view_timeout: 10000,
             view_sync_timeout: Duration::from_millis(1000),
             timeout_ratio: (11, 10),
+            round_start_delay: 1,
             start_delay: 1,
             num_bootstrap: 5,
             propose_min_round_time: Duration::from_secs(0),

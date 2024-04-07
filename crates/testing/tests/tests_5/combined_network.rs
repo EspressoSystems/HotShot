@@ -23,6 +23,7 @@ async fn test_combined_network() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata: TestMetadata = TestMetadata {
         timing_data: TimingData {
+            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 
@@ -57,6 +58,7 @@ async fn test_combined_network_cdn_crash() {
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata: TestMetadata = TestMetadata {
         timing_data: TimingData {
+            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 
@@ -105,6 +107,7 @@ async fn test_combined_network_reup() {
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata: TestMetadata = TestMetadata {
         timing_data: TimingData {
+            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 
@@ -157,6 +160,7 @@ async fn test_combined_network_half_dc() {
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata: TestMetadata = TestMetadata {
         timing_data: TimingData {
+            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 
@@ -236,6 +240,7 @@ async fn test_stress_combined_network_fuzzy() {
         start_nodes: 20,
 
         timing_data: TimingData {
+            round_start_delay: 25,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 
