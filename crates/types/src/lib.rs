@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 use tracing::error;
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
+use url::Url;
 pub mod consensus;
 pub mod constants;
 pub mod data;
@@ -167,6 +168,8 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub da_staked_committee_size: usize,
     /// List of DA committee nodes (non-staking)nodes for static DA committee
     pub da_non_staked_committee_size: usize,
+    /// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID
+    pub fixed_leader_for_gpuvid: usize,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// Duration of view sync round timeouts
@@ -185,4 +188,6 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub data_request_delay: Duration,
     /// the election configuration
     pub election_config: Option<ELECTIONCONFIG>,
+    /// Builder API base URL
+    pub builder_url: Url,
 }
