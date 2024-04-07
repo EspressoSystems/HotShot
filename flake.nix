@@ -177,7 +177,6 @@
             python3
             zlib.dev
             zlib.out
-            fenix.packages.${system}.rust-analyzer
             just
             pkg-config
             openssl.dev
@@ -191,10 +190,16 @@
       in {
         devShell = pkgs.mkShell {
           inherit CARGO_TARGET_DIR;
-          buildInputs = [ fenixStable ] ++ buildDeps;
+          buildInputs = [ fenixStable fenix.packages.${system}.rust-analyzer ] ++ buildDeps;
         };
 
         devShells = {
+          # A simple shell without rust-analyzer
+          simpleShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            buildInputs = [ fenixStable ] ++ buildDeps;
+          };
+
           # usage: check correctness
           correctnessShell = pkgs.mkShell {
             inherit CARGO_TARGET_DIR;
