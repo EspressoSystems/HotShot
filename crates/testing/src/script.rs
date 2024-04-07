@@ -67,7 +67,7 @@ where
             panic!(
                 "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
                 stage_number, assert, output
-            );
+            )
         }
     }
 }
