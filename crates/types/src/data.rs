@@ -25,6 +25,7 @@ use crate::{
 };
 use anyhow::{anyhow, ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use async_compatibility_layer::art::async_block_on;
 use bincode::Options;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
@@ -440,8 +441,9 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .expect("unable to encode genesis payload")
             .collect();
         // This isn't an unrecoverable error, but would take quite a bit more work
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
-            .expect("Failed to calculate genesis commitment");
+        let payload_commitment =
+            async_block_on(vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES))
+                .expect("Failed to calculate genesis commitment");
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
         Self {
@@ -495,7 +497,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    pub fn fill_block_payload(
+    pub async fn fill_block_payload(
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
@@ -507,7 +509,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .map_err(|_| anyhow!("Unable to encode block payload."))?
             .into_iter()
             .collect();
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes)?;
+        let commitment = vid_commitment(encoded_txns, num_storage_nodes).await?;
 
         ensure!(commitment == self.block_header.payload_commitment(), "Calculated block payload commitment does not match the block header's stated commitment.");
 

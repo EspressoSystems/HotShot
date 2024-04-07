@@ -8,6 +8,7 @@ use hotshot_example_types::{
 };
 
 use crate::test_builder::TestMetadata;
+use async_compatibility_layer::art::async_block_on;
 use commit::Committable;
 use ethereum_types::U256;
 use hotshot::{
@@ -240,9 +241,10 @@ async fn build_quorum_proposal_and_signature(
     // every event input is seen on the event stream in the output.
     let block = <TestBlockPayload as TestableBlock>::genesis();
     let payload_commitment = vid_commitment(
-        &block.encode().unwrap().collect(),
+        block.encode().unwrap().collect(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     )
+    .await
     .expect("Failed to calculate payload commitment.");
     let mut parent_state = Arc::new(
         <TestValidatedState as ValidatedState<TestTypes>>::from_header(
@@ -383,8 +385,11 @@ pub fn da_payload_commitment(
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
-        .expect("Failed to calculate payload commitment.")
+    async_block_on(vid_commitment(
+        encoded_transactions,
+        quorum_membership.total_nodes(),
+    ))
+    .expect("Failed to calculate payload commitment.")
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
@@ -422,9 +427,11 @@ pub fn build_da_certificate(
 ) -> DACertificate<TestTypes> {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
-            .expect("Failed to calculate payload commitment.");
+    let da_payload_commitment = async_block_on(vid_commitment(
+        encoded_transactions,
+        quorum_membership.total_nodes(),
+    ))
+    .expect("Failed to calculate payload commitment.");
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

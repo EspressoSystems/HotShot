@@ -188,7 +188,8 @@ impl RandomBuilderSource {
                     options.num_storage_nodes,
                     pub_key,
                     priv_key.clone(),
-                );
+                )
+                .await;
 
                 if let Some((hash, _)) = blocks.write().await.push(
                     metadata.block_hash.clone(),
@@ -331,7 +332,8 @@ impl BuilderDataSource<TestTypes> for SimpleBuilderSource {
             self.membership.total_nodes(),
             self.pub_key,
             self.priv_key.clone(),
-        );
+        )
+        .await;
 
         self.blocks.write().await.insert(
             metadata.block_hash.clone(),
@@ -475,7 +477,7 @@ pub async fn make_simple_builder(
 }
 
 /// Helper function to construct all builder data structures from a list of transactions
-fn build_block(
+async fn build_block(
     transactions: Vec<TestTransaction>,
     num_storage_nodes: usize,
     pub_key: <TestTypes as NodeType>::SignatureKey,
@@ -491,11 +493,10 @@ fn build_block(
 
     let commitment = block_payload.builder_commitment(&());
 
-    let vid_commitment = vid_commitment(
-        &block_payload.encode().unwrap().collect(),
-        num_storage_nodes,
-    )
-    .expect("Failed to calculate payload commitment.");
+    let vid_commitment =
+        vid_commitment(block_payload.encode().unwrap().collect(), num_storage_nodes)
+            .await
+            .expect("Failed to calculate payload commitment.");
 
     let signature_over_block_info = {
         let mut block_info: Vec<u8> = Vec::new();

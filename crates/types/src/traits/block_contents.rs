@@ -10,9 +10,13 @@ use crate::{
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 use anyhow::{anyhow, Result};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::spawn_blocking;
 use commit::{Commitment, Committable};
 use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 
 use std::{
     error::Error,
@@ -102,11 +106,18 @@ pub trait TestableBlock: BlockPayload + Debug {
 /// Compute the VID payload commitment.
 /// TODO(Gus) delete this function?
 #[must_use]
-pub fn vid_commitment(
-    encoded_transactions: &Vec<u8>,
+pub async fn vid_commitment(
+    encoded_transactions: Vec<u8>,
     num_storage_nodes: usize,
 ) -> Result<<VidSchemeType as VidScheme>::Commit> {
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).map_err(|err| anyhow!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+    let payload_commitment = spawn_blocking(move || {
+       vid_scheme(num_storage_nodes).commit_only(&encoded_transactions).map_err(|err| anyhow!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+    } ).await?;
+
+    #[cfg(async_executor_impl = "tokio")]
+    let payload_commitment = payload_commitment?;
+
+    Ok(payload_commitment)
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.

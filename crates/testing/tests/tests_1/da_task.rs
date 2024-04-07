@@ -34,9 +34,9 @@ async fn test_da_task() {
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let payload_commit = vid_commitment(
-        &encoded_transactions,
+        encoded_transactions.clone(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
-    ).expect("Failed to calculate VID commitment.");
+    ).await.expect("Failed to calculate VID commitment.");
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -108,9 +108,9 @@ async fn test_da_task_storage_failure() {
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let payload_commit = vid_commitment(
-        &encoded_transactions,
+        encoded_transactions.clone(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
-    ).expect("Failed to calculate vid commitment");
+    ).await.expect("Failed to calculate vid commitment");
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 

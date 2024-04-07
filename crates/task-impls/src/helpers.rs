@@ -51,5 +51,8 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
     })
     .await?;
 
+    #[cfg(async_executor_impl = "tokio")]
+    let vid_disperse = vid_disperse?;
+
     Ok(VidDisperse::from_membership(view, vid_disperse, membership))
 }

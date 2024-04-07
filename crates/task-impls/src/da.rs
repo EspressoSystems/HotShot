@@ -5,8 +5,6 @@ use crate::{
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
 
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -32,8 +30,6 @@ use sha2::{Digest, Sha256};
 use crate::vote_collection::HandleVoteEvent;
 use hotshot_types::traits::block_contents::vid_commitment;
 use std::{marker::PhantomData, sync::Arc};
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
 
 /// Alias for Optional type for Vote Collectors
@@ -169,14 +165,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
-                let payload_commitment =
-                    match spawn_blocking(move || vid_commitment(&txns, num_nodes)).await {
-                        Ok(commit) => commit,
-                        Err(e) => {
-                            error!("Error calculating payload commitment: {:?}", e);
-                            return None;
-                        }
-                    };
+                let payload_commitment = match vid_commitment(txns, num_nodes).await {
+                    Ok(commit) => commit,
+                    Err(e) => {
+                        error!("Error calculating payload commitment: {:?}", e);
+                        return None;
+                    }
+                };
 
                 let view = proposal.data.get_view_number();
                 // Generate and send vote
