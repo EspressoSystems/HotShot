@@ -41,6 +41,12 @@ build_release *ARGS:
 example *ARGS:
   cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
+example_fixed_leader *ARGS:
+  cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
+
+example_gpuvid_leader *ARGS:
+  cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
+
 test *ARGS:
   echo Testing {{ARGS}}
   cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
@@ -49,9 +55,29 @@ test-ci *ARGS:
   echo Testing {{ARGS}}
   RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
-test-ci-fail-fast *ARGS:
+test-ci-rest *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1
+
+test-ci-1 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-2 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-3 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-4 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+
+test-ci-5 *ARGS:
+  echo Testing {{ARGS}}
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
@@ -79,31 +105,35 @@ test_web_server:
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast web_server_network -- --test-threads=1 --nocapture
 
 test_with_failures:
-  echo Testing nodes leaving the network with async std executor
+  echo Testing nodes leaving the network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
 
 test_memory_network:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
 
 test_consensus_task:
-  echo Testing with async std executor
+  echo Testing the consensus task
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
+test_quorum_vote_task:
+  echo Testing the quorum vote task
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_vote_task -- --test-threads=1 --nocapture
+
 test_da_task:
-  echo Testing the DA task with async std executor
+  echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
 
 test_vid_task:
-  echo Testing the VID task with async std executor
+  echo Testing the VID task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_vid_task -- --test-threads=1 --nocapture
 
 test_view_sync_task:
-  echo Testing the view sync task with async std executor
+  echo Testing the view sync task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"

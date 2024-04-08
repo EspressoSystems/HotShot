@@ -10,6 +10,7 @@ use hotshot_task_impls::network::{self, NetworkEventTaskState};
 use hotshot_testing::test_builder::TestMetadata;
 use hotshot_testing::view_generator::TestViewGenerator;
 use hotshot_types::{
+    constants::BASE_VERSION,
     data::ViewNumber,
     traits::{
         election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
@@ -49,6 +50,7 @@ async fn test_network_task() {
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
         quorum_election_config.clone(),
+        config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_, _>, _> =
@@ -57,6 +59,7 @@ async fn test_network_task() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
+            version: BASE_VERSION,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
@@ -116,6 +119,7 @@ async fn test_network_storage_fail() {
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
         quorum_election_config.clone(),
+        config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_, _>, _> =
@@ -124,6 +128,7 @@ async fn test_network_storage_fail() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
+            version: BASE_VERSION,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);

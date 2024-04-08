@@ -98,18 +98,22 @@ pub async fn build_system_handle(
         quorum_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         da_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             committee_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
         vid_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         view_sync_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
     };
 
@@ -394,7 +398,7 @@ pub fn build_vid_proposal(
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(encoded_transactions).unwrap(),
-        &quorum_membership.clone().into(),
+        quorum_membership.clone().into(),
     );
 
     VidDisperseShare::from_vid_disperse(vid_disperse)

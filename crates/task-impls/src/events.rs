@@ -16,6 +16,7 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
+use versioned_binary_serialization::version::Version;
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -41,14 +42,17 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A DA vote has been received by the network; handled by the DA task
     DAVoteRecv(DAVote<TYPES>),
     /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
-    DACRecv(DACertificate<TYPES>),
+    DACertificateRecv(DACertificate<TYPES>),
     /// A DAC is validated.
-    DACValidated(DACertificate<TYPES>),
+    DACertificateValidated(DACertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
-    /// Dummy quorum vote to test if the quorum vote dependency works.
+    // TODO: Complete the dependency implementation.
+    // <https://github.com/EspressoSystems/HotShot/issues/2710>
+    /// Dummy quorum vote to test if the quorum vote dependency works. Should be removed and
+    /// replaced by `QuorumVoteSend` once the above TODO is done.
     DummyQuorumVoteSend(TYPES::Time),
     /// All dependencies for the quorum vote are validated.
     QuorumVoteDependenciesValidated(TYPES::Time),
@@ -110,7 +114,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::Time,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
-    TransactionsSequenced(
+    BlockRecv(
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
@@ -127,19 +131,20 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
     VidDisperseRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
-    /// A VID disperse data is validated.
-    VidDisperseValidated(VidDisperseShare<TYPES>),
+    /// VID share data is validated.
+    VIDShareValidated(VidDisperseShare<TYPES>),
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
-    UpgradeProposalSend(UpgradeProposal<TYPES>),
+    UpgradeProposalSend(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade vote has been received from the network
     UpgradeVoteRecv(UpgradeVote<TYPES>),
     /// Upgrade vote has been sent to the network
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
-
+    /// HotShot was upgraded, with a new network version.
+    VersionUpgrade(Version),
     /** Quorum Proposal Task **/
     /// Dummy quorum proposal to test if the quorum proposal dependency task works.
     DummyQuorumProposalSend(TYPES::Time),

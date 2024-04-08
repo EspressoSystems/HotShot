@@ -94,7 +94,6 @@ impl TestView {
             proposal_certificate: None,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -290,7 +289,6 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -421,6 +419,17 @@ impl TestViewGenerator {
             });
         } else {
             tracing::error!("Cannot attach view sync finalize to the genesis view.");
+        }
+    }
+
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                timeout_cert_data: Some(timeout_data),
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach timeout cert to the genesis view.")
         }
     }
 

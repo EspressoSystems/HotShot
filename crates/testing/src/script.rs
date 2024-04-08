@@ -1,11 +1,12 @@
-use crate::predicates::Predicate;
+use crate::predicates::{Predicate, PredicateResult};
 use async_broadcast::broadcast;
-use hotshot_task_impls::events::HotShotEvent;
-
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 use std::{sync::Arc, time::Duration};
+
+pub const RECV_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
@@ -40,26 +41,35 @@ where
     panic!("{}", output_missing_error);
 }
 
-pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &Predicate<S>) {
+pub fn validate_task_state_or_panic<S>(stage_number: usize, state: &S, assert: &mut Predicate<S>) {
     assert!(
-        (assert.function)(state),
+        (assert.function)(state) == PredicateResult::Pass,
         "Stage {} | Task state failed to satisfy: {:?}",
         stage_number,
         assert
     );
 }
 
-pub fn validate_output_or_panic<S>(stage_number: usize, output: &S, assert: &Predicate<S>)
+pub fn validate_output_or_panic<S>(
+    stage_number: usize,
+    output: &S,
+    assert: &mut Predicate<S>,
+) -> PredicateResult
 where
     S: std::fmt::Debug,
 {
-    assert!(
-        (assert.function)(output),
-        "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-        stage_number,
-        assert,
-        output
-    );
+    let result = (assert.function)(output);
+
+    match result {
+        PredicateResult::Pass => result,
+        PredicateResult::Incomplete => result,
+        PredicateResult::Fail => {
+            panic!(
+                "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
+                stage_number, assert, output
+            )
+        }
+    }
 }
 
 /// `run_test_script` reads a triple (inputs, outputs, asserts) in a `TestScript`,
@@ -82,22 +92,19 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
 {
     let registry = Arc::new(TaskRegistry::default());
 
-    let (test_input, task_receiver) = broadcast(1024);
-    // let (task_input, mut test_receiver) = broadcast(1024);
+    let (to_task, mut from_test) = broadcast(1024);
+    let (to_test, mut from_task) = broadcast(1024);
 
-    let task_input = test_input.clone();
-    let mut test_receiver = task_receiver.clone();
-
-    let mut task = Task::new(
-        task_input.clone(),
-        task_receiver.clone(),
-        registry.clone(),
-        state,
-    );
+    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
         for input in &stage.inputs {
+            to_task
+                .broadcast(input.clone().into())
+                .await
+                .expect("Failed to broadcast input message");
+
             if !task.state_mut().filter(&Arc::new(input.clone())) {
                 tracing::debug!("Test sent: {:?}", input.clone());
 
@@ -105,14 +112,25 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                     task.state_mut().handle_result(&res).await;
                 }
             }
+
+            while from_test.try_recv().is_ok() {}
         }
 
-        for assert in &stage.outputs {
-            if let Ok(Ok(received_output)) =
-                async_timeout(Duration::from_millis(250), test_receiver.recv_direct()).await
+        for assert in &mut stage.outputs {
+            let mut result = PredicateResult::Incomplete;
+
+            while let Ok(Ok(received_output)) =
+                async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await
             {
                 tracing::debug!("Test received: {:?}", received_output);
-                validate_output_or_panic(stage_number, &received_output, assert);
+
+                result = validate_output_or_panic(stage_number, &received_output, assert);
+
+                to_task
+                    .broadcast(received_output.clone())
+                    .await
+                    .expect("Failed to re-broadcast output message");
+
                 if !task.state_mut().filter(&received_output.clone()) {
                     tracing::debug!("Test sent: {:?}", received_output.clone());
 
@@ -120,16 +138,24 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>
                         task.state_mut().handle_result(&res).await;
                     }
                 }
-            } else {
+
+                while from_test.try_recv().is_ok() {}
+
+                if result == PredicateResult::Pass {
+                    break;
+                }
+            }
+
+            if result == PredicateResult::Incomplete {
                 panic_missing_output(stage_number, assert);
             }
         }
 
-        for assert in &stage.asserts {
+        for assert in &mut stage.asserts {
             validate_task_state_or_panic(stage_number, task.state(), assert);
         }
 
-        if let Ok(received_output) = test_receiver.try_recv() {
+        if let Ok(received_output) = from_task.try_recv() {
             panic_extra_output(stage_number, &received_output);
         }
     }
@@ -173,10 +199,10 @@ pub fn validate_task_state_or_panic_in_script<S>(
     stage_number: usize,
     script_name: String,
     state: &S,
-    assert: &Predicate<S>,
+    assert: &mut Predicate<S>,
 ) {
     assert!(
-        (assert.function)(state),
+        (assert.function)(state) == PredicateResult::Pass,
         "Stage {} | Task state in {} failed to satisfy: {:?}",
         stage_number,
         script_name,
@@ -188,10 +214,10 @@ pub fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
     stage_number: usize,
     script_name: String,
     output: &S,
-    assert: &Predicate<S>,
+    assert: &mut Predicate<S>,
 ) {
     assert!(
-        (assert.function)(output),
+        (assert.function)(output) == PredicateResult::Pass,
         "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
         stage_number,
         script_name,
