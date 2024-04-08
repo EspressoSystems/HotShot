@@ -55,6 +55,7 @@ timeout_ratio = [
 round_start_delay = 1
 start_delay = 1
 num_bootstrap = 5
+builder_url = "http://localhost:9999"
 
 [libp2p_config]
 bootstrap_mesh_n_high = 4
