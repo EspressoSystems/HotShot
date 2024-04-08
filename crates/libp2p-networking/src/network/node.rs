@@ -45,7 +45,7 @@ use libp2p::{
         Info as IdentifyInfo,
     },
     identity::Keypair,
-    kad::{store::MemoryStore, Behaviour, Config},
+    kad::{store::MemoryStore, Behaviour, Config, Mode},
     request_response::{
         Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
     },
@@ -267,7 +267,10 @@ impl NetworkNode {
                 panic!("Replication factor not set");
             }
 
-            let kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            let mut kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            if config.server_mode {
+                kadem.set_mode(Some(Mode::Server));
+            }
 
             let rrconfig = RequestResponseConfig::default();
 

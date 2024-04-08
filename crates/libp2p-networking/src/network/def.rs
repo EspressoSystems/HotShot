@@ -2,7 +2,7 @@ use libp2p::{
     autonat,
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
-    kad::{store::MemoryStore, Mode},
+    kad::store::MemoryStore,
     request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
@@ -59,18 +59,12 @@ impl NetworkDef {
     #[must_use]
     pub fn new(
         gossipsub: GossipBehaviour,
-        mut dht: libp2p::kad::Behaviour<MemoryStore>,
+        dht: libp2p::kad::Behaviour<MemoryStore>,
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
         request_response: cbor::Behaviour<Request, Response>,
         autonat: autonat::Behaviour,
     ) -> NetworkDef {
-        // needed because otherwise we stay in client mode when testing locally
-        // and don't publish keys stuff
-        // e.g. dht just doesn't work. We'd need to add mdns and that doesn't seem worth it since
-        // we won't have a local network
-        // <https://github.com/libp2p/rust-libp2p/issues/4194>
-        dht.set_mode(Some(Mode::Server));
         Self {
             gossipsub,
             dht,
