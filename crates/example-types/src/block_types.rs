@@ -10,6 +10,7 @@ use hotshot_types::{
     traits::{
         block_contents::{BlockHeader, TestableBlock, Transaction},
         node_implementation::NodeType,
+        signature_key::BuilderSignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -196,6 +197,10 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _offered_fee: u64,
+        _fee_signature: Option<
+            <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
+        >,
     ) -> Self {
         let parent = parent_leaf.get_block_header();
 

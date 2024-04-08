@@ -25,7 +25,7 @@ use hotshot_types::{
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        signature_key::{BuilderSignatureKey, SignatureKey},
         states::ValidatedState,
         storage::Storage,
         BlockPayload,
@@ -1446,12 +1446,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return false;
                 };
 
+                // TODO: Put the signature received from the builder in the block header
                 let block_header = TYPES::BlockHeader::new(
                     state,
                     &consensus.instance_state,
                     &parent_leaf,
                     null_block_commitment,
                     metadata,
+                    0,
+                    None,
                 )
                 .await;
 
@@ -1505,6 +1508,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 &parent_leaf,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
+                0,
+                None,
             )
             .await;
             let upgrade_cert = if self
