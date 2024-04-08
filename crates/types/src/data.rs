@@ -528,10 +528,10 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         self.get_block_header().payload_commitment()
     }
 
-    /// Validate that a leaf is the immediate child of another leaf
+    /// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
     ///
     /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
-    pub fn extends(
+    pub fn extends_upgrade(
         &self,
         parent: Self,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
