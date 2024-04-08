@@ -1,7 +1,4 @@
 //! Types and structs for the hotshot signature keys
-
-use std::ops::Add;
-
 use crate::{
     qc::{BitVectorQC, QCParams},
     stake_table::StakeTableEntry,

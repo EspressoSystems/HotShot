@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData, thread::Builder};
+use std::{hash::Hash, marker::PhantomData};
 
 use hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, BlockPayload},
