@@ -83,6 +83,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
                 let vid_disperse = vid_disperse.unwrap();
                 // send the commitment and metadata to consensus for block building
+                tracing::info!("SENDING PAYLOAD COMMMITMENT AND METADATA");
                 broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.commit,

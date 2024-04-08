@@ -315,7 +315,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             signature,
             _pd: PhantomData,
         };
-        debug!("Sending proposal for view {:?}", view);
+        error!("Sending proposal for view {:?}", view);
 
         async_sleep(Duration::from_millis(self.round_start_delay)).await;
         broadcast_event(
@@ -845,13 +845,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
                 let view = *view;
-                if view < self.latest_proposed_view {
-                    debug!(
-                        "Payload commitment is from an older view {:?}",
-                        view.clone()
-                    );
-                    return;
-                }
+                // if view < self.latest_proposed_view {
+                //     debug!(
+                //         "Payload commitment is from an older view {:?}",
+                //         view.clone()
+                //     );
+                //     return;
+                // }
 
                 debug!("Got payload commitment and meta {:?}", payload_commitment);
 
@@ -936,7 +936,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<(Leaf<TYPES>, Arc<TYPES::ValidatedState>)> {
         let sender = sender.clone();
-        debug!(
+        error!(
             "Received Quorum Proposal for view {}",
             *proposal.data.view_number
         );

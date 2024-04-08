@@ -213,6 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 // send the sequenced transactions to VID and DA tasks
+                tracing::info!("TRANSACTIONS ARE SEQUENCING");
                 let block_view = if make_block { view } else { view + 1 };
                 broadcast_event(
                     Arc::new(HotShotEvent::TransactionsSequenced(
