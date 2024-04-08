@@ -659,7 +659,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// Update the latest proposed view number.
     #[instrument(skip_all, fields(
         id = self.id,
-        latest_proposed_view = *self.latest_proposed_view
+        latest_proposed_view = *self.latest_proposed_view,
+        cur_view = *self.cur_view
     ), name = "Quorum proposal update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
@@ -686,7 +687,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// Must only update the view and GC if the view actually changes
     #[instrument(skip_all, fields(
         id = self.id,
-        view = *self.latest_proposed_view
+        view = *self.cur_view
     ), name = "Quorum proposal task update view", level = "error")]
     async fn update_view(
         &mut self,
@@ -785,7 +786,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(
         id = self.id,
-        latest_proposed_view = *self.latest_proposed_view
+        latest_proposed_view = *self.latest_proposed_view,
+        cur_view = *self.cur_view
     ), name = "Quorum proposal handle", level = "error")]
     pub async fn handle(
         &mut self,
@@ -864,13 +866,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_finalize_cert) => {
                 let view = view_sync_finalize_cert.view_number;
-                if view < self.latest_proposed_view {
-                    debug!(
-                        "View sync certificate is from an old view {:?}",
-                        view.clone()
-                    );
-                    return;
-                }
+                // if view < self.latest_proposed_view {
+                //     debug!(
+                //         "View sync certificate is from an old view {:?}",
+                //         view.clone()
+                //     );
+                //     return;
+                // }
 
                 if !validate_view_sync_finalize_certificate(
                     view_sync_finalize_cert.clone(),
@@ -915,7 +917,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     );
                 }
                 let view = proposal.view_number;
-                self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
+                self.create_dependency_task_if_new(view + 1, event_receiver, event_sender, event);
             }
             HotShotEvent::QuorumProposalSend(message, _) => {
                 let view = message.data.view_number;
