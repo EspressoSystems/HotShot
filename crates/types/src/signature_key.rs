@@ -1,9 +1,14 @@
 //! Types and structs for the hotshot signature keys
 
+use std::ops::Add;
+
 use crate::{
     qc::{BitVectorQC, QCParams},
     stake_table::StakeTableEntry,
-    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
+    traits::{
+        qc::QuorumCertificateScheme,
+        signature_key::{BuilderSignatureKey, SignatureKey},
+    },
 };
 use bitvec::{slice::BitSlice, vec::BitVec};
 use ethereum_types::U256;
@@ -123,5 +128,32 @@ impl SignatureKey for BLSPubKey {
     fn genesis_proposer_pk() -> Self {
         let kp = KeyPair::generate(&mut ChaCha20Rng::from_seed([0u8; 32]));
         kp.ver_key()
+    }
+}
+
+// Currently implement builder signature key for BLS
+// Sequencer will implement the same trait for ethereum types
+// Builder signature key
+pub type BuilderKey = BLSPubKey;
+
+impl BuilderSignatureKey for BuilderKey {
+    type BuilderPrivateKey = BLSPrivKey;
+    type BuilderSignature = <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature;
+    type SignError = PrimitivesError;
+
+    fn sign_builder_message(
+        private_key: &Self::BuilderPrivateKey,
+        data: &[u8],
+    ) -> Result<Self::BuilderSignature, Self::SignError> {
+        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+            &(),
+            private_key,
+            data,
+            &mut rand::thread_rng(),
+        )
+    }
+
+    fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool {
+        BLSOverBN254CurveSignatureScheme::verify(&(), self, data, signature).is_ok()
     }
 }

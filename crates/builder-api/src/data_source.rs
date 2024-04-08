@@ -39,7 +39,8 @@ where
     ) -> Result<AvailableBlockHeaderInput<I>, BuildError>;
 
     // To get the builder address
-    async fn get_builder_address(&self) -> Result<<I as NodeType>::SignatureKey, BuildError>;
+    async fn get_builder_address(&self)
+        -> Result<<I as NodeType>::BuilderSignatureKey, BuildError>;
 }
 
 #[async_trait]

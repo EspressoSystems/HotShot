@@ -17,7 +17,9 @@ use hotshot::traits::{
 use hotshot_types::constants::WebServerVersion;
 
 use hotshot_types::{
-    data::ViewNumber, message::Message, signature_key::BLSPubKey,
+    data::ViewNumber,
+    message::Message,
+    signature_key::{BLSPubKey, BuilderKey},
     traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};
@@ -48,6 +50,7 @@ impl NodeType for TestTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
+    type BuilderSignatureKey = BuilderKey;
 }
 
 /// The Push CDN implementation
