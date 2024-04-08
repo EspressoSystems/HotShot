@@ -659,7 +659,7 @@
 };
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>jf_primitives::vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
 <span class="kw">use </span>rand::Rng;
@@ -1217,7 +1217,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>Leaf&lt;TYPES&gt; {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; commit::Commitment&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; committable::Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
         </span>RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
             .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)

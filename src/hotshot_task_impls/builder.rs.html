@@ -149,6 +149,10 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>std::time::{Duration, Instant};
 
@@ -165,7 +169,7 @@
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>surf_disco::{client::HealthStatus, Client, Url};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
 </span><span class="doccomment">/// Represents errors than builder client may return
@@ -218,9 +222,13 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, Ver: StaticVersionType&gt; BuilderClient&lt;TYPES, Ver&gt; {
     <span class="doccomment">/// Construct a new client from base url
+    ///
+    /// # Panics
+    ///
+    /// If the URL is malformed.
     </span><span class="kw">pub fn </span>new(base_url: <span class="kw">impl </span>Into&lt;Url&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            inner: Client::new(base_url.into()),
+            inner: Client::new(base_url.into().join(<span class="string">"api"</span>).unwrap()),
             _marker: std::marker::PhantomData,
         }
     }

@@ -205,7 +205,7 @@
     marker::PhantomData,
 };
 
-<span class="kw">use </span>commit::{Commitment, CommitmentBoundsArkless, Committable};
+<span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable};
 <span class="kw">use </span>ethereum_types::U256;
 
 <span class="kw">use crate</span>::{
@@ -284,7 +284,7 @@
             <span class="prelude-val">Some</span>(sigs) =&gt; serialize_signature2::&lt;TYPES&gt;(sigs),
             <span class="prelude-val">None </span>=&gt; <span class="macro">vec!</span>[],
         };
-        commit::RawCommitmentBuilder::new(<span class="string">"Certificate"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"Certificate"</span>)
             .field(<span class="string">"data"</span>, <span class="self">self</span>.data.commit())
             .field(<span class="string">"vote_commitment"</span>, <span class="self">self</span>.vote_commitment)
             .field(<span class="string">"view number"</span>, <span class="self">self</span>.view_number.commit())

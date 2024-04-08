@@ -549,8 +549,6 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -562,7 +560,7 @@
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>futures::{future::BoxFuture, Stream, StreamExt};
 <span class="kw">use </span>hotshot::{
     traits::{BlockPayload, TestableNodeImplementation},
@@ -570,7 +568,7 @@
 };
 <span class="kw">use </span>hotshot_builder_api::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::{BuildError, Options},
+    builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
 <span class="kw">use </span>hotshot_example_types::{
@@ -640,9 +638,9 @@
                 <span class="kw-2">&amp;</span>Options::default(),
             )
             .expect(<span class="string">"Failed to construct the builder API"</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource, hotshot_builder_api::builder::Error, Version01&gt; =
+        <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource, hotshot_builder_api::builder::Error&gt; =
             App::with_state(source);
-        app.register_module(<span class="string">"/"</span>, builder_api)
+        app.register_module(<span class="string">"api"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
         async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
@@ -839,9 +837,8 @@
             <span class="kw-2">&amp;</span>Options::default(),
         )
         .expect(<span class="string">"Failed to construct the builder API"</span>);
-    <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;RandomBuilderSource, hotshot_builder_api::builder::Error, Version01&gt; =
-        App::with_state(source);
-    app.register_module(<span class="string">"/"</span>, builder_api)
+    <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;RandomBuilderSource, Error&gt; = App::with_state(source);
+    app.register_module::&lt;Error, Version01&gt;(<span class="string">"api"</span>, builder_api)
         .expect(<span class="string">"Failed to register the builder API"</span>);
 
     async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -932,9 +929,8 @@
                 <span class="kw-2">&amp;</span>Options::default(),
             )
             .expect(<span class="string">"Failed to construct the builder API"</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource, hotshot_builder_api::builder::Error, Version01&gt; =
-            App::with_state(<span class="self">self</span>);
-        app.register_module(<span class="string">"/"</span>, builder_api)
+        <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource, Error&gt; = App::with_state(<span class="self">self</span>);
+        app.register_module::&lt;Error, Version01&gt;(<span class="string">"api"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
         async_spawn(app.serve(url, STATIC_VER_0_1));

@@ -265,7 +265,7 @@
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::node_types::TestTypes;
-<span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
@@ -313,7 +313,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>TestTransaction {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">"Txn Comm"</span>);
+        <span class="kw">let </span>builder = committable::RawCommitmentBuilder::new(<span class="string">"Txn Comm"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>hasher = Keccak256::new();
         hasher.update(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>);
         <span class="kw">let </span>generic_array = hasher.finalize();
@@ -420,7 +420,7 @@
     ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
         <span class="self">self</span>.transactions
             .iter()
-            .map(commit::Committable::commit)
+            .map(committable::Committable::commit)
             .collect()
     }
 

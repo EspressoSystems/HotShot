@@ -51,9 +51,9 @@
 <span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>tide_disco::api::{Api, ApiError};
 <span class="kw">use </span>toml::{map::Entry, Value};
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_api&lt;State, Error, Ver: StaticVersionType&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_api&lt;State: <span class="lifetime">'static</span>, Error: <span class="lifetime">'static</span>, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;(
     path: <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>AsRef&lt;Path&gt;&gt;,
     default: <span class="kw-2">&amp;</span>str,
     extensions: <span class="kw">impl </span>IntoIterator&lt;Item = Value&gt;,

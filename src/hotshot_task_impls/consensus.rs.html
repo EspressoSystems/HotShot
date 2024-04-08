@@ -1655,7 +1655,7 @@
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
@@ -1682,7 +1682,7 @@
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-<span class="kw">use </span>versioned_binary_serialization::version::Version;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
 <span class="kw">use </span>chrono::Utc;

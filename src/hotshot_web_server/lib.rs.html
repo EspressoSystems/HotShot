@@ -1120,6 +1120,7 @@
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
 
 /// Configuration for the webserver
@@ -1145,7 +1146,7 @@
     Api, App, StatusCode, Url,
 };
 <span class="kw">use </span>tracing::{debug, info};
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline
@@ -2232,9 +2233,10 @@
 
     <span class="kw">let </span>web_api = define_api(<span class="kw-2">&amp;</span>options).unwrap();
     <span class="kw">let </span>state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error, NetworkVersion&gt;::with_state(state);
+    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State&lt;KEY&gt;, Error&gt;::with_state(state);
 
-    app.register_module(<span class="string">"api"</span>, web_api).unwrap();
+    app.register_module::&lt;Error, NetworkVersion&gt;(<span class="string">"api"</span>, web_api)
+        .unwrap();
 
     <span class="kw">let </span>app_future = app.serve(url, bind_version);
 

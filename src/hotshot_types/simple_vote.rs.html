@@ -262,7 +262,7 @@
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
 
-<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -272,7 +272,7 @@
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>versioned_binary_serialization::version::Version;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a yes vote.
@@ -350,7 +350,7 @@
 /// All simple voteable types should be implemented here.  This prevents us from
 /// creating/using improper types when using the vote types.
 </span><span class="kw">mod </span>sealed {
-    <span class="kw">use </span>commit::Committable;
+    <span class="kw">use </span>committable::Committable;
 
     <span class="doccomment">/// Only structs in this file can impl `Sealed`
     </span><span class="kw">pub trait </span>Sealed {}
@@ -422,7 +422,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>QuorumData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"Quorum data"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"Quorum data"</span>)
             .var_size_bytes(<span class="self">self</span>.leaf_commit.as_ref())
             .finalize()
     }
@@ -430,7 +430,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>TimeoutData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"Timeout data"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"Timeout data"</span>)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.view)
             .finalize()
     }
@@ -438,7 +438,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>DAData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"DA data"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"DA data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
             .finalize()
     }
@@ -446,7 +446,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>VIDData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"VID data"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"VID data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
             .finalize()
     }
@@ -454,7 +454,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>UpgradeProposalData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>);
+        <span class="kw">let </span>builder = committable::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>);
         builder
             .u64(<span class="kw-2">*</span><span class="self">self</span>.new_version_first_block)
             .u64(<span class="kw-2">*</span><span class="self">self</span>.old_version_last_block)
@@ -473,7 +473,7 @@
     relay: u64,
     tag: <span class="kw-2">&amp;</span>str,
 ) -&gt; Commitment&lt;T&gt; {
-    <span class="kw">let </span>builder = commit::RawCommitmentBuilder::new(tag);
+    <span class="kw">let </span>builder = committable::RawCommitmentBuilder::new(tag);
     builder.u64(<span class="kw-2">*</span>view).u64(relay).finalize()
 }
 

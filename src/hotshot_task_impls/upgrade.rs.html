@@ -513,14 +513,14 @@
 
                 <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
                 </span>{
-                    <span class="kw">use </span>commit::Committable;
+                    <span class="kw">use </span>committable::Committable;
                     <span class="kw">use </span>std::marker::PhantomData;
 
                     <span class="kw">use </span>hotshot_types::{
                         data::UpgradeProposal, message::Proposal,
                         traits::node_implementation::ConsensusTime,
                     };
-                    <span class="kw">use </span>versioned_binary_serialization::version::Version;
+                    <span class="kw">use </span>vbs::version::Version;
 
                     <span class="kw">if </span><span class="kw-2">*</span>view == <span class="number">5 </span>&amp;&amp; <span class="self">self</span>.quorum_membership.get_leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key
                     {

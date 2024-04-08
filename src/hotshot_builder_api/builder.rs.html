@@ -220,7 +220,7 @@
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
 <span class="kw">use </span>clap::Args;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derive_more::From;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
@@ -235,7 +235,7 @@
     method::{ReadState, WriteState},
     Api, RequestError, StatusCode,
 };
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="attr">#[derive(Args, Default)]
 </span><span class="kw">pub struct </span>Options {

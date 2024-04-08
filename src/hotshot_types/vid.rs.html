@@ -277,6 +277,7 @@
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides:
 //! - an opaque constructor [`vid_scheme`] that returns a new instance of a
 //!   VID scheme.
@@ -329,17 +330,18 @@
 /// When the construction fails for the underlying VID scheme.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>vid_scheme(num_storage_nodes: usize) -&gt; VidSchemeType {
-    <span class="comment">// chunk_size is currently num_storage_nodes rounded down to a power of two
-    // TODO chunk_size should be a function of the desired erasure code rate
+    <span class="comment">// recovery_threshold is currently num_storage_nodes rounded down to a power of two
+    // TODO recovery_threshold should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152
-    </span><span class="kw">let </span>chunk_size = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
+    </span><span class="kw">let </span>recovery_threshold = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
 
-    <span class="comment">// TODO intelligent choice of multiplicity
-    </span><span class="kw">let </span>multiplicity = <span class="number">1</span>;
+    <span class="kw">let </span>num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
+        <span class="macro">panic!</span>(<span class="string">"num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}"</span>)
+    });
 
     <span class="comment">// TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     </span><span class="attr">#[allow(clippy::panic)]
-    </span>VidSchemeType(Advz::new(chunk_size, num_storage_nodes, multiplicity, <span class="kw-2">&amp;*</span>KZG_SRS).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}"</span>)))
+    </span>VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, <span class="kw-2">&amp;*</span>KZG_SRS).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}"</span>)))
 }
 
 <span class="doccomment">/// VID commitment type
@@ -452,15 +454,15 @@
         &lt;Advz <span class="kw">as </span>VidScheme&gt;::is_consistent(commit, common)
     }
 
-    <span class="kw">fn </span>get_payload_byte_len(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; usize {
+    <span class="kw">fn </span>get_payload_byte_len(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; u32 {
         &lt;Advz <span class="kw">as </span>VidScheme&gt;::get_payload_byte_len(common)
     }
 
-    <span class="kw">fn </span>get_num_storage_nodes(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; usize {
+    <span class="kw">fn </span>get_num_storage_nodes(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; u32 {
         &lt;Advz <span class="kw">as </span>VidScheme&gt;::get_num_storage_nodes(common)
     }
 
-    <span class="kw">fn </span>get_multiplicity(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; usize {
+    <span class="kw">fn </span>get_multiplicity(common: <span class="kw-2">&amp;</span><span class="self">Self</span>::Common) -&gt; u32 {
         &lt;Advz <span class="kw">as </span>VidScheme&gt;::get_multiplicity(common)
     }
 }

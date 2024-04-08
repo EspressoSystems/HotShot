@@ -320,7 +320,7 @@
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
+<span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 <span class="doccomment">/// Amount of time to try for a request before timing out.
 </span><span class="kw">const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);

@@ -753,13 +753,13 @@
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::join;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_task_impls::helpers::broadcast_event;
 <span class="kw">use </span>hotshot_task_impls::network;
 <span class="kw">use </span>hotshot_types::constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
-<span class="kw">use </span>versioned_binary_serialization::version::Version;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use </span>hotshot_task::task::TaskRegistry;
 <span class="kw">use </span>hotshot_types::{

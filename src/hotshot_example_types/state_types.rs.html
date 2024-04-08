@@ -115,7 +115,7 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
-</span><span class="kw">use </span>commit::{Commitment, Committable};
+</span><span class="kw">use </span>committable::{Commitment, Committable};
 
 <span class="kw">use </span>hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -156,7 +156,7 @@
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        commit::RawCommitmentBuilder::new(<span class="string">"Test State Commit"</span>)
+        committable::RawCommitmentBuilder::new(<span class="string">"Test State Commit"</span>)
             .u64_field(<span class="string">"block_height"</span>, <span class="self">self</span>.block_height)
             .field(<span class="string">"prev_state_commitment"</span>, <span class="self">self</span>.prev_state_commitment)
             .finalize()

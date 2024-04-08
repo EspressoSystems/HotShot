@@ -552,7 +552,7 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>versioned_binary_serialization::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// Helper function to calculate a hash of a type that implements Hash
 </span><span class="kw">pub fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
