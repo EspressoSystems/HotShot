@@ -57,7 +57,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tasks::{add_request_network_task, add_response_task, add_vid_task};
+use tasks::{add_quorum_proposal_task, add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 
 // -- Rexports
@@ -599,6 +599,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_upgrade_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        add_quorum_proposal_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),
