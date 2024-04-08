@@ -495,7 +495,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn fill_block_payload(
         &mut self,
         block_payload: TYPES::BlockPayload,
-        num_storage_nodes: u32,
+        num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
         let encoded_txns = match block_payload.encode() {
             // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.

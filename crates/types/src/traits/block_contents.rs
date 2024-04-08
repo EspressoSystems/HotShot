@@ -105,7 +105,7 @@ pub trait TestableBlock: BlockPayload + Debug {
 #[must_use]
 pub fn vid_commitment(
     encoded_transactions: &Vec<u8>,
-    num_storage_nodes: u32,
+    num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
     #[allow(clippy::panic)]
     vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
@@ -115,7 +115,7 @@ pub fn vid_commitment(
 ///
 /// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
-pub const GENESIS_VID_NUM_STORAGE_NODES: u32 = 1;
+pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader<TYPES: NodeType>:

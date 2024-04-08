@@ -49,7 +49,7 @@ use std::{fmt::Debug, ops::Range};
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
 #[must_use]
-pub fn vid_scheme(num_storage_nodes: u32) -> VidSchemeType {
+pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // chunk_size is currently num_storage_nodes rounded down to a power of two
     // TODO chunk_size should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152
@@ -57,7 +57,7 @@ pub fn vid_scheme(num_storage_nodes: u32) -> VidSchemeType {
 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(chunk_size, num_storage_nodes, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size})\n\terror: : {err}")))
+    VidSchemeType(Advz::new(chunk_size, num_storage_nodes as u32, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size})\n\terror: : {err}")))
 }
 
 /// VID commitment type

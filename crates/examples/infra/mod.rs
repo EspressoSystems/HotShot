@@ -56,7 +56,7 @@ use std::num::NonZeroUsize;
 use std::time::Duration;
 use std::{fs, time::Instant};
 use surf_disco::Url;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use versioned_binary_serialization::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
