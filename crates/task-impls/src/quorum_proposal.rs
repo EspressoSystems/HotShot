@@ -1002,22 +1002,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 let new_view = current_proposal.clone().unwrap().view_number + 1;
-                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
-                    && consensus.high_qc.view_number
-                        == current_proposal.clone().unwrap().view_number;
-                // todo get rid of this clone
-                let qc = consensus.high_qc.clone();
 
                 drop(consensus);
                 info!(
                     "Node {} creating dependency task for view {:?} from QuorumProposalRecv",
                     self.id,
-                    proposal.view_number + 1
+                    // proposal.view_number + 1
+                    new_view
                 );
                 self.create_dependency_task_if_new(
-                    proposal.view_number + 1,
+                    // proposal.view_number + 1,
+                    new_view,
                     event_receiver,
                     event_sender,
                     event.clone(),
