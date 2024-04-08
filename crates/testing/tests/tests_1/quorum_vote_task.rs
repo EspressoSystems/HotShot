@@ -87,7 +87,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     // Send two of quorum proposal, DAC, and VID disperse data, in which case there's no vote.
     let view_no_dac = TestScriptStage {
         inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[1]),
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VidDisperseRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
@@ -104,7 +104,7 @@ async fn test_quorum_vote_task_miss_dependency() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
-            // quorum_proposal_validated(),
+            quorum_proposal_validated(),
             exact(DACertificateValidated(dacs[1].clone())),
         ],
         asserts: vec![],
