@@ -36,7 +36,6 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
-    sync::Arc,
 };
 use tracing::error;
 
@@ -156,7 +155,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub fn from_membership(
         view_number: TYPES::Time,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: &Arc<TYPES::Membership>,
+        membership: &TYPES::Membership,
     ) -> Self {
         let shares = membership
             .get_staked_committee(view_number)
