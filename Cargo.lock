@@ -3404,6 +3404,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
+ "url",
  "vbs",
 ]
 
