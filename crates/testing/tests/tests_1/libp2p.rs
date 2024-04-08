@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
 use hotshot_testing::{
-    block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -29,6 +28,7 @@ async fn libp2p_network() {
         ),
         timing_data: TimingData {
             next_view_timeout: 4000,
+            propose_max_round_time: Duration::from_millis(300),
             ..Default::default()
         },
         ..TestMetadata::default_multiple_rounds()
@@ -37,7 +37,7 @@ async fn libp2p_network() {
     metadata
         .gen_launcher::<TestTypes, Libp2pImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<Libp2pImpl>>()
+        .run_test()
         .await;
 }
 
@@ -60,6 +60,7 @@ async fn libp2p_network_failures_2() {
         ),
         timing_data: TimingData {
             next_view_timeout: 4000,
+            propose_max_round_time: Duration::from_millis(100),
             ..Default::default()
         },
         ..TestMetadata::default_multiple_rounds()
@@ -84,7 +85,7 @@ async fn libp2p_network_failures_2() {
     metadata
         .gen_launcher::<TestTypes, Libp2pImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<Libp2pImpl>>()
+        .run_test()
         .await;
 }
 
@@ -100,6 +101,6 @@ async fn test_stress_libp2p_network() {
     metadata
         .gen_launcher::<TestTypes, Libp2pImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<Libp2pImpl>>()
+        .run_test()
         .await;
 }

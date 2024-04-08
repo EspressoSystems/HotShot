@@ -64,10 +64,11 @@ where
         PredicateResult::Pass => result,
         PredicateResult::Incomplete => result,
         PredicateResult::Fail => {
-            panic!(
+            format!(
                 "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
                 stage_number, assert, output
-            )
+            );
+            result
         }
     }
 }

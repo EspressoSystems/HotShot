@@ -114,7 +114,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::Time,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
-    BlockRecv(
+    TransactionsSequenced(
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,

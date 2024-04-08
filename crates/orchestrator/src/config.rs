@@ -533,8 +533,6 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub propose_max_round_time: Duration,
     /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
-    /// Builder API base URL
-    pub builder_url: Url,
 }
 
 /// Holds configuration for a validator node
@@ -613,7 +611,6 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             propose_max_round_time: val.propose_max_round_time,
             data_request_delay: val.data_request_delay,
             election_config: None,
-            builder_url: val.builder_url,
         }
     }
 }
@@ -669,7 +666,6 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
-            builder_url: Url::parse("http://localhost:3311").unwrap(),
         }
     }
 }

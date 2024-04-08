@@ -850,7 +850,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .vid_shares
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
-                                        .get(&self.public_key).cloned();
+                                        .get(&self.public_key).map(|proposal| proposal.data.clone());
 
                                 // Add our data into a new `LeafInfo`
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
@@ -1174,7 +1174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
 
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;

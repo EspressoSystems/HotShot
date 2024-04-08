@@ -6,7 +6,6 @@ async fn test_catchup() {
 
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -52,7 +51,7 @@ async fn test_catchup() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<MemoryImpl>>()
+        .run_test()
         .await;
 }
 
@@ -64,7 +63,6 @@ async fn test_catchup_cdn() {
 
     use hotshot_example_types::node_types::{PushCdnImpl, TestTypes};
     use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -105,7 +103,7 @@ async fn test_catchup_cdn() {
     metadata
         .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<PushCdnImpl>>()
+        .run_test()
         .await;
 }
 
@@ -118,7 +116,6 @@ async fn test_catchup_one_node() {
 
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -160,7 +157,7 @@ async fn test_catchup_one_node() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<MemoryImpl>>()
+        .run_test()
         .await;
 }
 
@@ -173,7 +170,6 @@ async fn test_catchup_in_view_sync() {
 
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -221,7 +217,7 @@ async fn test_catchup_in_view_sync() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<MemoryImpl>>()
+        .run_test()
         .await;
 }
 
@@ -235,7 +231,6 @@ async fn test_catchup_reload() {
 
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
@@ -282,6 +277,6 @@ async fn test_catchup_reload() {
     metadata
         .gen_launcher::<TestTypes, MemoryImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<MemoryImpl>>()
+        .run_test()
         .await;
 }

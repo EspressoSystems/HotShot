@@ -3,7 +3,6 @@ use std::time::Duration;
 use async_compatibility_layer::logging::shutdown_logging;
 use hotshot_example_types::node_types::{PushCdnImpl, TestTypes};
 use hotshot_testing::{
-    block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::{TestMetadata, TimingData},
@@ -40,7 +39,7 @@ async fn push_cdn_network() {
     metadata
         .gen_launcher::<TestTypes, PushCdnImpl>(0)
         .launch()
-        .run_test::<SimpleBuilderImplementation<PushCdnImpl>>()
+        .run_test()
         .await;
     shutdown_logging();
 }

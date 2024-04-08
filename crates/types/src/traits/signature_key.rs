@@ -67,8 +67,7 @@ pub trait SignatureKey:
         + PartialEq
         + Eq
         + Serialize
-        + for<'a> Deserialize<'a>
-        + Into<TaggedBase64>;
+        + for<'a> Deserialize<'a>;
     /// The type of the assembled qc: assembled signature + `BitVec`
     type QCType: Send
         + Sync

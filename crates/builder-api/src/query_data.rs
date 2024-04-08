@@ -1,3 +1,8 @@
+// Copyright (c) 2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot HotShot Builder Protocol.
+//
+// TODO: License
+
 use hotshot_types::traits::node_implementation::NodeType;
 use serde::{Deserialize, Serialize};
 

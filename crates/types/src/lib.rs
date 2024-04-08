@@ -7,7 +7,6 @@ use std::fmt::Debug;
 use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 use tracing::error;
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
-use url::Url;
 pub mod consensus;
 pub mod constants;
 pub mod data;
@@ -190,6 +189,4 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub data_request_delay: Duration,
     /// the election configuration
     pub election_config: Option<ELECTIONCONFIG>,
-    /// Builder API base URL
-    pub builder_url: Url,
 }
