@@ -8,7 +8,7 @@ source "$HOME/.cargo/env"
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 webserver_url=http://172.31.28.184:80
 da_webserver_url=http://172.31.44.172:81
-orchestrator_url=http://172.31.8.82:4444 
+orchestrator_url=http://172.31.7.196:4444 
 
 
 # build
@@ -32,7 +32,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # docker run --network=host [YOUR-NAME]:latest
 
 OLDIFS=$IFS; IFS=',';
-for config in 10,5,1,1000000,20 50,5,1,1000000,20 10,5,1,20000000,20 #100,10,1,20000000,20 200,10,1,20000000,20
+for config in 100,10,1,20000000,20 #10,5,1,1000000,20 50,5,1,1000000,20 10,5,1,20000000,20 200,10,1,20000000,20
 do
     set -- $config;
     # start webserver
