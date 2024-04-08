@@ -57,7 +57,7 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(chunk_size, num_storage_nodes as u32, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size})\n\terror: : {err}")))
+    VidSchemeType(Advz::new(num_storage_nodes as u32, chunk_size, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size)=({num_storage_nodes},{chunk_size})\n\terror: : {err}")))
 }
 
 /// VID commitment type
