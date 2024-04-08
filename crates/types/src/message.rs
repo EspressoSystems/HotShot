@@ -25,7 +25,7 @@ use crate::{
     },
 };
 use anyhow::{ensure, Result};
-use commit::Committable;
+use committable::Committable;
 use derivative::Derivative;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
