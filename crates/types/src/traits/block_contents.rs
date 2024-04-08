@@ -115,7 +115,7 @@ pub fn vid_commitment(
 ///
 /// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
-pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
+pub const GENESIS_VID_NUM_STORAGE_NODES: u32 = 1;
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader<TYPES: NodeType>:

@@ -170,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
                 let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                    spawn_blocking(move || vid_commitment(&txns, num_nodes as u32)).await;
                 #[cfg(async_executor_impl = "tokio")]
                 let payload_commitment = payload_commitment.unwrap();
 
