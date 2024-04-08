@@ -88,6 +88,10 @@ where
     /// Only get leader in fixed set
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
+        if(self.fixed_leader_for_gpuvid == 0) {
+            error!("fixed_leader_for_gpuvid cannot be zero. we'll change to 1.")
+            self.fixed_leader_for_gpuvid = 1;
+        }
         let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
         let res = self.nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(&res)

@@ -49,18 +49,15 @@ use std::{fmt::Debug, ops::Range};
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
 #[must_use]
-pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
+pub fn vid_scheme(num_storage_nodes: u32) -> VidSchemeType {
     // chunk_size is currently num_storage_nodes rounded down to a power of two
     // TODO chunk_size should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152
     let chunk_size = 1 << num_storage_nodes.ilog2();
 
-    // TODO intelligent choice of multiplicity
-    let multiplicity = 1;
-
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(chunk_size, num_storage_nodes, multiplicity, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size},{multiplicity})\n\terror: : {err}")))
+    VidSchemeType(Advz::new(chunk_size, num_storage_nodes, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,chunk_size,multiplicity)=({num_storage_nodes},{chunk_size})\n\terror: : {err}")))
 }
 
 /// VID commitment type
@@ -173,15 +170,15 @@ impl VidScheme for VidSchemeType {
         <Advz as VidScheme>::is_consistent(commit, common)
     }
 
-    fn get_payload_byte_len(common: &Self::Common) -> usize {
+    fn get_payload_byte_len(common: &Self::Common) -> u32 {
         <Advz as VidScheme>::get_payload_byte_len(common)
     }
 
-    fn get_num_storage_nodes(common: &Self::Common) -> usize {
+    fn get_num_storage_nodes(common: &Self::Common) -> u32 {
         <Advz as VidScheme>::get_num_storage_nodes(common)
     }
 
-    fn get_multiplicity(common: &Self::Common) -> usize {
+    fn get_multiplicity(common: &Self::Common) -> u32 {
         <Advz as VidScheme>::get_multiplicity(common)
     }
 }
