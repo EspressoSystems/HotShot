@@ -847,16 +847,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     leaf.fill_block_payload_unchecked(payload);
                                 }
 
-                                let vid = VidDisperseShare::to_vid_disperse(
-                                    consensus
+                                // Get the VID share at the leaf's view number, corresponding to our key
+                                // (if one exists)
+                                let vid_share = consensus
                                         .vid_shares
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
-                                        .iter()
-                                        .map(|(_key, proposal)| &proposal.data)
-                                );
+                                        .get(&self.public_key).cloned();
 
-                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid));
+                                // Add our data into a new `LeafInfo`
+                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
                                 leafs_decided.push(leaf.clone());
                                 if let Some(ref payload) = leaf.get_block_payload() {
                                     for txn in payload
@@ -1177,7 +1177,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
 
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;

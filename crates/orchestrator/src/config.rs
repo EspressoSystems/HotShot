@@ -9,7 +9,7 @@ use std::{fs, path::Path};
 use surf_disco::Url;
 use thiserror::Error;
 use toml;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::client::OrchestratorClient;
 
@@ -196,7 +196,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<(NetworkConfig<K, E>, NetworkConfigSource)> {
         if let Some(file) = file {
-            error!("Retrieving config from the file");
+            info!("Retrieving config from the file");
             // if we pass in file, try there first
             match Self::from_file(file.clone()) {
                 Ok(config) => Ok((config, NetworkConfigSource::File)),
@@ -217,7 +217,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
                 }
             }
         } else {
-            error!("Retrieving config from the orchestrator");
+            info!("Retrieving config from the orchestrator");
 
             // otherwise just get from orchestrator
             Ok((
@@ -276,7 +276,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
             .await;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        error!("Retrieved config; our node index is {node_index}.");
+        info!("Retrieved config; our node index is {node_index}.");
         Ok((run_config, source))
     }
 
@@ -509,6 +509,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub staked_committee_nodes: usize,
     /// Number of non-staking committee nodes
     pub non_staked_committee_nodes: usize,
+    /// Number of fixed leaders for GPU VID
+    pub fixed_leader_for_gpuvid: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -531,6 +533,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub propose_max_round_time: Duration,
     /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
+    /// Builder API base URL
+    pub builder_url: Url,
 }
 
 /// Holds configuration for a validator node
@@ -598,6 +602,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             my_own_validator_config: val.my_own_validator_config,
             da_staked_committee_size: val.staked_committee_nodes,
             da_non_staked_committee_size: val.non_staked_committee_nodes,
+            fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
             timeout_ratio: val.timeout_ratio,
@@ -608,6 +613,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             propose_max_round_time: val.propose_max_round_time,
             data_request_delay: val.data_request_delay,
             election_config: None,
+            builder_url: val.builder_url,
         }
     }
 }
@@ -651,6 +657,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             known_nodes_without_stake: vec![],
             staked_committee_nodes: 5,
             non_staked_committee_nodes: 0,
+            fixed_leader_for_gpuvid: 0,
             max_transactions: NonZeroUsize::new(100).unwrap(),
             min_transactions: 1,
             next_view_timeout: 10000,
@@ -662,6 +669,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
+            builder_url: Url::parse("http://localhost:3311").unwrap(),
         }
     }
 }
