@@ -89,7 +89,7 @@ impl<I: TestableNodeImplementation<TestTypes>> TestBuilderImplementation
             .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource, hotshot_builder_api::builder::Error> =
             App::with_state(source);
-        app.register_module("/", builder_api)
+        app.register_module("api", builder_api)
             .expect("Failed to register the builder API");
 
         async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
