@@ -343,10 +343,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some(parent) = parent else {
                     warn!(
-                                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.get_data().leaf_commit,
-                                *view,
-                            );
+                        "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
+                        justify_qc.get_data().leaf_commit,
+                        *view,
+                    );
                     return;
                 };
 
@@ -445,7 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
 
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
