@@ -3294,6 +3294,7 @@ dependencies = [
 name = "hotshot-task-impls"
 version = "0.5.26"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -3309,7 +3310,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-types",
  "jf-primitives 0.4.3",
- "memoize",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3393,6 +3393,7 @@ dependencies = [
  "jf-primitives 0.4.3",
  "jf-utils 0.4.3",
  "lazy_static",
+ "memoize",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
