@@ -140,13 +140,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         }
 
         broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
-                self.view_number,
-            )),
-            &self.sender,
-        )
-        .await;
-        broadcast_event(
             Arc::new(HotShotEvent::DummyQuorumProposalSend(self.view_number)),
             &self.sender,
         )
