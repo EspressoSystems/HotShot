@@ -441,9 +441,11 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .expect("unable to encode genesis payload")
             .collect();
         // This isn't an unrecoverable error, but would take quite a bit more work
-        let payload_commitment =
-            async_block_on(vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES))
-                .expect("Failed to calculate genesis commitment");
+        let payload_commitment = async_block_on(async {
+            vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
+                .await
+                .expect("Failed to calculate genesis commitment")
+        });
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
         Self {

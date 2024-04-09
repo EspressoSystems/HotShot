@@ -385,10 +385,9 @@ pub fn da_payload_commitment(
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    async_block_on(vid_commitment(
-        encoded_transactions,
-        quorum_membership.total_nodes(),
-    ))
+    async_block_on(async {
+        vid_commitment(encoded_transactions, quorum_membership.total_nodes()).await
+    })
     .expect("Failed to calculate payload commitment.")
 }
 
