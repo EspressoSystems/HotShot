@@ -6,7 +6,9 @@ use std::{
     marker::PhantomData,
 };
 
-use commit::{Commitment, Committable};
+use anyhow::{ensure, Result};
+
+use committable::{Commitment, Committable};
 use ethereum_types::U256;
 
 use crate::{
@@ -83,7 +85,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
             Some(sigs) => serialize_signature2::<TYPES>(sigs),
             None => vec![],
         };
-        commit::RawCommitmentBuilder::new("Certificate")
+        committable::RawCommitmentBuilder::new("Certificate")
             .field("data", self.data.commit())
             .field("vote_commitment", self.vote_commitment)
             .field("view number", self.view_number.commit())
@@ -147,6 +149,50 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
 impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "view: {:?}", self.view_number)
+    }
+}
+
+impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
+    /// Check that an upgrade certificate is still relevant to the current view.
+    ///
+    /// # Errors
+    /// Returns 'Err' if the certificate is no longer relevant.
+    pub fn is_relevant(
+        &self,
+        view_number: TYPES::Time,
+        decided_upgrade_certificate: Option<Self>,
+    ) -> Result<()> {
+        ensure!(
+            self.data.decide_by >= view_number
+                || decided_upgrade_certificate.is_some_and(|cert| cert == *self),
+            "Upgrade certificate is no longer relevant."
+        );
+
+        Ok(())
+    }
+
+    /// Validate an upgrade certificate
+    ///
+    /// # Errors
+    /// Returns 'Err' if the certificate is invalid.
+    pub fn validate(
+        upgrade_certificate: &Option<Self>,
+        quorum_membership: &TYPES::Membership,
+    ) -> Result<()> {
+        if let Some(ref cert) = upgrade_certificate {
+            ensure!(
+                cert.is_valid_cert(quorum_membership),
+                "Invalid upgrade certificate."
+            );
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Test whether a view is in the interim period prior to the new version taking effect.
+    pub fn in_interim(&self, view: TYPES::Time) -> bool {
+        view > self.data.old_version_last_view && view < self.data.new_version_first_view
     }
 }
 

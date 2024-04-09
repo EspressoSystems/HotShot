@@ -23,9 +23,10 @@ use crate::{
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
+use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::Options;
-use commit::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
+use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use jf_primitives::vid::VidDisperse as JfVidDisperse;
 use rand::Rng;
@@ -36,7 +37,6 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
-    sync::Arc,
 };
 use tracing::error;
 
@@ -156,7 +156,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub fn from_membership(
         view_number: TYPES::Time,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: Arc<TYPES::Membership>,
+        membership: &TYPES::Membership,
     ) -> Self {
         let shares = membership
             .get_staked_committee(view_number)
@@ -185,6 +185,7 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
+    /// Check that the given ViewChangeEvidence is relevant to the current view.
     pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
         match self {
             ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.get_data().view == *view - 1,
@@ -194,6 +195,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+/// VID share and associated metadata for a single node
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::Time,
@@ -267,6 +269,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         Some(vid_disperse)
     }
 
+    /// Split a VID share proposal into a proposal for each recipient.
     pub fn to_vid_share_proposals(
         vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
     ) -> Vec<Proposal<TYPES, VidDisperseShare<TYPES>>> {
@@ -553,6 +556,48 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_payload_commitment(&self) -> VidCommitment {
         self.get_block_header().payload_commitment()
     }
+
+    /// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
+    ///
+    /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
+    ///
+    /// # Errors
+    /// Returns `Err` if the child fails to correctly reattach the upgrade certificate.
+    pub fn extends_upgrade(
+        &self,
+        parent: &Self,
+        decided_upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
+    ) -> Result<()> {
+        match (
+            self.get_upgrade_certificate(),
+            parent.get_upgrade_certificate(),
+        ) {
+            // Easiest cases are:
+            //   - no upgrade certificate on either: this is the most common case, and is always fine.
+            //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
+            (None | Some(_), None) => {}
+            // If we no longer see a cert, we have to make sure that we either:
+            //    - no longer care because we have passed new_version_first_view, or
+            //    - no longer care because we have passed `decide_by` without deciding the certificate.
+            (None, Some(parent_cert)) => {
+                ensure!(self.get_view_number() > parent_cert.data.new_version_first_view
+                    || (self.get_view_number() > parent_cert.data.decide_by && decided_upgrade_certificate.is_none()),
+                       "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
+                );
+            }
+            // If we both have a certificate, they should be identical.
+            // Technically, this prevents us from initiating a new upgrade in the view immediately following an upgrade.
+            // I think this is a fairly lax restriction.
+            (Some(cert), Some(parent_cert)) => {
+                ensure!(cert == parent_cert, "The new leaf does not extend the parent leaf, because it has attached a different upgrade certificate.");
+            }
+        }
+
+        // This check should be added once we sort out the genesis leaf/justify_qc issue.
+        // ensure!(self.get_parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
+
+        Ok(())
+    }
 }
 
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
@@ -610,7 +655,7 @@ pub fn serialize_signature2<TYPES: NodeType>(
 }
 
 impl<TYPES: NodeType> Committable for Leaf<TYPES> {
-    fn commit(&self) -> commit::Commitment<Self> {
+    fn commit(&self) -> committable::Commitment<Self> {
         // Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
         RawCommitmentBuilder::new("leaf commitment")
             .u64_field("view number", *self.view_number)
@@ -627,10 +672,7 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
 }
 
 impl<TYPES: NodeType> Leaf<TYPES> {
-    pub fn from_proposal(proposal: &Proposal<TYPES, QuorumProposal<TYPES>>) -> Self {
-        Self::from_quorum_proposal(&proposal.data)
-    }
-
+    /// Constructs a leaf from a given quorum proposal.
     pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal<TYPES>) -> Self {
         // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
@@ -650,10 +692,28 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_payload: None,
         }
     }
+}
 
-    pub fn commit_from_proposal(
-        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    ) -> Commitment<Self> {
-        Leaf::from_proposal(proposal).commit()
+pub mod null_block {
+    #![allow(missing_docs)]
+    use crate::vid::{vid_scheme, VidCommitment};
+    use jf_primitives::vid::VidScheme;
+    use memoize::memoize;
+
+    /// The commitment for a null block payload.
+    ///
+    /// Note: the commitment depends on the network (via `num_storage_nodes`),
+    /// and may change (albeit rarely) during execution.
+    ///
+    /// We memoize the result to avoid having to recalculate it.
+    #[memoize(SharedCache, Capacity: 10)]
+    #[must_use]
+    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
+
+        match vid_result {
+            Ok(r) => Some(r),
+            Err(_) => None,
+        }
     }
 }

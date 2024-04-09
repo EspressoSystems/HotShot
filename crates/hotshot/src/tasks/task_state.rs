@@ -12,8 +12,9 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
+use std::collections::BTreeMap;
 use std::{collections::HashMap, marker::PhantomData};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -191,7 +192,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             timeout_task: None,
-            upgrade_cert: None,
+            spawned_tasks: BTreeMap::new(),
+            formed_upgrade_certificate: None,
             proposal_cert: None,
             decided_upgrade_cert: None,
             version: handle.hotshot.version.clone(),

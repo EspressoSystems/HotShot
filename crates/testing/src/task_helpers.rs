@@ -8,7 +8,7 @@ use hotshot_example_types::{
 };
 
 use crate::test_builder::TestMetadata;
-use commit::Committable;
+use committable::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
@@ -398,7 +398,7 @@ pub fn build_vid_proposal(
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(encoded_transactions).unwrap(),
-        quorum_membership.clone().into(),
+        quorum_membership,
     );
 
     VidDisperseShare::from_vid_disperse(vid_disperse)
