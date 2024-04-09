@@ -768,6 +768,8 @@ impl NetworkNode {
                                 bootstrap_handle.cancel().await;
                                 #[cfg(async_executor_impl = "tokio")]
                                 bootstrap_handle.abort();
+                                #[cfg(async_executor_impl = "tokio")]
+                                bootstrap_handle.await;
                                 break
                             }
                             fuse = s_output.recv().boxed().fuse();
