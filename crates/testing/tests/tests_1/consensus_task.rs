@@ -43,12 +43,15 @@ async fn test_consensus_task() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut builder_infos = Vec::new();
+
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // Run view 1 (the genesis stage).
@@ -78,8 +81,8 @@ async fn test_consensus_task() {
                 payload_commitment,
                 (),
                 ViewNumber::new(2),
-                (),
-                (),
+                builder_infos[1].2,
+                builder_infos[1].3,
             ),
         ],
         outputs: vec![
@@ -278,6 +281,7 @@ async fn test_view_sync_finalize_propose() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
+    let mut builder_infos = Vec::new();
 
     generator.next();
     let view = generator.current_view.clone().unwrap();
@@ -286,6 +290,7 @@ async fn test_view_sync_finalize_propose() {
     votes.push(view.create_quorum_vote(&handle));
     vids.push(view.vid_proposal.clone());
     dacs.push(view.da_certificate.clone());
+    builder_infos.push(view.builder_info.clone());
 
     // Skip two views
     generator.advance_view_number_by(2);
@@ -299,6 +304,7 @@ async fn test_view_sync_finalize_propose() {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
     votes.push(view.create_quorum_vote(&handle));
+    builder_infos.push(view.builder_info.clone());
 
     // This is a bog standard view and covers the situation where everything is going normally.
     let view_1 = TestScriptStage {
@@ -357,7 +363,13 @@ async fn test_view_sync_finalize_propose() {
             TimeoutVoteRecv(timeout_vote_view_2),
             TimeoutVoteRecv(timeout_vote_view_3),
             ViewSyncFinalizeCertificate2Recv(cert),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(4)),
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                (),
+                ViewNumber::new(4),
+                builder_infos[1].2,
+                builder_infos[1].3,
+            ),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),

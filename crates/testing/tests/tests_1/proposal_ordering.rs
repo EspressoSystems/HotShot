@@ -39,12 +39,14 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut builder_infos = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         leaders.push(view.leader_public_key);
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // This stage transitions from the initial view to view 1
@@ -67,15 +69,20 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let inputs = vec![
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
         QCFormed(either::Left(cert)),
-        SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
+        SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+            payload_commitment,
+            (),
+            ViewNumber::new(node_id),
+            builder_infos[1].2,
+            builder_infos[1].3.clone(),
+        ),
     ];
 
-    let view_2_outputs = 
-        vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            quorum_proposal_send(),
-        ];
+    let view_2_outputs = vec![
+        exact(ViewChange(ViewNumber::new(2))),
+        exact(QuorumProposalValidated(proposals[1].data.clone())),
+        quorum_proposal_send(),
+    ];
 
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 

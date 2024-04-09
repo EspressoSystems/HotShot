@@ -22,14 +22,14 @@ use hotshot_types::{
     simple_certificate::{DACertificate, QuorumCertificate},
     simple_vote::{DAData, DAVote, SimpleVote},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, TestableBlock},
+        block_contents::{precompute_vid_commitment, vid_commitment, BlockHeader, TestableBlock},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         states::ValidatedState,
         BlockPayload,
     },
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
+    vid::{vid_scheme, VidCommitment, VidPrecomputeData, VidSchemeType},
     vote::HasViewNumber,
 };
 
@@ -43,7 +43,7 @@ use hotshot_types::utils::ViewInner;
 use hotshot_types::vote::Certificate;
 use hotshot_types::vote::Vote;
 
-use jf_primitives::vid::VidScheme;
+use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 
 use hotshot_types::data::VidDisperseShare;
 use serde::Serialize;
@@ -387,10 +387,10 @@ pub fn vid_payload_commitment(
 pub fn da_payload_commitment(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
-) -> VidCommitment {
+) -> (VidCommitment, VidPrecomputeData) {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+    precompute_vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
@@ -399,13 +399,15 @@ pub fn build_vid_proposal(
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
+    precompute_data: VidPrecomputeData,
 ) -> Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>> {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(encoded_transactions).unwrap(),
+        vid.disperse_precompute(encoded_transactions, &precompute_data)
+            .unwrap(),
         quorum_membership.clone().into(),
     );
 
@@ -428,8 +430,8 @@ pub fn build_da_certificate(
 ) -> DACertificate<TestTypes> {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+    let (da_payload_commitment, _precompute_data) =
+        precompute_vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

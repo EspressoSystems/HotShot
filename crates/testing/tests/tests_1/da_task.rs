@@ -16,7 +16,8 @@ use hotshot_types::{
     data::ViewNumber,
     simple_vote::DAData,
     traits::{
-        block_contents::vid_commitment, election::Membership, node_implementation::ConsensusTime,
+        block_contents::precompute_vid_commitment, election::Membership,
+        node_implementation::ConsensusTime,
     },
 };
 
@@ -33,7 +34,7 @@ async fn test_da_task() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let payload_commit = vid_commitment(
+    let (payload_commit, precompute_data) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -45,6 +46,7 @@ async fn test_da_task() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut builder_infos = Vec::new();
 
     for view in (&mut generator).take(1) {
         proposals.push(view.da_proposal.clone());
@@ -52,6 +54,7 @@ async fn test_da_task() {
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     generator.add_transactions(vec![TestTransaction(vec![0])]);
@@ -62,6 +65,7 @@ async fn test_da_task() {
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // Run view 1 (the genesis stage).
@@ -69,7 +73,15 @@ async fn test_da_task() {
         inputs: vec![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            BlockRecv(encoded_transactions.clone(), (), ViewNumber::new(2)),
+            BlockRecv(
+                encoded_transactions.clone(),
+                (),
+                ViewNumber::new(2),
+                builder_infos[0].0,
+                builder_infos[0].1,
+                builder_infos[0].2,
+                builder_infos[0].3,
+            ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],
@@ -107,7 +119,7 @@ async fn test_da_task_storage_failure() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let payload_commit = vid_commitment(
+    let (payload_commit, precompute_data) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -119,6 +131,7 @@ async fn test_da_task_storage_failure() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
+    let mut builder_infos = Vec::new();
 
     for view in (&mut generator).take(1) {
         proposals.push(view.da_proposal.clone());
@@ -126,6 +139,7 @@ async fn test_da_task_storage_failure() {
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     generator.add_transactions(transactions);
@@ -136,6 +150,7 @@ async fn test_da_task_storage_failure() {
         votes.push(view.create_da_vote(DAData { payload_commit }, &handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // Run view 1 (the genesis stage).
@@ -143,7 +158,15 @@ async fn test_da_task_storage_failure() {
         inputs: vec![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            BlockRecv(encoded_transactions.clone(), (), ViewNumber::new(2)),
+            BlockRecv(
+                encoded_transactions.clone(),
+                (),
+                ViewNumber::new(2),
+                builder_infos[0].0,
+                builder_infos[0].1,
+                builder_infos[0].2,
+                builder_infos[0].3,
+            ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
         asserts: vec![],

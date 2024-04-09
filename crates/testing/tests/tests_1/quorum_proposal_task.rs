@@ -44,9 +44,11 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut builder_infos = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        builder_infos.push(view.builder_info.clone());
     }
     let cert = proposals[1].data.justify_qc.clone();
 
@@ -55,7 +57,13 @@ async fn test_quorum_proposal_task_quorum_proposal() {
         inputs: vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QCFormed(either::Left(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                (),
+                ViewNumber::new(2),
+                builder_infos[1].2,
+                builder_infos[1].3,
+            ),
         ],
         outputs: vec![
             exact(QuorumProposalValidated(proposals[1].data.clone())),
@@ -112,7 +120,11 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let view_2 = TestScriptStage {
         inputs: vec![
             QCFormed(either::Right(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                (),
+                ViewNumber::new(2),
+            ),
         ],
         outputs: vec![
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),

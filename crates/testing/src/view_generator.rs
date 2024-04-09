@@ -28,7 +28,9 @@ use hotshot_types::{
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
+        signature_key::BuilderSignatureKey,
     },
+    vid::{VidCommitment, VidPrecomputeData},
 };
 
 use hotshot_types::simple_vote::QuorumData;
@@ -52,6 +54,12 @@ pub struct TestView {
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
     timeout_cert_data: Option<TimeoutData<TestTypes>>,
+    pub builder_info: (
+        VidCommitment,
+        VidPrecomputeData,
+        u64,
+        <<TestTypes as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
+    ),
 }
 
 impl TestView {
@@ -64,13 +72,15 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
+        let (payload_commitment, precompute_data) =
+            da_payload_commitment(quorum_membership, transactions.clone());
 
         let vid_proposal = build_vid_proposal(
             quorum_membership,
             genesis_view,
             transactions.clone(),
             &private_key,
+            precompute_data.clone(),
         );
 
         let da_certificate = build_da_certificate(
@@ -128,6 +138,9 @@ impl TestView {
             _pd: PhantomData,
         };
 
+        let builder_signature = <<TestTypes as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::sign_builder_message(&private_key,payload_commitment.as_ref()).expect("Failed to sign payload commitment!");
+        let builder_info = (payload_commitment, precompute_data, 0, builder_signature);
+
         TestView {
             quorum_proposal,
             leaf,
@@ -142,6 +155,7 @@ impl TestView {
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
+            builder_info,
         }
     }
 
@@ -171,13 +185,15 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
+        let (payload_commitment, precompute_data) =
+            da_payload_commitment(quorum_membership, transactions.clone());
 
         let vid_proposal = build_vid_proposal(
             quorum_membership,
             next_view,
             transactions.clone(),
             &private_key,
+            precompute_data.clone(),
         );
 
         let da_certificate = build_da_certificate(
@@ -310,6 +326,9 @@ impl TestView {
             _pd: PhantomData,
         };
 
+        let builder_signature = <<TestTypes as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::sign_builder_message(&private_key,payload_commitment.as_ref()).expect("Failed to sign payload commitment!");
+        let builder_info = (payload_commitment, precompute_data, 0, builder_signature);
+
         TestView {
             quorum_proposal,
             leaf,
@@ -328,6 +347,7 @@ impl TestView {
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
+            builder_info,
         }
     }
 
