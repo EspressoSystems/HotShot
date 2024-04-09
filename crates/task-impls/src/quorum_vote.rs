@@ -43,7 +43,7 @@ enum VoteDependency {
     QuorumProposal,
     /// For the `DACertificateRecv` event.
     Dac,
-    /// For the `VidDisperseRecv` event.
+    /// For the `VIDShareRecv` event.
     Vid,
 }
 
@@ -385,7 +385,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
                 proposed_leaf.set_parent_commitment(parent_commitment);
 
-                // Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+                // Validate the signature. This should also catch if `leaf_commitment`` does not
+                // equal our calculated parent commitment.
                 let view_leader_key = self.quorum_membership.get_leader(view);
                 if view_leader_key != *sender {
                     warn!("Leader key does not match key in proposal");
@@ -396,10 +397,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
-                // Liveness check.
+                // Liveness and safety checks.
                 let consensus = self.consensus.upgradable_read().await;
                 let liveness_check = justify_qc.get_view_number() > consensus.locked_view;
-                // Safety check.
                 // Check if proposal extends from the locked leaf.
                 let outcome = consensus.visit_leaf_ancestors(
                     justify_qc.get_view_number(),
@@ -434,7 +434,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await;
                 broadcast_event(Arc::new(HotShotEvent::ViewChange(view + 1)), &event_sender).await;
 
-                // Notify the application layer.
+                // Notify the application layer and other tasks.
                 broadcast_event(
                     Event {
                         view_number: view,
@@ -446,7 +446,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     &self.output_event_stream,
                 )
                 .await;
-                // Notify other tasks.
                 broadcast_event(
                     Arc::new(HotShotEvent::QuorumProposalValidated(
                         proposal.data.clone(),
@@ -456,7 +455,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 )
                 .await;
 
-                // Update the storage.
+                // Add to the storage.
                 let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
                 consensus.validated_state_map.insert(
                     view,
@@ -521,7 +520,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender);
             }
-            HotShotEvent::VidDisperseRecv(disperse) => {
+            HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
                 debug!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -582,7 +581,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) => {
-                // TODO(Keyao): Update view after voting?
                 debug!("All vote dependencies verified for view {:?}", view);
                 if !self.update_latest_voted_view(*view).await {
                     debug!("view not updated");
@@ -619,7 +617,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
-                | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
                 | HotShotEvent::Shutdown,
         )

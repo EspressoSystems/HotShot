@@ -1131,7 +1131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.current_proposal = None;
                 }
             }
-            HotShotEvent::VidDisperseRecv(disperse) => {
+            HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
                 debug!(
@@ -1596,7 +1596,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
-                | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::Shutdown,
         )

@@ -32,7 +32,7 @@ async fn test_quorum_vote_task_success() {
         inputs: vec![
             QuorumProposalRecv(view.quorum_proposal.clone(), view.leader_public_key),
             DACertificateRecv(view.da_certificate.clone()),
-            VidDisperseRecv(view.vid_proposal.0[0].clone()),
+            VIDShareRecv(view.vid_proposal.0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -88,7 +88,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_dac = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VidDisperseRecv(vids[0].0[0].clone()),
+            VIDShareRecv(vids[0].0[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -112,7 +112,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_quorum_proposal = TestScriptStage {
         inputs: vec![
             DACertificateRecv(dacs[2].clone()),
-            VidDisperseRecv(vids[2].0[0].clone()),
+            VIDShareRecv(vids[2].0[0].clone()),
         ],
         outputs: vec![
             exact(DACertificateValidated(dacs[2].clone())),
@@ -124,8 +124,6 @@ async fn test_quorum_vote_task_miss_dependency() {
     let quorum_vote_state =
         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    // Test `view_no_quorum_proposal` last, otherwise the other two will fail to output the
-    // `QuorumProposalValidated` event due to missing parent info.
     run_test_script(
         vec![ view_no_dac, view_no_vid, view_no_quorum_proposal],
         quorum_vote_state,
