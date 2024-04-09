@@ -385,14 +385,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         if let Some(proposal) = &self.current_proposal {
             let consensus = self.consensus.read().await;
             // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
-            } else {
+            let Some(vid_shares) = consensus.vid_shares.get(&proposal.view_number) else {
                 debug!(
                     "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
                     proposal.view_number
                 );
                 return false;
-            }
+            };
 
             if let Some(upgrade_cert) = &self.decided_upgrade_cert {
                 if upgrade_cert.in_interim(self.cur_view)
@@ -469,6 +468,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
+                    // Add to the storage that we have received the VID disperse for a specific view
+                    if let Some(vid_share) = vid_shares.get(&self.public_key) {
+                        if let Err(e) = self.storage.write().await.append_vid(vid_share).await {
+                            error!(
+                                "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
+                                e
+                            );
+                            return false;
+                        }
+                    } else {
+                        error!("Did not get a VID share for our public key, aborting vote");
+                        return false;
+                    }
+
                     broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
                         .await;
                     return true;
@@ -947,7 +960,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .vid_shares
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
-                                        .get(&self.public_key).cloned();
+                                        .get(&self.public_key).cloned().map(|prop| prop.data);
 
                                 // Add our data into a new `LeafInfo`
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
@@ -1252,22 +1265,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                // Add to the storage that we have received the VID disperse for a specific view
-                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
-                    error!(
-                        "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
-                        e
-                    );
-                    return;
-                }
-
                 self.consensus
                     .write()
                     .await
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
 
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
