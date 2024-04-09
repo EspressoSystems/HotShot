@@ -3353,6 +3353,7 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "snafu 0.8.2",
+ "tagged-base64 0.4.0",
  "tide-disco",
  "tokio",
  "tracing",
