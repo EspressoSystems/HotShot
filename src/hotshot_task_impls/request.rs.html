@@ -296,12 +296,9 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
@@ -321,6 +318,11 @@
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 <span class="doccomment">/// Amount of time to try for a request before timing out.
 </span><span class="kw">const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);

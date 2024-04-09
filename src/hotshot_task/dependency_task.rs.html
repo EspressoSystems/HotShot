@@ -129,14 +129,11 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
+<span class="kw">use </span>futures::Future;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::{spawn, JoinHandle};
-
-<span class="kw">use </span>futures::Future;
 
 <span class="kw">use </span><span class="kw">crate</span>::dependency::Dependency;
 
@@ -185,10 +182,9 @@
     <span class="kw">use </span>std::time::Duration;
 
     <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
-    <span class="kw">use </span>futures::{stream::FuturesOrdered, StreamExt};
-
     <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
     </span><span class="kw">use </span>async_std::task::sleep;
+    <span class="kw">use </span>futures::{stream::FuturesOrdered, StreamExt};
     <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
     </span><span class="kw">use </span>tokio::time::sleep;
 

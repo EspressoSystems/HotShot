@@ -310,14 +310,12 @@
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for `BitVectorQC` that uses BLS signature + Bit vector.
 //! See more details in hotshot paper.
 
-</span><span class="kw">use crate</span>::{
-    stake_table::StakeTableEntry,
-    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
-};
-<span class="kw">use </span>ark_std::{
+</span><span class="kw">use </span>ark_std::{
     fmt::Debug,
     format,
     marker::PhantomData,
@@ -334,6 +332,11 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>typenum::U32;
+
+<span class="kw">use crate</span>::{
+    stake_table::StakeTableEntry,
+    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
+};
 
 <span class="doccomment">/// An implementation of QC using BLS signature and a bit-vector.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
@@ -496,12 +499,13 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>jf_primitives::signatures::{
         bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
         SignatureScheme,
     };
     <span class="kw">use </span>vbs::{version::StaticVersion, BinarySerializer, Serializer};
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">type </span>Version = StaticVersion&lt;<span class="number">0</span>, <span class="number">1</span>&gt;;
 
     <span class="macro">macro_rules! </span>test_quorum_certificate {

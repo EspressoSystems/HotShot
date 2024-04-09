@@ -112,20 +112,24 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Error type for `HotShot`
 //!
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
 </span><span class="comment">//use crate::traits::network::TimeoutErr;
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::{block_contents::BlockPayload, node_implementation::NodeType};
+</span><span class="kw">use </span>std::num::NonZeroU64;
+
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::future::TimeoutError;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::num::NonZeroU64;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
+
+<span class="kw">use </span><span class="kw">crate</span>::traits::{block_contents::BlockPayload, node_implementation::NodeType};
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error! </span>{<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 

@@ -446,39 +446,30 @@
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
-</span><span class="kw">use </span>std::marker::PhantomData;
+</span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-<span class="kw">use </span>hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
-};
-
-<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestMetadata;
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
+<span class="kw">use </span>bitvec::bitvec;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, Networks, SystemContext,
 };
+<span class="kw">use </span>hotshot_example_types::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    node_types::{MemoryImpl, TestTypes},
+    state_types::{TestInstanceState, TestValidatedState},
+};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{DACertificate, QuorumCertificate},
-    simple_vote::{DAData, DAVote, SimpleVote},
+    simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},
         consensus_api::ConsensusApi,
@@ -487,25 +478,14 @@
         states::ValidatedState,
         BlockPayload,
     },
+    utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber, Vote},
 };
-
-<span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
-<span class="kw">use </span>bitvec::bitvec;
-<span class="kw">use </span>hotshot_types::simple_vote::QuorumData;
-<span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
-<span class="kw">use </span>hotshot_types::utils::View;
-<span class="kw">use </span>hotshot_types::utils::ViewInner;
-<span class="kw">use </span>hotshot_types::vote::Certificate;
-<span class="kw">use </span>hotshot_types::vote::Vote;
-
 <span class="kw">use </span>jf_primitives::vid::VidScheme;
-
-<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>std::{fmt::Debug, hash::Hash, sync::Arc};
+
+<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestMetadata;
 
 <span class="doccomment">/// create the [`SystemContextHandle`] from a node id
 /// # Panics

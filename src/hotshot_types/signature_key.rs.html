@@ -127,14 +127,10 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs for the hotshot signature keys
 
-</span><span class="kw">use crate</span>::{
-    qc::{BitVectorQC, QCParams},
-    stake_table::StakeTableEntry,
-    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
-};
-<span class="kw">use </span>bitvec::{slice::BitSlice, vec::BitVec};
+</span><span class="kw">use </span>bitvec::{slice::BitSlice, vec::BitVec};
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>generic_array::GenericArray;
 <span class="kw">use </span>jf_primitives::{
@@ -147,6 +143,12 @@
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 <span class="kw">use </span>tracing::instrument;
+
+<span class="kw">use crate</span>::{
+    qc::{BitVectorQC, QCParams},
+    stake_table::StakeTableEntry,
+    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
+};
 
 <span class="doccomment">/// BLS private key used to sign a message
 </span><span class="kw">pub type </span>BLSPrivKey = SignKey;

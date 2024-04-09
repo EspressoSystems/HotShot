@@ -694,10 +694,9 @@
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+<a href="#695" id="695">695</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -726,11 +725,14 @@
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
+
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 <span class="doccomment">/// Vote dependency types.
 </span><span class="attr">#[derive(Debug, PartialEq)]

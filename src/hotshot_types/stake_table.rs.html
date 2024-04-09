@@ -31,11 +31,13 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs related to the stake table
 
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::{SignatureKey, StakeTableEntryType};
-<span class="kw">use </span>ethereum_types::U256;
+</span><span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::{SignatureKey, StakeTableEntryType};
 
 <span class="doccomment">/// Stake table entry
 </span><span class="attr">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]

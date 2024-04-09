@@ -67,7 +67,6 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A multi web server
 </span><span class="kw">use </span>std::sync::Arc;
 
@@ -78,8 +77,7 @@
 };
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
-<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::{constants::WebServerVersion, traits::node_implementation::NodeType};
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::error;
 <span class="kw">use </span>vbs::version::StaticVersionType;

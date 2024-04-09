@@ -65,10 +65,14 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
+
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
+
+<span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
 
 <span class="doccomment">/// replication factor for kademlia
 </span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">20</span>);

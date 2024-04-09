@@ -421,15 +421,13 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Macros for use in testing.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>proc_macro2::TokenStream <span class="kw">as </span>TokenStream2;
 <span class="kw">use </span>quote::{format_ident, quote};
-<span class="kw">use </span>syn::parse::Result;
 <span class="kw">use </span>syn::{
-    parse::{Parse, ParseStream},
+    parse::{Parse, ParseStream, <span class="prelude-ty">Result</span>},
     parse_macro_input, Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token,
 };
 

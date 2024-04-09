@@ -72,20 +72,20 @@
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::read_orchestrator_init_config;
-<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use </span><span class="kw">crate</span>::types::ThisRun;
-<span class="kw">use crate</span>::{
-    infra::run_orchestrator,
-    types::{DANetwork, NodeImpl, QuorumNetwork},
+<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+<span class="kw">use </span>async_compatibility_layer::{
+    art::async_spawn,
+    logging::{setup_backtrace, setup_logging},
 };
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
-<span class="kw">use </span>std::net::SocketAddr;
-<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
 <span class="kw">use </span>tracing::instrument;
+
+<span class="kw">use crate</span>::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]

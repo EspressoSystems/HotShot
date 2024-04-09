@@ -1085,39 +1085,51 @@
 <a href="#1083" id="1083">1083</a>
 <a href="#1084" id="1084">1084</a>
 <a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
-</span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-<span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
-<span class="kw">use </span>cdn_broker::reexports::message::Topic;
-<span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>clap::{Arg, Command};
-<span class="kw">use </span>futures::StreamExt;
-<span class="kw">use </span>hotshot::traits::implementations::{
-    derive_libp2p_peer_id, CombinedNetworks, PushCdnNetwork, WrappedSignatureKey,
+</span><span class="kw">use </span>std::{
+    fmt::Debug,
+    fs,
+    marker::PhantomData,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    num::NonZeroUsize,
+    time::{Duration, Instant},
 };
-<span class="kw">use </span>hotshot::traits::BlockPayload;
+
+<span class="kw">use </span>async_compatibility_layer::{
+    art::async_sleep,
+    logging::{setup_backtrace, setup_logging},
+};
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+<span class="kw">use </span>chrono::Utc;
+<span class="kw">use </span>clap::{Arg, Command, Parser};
+<span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, WebServerNetwork},
-        NodeImplementation,
+        implementations::{
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
+            WebServerNetwork, WrappedSignatureKey,
+        },
+        BlockPayload, NodeImplementation,
     },
     types::SystemContextHandle,
     Memberships, Networks, SystemContext,
 };
-<span class="kw">use </span>hotshot_example_types::node_types::{Libp2pImpl, PushCdnImpl};
-<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
+    storage_types::TestStorage,
 };
-<span class="kw">use </span>hotshot_orchestrator::config::NetworkConfigSource;
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{
+        CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
+        WebServerConfig,
+    },
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -1133,15 +1145,7 @@
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
-
-<span class="kw">use </span>rand::rngs::StdRng;
-<span class="kw">use </span>rand::SeedableRng;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, SocketAddr};
-<span class="kw">use </span>std::num::NonZeroUsize;
-<span class="kw">use </span>std::time::Duration;
-<span class="kw">use </span>std::{fs, time::Instant};
+<span class="kw">use </span>rand::{rngs::StdRng, SeedableRng};
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::{error, info, warn};
 <span class="kw">use </span>vbs::version::StaticVersionType;

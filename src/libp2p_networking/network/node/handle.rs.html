@@ -607,30 +607,32 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
-    behaviours::request_response::{Request, Response},
-    error::{CancelledRequestSnafu, DHTError},
-    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
-    NetworkNodeConfigBuilderError,
+<a href="#608" id="608">608</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashSet,
+    fmt::Debug,
+    time::{Duration, Instant},
 };
+
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 <span class="kw">use </span>futures::channel::oneshot;
-
 <span class="kw">use </span>hotshot_types::traits::network::NetworkError <span class="kw">as </span>HotshotNetworkError;
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
-<span class="kw">use </span>std::{
-    collections::HashSet,
-    fmt::Debug,
-    time::{Duration, Instant},
-};
 <span class="kw">use </span>tracing::{debug, info, instrument};
 <span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+<span class="kw">use </span><span class="kw">crate</span>::network::{
+    behaviours::request_response::{Request, Response},
+    error::{CancelledRequestSnafu, DHTError},
+    gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
+};
 
 <span class="doccomment">/// A handle containing:
 /// - A reference to the state

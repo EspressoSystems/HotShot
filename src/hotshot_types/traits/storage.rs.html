@@ -38,7 +38,6 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstract storage type for storing DA proposals and VID shares
 //!
 //! This modules provides the [`Storage`] trait.
@@ -49,6 +48,7 @@
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_trait::async_trait;
 
+<span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 <span class="kw">use crate</span>::{
     consensus::{CommitmentMap, View},
     data::{DAProposal, Leaf, VidDisperseShare},
@@ -56,8 +56,6 @@
     message::Proposal,
     simple_certificate::QuorumCertificate,
 };
-
-<span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 
 <span class="doccomment">/// Abstraction for storing a variety of consensus payload datum.
 </span><span class="attr">#[async_trait]

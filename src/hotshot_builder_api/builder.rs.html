@@ -211,12 +211,9 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, path::PathBuf};
 
-<span class="kw">use crate</span>::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
 <span class="kw">use </span>clap::Args;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derive_more::From;
@@ -234,6 +231,11 @@
     Api, RequestError, StatusCode,
 };
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use crate</span>::{
+    api::load_api,
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+};
 
 <span class="attr">#[derive(Args, Default)]
 </span><span class="kw">pub struct </span>Options {

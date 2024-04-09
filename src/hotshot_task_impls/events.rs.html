@@ -148,13 +148,9 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
-
-<span class="kw">use </span>either::Either;
-<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
+</pre></div><pre class="rust"><code><span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse},
+    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -168,6 +164,8 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>vbs::version::Version;
+
+<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="doccomment">/// Marker that the task completed
 </span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]

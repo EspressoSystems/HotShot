@@ -89,13 +89,19 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions over the immutable instance-level state and the global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
 //! compatibilities over the current network state, which is modified by the transactions contained
 //! within blocks.
 
-</span><span class="kw">use </span><span class="kw">super</span>::block_contents::TestableBlock;
+</span><span class="kw">use </span>std::{error::Error, fmt::Debug, future::Future, hash::Hash};
+
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+<span class="kw">use </span><span class="kw">super</span>::block_contents::TestableBlock;
 <span class="kw">use crate</span>::{
     data::Leaf,
     traits::{
@@ -103,8 +109,6 @@
         BlockPayload,
     },
 };
-<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
-<span class="kw">use </span>std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 <span class="doccomment">/// Instance-level state, which allows us to fetch missing validated state.
 </span><span class="kw">pub trait </span>InstanceState: Debug + Send + Sync {}

@@ -1132,7 +1132,20 @@
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
-</span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
+</span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+</span><span class="kw">use </span>std::str::FromStr;
+<span class="kw">use </span>std::{
+    collections::{BTreeSet, HashSet},
+    fmt::Debug,
+    net::SocketAddr,
+    num::NonZeroUsize,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+
 <span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -1170,39 +1183,26 @@
     ed25519::{<span class="self">self</span>, SecretKey},
     Keypair, PeerId,
 };
-<span class="kw">use </span>libp2p_networking::network::NetworkNodeConfigBuilder;
-<span class="kw">use </span>libp2p_networking::{network::MeshParams, reexport::Multiaddr};
 <span class="kw">use </span>libp2p_networking::{
     network::{
         behaviours::request_response::{Request, Response},
-        spawn_network_node,
+        spawn_network_node, MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
-        NetworkNodeType,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeReceiver, NetworkNodeType,
     },
-    reexport::ResponseChannel,
+    reexport::{Multiaddr, ResponseChannel},
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>std::num::NonZeroUsize;
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>std::str::FromStr;
-<span class="kw">use </span>std::{
-    collections::BTreeSet,
-    fmt::Debug,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-<span class="kw">use </span>std::{collections::HashSet, net::SocketAddr};
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::{
     version::{StaticVersionType, Version},
     BinarySerializer, Serializer,
 };
+
+<span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
 
 <span class="doccomment">/// convenience alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests

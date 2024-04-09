@@ -1670,28 +1670,28 @@
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
 <a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
-    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
 };
+
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
+<span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>futures::future::{join_all, FutureExt};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::data::null_block;
-<span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal},
-    event::{Event, EventType},
+    constants::LOOK_AHEAD,
+    data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    event::{Event, EventType, LeafInfo},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
@@ -1710,20 +1710,18 @@
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-<span class="kw">use </span>vbs::version::Version;
-
-<span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
-<span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>hotshot_types::data::VidDisperseShare;
-<span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>vbs::version::Version;
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
 </span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {

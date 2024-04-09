@@ -32,18 +32,20 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! An orchestrator using libp2p
 
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::read_orchestrator_init_config;
-<span class="kw">use </span><span class="kw">crate</span>::infra::run_orchestrator;
-<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork};
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>tracing::instrument;
+
+<span class="kw">use crate</span>::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork},
+};
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]

@@ -381,11 +381,9 @@
 <a href="#379" id="379">379</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
-<span class="kw">use crate</span>::{config::NetworkConfig, OrchestratorVersion};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
-
 <span class="kw">use </span>hotshot_types::{
     constants::Version01,
     traits::{election::ElectionConfig, signature_key::SignatureKey},
@@ -395,6 +393,8 @@
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>vbs::BinarySerializer;
+
+<span class="kw">use crate</span>::{config::NetworkConfig, OrchestratorVersion};
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     <span class="doccomment">/// the client

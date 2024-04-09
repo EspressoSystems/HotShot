@@ -692,12 +692,33 @@
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+};
+
+<span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>jf_primitives::vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
+<span class="kw">use </span>rand::Rng;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>tracing::error;
+
+<span class="kw">use crate</span>::{
     message::Proposal,
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
@@ -717,22 +738,6 @@
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-<span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
-<span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>jf_primitives::vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
-<span class="kw">use </span>rand::Rng;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-};
-<span class="kw">use </span>tracing::error;
 
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 </span><span class="attr">#[derive(
@@ -1363,9 +1368,10 @@
 
 <span class="kw">pub mod </span>null_block {
     <span class="attr">#![allow(missing_docs)]
-    </span><span class="kw">use </span><span class="kw">crate</span>::vid::{vid_scheme, VidCommitment};
-    <span class="kw">use </span>jf_primitives::vid::VidScheme;
+    </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
+
+    <span class="kw">use </span><span class="kw">crate</span>::vid::{vid_scheme, VidCommitment};
 
     <span class="doccomment">/// The commitment for a null block payload.
     ///

@@ -131,21 +131,29 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs};
-<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
-<span class="kw">use </span>cdn_broker::Broker;
+<span class="kw">use </span>cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
 <span class="kw">use </span>cdn_marshal::Marshal;
-<span class="kw">use </span>hotshot::traits::implementations::{TestingDef, WrappedSignatureKey};
-<span class="kw">use </span>hotshot::types::SignatureKey;
+<span class="kw">use </span>hotshot::{
+    traits::implementations::{TestingDef, WrappedSignatureKey},
+    types::SignatureKey,
+};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+
+<span class="kw">use crate</span>::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 <span class="doccomment">/// The infra implementation
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]

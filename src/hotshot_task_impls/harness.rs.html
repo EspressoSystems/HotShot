@@ -127,13 +127,15 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
-<span class="kw">use </span>async_broadcast::broadcast;
+<a href="#128" id="128">128</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
 
+<span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
+
+<span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
 
 <span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
 </span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType&gt; {

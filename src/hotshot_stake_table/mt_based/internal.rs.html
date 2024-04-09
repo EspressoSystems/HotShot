@@ -772,11 +772,11 @@
 <a href="#770" id="770">770</a>
 <a href="#771" id="771">771</a>
 <a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utilities and internals for maintaining a local stake table
 
-</span><span class="kw">use </span><span class="kw">super</span>::config::{Digest, FieldType, TREE_BRANCH};
-<span class="kw">use </span><span class="kw">crate</span>::utils::{u256_to_field, ToFields};
-<span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+</span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>ark_std::{hash::Hash, sync::Arc, vec, vec::Vec};
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_types::traits::stake_table::StakeTableError;
@@ -784,6 +784,9 @@
 <span class="kw">use </span>jf_utils::canonical;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::tagged;
+
+<span class="kw">use </span><span class="kw">super</span>::config::{Digest, FieldType, TREE_BRANCH};
+<span class="kw">use </span><span class="kw">crate</span>::utils::{u256_to_field, ToFields};
 
 <span class="doccomment">/// Common trait bounds for generic key type `K` for [`PersistentMerkleNode`]
 </span><span class="kw">pub trait </span>Key:
@@ -1392,7 +1395,6 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::{<span class="kw">super</span>::config, to_merkle_path, PersistentMerkleNode};
     <span class="kw">use </span>ark_std::{
         rand::{Rng, RngCore},
         sync::Arc,
@@ -1401,6 +1403,8 @@
     };
     <span class="kw">use </span>ethereum_types::U256;
     <span class="kw">use </span>jf_utils::test_rng;
+
+    <span class="kw">use super</span>::{<span class="kw">super</span>::config, to_merkle_path, PersistentMerkleNode};
 
     <span class="kw">type </span>Key = ark_bn254::Fq;
 

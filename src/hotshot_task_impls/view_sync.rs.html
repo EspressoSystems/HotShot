@@ -891,48 +891,48 @@
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+    sync::Arc,
+    time::Duration,
+};
+
+<span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
+<span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="kw">use </span>hotshot_types::{
+    message::GeneralConsensusMessage,
+    simple_certificate::{
+        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+    },
+    simple_vote::{
+        ViewSyncCommitData, ViewSyncCommitVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        ViewSyncPreCommitData, ViewSyncPreCommitVote,
+    },
+    traits::{
+        consensus_api::ConsensusApi,
+        election::Membership,
+        network::{ConnectedNetwork, ConsensusIntentEvent},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
+    },
+    vote::{Certificate, HasViewNumber, Vote},
+};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+
+<span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-<span class="kw">use </span>async_broadcast::Sender;
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::{
-    simple_certificate::{
-        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
-    },
-    simple_vote::ViewSyncFinalizeData,
-    traits::signature_key::SignatureKey,
-};
-<span class="kw">use </span>hotshot_types::{
-    simple_vote::{
-        ViewSyncCommitData, ViewSyncCommitVote, ViewSyncFinalizeVote, ViewSyncPreCommitData,
-        ViewSyncPreCommitVote,
-    },
-    traits::network::ConsensusIntentEvent,
-    vote::{Certificate, HasViewNumber, Vote},
-};
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::{
-    message::GeneralConsensusMessage,
-    traits::{
-        consensus_api::ConsensusApi,
-        election::Membership,
-        network::ConnectedNetwork,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
-};
-<span class="kw">use </span>std::{collections::BTreeMap, collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="attr">#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
 </span><span class="doccomment">/// Phases of view sync
 </span><span class="kw">pub enum </span>ViewSyncPhase {

@@ -547,6 +547,8 @@
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Display,
@@ -570,11 +572,13 @@
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
-<span class="kw">use </span>hotshot_types::traits::block_contents::BlockHeader;
-<span class="kw">use </span>hotshot_types::traits::block_contents::Transaction;
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
-    traits::{block_contents::vid_commitment, election::Membership, node_implementation::NodeType},
+    traits::{
+        block_contents::{vid_commitment, BlockHeader, Transaction},
+        election::Membership,
+        node_implementation::NodeType,
+    },
     utils::BuilderCommitment,
     vid::VidCommitment,
 };

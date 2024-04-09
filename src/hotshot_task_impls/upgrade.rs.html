@@ -303,14 +303,11 @@
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
-};
+<a href="#304" id="304">304</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
-
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     event::{Event, EventType},
@@ -324,10 +321,15 @@
     },
     vote::HasViewNumber,
 };
-
-<span class="kw">use </span><span class="kw">crate</span>::vote_collection::HandleVoteEvent;
-<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
@@ -513,9 +515,9 @@
 
                 <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
                 </span>{
-                    <span class="kw">use </span>committable::Committable;
                     <span class="kw">use </span>std::marker::PhantomData;
 
+                    <span class="kw">use </span>committable::Committable;
                     <span class="kw">use </span>hotshot_types::{
                         data::UpgradeProposal, message::Proposal,
                         traits::node_implementation::ConsensusTime,

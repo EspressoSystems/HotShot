@@ -274,12 +274,12 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::node_types::TestTypes;
 <span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
     data::{BlockError, Leaf},
@@ -294,6 +294,8 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};
 <span class="kw">use </span>time::OffsetDateTime;
+
+<span class="kw">use </span><span class="kw">crate</span>::node_types::TestTypes;
 
 <span class="doccomment">/// The transaction in a [`TestBlockPayload`].
 </span><span class="attr">#[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]

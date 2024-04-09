@@ -223,9 +223,12 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and structs associated with light client state
 
-</span><span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig <span class="kw">as </span>Config;
+</span><span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use </span>ark_ed_on_bn254::EdwardsConfig <span class="kw">as </span>Config;
 <span class="kw">use </span>ark_ff::PrimeField;
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>ethereum_types::U256;
@@ -233,7 +236,6 @@
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>tagged_base64::tagged;
 
 <span class="doccomment">/// Base field in the prover circuit

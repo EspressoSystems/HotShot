@@ -70,23 +70,21 @@
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>std::time::Duration;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_spawn, async_timeout};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
 <span class="kw">use </span>hotshot_task_impls::helpers::broadcast_event;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>snafu::Snafu;
-
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, Node};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
 
 <span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
+<span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, Node};
 
 <span class="doccomment">/// the idea here is to run as long as we want
 

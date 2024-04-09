@@ -274,12 +274,17 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_broadcast::{Receiver, RecvError};
-<span class="kw">use </span>futures::future::BoxFuture;
-<span class="kw">use </span>futures::stream::FuturesUnordered;
-<span class="kw">use </span>futures::stream::StreamExt;
-<span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>std::future::Future;
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::future::Future;
+
+<span class="kw">use </span>async_broadcast::{Receiver, RecvError};
+<span class="kw">use </span>futures::{
+    future::BoxFuture,
+    stream::{FuturesUnordered, StreamExt},
+    FutureExt,
+};
 
 <span class="doccomment">/// Type which describes the idea of waiting for a dependency to complete
 </span><span class="kw">pub trait </span>Dependency&lt;T&gt; {
@@ -451,8 +456,9 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::{AndDependency, Dependency, EventDependency, OrDependency};
     <span class="kw">use </span>async_broadcast::{broadcast, Receiver};
+
+    <span class="kw">use super</span>::{AndDependency, Dependency, EventDependency, OrDependency};
 
     <span class="kw">fn </span>eq_dep(rx: Receiver&lt;usize&gt;, val: usize) -&gt; EventDependency&lt;usize&gt; {
         EventDependency {

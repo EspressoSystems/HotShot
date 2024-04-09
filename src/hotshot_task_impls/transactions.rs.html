@@ -258,15 +258,15 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
+<a href="#259" id="259">259</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    sync::Arc,
+    time::{Duration, Instant},
 };
+
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_lock::RwLock;
-
 <span class="kw">use </span>hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
@@ -281,12 +281,14 @@
         BlockPayload,
     },
 };
-<span class="kw">use </span>std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
 <span class="kw">use </span>tracing::{debug, error, instrument};
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use crate</span>::{
+    builder::BuilderClient,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 <span class="doccomment">/// Tracks state of a Transaction task
 </span><span class="kw">pub struct </span>TransactionTaskState&lt;

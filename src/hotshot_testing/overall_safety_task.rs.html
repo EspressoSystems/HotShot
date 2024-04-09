@@ -550,8 +550,12 @@
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    sync::Arc,
+};
 
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
@@ -562,10 +566,6 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    sync::Arc,
-};
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, Node};

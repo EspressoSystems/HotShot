@@ -1121,24 +1121,24 @@
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
 
 /// Configuration for the webserver
 </span><span class="kw">pub mod </span>config;
 
-<span class="kw">use </span><span class="kw">crate</span>::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
-<span class="kw">use </span>async_compatibility_layer::channel::OneShotReceiver;
-<span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>clap::Args;
-<span class="kw">use </span>futures::FutureExt;
-
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
-<span class="kw">use </span>rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     io,
     path::PathBuf,
 };
+
+<span class="kw">use </span>async_compatibility_layer::channel::OneShotReceiver;
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>clap::Args;
+<span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 <span class="kw">use </span>tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -1147,6 +1147,8 @@
 };
 <span class="kw">use </span>tracing::{debug, info};
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use </span><span class="kw">crate</span>::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 
 <span class="doccomment">/// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline

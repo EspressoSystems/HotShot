@@ -242,7 +242,6 @@
 <a href="#240" id="240">240</a>
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -252,9 +251,9 @@
 };
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
-
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable};
 <span class="kw">use </span>ethereum_types::U256;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
     data::{serialize_signature2, Leaf},
@@ -263,13 +262,12 @@
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
     },
     traits::{
-        election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber},
 };
-
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Trait which allows use to inject different threshold calculations into a Certificate type
 </span><span class="kw">pub trait </span>Threshold&lt;TYPES: NodeType&gt; {

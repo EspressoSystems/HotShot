@@ -511,13 +511,14 @@
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A vector based stake table implementation. The commitment is the rescue hash of the list of (key, amount) pairs;
 
-</span><span class="kw">use crate</span>::{
-    config::STAKE_TABLE_CAPACITY,
-    utils::{u256_to_field, ToFields},
-};
-<span class="kw">use </span>ark_std::{collections::HashMap, hash::Hash, rand::SeedableRng};
+</span><span class="kw">use </span>ark_std::{collections::HashMap, hash::Hash, rand::SeedableRng};
 <span class="kw">use </span>digest::crypto_common::rand_core::CryptoRngCore;
 <span class="kw">use </span>ethereum_types::{U256, U512};
 <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
@@ -526,6 +527,11 @@
     rescue::RescueParameter,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="kw">use crate</span>::{
+    config::STAKE_TABLE_CAPACITY,
+    utils::{u256_to_field, ToFields},
+};
 
 <span class="kw">pub mod </span>config;
 
@@ -894,13 +900,17 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">super</span>::config::{FieldType <span class="kw">as </span>F, QCVerKey, StateVerKey};
-    <span class="kw">use </span><span class="kw">super</span>::StakeTable;
     <span class="kw">use </span>ark_std::{rand::SeedableRng, vec::Vec};
     <span class="kw">use </span>ethereum_types::U256;
     <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
-    <span class="kw">use </span>jf_primitives::signatures::bls_over_bn254::BLSOverBN254CurveSignatureScheme;
-    <span class="kw">use </span>jf_primitives::signatures::{SchnorrSignatureScheme, SignatureScheme};
+    <span class="kw">use </span>jf_primitives::signatures::{
+        bls_over_bn254::BLSOverBN254CurveSignatureScheme, SchnorrSignatureScheme, SignatureScheme,
+    };
+
+    <span class="kw">use super</span>::{
+        config::{FieldType <span class="kw">as </span>F, QCVerKey, StateVerKey},
+        StakeTable,
+    };
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>crypto_test_stake_table() -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {

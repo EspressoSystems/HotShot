@@ -495,64 +495,58 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
-</span><span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
-<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
-<span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::constants::{
-    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
-};
-
-<span class="kw">use </span>lru::LruCache;
-<span class="kw">use </span>std::{
-    collections::BTreeSet,
-    hash::Hasher,
+</span><span class="kw">use </span>std::{
+    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, HashMap},
+    future::Future,
+    hash::{Hash, Hasher},
     num::NonZeroUsize,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
-<span class="kw">use </span>tracing::warn;
 
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::UnboundedSendError,
+};
+<span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-
-<span class="kw">use </span>futures::{channel::mpsc, join, select, FutureExt};
-
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
+<span class="kw">use </span>futures::{channel::mpsc, future::join_all, join, select, FutureExt};
+<span class="kw">use </span>hotshot_task_impls::helpers::cancel_task;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
     data::ViewNumber,
-    message::{Message, SequencingMessage},
+    message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
-        node_implementation::NodeType,
+        network::{
+            ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage, ViewMessage,
+        },
+        node_implementation::{ConsensusTime, NodeType},
     },
     BoxSyncFuture,
 };
-<span class="kw">use </span>std::collections::{BTreeMap, HashMap};
-<span class="kw">use </span>std::future::Future;
-<span class="kw">use </span>std::{collections::hash_map::DefaultHasher, sync::Arc};
-
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>futures::future::join_all;
-<span class="kw">use </span>hotshot_task_impls::helpers::cancel_task;
-<span class="kw">use </span>hotshot_types::message::{GeneralConsensusMessage, MessageKind};
-<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
-<span class="kw">use </span>std::hash::Hash;
-<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>lru::LruCache;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tracing::warn;
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
+<span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
 
 <span class="doccomment">/// Helper function to calculate a hash of a type that implements Hash
 </span><span class="kw">pub fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {

@@ -155,31 +155,39 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::read_orchestrator_init_config;
-<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
-<span class="kw">use </span><span class="kw">crate</span>::types::ThisRun;
-<span class="kw">use crate</span>::{
-    infra::run_orchestrator,
-    types::{DANetwork, NodeImpl, QuorumNetwork},
+<span class="kw">use </span>std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::Path,
 };
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+
+<span class="kw">use </span>async_compatibility_layer::{
+    art::async_spawn,
+    logging::{setup_backtrace, setup_logging},
+};
 <span class="kw">use </span>cdn_broker::{Broker, Config <span class="kw">as </span>BrokerConfig, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder};
 <span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
-<span class="kw">use </span>hotshot::traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey};
-<span class="kw">use </span>hotshot::types::SignatureKey;
+<span class="kw">use </span>hotshot::{
+    traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
+    types::SignatureKey,
+};
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
-<span class="kw">use </span>std::net::SocketAddr;
-<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr};
-<span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>tracing::{error, instrument};
+
+<span class="kw">use crate</span>::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 <span class="doccomment">/// general infra used for this example
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]

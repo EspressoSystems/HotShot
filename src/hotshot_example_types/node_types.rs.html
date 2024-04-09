@@ -99,34 +99,24 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::{
-    election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork,
+    election::static_committee::{GeneralStaticCommittee, StaticCommittee, StaticElectionConfig},
+    implementations::{
+        CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork, WebServerNetwork,
+    },
+    NodeImplementation,
 };
+<span class="kw">use </span>hotshot_types::{
+    constants::WebServerVersion, data::ViewNumber, message::Message, signature_key::BLSPubKey,
+    traits::node_implementation::NodeType,
+};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
-
-<span class="kw">use </span>hotshot::traits::{
-    election::static_committee::{StaticCommittee, StaticElectionConfig},
-    implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, WebServerNetwork},
-    NodeImplementation,
-};
-
-<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
-
-<span class="kw">use </span>hotshot_types::{
-    data::ViewNumber, message::Message, signature_key::BLSPubKey,
-    traits::node_implementation::NodeType,
-};
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="attr">#[derive(
     Copy,

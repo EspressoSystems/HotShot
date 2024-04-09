@@ -39,17 +39,17 @@
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! web server example
-</span><span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
-<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>surf_disco::Url;
-<span class="kw">use </span>vbs::version::StaticVersionType;
+</span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_compatibility_layer::{
     channel::oneshot,
     logging::{setup_backtrace, setup_logging},
 };
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
+<span class="kw">use </span>surf_disco::Url;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// web server arguments
 </span><span class="attr">#[derive(Parser, Debug)]

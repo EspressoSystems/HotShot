@@ -537,21 +537,16 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_types::{event::HotShotAction, traits::storage::Storage};
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
-
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
-<span class="kw">use </span>hotshot_types::constants::{BASE_VERSION, STATIC_VER_0_1};
 <span class="kw">use </span>hotshot_types::{
+    constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
+    event::HotShotAction,
     message::{
         CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
         Proposal, SequencingMessage,
@@ -560,12 +555,17 @@
         election::Membership,
         network::{ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
+        storage::Storage,
     },
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>tracing::instrument;
-<span class="kw">use </span>tracing::{debug, error, warn};
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 <span class="doccomment">/// quorum filter
 </span><span class="kw">pub fn </span>quorum_filter&lt;TYPES: NodeType&gt;(event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {

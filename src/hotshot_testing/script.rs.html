@@ -227,13 +227,17 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::predicates::{Predicate, PredicateResult};
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
+
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>std::{sync::Arc, time::Duration};
+
+<span class="kw">use </span><span class="kw">crate</span>::predicates::{Predicate, PredicateResult};
 
 <span class="kw">pub const </span>RECV_TIMEOUT: Duration = Duration::from_millis(<span class="number">250</span>);
 

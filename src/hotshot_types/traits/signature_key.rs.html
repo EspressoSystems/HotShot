@@ -142,15 +142,17 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
-</span><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{
+</span><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
+
+<span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>ethereum_types::U256;
+<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`

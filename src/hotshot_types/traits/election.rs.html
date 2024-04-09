@@ -97,12 +97,12 @@
 </span><span class="comment">// Needed to avoid the non-binding `let` warning.
 </span><span class="attr">#![allow(clippy::let_underscore_untyped)]
 
-</span><span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
-
-<span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
+</span><span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
+
+<span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
+<span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
 
 <span class="doccomment">/// Error for election problems
 </span><span class="attr">#[derive(Snafu, Debug)]

@@ -197,7 +197,9 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::num::NonZeroUsize;
+
+<span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     autonat,
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
@@ -206,7 +208,7 @@
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>std::num::NonZeroUsize;
+<span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 <span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">use super</span>::{
@@ -217,8 +219,6 @@
     },
     NetworkEventInternal,
 };
-
-<span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 
 <span class="doccomment">/// Overarching network behaviour performing:
 /// - network topology discovoery

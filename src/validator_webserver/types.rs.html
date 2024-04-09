@@ -28,13 +28,15 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::WebServerDARun;
+<a href="#29" id="29">29</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
+
 <span class="kw">use </span>hotshot::traits::implementations::WebServerNetwork;
 <span class="kw">use </span>hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
-<span class="kw">use </span>hotshot_types::constants::WebServerVersion;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
+<span class="kw">use </span>hotshot_types::{constants::WebServerVersion, traits::node_implementation::NodeImplementation};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::fmt::Debug;
+
+<span class="kw">use </span><span class="kw">crate</span>::infra::WebServerDARun;
 
 <span class="doccomment">/// dummy struct so we can choose types
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]

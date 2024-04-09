@@ -375,19 +375,29 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-</span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
+</span><span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>std::{
+    collections::BTreeSet,
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
+
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
     channel::{bounded, BoundedStream, Receiver, SendError, Sender},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
@@ -403,16 +413,10 @@
 };
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>std::{
-    collections::BTreeSet,
-    fmt::Debug,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-};
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 <span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+<span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///

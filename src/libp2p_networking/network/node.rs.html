@@ -740,6 +740,7 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -747,36 +748,22 @@
 /// allows for control over the libp2p network
 </span><span class="kw">mod </span>handle;
 
-<span class="kw">pub use </span><span class="self">self</span>::{
-    config::{
-        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-    },
-    handle::{
-        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver,
-    },
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    iter,
+    num::{NonZeroU32, NonZeroUsize},
+    time::Duration,
 };
 
-<span class="kw">use super</span>::{
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
-    NetworkNodeType,
-};
-
-<span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
-    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMRequest},
-    exponential_backoff::ExponentialBackoff,
-    request_response::{Request, RequestResponseState, Response},
-};
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-<span class="kw">use </span>libp2p::{autonat, core::transport::ListenerId, StreamProtocol};
 <span class="kw">use </span>libp2p::{
+    autonat,
+    core::transport::ListenerId,
     gossipsub::{
         Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder, Event <span class="kw">as </span>GossipEvent,
         Message <span class="kw">as </span>GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
@@ -791,18 +778,33 @@
         Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
     },
     swarm::SwarmEvent,
-    Multiaddr, Swarm, SwarmBuilder,
+    Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
-    iter,
-    num::{NonZeroU32, NonZeroUsize},
-    time::Duration,
-};
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+<span class="kw">pub use </span><span class="self">self</span>::{
+    config::{
+        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+    },
+    handle::{
+        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeReceiver,
+    },
+};
+<span class="kw">use super</span>::{
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
+    NetworkNodeType,
+};
+<span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
+    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    direct_message::{DMBehaviour, DMRequest},
+    exponential_backoff::ExponentialBackoff,
+    request_response::{Request, RequestResponseState, Response},
+};
 
 <span class="doccomment">/// Maximum size of a message
 </span><span class="kw">pub const </span>MAX_GOSSIP_MSG_SIZE: usize = <span class="number">2_000_000_000</span>;

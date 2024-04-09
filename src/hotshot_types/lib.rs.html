@@ -195,16 +195,18 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
-</span><span class="kw">use </span><span class="kw">crate</span>::utils::bincode_opts;
+</span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
+
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>displaydoc::Display;
 <span class="kw">use </span>light_client::StateVerKey;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 <span class="kw">use </span>tracing::error;
 <span class="kw">use </span>traits::{election::ElectionConfig, signature_key::SignatureKey};
 <span class="kw">use </span>url::Url;
+
+<span class="kw">use </span><span class="kw">crate</span>::utils::bincode_opts;
 <span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>constants;
 <span class="kw">pub mod </span>data;

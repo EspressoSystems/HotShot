@@ -494,14 +494,9 @@
 <a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     simple_certificate::{
@@ -516,6 +511,11 @@
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
 <span class="kw">use </span>tracing::{debug, error};
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 <span class="doccomment">/// Task state for collecting votes of one type and emitting a certificate
 </span><span class="kw">pub struct </span>VoteCollectionTaskState&lt;

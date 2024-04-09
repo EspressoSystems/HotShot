@@ -203,13 +203,12 @@
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
-</span><span class="kw">use crate</span>::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
-    vid::VidCommitment,
-};
+</span><span class="kw">use </span>std::{ops::Deref, sync::Arc};
+
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>bincode::{
     config::{
@@ -221,9 +220,14 @@
 <span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>digest::OutputSizeUser;
 <span class="kw">use </span>sha2::Digest;
-<span class="kw">use </span>std::{ops::Deref, sync::Arc};
 <span class="kw">use </span>tagged_base64::tagged;
 <span class="kw">use </span>typenum::Unsigned;
+
+<span class="kw">use crate</span>::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    vid::VidCommitment,
+};
 
 <span class="doccomment">/// A view's state
 </span><span class="attr">#[derive(Debug)]

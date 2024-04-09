@@ -261,14 +261,13 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple vote types.
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
 
 <span class="kw">use </span>committable::{Commitment, Committable};
-<span class="kw">use </span>serde::de::DeserializeOwned;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
     data::Leaf,
@@ -276,7 +275,6 @@
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a yes vote.

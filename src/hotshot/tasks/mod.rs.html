@@ -344,23 +344,15 @@
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
 </span><span class="kw">pub mod </span>task_state;
 
-<span class="kw">use </span><span class="kw">crate</span>::tasks::task_state::CreateTaskState;
-<span class="kw">use </span><span class="kw">crate</span>::ConsensusApi;
+<span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-<span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{
@@ -376,21 +368,19 @@
     vid::VIDTaskState,
     view_sync::ViewSyncTaskState,
 };
-<span class="kw">use </span>hotshot_types::constants::VERSION_0_1;
 <span class="kw">use </span>hotshot_types::{
-    constants::Version01,
-    message::Message,
-    traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
-};
-<span class="kw">use </span>hotshot_types::{
-    message::Messages,
+    constants::{Version01, VERSION_0_1},
+    message::{Message, Messages},
     traits::{
-        network::ConsensusIntentEvent,
+        election::Membership,
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        storage::Storage,
     },
 };
-<span class="kw">use </span>std::{sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::error;
+
+<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]

@@ -230,31 +230,27 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::{BTreeMap, HashMap};
 
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::HotShotTaskCompleted;
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::{LateStartNode, Node, TestRunner};
 <span class="kw">use </span>either::{Left, Right};
-<span class="kw">use </span>hotshot::types::EventType;
-<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotInitializer};
-<span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
-<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
+<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
+<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
-<span class="kw">use </span>hotshot_types::simple_certificate::QuorumCertificate;
-<span class="kw">use </span>hotshot_types::{data::Leaf, ValidatorConfig};
 <span class="kw">use </span>hotshot_types::{
+    data::Leaf,
     event::Event,
     message::Message,
+    simple_certificate::QuorumCertificate,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{NodeImplementation, NodeType},
     },
     vote::HasViewNumber,
+    ValidatorConfig,
 };
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::collections::BTreeMap;
+
+<span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, LateStartNode, Node, TestRunner};
 <span class="doccomment">/// convience type for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 

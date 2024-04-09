@@ -108,11 +108,13 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
+<a href="#109" id="109">109</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
+
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 <span class="kw">use crate</span>::{test_runner::HotShotTaskCompleted, GlobalTestEvent};
 

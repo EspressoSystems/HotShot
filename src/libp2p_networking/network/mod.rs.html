@@ -245,21 +245,13 @@
 <span class="doccomment">/// functionality of a libp2p network node
 </span><span class="kw">mod </span>node;
 
-<span class="kw">pub use </span><span class="self">self</span>::{
-    def::NetworkDef,
-    error::NetworkError,
-    node::{
-        network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
-        NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
-        NetworkNodeHandleError, NetworkNodeReceiver,
-    },
-};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr};
 
-<span class="kw">use </span><span class="self">self</span>::behaviours::{
-    dht::DHTEvent,
-    request_response::{Request, Response},
-};
 <span class="kw">use </span>futures::channel::oneshot::{<span class="self">self</span>, Sender};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>libp2p::dns::tokio::Transport <span class="kw">as </span>DnsTransport;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
@@ -271,18 +263,26 @@
     Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr};
-<span class="kw">use </span>tracing::instrument;
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>libp2p::dns::tokio::Transport <span class="kw">as </span>DnsTransport;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>quic::async_std::Transport <span class="kw">as </span>QuicTransport;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>quic::tokio::Transport <span class="kw">as </span>QuicTransport;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>tracing::instrument;
+
+<span class="kw">use </span><span class="self">self</span>::behaviours::{
+    dht::DHTEvent,
+    request_response::{Request, Response},
+};
+<span class="kw">pub use </span><span class="self">self</span>::{
+    def::NetworkDef,
+    error::NetworkError,
+    node::{
+        network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
+        NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
+        NetworkNodeHandleError, NetworkNodeReceiver,
+    },
+};
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error! </span>{<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 

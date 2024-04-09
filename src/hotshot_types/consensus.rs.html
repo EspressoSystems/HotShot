@@ -392,9 +392,16 @@
 <a href="#390" id="390">390</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
-</span><span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
-<span class="kw">use </span>displaydoc::Display;
+</span><span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    sync::{Arc, Mutex},
+};
 
+<span class="kw">use </span>committable::Commitment;
+<span class="kw">use </span>displaydoc::Display;
+<span class="kw">use </span>tracing::error;
+
+<span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
     data::{Leaf, VidDisperseShare},
     error::HotShotError,
@@ -406,13 +413,6 @@
     },
     utils::{StateAndDelta, Terminator},
 };
-<span class="kw">use </span>committable::Commitment;
-
-<span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex},
-};
-<span class="kw">use </span>tracing::error;
 
 <span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
 </span><span class="kw">pub type </span>CommitmentMap&lt;T&gt; = HashMap&lt;Commitment&lt;T&gt;, T&gt;;

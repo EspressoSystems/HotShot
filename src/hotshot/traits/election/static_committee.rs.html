@@ -229,20 +229,26 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="comment">// use ark_bls12_381::Parameters as Param381;
-</span><span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>hotshot_types::signature_key::BLSPubKey;
-<span class="kw">use </span>hotshot_types::traits::{
-    election::{ElectionConfig, Membership},
-    node_implementation::NodeType,
-    signature_key::{SignatureKey, StakeTableEntryType},
+</span><span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
+
+<span class="kw">use </span>ethereum_types::U256;
+<span class="kw">use </span>hotshot_types::{
+    signature_key::BLSPubKey,
+    traits::{
+        election::{ElectionConfig, Membership},
+        node_implementation::NodeType,
+        signature_key::{SignatureKey, StakeTableEntryType},
+    },
+    PeerConfig,
 };
-<span class="kw">use </span>hotshot_types::PeerConfig;
 <span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
 </span><span class="kw">use </span>rand::{rngs::StdRng, Rng};
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
 <span class="kw">use </span>tracing::debug;
 
 <span class="doccomment">/// Dummy implementation of [`Membership`]

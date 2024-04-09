@@ -239,12 +239,26 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
-</span><span class="kw">use super</span>::{
+</span><span class="kw">use </span>std::{
+    fmt::Debug,
+    hash::Hash,
+    ops::{<span class="self">self</span>, Deref, Sub},
+    sync::Arc,
+    time::Duration,
+};
+
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>committable::Committable;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="kw">use super</span>::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
     network::{
@@ -260,16 +274,6 @@
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
-};
-<span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{
-    fmt::Debug,
-    hash::Hash,
-    ops::{<span class="self">self</span>, Deref, Sub},
-    sync::Arc,
-    time::Duration,
 };
 
 <span class="doccomment">/// Node implementation aggregate trait

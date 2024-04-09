@@ -482,9 +482,6 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -492,29 +489,17 @@
 <span class="doccomment">/// Configuration for the orchestrator
 </span><span class="kw">pub mod </span>config;
 
+<span class="kw">use </span>std::{collections::HashSet, fs::OpenOptions, io, io::ErrorKind};
+
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>client::{BenchResults, BenchResultsDownloadConfig};
+<span class="kw">use </span>csv::Writer;
+<span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
     constants::Version01,
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
-<span class="kw">use </span>std::fs::OpenOptions;
-<span class="kw">use </span>std::{collections::HashSet, io, io::ErrorKind};
-<span class="kw">use </span>tide_disco::{Api, App, RequestError};
-
-<span class="kw">use </span>surf_disco::Url;
-<span class="kw">use </span>tide_disco::{
-    api::ApiError,
-    error::ServerError,
-    method::{ReadState, WriteState},
-};
-
-<span class="kw">use </span>futures::FutureExt;
-
-<span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
-
-<span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>libp2p::{
     identity::{
         ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
@@ -522,10 +507,19 @@
     },
     Multiaddr, PeerId,
 };
+<span class="kw">use </span>surf_disco::Url;
+<span class="kw">use </span>tide_disco::{
+    api::ApiError,
+    error::ServerError,
+    method::{ReadState, WriteState},
+    Api, App, RequestError,
+};
 <span class="kw">use </span>vbs::{
     version::{StaticVersion, StaticVersionType},
     BinarySerializer,
 };
+
+<span class="kw">use </span><span class="kw">crate</span>::config::NetworkConfig;
 
 <span class="doccomment">/// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)

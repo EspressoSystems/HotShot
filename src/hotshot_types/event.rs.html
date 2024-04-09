@@ -190,9 +190,12 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
-</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+</span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
@@ -201,8 +204,6 @@
     simple_certificate::QuorumCertificate,
     traits::{node_implementation::NodeType, ValidatedState},
 };
-
-<span class="kw">use </span>std::sync::Arc;
 <span class="doccomment">/// A status event emitted by a `HotShot` instance
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
@@ -252,8 +253,9 @@
 
 <span class="doccomment">/// Utilities for converting between HotShotError and a string.
 </span><span class="kw">pub mod </span>error_adaptor {
-    <span class="kw">use super</span>::{Arc, Deserialize, HotShotError, NodeType};
     <span class="kw">use </span>serde::{de::Deserializer, ser::Serializer};
+
+    <span class="kw">use super</span>::{Arc, Deserialize, HotShotError, NodeType};
 
     <span class="doccomment">/// Convert a HotShotError into a string
     ///

@@ -1315,33 +1315,38 @@
 <a href="#1313" id="1313">1313</a>
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
 //!
 
-</span><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
+</span><span class="kw">use </span>std::{
+    collections::{btree_map::Entry, hash_map::DefaultHasher, BTreeMap, BTreeSet},
+    hash::{Hash, Hasher},
+    num::NonZeroUsize,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{oneshot, OneShotSender},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>derive_more::{Deref, DerefMut};
-<span class="kw">use </span>hotshot_types::traits::network::AsyncGenerator;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{Version01, VERSION_0_1},
     message::{Message, MessagePurpose},
     traits::{
         network::{
-            ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg, NetworkReliability,
-            TestableNetworkingImplementation, ViewMessage, WebServerNetworkError,
+            AsyncGenerator, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
+            NetworkReliability, TestableNetworkingImplementation, ViewMessage,
+            WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -1351,20 +1356,7 @@
 <span class="kw">use </span>hotshot_web_server::{<span class="self">self</span>, config};
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::collections::hash_map::DefaultHasher;
-<span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::hash::{Hash, Hasher};
-<span class="kw">use </span>std::num::NonZeroUsize;
-<span class="kw">use </span>std::{
-    collections::{btree_map::Entry, BTreeSet},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-<span class="kw">use </span>surf_disco::error::ClientError;
-<span class="kw">use </span>surf_disco::Url;
+<span class="kw">use </span>surf_disco::{error::ClientError, Url};
 <span class="kw">use </span>tracing::{debug, error, info, warn};
 <span class="kw">use </span>vbs::{
     version::{StaticVersionType, Version},

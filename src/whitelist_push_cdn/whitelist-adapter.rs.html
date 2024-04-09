@@ -85,27 +85,21 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The whitelist is an adaptor that is able to update the allowed public keys for
 //! all brokers. Right now, we do this by asking the orchestrator for the list of
 //! allowed public keys. In the future, we will pull the stake table from the L1.
 
-</span><span class="kw">use </span>std::str::FromStr;
-<span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::{str::FromStr, sync::Arc};
 
-<span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>cdn_broker::reexports::discovery::DiscoveryClient;
-<span class="kw">use </span>cdn_broker::reexports::discovery::{Embedded, Redis};
+<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>cdn_broker::reexports::discovery::{DiscoveryClient, Embedded, Redis};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
-<span class="kw">use </span>hotshot_orchestrator::client::OrchestratorClient;
-<span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
-<span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_orchestrator::{
+    client::{OrchestratorClient, ValidatorArgs},
+    config::NetworkConfig,
+};
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>surf_disco::Url;
 
 <span class="attr">#[derive(Parser, Debug)]

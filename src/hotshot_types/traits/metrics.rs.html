@@ -295,6 +295,8 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The [`Metrics`] trait is used to collect information from multiple components in the entire system.
 //!
 //! This trait can be used to spawn the following traits:
@@ -303,8 +305,9 @@
 //! - [`Histogram`]: stores multiple float values based for a graph (example usage: CPU %)
 //! - [`Label`]: Stores the last string (example usage: current version, network online/offline)
 
-</span><span class="kw">use </span>dyn_clone::DynClone;
-<span class="kw">use </span>std::fmt::Debug;
+</span><span class="kw">use </span>std::fmt::Debug;
+
+<span class="kw">use </span>dyn_clone::DynClone;
 
 <span class="doccomment">/// The metrics type.
 </span><span class="kw">pub trait </span>Metrics: Send + Sync + DynClone + Debug {
@@ -408,11 +411,12 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>std::{
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[derive(Debug, Clone)]
     </span><span class="kw">struct </span>TestMetrics {

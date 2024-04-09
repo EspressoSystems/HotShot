@@ -157,26 +157,28 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
-</span><span class="kw">use crate</span>::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
-    utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
-};
-<span class="kw">use </span>committable::{Commitment, Committable};
-<span class="kw">use </span>jf_primitives::vid::VidScheme;
-<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
-
-<span class="kw">use </span>std::{
+</span><span class="kw">use </span>std::{
     error::Error,
     fmt::{Debug, Display},
     future::Future,
     hash::Hash,
+};
+
+<span class="kw">use </span>committable::{Commitment, Committable};
+<span class="kw">use </span>jf_primitives::vid::VidScheme;
+<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
+
+<span class="kw">use crate</span>::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    utils::BuilderCommitment,
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 
 <span class="doccomment">/// Abstraction over any type of transaction. Used by [`BlockPayload`].

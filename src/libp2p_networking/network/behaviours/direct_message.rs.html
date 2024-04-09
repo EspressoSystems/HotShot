@@ -136,16 +136,20 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSender;
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::UnboundedSender,
+};
 <span class="kw">use </span>libp2p::request_response::{Event, Message, OutboundRequestId, ResponseChannel};
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>tracing::{error, info};
 
-<span class="kw">use </span><span class="kw">crate</span>::network::{ClientRequest, NetworkEvent};
-
 <span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
+<span class="kw">use </span><span class="kw">crate</span>::network::{ClientRequest, NetworkEvent};
 
 <span class="doccomment">/// Request to direct message a peert
 </span><span class="attr">#[derive(Debug)]

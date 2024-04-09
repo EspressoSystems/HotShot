@@ -343,40 +343,36 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::data::{Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare};
-<span class="kw">use </span><span class="kw">crate</span>::simple_certificate::{
-    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-    ViewSyncPreCommitCertificate2,
-};
-<span class="kw">use </span><span class="kw">crate</span>::simple_vote::{
-    DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-    ViewSyncPreCommitVote,
-};
-<span class="kw">use </span><span class="kw">crate</span>::traits::election::Membership;
-<span class="kw">use </span><span class="kw">crate</span>::traits::network::ResponseMessage;
-<span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
-<span class="kw">use </span><span class="kw">crate</span>::vote::HasViewNumber;
-<span class="kw">use crate</span>::{
-    data::DAProposal,
-    simple_vote::QuorumVote,
-    traits::{
-        network::{DataRequest, NetworkMsg, ViewMessage},
-        node_implementation::{ConsensusTime, NodeType},
-    },
-};
+</span><span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
+
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>serde::de::DeserializeOwned;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+<span class="kw">use crate</span>::{
+    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    simple_certificate::{
+        DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+        ViewSyncPreCommitCertificate2,
+    },
+    simple_vote::{
+        DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        ViewSyncPreCommitVote,
+    },
+    traits::{
+        election::Membership,
+        network::{DataRequest, NetworkMsg, ResponseMessage, ViewMessage},
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
+    },
+    vote::HasViewNumber,
+};
 
 <span class="doccomment">/// Incoming message
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]

@@ -347,31 +347,27 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::NetworkReliability;
-<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
+
+<span class="kw">use </span>hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
+<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
-<span class="kw">use </span>hotshot_types::traits::election::Membership;
-<span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
+<span class="kw">use </span>hotshot_types::{
+    traits::{election::Membership, node_implementation::NodeType},
+    ExecutionType, HotShotConfig, ValidatorConfig,
+};
 <span class="kw">use </span>tide_disco::Url;
 
-<span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-
-<span class="kw">use </span>hotshot_types::{
-    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
-};
-
-<span class="kw">use </span><span class="kw">super</span>::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
 <span class="kw">use super</span>::{
-    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
+    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
+    txn_task::TxnTaskDescription,
 };
 <span class="kw">use crate</span>::{
     spinning_task::SpinningTaskDescription,
     test_launcher::{ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
-<span class="kw">use </span>hotshot_example_types::state_types::TestInstanceState;
 <span class="doccomment">/// data describing how a round should be timed.
 </span><span class="attr">#[derive(Clone, Debug, Copy)]
 </span><span class="kw">pub struct </span>TimingData {

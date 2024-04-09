@@ -43,15 +43,15 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Config file for stake table
-</span><span class="kw">use </span><span class="kw">crate</span>::utils::ToFields;
-<span class="kw">use </span>ark_ff::PrimeField;
+</span><span class="kw">use </span>ark_ff::PrimeField;
 <span class="kw">use </span>ark_std::vec;
-<span class="kw">use </span>jf_utils::to_bytes;
-
 <span class="doccomment">/// Schnorr verification key as auxiliary information
 </span><span class="kw">pub use </span>hotshot_types::light_client::StateVerKey;
 <span class="doccomment">/// BLS verification key as indexing key
 </span><span class="kw">pub use </span>jf_primitives::signatures::bls_over_bn254::VerKey <span class="kw">as </span>QCVerKey;
+<span class="kw">use </span>jf_utils::to_bytes;
+
+<span class="kw">use </span><span class="kw">crate</span>::utils::ToFields;
 <span class="doccomment">/// Type for commitment
 </span><span class="kw">pub type </span>FieldType = ark_ed_on_bn254::Fq;
 

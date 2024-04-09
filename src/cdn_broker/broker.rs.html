@@ -95,19 +95,15 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 
 </span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>cdn_broker::{Broker, Config, ConfigBuilder};
 <span class="kw">use </span>clap::Parser;
-
 <span class="kw">use </span>hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>sha2::Digest;
 
 <span class="attr">#[derive(Parser, Debug)]
