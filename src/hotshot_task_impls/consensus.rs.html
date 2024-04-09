@@ -1635,6 +1635,12 @@
 <a href="#1633" id="1633">1633</a>
 <a href="#1634" id="1634">1634</a>
 <a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
@@ -1837,6 +1843,69 @@
     }
 
     <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Create the header for a proposal, build the proposal, and broadcast
+/// the proposal send evnet.
+</span><span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">async fn </span>create_and_send_proposal&lt;TYPES: NodeType&gt;(
+    pub_key: TYPES::SignatureKey,
+    private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    view: TYPES::Time,
+    commitment: VidCommitment,
+    metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    parent_leaf: Leaf&lt;TYPES&gt;,
+    state: Arc&lt;TYPES::ValidatedState&gt;,
+    upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
+    round_start_delay: u64,
+) {
+    <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
+        state.as_ref(),
+        <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
+        <span class="kw-2">&amp;</span>parent_leaf,
+        commitment,
+        metadata,
+    )
+    .<span class="kw">await</span>;
+
+    <span class="kw">let </span>proposal = QuorumProposal {
+        block_header,
+        view_number: view,
+        justify_qc: consensus.read().<span class="kw">await</span>.high_qc.clone(),
+        proposal_certificate: proposal_cert,
+        upgrade_certificate: upgrade_cert,
+    };
+
+    <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
+    proposed_leaf.set_parent_commitment(parent_leaf.commit());
+
+    <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, proposed_leaf.commit().as_ref())
+    <span class="kw">else </span>{
+        <span class="comment">// This should never happen.
+        </span><span class="macro">error!</span>(<span class="string">"Failed to sign proposed_leaf.commit()!"</span>);
+        <span class="kw">return</span>;
+    };
+
+    <span class="kw">let </span>message = Proposal {
+        data: proposal,
+        signature,
+        _pd: PhantomData,
+    };
+    <span class="macro">debug!</span>(
+        <span class="string">"Sending null proposal for view {:?} \n {:?}"</span>,
+        proposed_leaf.get_view_number(),
+        <span class="string">""
+    </span>);
+
+    async_sleep(Duration::from_millis(round_start_delay)).<span class="kw">await</span>;
+    broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalSend(message.clone(), pub_key)),
+        <span class="kw-2">&amp;</span>event_stream,
+    )
+    .<span class="kw">await</span>;
 }
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
@@ -2176,10 +2245,6 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="macro">error!</span>(
-            <span class="string">"self.decided_upgrade_cert is {:?}"</span>,
-            <span class="self">self</span>.decided_upgrade_cert.clone()
-        );
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>sender = sender.clone();
@@ -2716,9 +2781,7 @@
 
                     <span class="kw">let </span>view = qc.view_number + <span class="number">1</span>;
 
-                    <span class="kw">if </span>!<span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
-                        <span class="macro">warn!</span>(<span class="string">"Wasn't able to publish proposal"</span>);
-                    }
+                    <span class="self">self</span>.publish_proposal_if_able(view, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 }
                 <span class="kw">if let </span>either::Left(qc) = cert {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.update_high_qc(qc.clone()).<span class="kw">await </span>{
@@ -2741,14 +2804,8 @@
                         <span class="kw-2">*</span>qc.view_number
                     );
 
-                    <span class="kw">if </span>!<span class="self">self
-                        </span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await
-                    </span>{
-                        <span class="macro">debug!</span>(
-                            <span class="string">"Wasn't able to publish proposal when QC was formed, still may publish"
-                        </span>);
-                    }
+                    <span class="self">self</span>.publish_proposal_if_able(qc.view_number + <span class="number">1</span>, <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span>;
                 }
             }
             HotShotEvent::UpgradeCertificateFormed(cert) =&gt; {
@@ -3018,7 +3075,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; bool {
+    ) {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
             <span class="comment">// This is expected for view 1, so skipping the logging.
             </span><span class="kw">if </span>view != TYPES::Time::new(<span class="number">1</span>) {
@@ -3027,7 +3084,7 @@
                     view
                 );
             }
-            <span class="kw">return </span><span class="bool-val">false</span>;
+            <span class="kw">return</span>;
         }
 
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
@@ -3037,7 +3094,7 @@
         <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.validated_state_map.get(parent_view_number) <span class="kw">else </span>{
             <span class="comment">// This should have been added by the replica?
             </span><span class="macro">error!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}"</span>, <span class="kw-2">**</span>parent_view_number);
-            <span class="kw">return </span><span class="bool-val">false</span>;
+            <span class="kw">return</span>;
         };
         <span class="comment">// Leaf hash in view inner does not match high qc hash - Why?
         </span><span class="kw">let </span><span class="prelude-val">Some</span>((leaf_commitment, state)) = parent_view.get_leaf_and_state() <span class="kw">else </span>{
@@ -3046,7 +3103,7 @@
                 <span class="question-mark">?</span>parent_view,
                 <span class="string">"Parent of high QC points to a view without a proposal"
             </span>);
-            <span class="kw">return </span><span class="bool-val">false</span>;
+            <span class="kw">return</span>;
         };
         <span class="kw">if </span>leaf_commitment != consensus.high_qc.get_data().leaf_commit {
             <span class="comment">// NOTE: This happens on the genesis block
@@ -3058,7 +3115,7 @@
         }
         <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf_commitment) <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">"Failed to find high QC of parent."</span>);
-            <span class="kw">return </span><span class="bool-val">false</span>;
+            <span class="kw">return</span>;
         };
         <span class="kw">if </span>leaf.get_view_number() == consensus.last_decided_view {
             reached_decided = <span class="bool-val">true</span>;
@@ -3090,7 +3147,7 @@
                     &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(Vec::new())
                 <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to build null block payload and metadata"</span>);
-                    <span class="kw">return </span><span class="bool-val">false</span>;
+                    <span class="kw">return</span>;
                 };
 
                 <span class="kw">let </span><span class="prelude-val">Some</span>(null_block_commitment) =
@@ -3098,71 +3155,39 @@
                 <span class="kw">else </span>{
                     <span class="comment">// This should never happen.
                     </span><span class="macro">error!</span>(<span class="string">"Failed to calculate null block commitment"</span>);
-                    <span class="kw">return </span><span class="bool-val">false</span>;
+                    <span class="kw">return</span>;
                 };
 
-                <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
-                    state,
-                    <span class="kw-2">&amp;</span>consensus.instance_state,
-                    <span class="kw-2">&amp;</span>parent_leaf,
-                    null_block_commitment,
-                    metadata,
-                )
-                .<span class="kw">await</span>;
-
-                <span class="kw">let </span>proposal = QuorumProposal {
-                    block_header,
-                    view_number: view,
-                    justify_qc: consensus.high_qc.clone(),
-                    proposal_certificate: <span class="prelude-val">None</span>,
-                    upgrade_certificate: <span class="self">self</span>.decided_upgrade_cert.clone(),
-                };
-
-                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
-                proposed_leaf.set_parent_commitment(parent_leaf.commit());
-
-                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-                    TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, proposed_leaf.commit().as_ref())
-                <span class="kw">else </span>{
-                    <span class="comment">// This should never happen.
-                    </span><span class="macro">error!</span>(<span class="string">"Failed to sign proposed_leaf.commit()!"</span>);
-                    <span class="kw">return </span><span class="bool-val">false</span>;
-                };
-
-                <span class="kw">let </span>message = Proposal {
-                    data: proposal,
-                    signature,
-                    _pd: PhantomData,
-                };
-                <span class="macro">debug!</span>(
-                    <span class="string">"Sending null proposal for view {:?} \n {:?}"</span>,
-                    proposed_leaf.get_view_number(),
-                    <span class="string">""
-                </span>);
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalSend(
-                        message.clone(),
-                        <span class="self">self</span>.public_key.clone(),
-                    )),
-                    event_stream,
-                )
-                .<span class="kw">await</span>;
-
-                <span class="kw">return </span><span class="bool-val">true</span>;
+                <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
+                <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
+                <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.clone();
+                <span class="kw">let </span>sender = event_stream.clone();
+                <span class="kw">let </span>delay = <span class="self">self</span>.round_start_delay;
+                <span class="kw">let </span>parent = parent_leaf.clone();
+                <span class="kw">let </span>state = state.clone();
+                <span class="kw">let </span>upgrade_cert = <span class="self">self</span>.decided_upgrade_cert.clone();
+                async_spawn(<span class="kw">async move </span>{
+                    create_and_send_proposal(
+                        pub_key,
+                        priv_key,
+                        consensus,
+                        sender,
+                        view,
+                        null_block_commitment,
+                        metadata,
+                        parent,
+                        state,
+                        upgrade_cert,
+                        <span class="prelude-val">None</span>,
+                        delay,
+                    )
+                    .<span class="kw">await</span>;
+                });
+                <span class="kw">return</span>;
             }
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(commit_and_metadata) = <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment_and_metadata {
-            <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
-                state,
-                <span class="kw-2">&amp;</span>consensus.instance_state,
-                <span class="kw-2">&amp;</span>parent_leaf,
-                commit_and_metadata.commitment,
-                commit_and_metadata.metadata.clone(),
-            )
-            .<span class="kw">await</span>;
-
             <span class="comment">// In order of priority, we should try to attach:
             //   - the parent certificate if it exists, or
             //   - our own certificate that we formed.
@@ -3188,50 +3213,37 @@
                 .as_ref()
                 .filter(|cert| cert.is_valid_for_view(<span class="kw-2">&amp;</span>view))
                 .cloned();
-
-            <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-            </span><span class="kw">let </span>proposal = QuorumProposal {
-                block_header: block_header.clone(),
-                view_number: view,
-                justify_qc: consensus.high_qc.clone(),
-                proposal_certificate,
-                upgrade_certificate: proposal_upgrade_certificate.clone(),
-            };
-
-            <span class="kw">let </span><span class="kw-2">mut </span>new_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
-            new_leaf.set_parent_commitment(parent_leaf.commit());
-
-            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-                TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, new_leaf.commit().as_ref())
-            <span class="kw">else </span>{
-                <span class="macro">error!</span>(<span class="string">"Failed to sign new_leaf.commit()!"</span>);
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            };
+            <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
+            <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
+            <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.clone();
+            <span class="kw">let </span>sender = event_stream.clone();
+            <span class="kw">let </span>commit = commit_and_metadata.commitment;
+            <span class="kw">let </span>metadata = commit_and_metadata.metadata.clone();
+            <span class="kw">let </span>state = state.clone();
+            <span class="kw">let </span>delay = <span class="self">self</span>.round_start_delay;
+            async_spawn(<span class="kw">async move </span>{
+                create_and_send_proposal(
+                    pub_key,
+                    priv_key,
+                    consensus,
+                    sender,
+                    view,
+                    commit,
+                    metadata,
+                    parent_leaf.clone(),
+                    state,
+                    proposal_upgrade_certificate,
+                    proposal_certificate,
+                    delay,
+                )
+                .<span class="kw">await</span>;
+            });
 
             <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;
-            <span class="kw">let </span>message = Proposal {
-                data: proposal,
-                signature,
-                _pd: PhantomData,
-            };
-            <span class="macro">debug!</span>(<span class="string">"Sending proposal for view {:?}"</span>, view);
-
-            async_sleep(Duration::from_millis(<span class="self">self</span>.round_start_delay)).<span class="kw">await</span>;
-            broadcast_event(
-                Arc::new(HotShotEvent::QuorumProposalSend(
-                    message.clone(),
-                    <span class="self">self</span>.public_key.clone(),
-                )),
-                event_stream,
-            )
-            .<span class="kw">await</span>;
-
             <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
-            <span class="kw">return </span><span class="bool-val">true</span>;
         }
         <span class="macro">debug!</span>(<span class="string">"Cannot propose because we don't have the VID payload commitment and metadata"</span>);
-        <span class="bool-val">false
-    </span>}
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
