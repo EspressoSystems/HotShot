@@ -16,7 +16,7 @@ use hotshot_types::{
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
-use versioned_binary_serialization::version::Version;
+use vbs::version::Version;
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -114,7 +114,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::Time,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
-    TransactionsSequenced(
+    BlockRecv(
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,

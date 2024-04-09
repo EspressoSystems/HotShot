@@ -27,13 +27,13 @@ use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use commit::Committable;
+use committable::Committable;
 use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
 use hotshot_types::constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
-use versioned_binary_serialization::version::Version;
+use vbs::version::Version;
 
 use hotshot_task::task::TaskRegistry;
 use hotshot_types::{
@@ -238,7 +238,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_leaves,
             saved_payloads,
             saved_da_certs: HashMap::new(),
-            saved_upgrade_certs: HashMap::new(),
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),

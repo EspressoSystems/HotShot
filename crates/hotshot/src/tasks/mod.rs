@@ -73,8 +73,9 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let state = NetworkResponseState::<TYPES>::new(
         handle.hotshot.get_consensus(),
         rx,
-        handle.hotshot.memberships.quorum_membership.clone(),
+        handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
+        handle.private_key().clone(),
     );
     task_reg
         .register(run_response_task::<TYPES, Version01>(state, hs_rx))
@@ -315,7 +316,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let transactions_state = TransactionTaskState::create_from(handle).await;
+    let transactions_state = TransactionTaskState::<_, _, _, Version01>::create_from(handle).await;
 
     let task = Task::new(tx, rx, task_reg.clone(), transactions_state);
     task_reg.run_task(task).await;
