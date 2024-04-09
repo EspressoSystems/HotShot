@@ -49,6 +49,9 @@ use std::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
+// TODO: This should be replaced with builder fee based on builder response
+/// Builder Fee
+pub const BUILDER_FEE: u64 = 0;
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     /// Vid Commitment
@@ -1453,7 +1456,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     &parent_leaf,
                     null_block_commitment,
                     metadata,
-                    0,
+                    BUILDER_FEE,
                     None,
                 )
                 .await;
@@ -1508,7 +1511,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 &parent_leaf,
                 commit_and_metadata.commitment,
                 commit_and_metadata.metadata.clone(),
-                0,
+                BUILDER_FEE,
                 None,
             )
             .await;
