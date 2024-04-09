@@ -317,7 +317,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: view,
                 };
-                tracing::info!("Sending DA proposal for view {:?}", data.view_number);
 
                 let message = Proposal {
                     data,
