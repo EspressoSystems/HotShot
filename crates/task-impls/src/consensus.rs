@@ -94,6 +94,10 @@ async fn validate_proposal<TYPES: NodeType>(
     let view = proposal.data.get_view_number();
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+    ensure!(
+        proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
+        "Proposed leaf does not extend the parent leaf."
+    );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     //
@@ -235,6 +239,9 @@ async fn create_and_send_proposal<TYPES: NodeType>(
     };
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+    if proposed_leaf.get_parent_commitment() != parent_leaf.commit() {
+        return;
+    }
 
     let Ok(signature) = TYPES::SignatureKey::sign(&private_key, proposed_leaf.commit().as_ref())
     else {
@@ -424,7 +431,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let parent_commitment = parent.commit();
 
                 let proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                assert_eq!(parent_commitment, proposed_leaf.get_parent_commitment());
+                if proposed_leaf.get_parent_commitment() != parent_commitment {
+                    return false;
+                }
 
                 // Validate the DAC.
                 let message = if cert.is_valid_cert(self.committee_membership.as_ref()) {
@@ -745,7 +754,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
                     );
-                    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+                    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
 
                     let state = Arc::new(
                         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
@@ -757,13 +766,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         view,
                         View {
                             view_inner: ViewInner::Leaf {
-                                leaf: leaf.commit(),
+                                leaf: proposed_leaf.commit(),
                                 state,
                                 delta: None,
                             },
                         },
                     );
-                    consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+                    consensus
+                        .saved_leaves
+                        .insert(proposed_leaf.commit(), proposed_leaf.clone());
 
                     if let Err(e) = self
                         .storage
