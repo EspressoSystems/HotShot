@@ -302,6 +302,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
+                // TODO (Keyao) Add validations for view change evidence and upgrade cert.
+
                 // Vaildate the justify QC.
                 let justify_qc = proposal.data.justify_qc.clone();
                 if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
@@ -310,7 +312,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     consensus.metrics.invalid_qc.update(1);
                     return;
                 }
-                let consensus = self.consensus.read().await;
+                broadcast_event(Arc::new(HotShotEvent::ViewChange(view + 1)), &event_sender).await;
+
+                let consensus = self.consensus.upgradable_read().await;
                 // Get the parent leaf and state.
                 let parent = if justify_qc.is_genesis {
                     // Send the `Decide` event for the genesis block if the justify QC is genesis.
@@ -355,7 +359,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         None => None,
                     }
                 };
-                drop(consensus);
+                let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+                if justify_qc.get_view_number() > consensus.high_qc.view_number {
+                    debug!("Updating high QC");
+
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .update_high_qc(justify_qc.clone())
+                        .await
+                    {
+                        warn!("Failed to store High QC not voting. Error: {:?}", e);
+                        return;
+                    }
+
+                    consensus.high_qc = justify_qc.clone();
+                }
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some((parent_leaf, parent_state)) = parent else {
                     warn!(
@@ -363,8 +383,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         justify_qc.get_data().leaf_commit,
                         *view,
                     );
+
+                    let leaf = Leaf::from_proposal(proposal);
+
+                    let state = Arc::new(
+                        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
+                            &proposal.data.block_header,
+                        ),
+                    );
+
+                    consensus.validated_state_map.insert(
+                        view,
+                        View {
+                            view_inner: ViewInner::Leaf {
+                                leaf: leaf.commit(),
+                                state,
+                                delta: None,
+                            },
+                        },
+                    );
+                    consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .update_undecided_state(
+                            consensus.saved_leaves.clone(),
+                            consensus.validated_state_map.clone(),
+                        )
+                        .await
+                    {
+                        warn!("Couldn't store undecided state.  Error: {:?}", e);
+                    }
+                    drop(consensus);
+
                     return;
                 };
+
+                drop(consensus);
 
                 // Validate the state.
                 let Ok((validated_state, state_delta)) = parent_state
@@ -428,11 +485,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
-                // Stop polling for the received proposal and change the view number.
+                // Stop polling for the received proposal.
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
                     .await;
-                broadcast_event(Arc::new(HotShotEvent::ViewChange(view + 1)), &event_sender).await;
 
                 // Notify the application layer and other tasks.
                 broadcast_event(
