@@ -1545,7 +1545,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
-
             // In order of priority, we should try to attach:
             //   - the parent certificate if it exists, or
             //   - our own certificate that we formed.
