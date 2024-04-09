@@ -342,6 +342,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
+    // /// most recent decided upgrade certificate
+    // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     /// The node's id
     pub id: u64,
 }
@@ -824,165 +826,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal) => {
-                let consensus = self.consensus.upgradable_read().await;
-                let view = proposal.get_view_number();
                 let current_proposal = Some(proposal.clone());
-                let mut new_anchor_view = consensus.last_decided_view;
-                let mut new_locked_view = consensus.locked_view;
-                let mut last_view_number_visited = view;
-                let mut new_commit_reached: bool = false;
-                let mut new_decide_reached = false;
-                let mut new_decide_qc = None;
-                let mut leaf_views = Vec::new();
-                let mut leafs_decided = Vec::new();
-                let mut included_txns = HashSet::new();
-                let old_anchor_view = consensus.last_decided_view;
-                let parent_view = proposal.justify_qc.get_view_number();
-                let mut current_chain_length = 0usize;
-                if parent_view + 1 == view {
-                    current_chain_length += 1;
-                    if let Err(e) = consensus.visit_leaf_ancestors(
-                        parent_view,
-                        Terminator::Exclusive(old_anchor_view),
-                        true,
-                        |leaf, state, delta| {
-                            if !new_decide_reached {
-                                if last_view_number_visited == leaf.get_view_number() + 1 {
-                                    last_view_number_visited = leaf.get_view_number();
-                                    current_chain_length += 1;
-                                    if current_chain_length == 2 {
-                                        new_locked_view = leaf.get_view_number();
-                                        new_commit_reached = true;
-                                        // The next leaf in the chain, if there is one, is decided, so this
-                                        // leaf's justify_qc would become the QC for the decided chain.
-                                        new_decide_qc = Some(leaf.get_justify_qc().clone());
-                                    } else if current_chain_length == 3 {
-                                        new_anchor_view = leaf.get_view_number();
-                                        new_decide_reached = true;
-                                    }
-                                } else {
-                                    // nothing more to do here... we don't have a new chain extension
-                                    return false;
-                                }
-                            }
-                            // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-                            if new_decide_reached {
-                                let mut leaf = leaf.clone();
-                                if leaf.get_view_number() == new_anchor_view {
-                                    consensus
-                                        .metrics
-                                        .last_synced_block_height
-                                        .set(usize::try_from(leaf.get_height()).unwrap_or(0));
-                                }
-                                if let Some(cert) = leaf.get_upgrade_certificate() {
-                                  if cert.data.decide_by < view {
-                                    warn!("Failed to decide an upgrade certificate in time. Ignoring.");
-                                  } else {
-                                    info!("Updating consensus state with decided upgrade certificate: {:?}", cert);
-                                    // self.decided_upgrade_cert = Some(cert.clone());
-                                  }
-                                }
-                                // If the block payload is available for this leaf, include it in
-                                // the leaf chain that we send to the client.
-                                if let Some(encoded_txns) =
-                                    consensus.saved_payloads.get(&leaf.get_view_number())
-                                {
-                                    let payload = BlockPayload::from_bytes(
-                                        encoded_txns.clone().into_iter(),
-                                        leaf.get_block_header().metadata(),
-                                    );
-
-                                    leaf.fill_block_payload_unchecked(payload);
-                                }
-
-                                // Get the VID share at the leaf's view number, corresponding to our key
-                                // (if one exists)
-                                let vid_share = consensus
-                                        .vid_shares
-                                        .get(&leaf.get_view_number())
-                                        .unwrap_or(&HashMap::new())
-                                        .get(&self.public_key).cloned();
-
-                                // Add our data into a new `LeafInfo`
-                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
-                                leafs_decided.push(leaf.clone());
-                                if let Some(ref payload) = leaf.get_block_payload() {
-                                    for txn in payload
-                                        .transaction_commitments(leaf.get_block_header().metadata())
-                                    {
-                                        included_txns.insert(txn);
-                                    }
-                                }
-                            }
-                            true
-                        },
-                    ) {
-                        error!("view publish error {e}");
-                    }
-                }
-
-                let included_txns_set: HashSet<_> = if new_decide_reached {
-                    included_txns
-                } else {
-                    HashSet::new()
-                };
-
-                let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                if new_commit_reached {
-                    consensus.locked_view = new_locked_view;
-                }
-                #[allow(clippy::cast_precision_loss)]
-                if new_decide_reached {
-                    broadcast_event(
-                        Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
-                        &event_sender,
-                    )
-                    .await;
-                    let decide_sent = broadcast_event(
-                        Event {
-                            view_number: consensus.last_decided_view,
-                            event: EventType::Decide {
-                                leaf_chain: Arc::new(leaf_views),
-                                qc: Arc::new(new_decide_qc.unwrap()),
-                                block_size: Some(included_txns_set.len().try_into().unwrap()),
-                            },
-                        },
-                        &self.output_event_stream,
-                    );
-                    let old_anchor_view = consensus.last_decided_view;
-                    consensus.collect_garbage(old_anchor_view, new_anchor_view);
-                    consensus.last_decided_view = new_anchor_view;
-                    consensus
-                        .metrics
-                        .last_decided_time
-                        .set(Utc::now().timestamp().try_into().unwrap());
-                    consensus.metrics.invalid_qc.set(0);
-                    consensus
-                        .metrics
-                        .last_decided_view
-                        .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
-                    let cur_number_of_views_per_decide_event =
-                        *self.cur_view - consensus.last_decided_view.get_u64();
-                    consensus
-                        .metrics
-                        .number_of_views_per_decide_event
-                        .add_point(cur_number_of_views_per_decide_event as f64);
-
-                    debug!("Sending Decide for view {:?}", consensus.last_decided_view);
-                    decide_sent.await;
-                }
-
                 let new_view = current_proposal.clone().unwrap().view_number + 1;
 
-                drop(consensus);
                 info!(
                     "Node {} creating dependency task for view {:?} from QuorumProposalRecv",
-                    self.id,
-                    // proposal.view_number + 1
-                    new_view
+                    self.id, new_view
                 );
+
                 self.create_dependency_task_if_new(
-                    // proposal.view_number + 1,
                     new_view,
                     event_receiver,
                     event_sender,
