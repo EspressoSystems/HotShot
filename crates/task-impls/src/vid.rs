@@ -67,7 +67,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await;
                 // send the commitment and metadata to consensus for block building
-                tracing::info!("SENDING PAYLOAD COMMMITMENT AND METADATA");
                 broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.payload_commitment,
