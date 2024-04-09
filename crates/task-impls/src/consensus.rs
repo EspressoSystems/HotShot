@@ -1384,6 +1384,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
+        use std::marker::PhantomData;
+
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
             if view != TYPES::Time::new(1) {
