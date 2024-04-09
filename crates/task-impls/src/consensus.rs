@@ -28,7 +28,7 @@ use hotshot_types::{
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        signature_key::{BuilderSignatureKey, SignatureKey},
         states::ValidatedState,
         storage::Storage,
         BlockPayload,
@@ -221,6 +221,8 @@ async fn create_and_send_proposal<TYPES: NodeType>(
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     round_start_delay: u64,
+    builder_fee: u64,
+    builder_fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
 ) {
     let block_header = TYPES::BlockHeader::new(
         state.as_ref(),
@@ -228,6 +230,8 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         &parent_leaf,
         commitment,
         metadata,
+        builder_fee,
+        builder_fee_signature,
     )
     .await;
 

@@ -7,7 +7,9 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 
-use hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
+use hotshot_builder_api::block_info::{
+    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
+};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
@@ -17,7 +19,7 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        signature_key::{BuilderSignatureKey, SignatureKey},
         BlockPayload,
     },
 };
@@ -107,21 +109,26 @@ impl<
                     return None;
                 }
 
-                if let Some((block, _)) = self.wait_for_block().await {
+                if let Some((block_info, block_data, header_input)) = self.wait_for_block().await {
                     // send the sequenced transactions to VID and DA tasks
                     let block_view = if make_block { view } else { view + 1 };
-                    let encoded_transactions = match block.block_payload.encode() {
+                    let encoded_transactions = match block_data.block_payload.encode() {
                         Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
                         Err(e) => {
                             error!("Failed to encode the block payload: {:?}.", e);
                             return None;
                         }
                     };
+
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
                             encoded_transactions,
-                            block.metadata,
+                            block_data.metadata,
                             block_view,
+                            header_input.vid_commitment,
+                            header_input.vid_precompute_data,
+                            block_info.offered_fee,
+                            header_input.fee_signature,
                         )),
                         &event_stream,
                     )
@@ -143,16 +150,21 @@ impl<
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
     async fn wait_for_block(
         &self,
-    ) -> Option<(AvailableBlockData<TYPES>, AvailableBlockHeaderInput<TYPES>)> {
+    ) -> Option<(
+        AvailableBlockInfo<TYPES>,
+        AvailableBlockData<TYPES>,
+        AvailableBlockHeaderInput<TYPES>,
+    )> {
         let task_start_time = Instant::now();
 
         let last_leaf = self.consensus.read().await.get_decided_leaf();
         let mut latest_block: Option<(
+            AvailableBlockInfo<TYPES>,
             AvailableBlockData<TYPES>,
             AvailableBlockHeaderInput<TYPES>,
         )> = None;
         while task_start_time.elapsed() < self.api.propose_max_round_time()
-            && latest_block.as_ref().map_or(true, |(data, _)| {
+            && latest_block.as_ref().map_or(true, |(_, data, _)| {
                 data.block_payload.get_transactions(&data.metadata).len()
                     < self.api.min_transactions()
             })
@@ -175,9 +187,29 @@ impl<
                 continue;
             };
 
+            // Verify signature over chosen block instead of
+            // verifying the signature over all the blocks received from builder
+            let combined_message_bytes = {
+                let mut combined_response_bytes: Vec<u8> = Vec::new();
+                combined_response_bytes
+                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
+                combined_response_bytes
+                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
+                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
+                combined_response_bytes
+            };
+
+            if !block_info
+                .sender
+                .validate_builder_signature(&block_info.signature, &combined_message_bytes)
+            {
+                error!("Failed to verify available block response message signature");
+                continue;
+            }
+
             // Don't try to re-claim the same block if builder advertises it again
             if latest_block.as_ref().map_or(false, |block| {
-                block.0.block_payload.builder_commitment(&block.0.metadata) == block_info.block_hash
+                block.1.block_payload.builder_commitment(&block.1.metadata) == block_info.block_hash
             }) {
                 continue;
             }
@@ -192,11 +224,25 @@ impl<
 
             let (block, header_input) = futures::join! {
                 self.builder_client.claim_block(block_info.block_hash.clone(), &signature),
-                self.builder_client.claim_block_header_input(block_info.block_hash, &signature)
+                self.builder_client.claim_block_header_input(block_info.block_hash.clone(), &signature)
             };
 
-            let block = match block {
-                Ok(val) => val,
+            let block_data = match block {
+                Ok(block_data) => {
+                    // verify the signature over the message, construct the builder commitment
+                    let builder_commitment = block_data
+                        .block_payload
+                        .builder_commitment(&block_data.metadata);
+                    if !block_data.sender.validate_builder_signature(
+                        &block_data.signature,
+                        builder_commitment.as_ref(),
+                    ) {
+                        error!("Failed to verify available block data response message signature");
+                        continue;
+                    } else {
+                        block_data
+                    }
+                }
                 Err(err) => {
                     error!(%err, "Failed to claim block");
                     continue;
@@ -204,16 +250,52 @@ impl<
             };
 
             let header_input = match header_input {
-                Ok(val) => val,
+                Ok(header_input) => {
+                    // first verify the message signature and later verify the fee_signature
+                    if !header_input.sender.validate_builder_signature(
+                        &header_input.message_signature,
+                        header_input.vid_commitment.as_ref(),
+                    ) {
+                        error!("Failed to verify available block header input data response message signature");
+                        continue;
+                    }
+
+                    let offered_fee = block_info.offered_fee;
+                    let builder_commitment = block_data
+                        .block_payload
+                        .builder_commitment(&block_data.metadata);
+                    let vid_commitment = header_input.vid_commitment;
+                    let combined_response_bytes = {
+                        let mut combined_response_bytes: Vec<u8> = Vec::new();
+                        combined_response_bytes
+                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
+                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
+                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
+                        combined_response_bytes
+                    };
+                    // verify the signature over the message
+                    if !header_input.sender.validate_builder_signature(
+                        &header_input.fee_signature,
+                        combined_response_bytes.as_ref(),
+                    ) {
+                        error!("Failed to verify fee signature");
+                        continue;
+                    } else {
+                        header_input
+                    }
+                }
                 Err(err) => {
                     error!(%err, "Failed to claim block");
                     continue;
                 }
             };
 
-            let num_txns = block.block_payload.get_transactions(&block.metadata).len();
+            let num_txns = block_data
+                .block_payload
+                .get_transactions(&block_data.metadata)
+                .len();
 
-            latest_block = Some((block, header_input));
+            latest_block = Some((block_info, block_data, header_input));
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }

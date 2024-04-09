@@ -130,9 +130,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         payload_commitment: VidCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         fee_amount: u64,
-        fee_signature: Option<
-            <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
-        >,
+        fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.

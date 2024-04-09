@@ -13,8 +13,8 @@ use hotshot_types::{
         DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{node_implementation::NodeType, BlockPayload},
-    vid::VidCommitment,
+    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, BlockPayload},
+    vid::{VidCommitment, VidPrecomputeData},
 };
 use vbs::version::Version;
 
@@ -118,6 +118,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        // Vid commitment provided by builder
+        VidCommitment,
+        // Vid Precompute data provided by builder
+        VidPrecomputeData,
+        // Builder Offered Fee
+        u64,
+        // Builder Fee signatue
+        <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     ),
     /// Event when the transactions task has a block formed
     BlockReady(VidDisperse<TYPES>, TYPES::Time),
