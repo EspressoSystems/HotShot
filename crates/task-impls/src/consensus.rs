@@ -45,7 +45,6 @@ use chrono::Utc;
 use hotshot_types::data::VidDisperseShare;
 use std::{
     collections::{HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -1371,8 +1370,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[cfg(feature = "proposal-task")]
     pub async fn publish_proposal_if_able(
         &mut self,
-        view: TYPES::Time,
-        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+        _view: TYPES::Time,
+        _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         true
     }
