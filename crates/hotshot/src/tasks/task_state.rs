@@ -187,7 +187,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             cur_view: handle.get_cur_view().await,
             payload_commitment_and_metadata: None,
             api: handle.clone(),
-            _pd: PhantomData,
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             timeout_task: None,

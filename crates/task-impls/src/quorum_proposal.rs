@@ -1,4 +1,4 @@
-use crate::consensus::{null_block, validate_proposal, view_is_between_versions};
+use crate::{consensus::validate_proposal, helpers::AnyhowTracing};
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -10,8 +10,9 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use chrono::Utc;
-use commit::Committable;
+use committable::Committable;
 use either::Either;
+use futures::future::FutureExt;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -20,10 +21,10 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     constants::LOOK_AHEAD,
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
-    simple_certificate::ViewSyncFinalizeCertificate2,
+    simple_certificate::{UpgradeCertificate, ViewSyncFinalizeCertificate2},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -303,13 +304,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
-                self.view_number,
-            )),
-            &self.sender,
-        )
-        .await;
         self.publish_proposal_if_able(self.view_number, &self.sender, commit_and_metadata.unwrap())
             .await;
     }
@@ -738,32 +732,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                // Validate the upgrade certificate, if one is attached.
-                // Continue unless the certificate is invalid.
-                //
-                // Note: we are *not* directly voting on the upgrade certificate here.
-                // Once a certificate has been (allegedly) formed, it has already been voted on.
-                // The certificate is either valid or invalid, and we are simply validating it.
-                //
-                // SS: It is possible that we may wish to vote against any quorum proposal
-                // if it attaches an upgrade certificate that we cannot support.
-                // But I don't think there's much point in this -- if the UpgradeCertificate
-                // threshold (90%) has been reached, voting against the QuorumProposal on that basis
-                // will probably be completely symbolic anyway.
-                //
-                // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
-                // that we do not support.
-                if let Some(ref upgrade_cert) = proposal.data.upgrade_certificate {
-                    if upgrade_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                        self.consensus
-                            .write()
-                            .await
-                            .saved_upgrade_certs
-                            .insert(view, upgrade_cert.clone());
-                    } else {
-                        error!("Invalid upgrade_cert in proposal for view {}", *view);
-                        return;
-                    }
+                // Validate the upgrade certificate -- this is just a signature validation.
+                // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
+                if let Err(e) = UpgradeCertificate::validate(
+                    &proposal.data.upgrade_certificate,
+                    &self.quorum_membership,
+                ) {
+                    warn!("{:?}", e);
+
+                    return;
                 }
 
                 // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
@@ -844,17 +821,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     );
                     return;
                 };
-                async_spawn(validate_proposal(
-                    proposal.clone(),
-                    parent_leaf,
-                    self.consensus.clone(),
-                    parent_state.clone(),
-                    view_leader_key,
-                    event_sender.clone(),
-                    sender,
-                    self.output_event_stream.clone(),
-                    self.storage.clone(),
-                ));
+                async_spawn(
+                    validate_proposal(
+                        proposal.clone(),
+                        parent_leaf,
+                        self.consensus.clone(),
+                        None,
+                        self.quorum_membership.clone(),
+                        parent_state.clone(),
+                        view_leader_key,
+                        event_sender.clone(),
+                        sender,
+                        self.output_event_stream.clone(),
+                        self.storage.clone(),
+                    )
+                    .map(AnyhowTracing::err_as_debug),
+                );
             }
             HotShotEvent::QuorumProposalValidated(proposal) => {
                 let consensus = self.consensus.upgradable_read().await;
@@ -907,9 +889,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                                         .last_synced_block_height
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(0));
                                 }
-                                if let Some(upgrade_cert) = consensus.saved_upgrade_certs.get(&leaf.get_view_number()) {
-                                    info!("Updating consensus state with decided upgrade certificate: {:?}", upgrade_cert);
-                                    // self.decided_upgrade_cert = Some(upgrade_cert.clone());
+                                if let Some(cert) = leaf.get_upgrade_certificate() {
+                                  if cert.data.decide_by < view {
+                                    warn!("Failed to decide an upgrade certificate in time. Ignoring.");
+                                  } else {
+                                    info!("Updating consensus state with decided upgrade certificate: {:?}", cert);
+                                    // self.decided_upgrade_cert = Some(cert.clone());
+                                  }
                                 }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
@@ -1018,10 +1004,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     event.clone(),
                 );
             }
-            HotShotEvent::QuorumProposalDependenciesValidated(view) => {
-                debug!("All proposal dependencies verified for view {:?}", view);
-                if !self.update_latest_proposed_view(*view).await {
-                    debug!("proposal not updated");
+            HotShotEvent::QuorumProposalSend(proposal, _) => {
+                let view = proposal.data.view_number;
+                if !self.update_latest_proposed_view(view).await {
+                    warn!("Failed to update latest proposed view");
                     return;
                 }
             }
