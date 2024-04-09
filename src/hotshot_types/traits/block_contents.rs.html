@@ -149,6 +149,14 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -175,6 +183,14 @@
 </span><span class="kw">pub trait </span>Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
+    <span class="doccomment">/// Build a transaction from bytes
+    </span><span class="kw">fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>;
+
+    <span class="doccomment">/// Get the length of the transaction
+    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+
+    <span class="doccomment">/// Whether or not the transaction is empty
+    </span><span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 }
 
 <span class="doccomment">/// Abstraction over the full contents of a block

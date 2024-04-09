@@ -211,8 +211,6 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, path::PathBuf};
 
 <span class="kw">use crate</span>::{
@@ -337,9 +335,7 @@
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + BuilderDataSource&lt;Types&gt;,
     Types: NodeType,
-    &lt;&lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType:
-        <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt; + Into&lt;TaggedBase64&gt; + Display,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;Types::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
 {

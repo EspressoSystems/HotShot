@@ -141,6 +141,7 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
@@ -211,7 +212,8 @@
         + Eq
         + Serialize
         + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
-        + Into&lt;TaggedBase64&gt;;
+        + Into&lt;TaggedBase64&gt;
+        + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;;
     <span class="doccomment">/// The type of the assembled qc: assembled signature + `BitVec`
     </span><span class="kw">type </span>QCType: Send
         + Sync
