@@ -692,10 +692,6 @@
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -735,7 +731,6 @@
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
-    sync::Arc,
 };
 <span class="kw">use </span>tracing::error;
 
@@ -855,7 +850,7 @@
     </span><span class="kw">pub fn </span>from_membership(
         view_number: TYPES::Time,
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
-        membership: Arc&lt;TYPES::Membership&gt;,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
             .get_staked_committee(view_number)
@@ -884,7 +879,8 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewChangeEvidence&lt;TYPES&gt; {
-    <span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
+    <span class="doccomment">/// Check that the given ViewChangeEvidence is relevant to the current view.
+    </span><span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
             ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.get_data().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
             ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; view_sync_cert.view_number == <span class="kw-2">*</span>view,
@@ -893,6 +889,7 @@
 }
 
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="doccomment">/// VID share and associated metadata for a single node
 </span><span class="kw">pub struct </span>VidDisperseShare&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
     </span><span class="kw">pub </span>view_number: TYPES::Time,
@@ -966,7 +963,8 @@
         <span class="prelude-val">Some</span>(vid_disperse)
     }
 
-    <span class="kw">pub fn </span>to_vid_share_proposals(
+    <span class="doccomment">/// Split a VID share proposal into a proposal for each recipient.
+    </span><span class="kw">pub fn </span>to_vid_share_proposals(
         vid_disperse_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
     ) -&gt; Vec&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
         vid_disperse_proposal
@@ -1229,19 +1227,22 @@
     <span class="doccomment">/// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
     ///
     /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
+    ///
+    /// # Errors
+    /// Returns an error if the certificates are not identical, or that when we no longer see a
+    /// cert, it's for the right reason.
     </span><span class="kw">pub fn </span>extends_upgrade(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        parent: <span class="self">Self</span>,
-        decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+        parent: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        decided_upgrade_certificate: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>(
             <span class="self">self</span>.get_upgrade_certificate(),
             parent.get_upgrade_certificate(),
         ) {
-            <span class="comment">// No upgrade certificate on either is the most common case, and is always fine.
-            </span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {}
             <span class="comment">// If the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade. Again, this is always fine.
-            </span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt; {}
+            // But, if we have no upgrade certificate on either is the most common case, and is always fine.
+            </span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>) | <span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {}
             <span class="comment">// If we no longer see a cert, we have to make sure that we either:
             //    - no longer care because we have passed new_version_first_view, or
             //    - no longer care because we have passed `decide_by` without deciding the certificate.
@@ -1338,11 +1339,8 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
-    <span class="kw">pub fn </span>from_proposal(proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data)
-    }
-
-    <span class="kw">pub fn </span>from_quorum_proposal(quorum_proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a leaf from a given quorum proposal.
+    </span><span class="kw">pub fn </span>from_quorum_proposal(quorum_proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="comment">// WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
         </span><span class="kw">let </span>QuorumProposal {
@@ -1360,12 +1358,6 @@
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: <span class="prelude-val">None</span>,
         }
-    }
-
-    <span class="kw">pub fn </span>commit_from_proposal(
-        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
-    ) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        Leaf::from_proposal(proposal).commit()
     }
 }
 

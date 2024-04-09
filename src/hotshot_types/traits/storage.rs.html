@@ -35,6 +35,10 @@
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstract storage type for storing DA proposals and VID shares
 //!
 //! This modules provides the [`Storage`] trait.
@@ -58,10 +62,14 @@
 <span class="doccomment">/// Abstraction for storing a variety of consensus payload datum.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>Storage&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
-    <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Add a proposal to the stored VID proposals.
+    </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Add a proposal to the stored DA proposals.
+    </span><span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Record a HotShotAction taken.
+    </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Update the current high QC in storage.
+    </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
     /// and the undecided state.
     </span><span class="kw">async fn </span>update_undecided_state(

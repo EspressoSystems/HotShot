@@ -532,18 +532,6 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -685,13 +673,6 @@
             <span class="kw">return</span>;
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
-                <span class="self">self</span>.view_number,
-            )),
-            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
-        )
-        .<span class="kw">await</span>;
         broadcast_event(
             Arc::new(HotShotEvent::DummyQuorumProposalSend(<span class="self">self</span>.view_number)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
@@ -1034,11 +1015,6 @@
                 <span class="kw">if </span>!validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
                     <span class="kw">return</span>;
                 }
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    <span class="kw-2">&amp;</span>event_sender.clone(),
-                )
-                .<span class="kw">await</span>;
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view + <span class="number">1</span>,

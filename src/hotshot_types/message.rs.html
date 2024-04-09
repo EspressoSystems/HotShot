@@ -342,6 +342,9 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -671,7 +674,10 @@
 <span class="kw">where
     </span>TYPES: NodeType,
 {
-    <span class="kw">pub fn </span>validate_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="doccomment">/// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    </span><span class="kw">pub fn </span>validate_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = <span class="self">self</span>.data.get_view_number();
         <span class="kw">let </span>view_leader_key = quorum_membership.get_leader(view_number);
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.data);

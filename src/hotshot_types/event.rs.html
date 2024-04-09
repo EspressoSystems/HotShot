@@ -171,6 +171,25 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -231,17 +250,27 @@
 <span class="doccomment">/// The chain of decided leaves with its corresponding state and VID info.
 </span><span class="kw">pub type </span>LeafChain&lt;TYPES&gt; = Vec&lt;LeafInfo&lt;TYPES&gt;&gt;;
 
-<span class="kw">pub mod </span>error_adaptor {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="doccomment">/// Utilities for converting between HotShotError and a string.
+</span><span class="kw">pub mod </span>error_adaptor {
+    <span class="kw">use super</span>::{Arc, Deserialize, HotShotError, NodeType};
     <span class="kw">use </span>serde::{de::Deserializer, ser::Serializer};
-    <span class="kw">pub fn </span>serialize&lt;S: Serializer, TYPES: NodeType&gt;(
+
+    <span class="doccomment">/// Convert a HotShotError into a string
+    ///
+    /// # Errors
+    /// Returns `Err` if the serializer fails.
+    </span><span class="kw">pub fn </span>serialize&lt;S: Serializer, TYPES: NodeType&gt;(
         elem: <span class="kw-2">&amp;</span>Arc&lt;HotShotError&lt;TYPES&gt;&gt;,
         serializer: S,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt; {
-        serializer.serialize_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, elem))
+        serializer.serialize_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{elem}"</span>))
     }
 
-    <span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D: Deserializer&lt;<span class="lifetime">'de</span>&gt;, TYPES: NodeType&gt;(
+    <span class="doccomment">/// Convert a string into a HotShotError
+    ///
+    /// # Errors
+    /// Returns `Err` if the string cannot be deserialized.
+    </span><span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D: Deserializer&lt;<span class="lifetime">'de</span>&gt;, TYPES: NodeType&gt;(
         deserializer: D,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;HotShotError&lt;TYPES&gt;&gt;, D::Error&gt; {
         <span class="kw">let </span>str = String::deserialize(deserializer)<span class="question-mark">?</span>;
@@ -332,14 +361,23 @@
     },
 }
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
+</span><span class="doccomment">/// A list of actions that we track for nodes
 </span><span class="kw">pub enum </span>HotShotAction {
-    Vote,
-    Propose,
-    DAPropose,
-    DAVote,
-    DACert,
-    VidDisperse,
-    UpgradeVote,
-    UpgradePropose,
+    <span class="doccomment">/// A quorum vote was sent
+    </span>Vote,
+    <span class="doccomment">/// A quorum proposal was sent
+    </span>Propose,
+    <span class="doccomment">/// DA proposal was sent
+    </span>DAPropose,
+    <span class="doccomment">/// DA vote was sent
+    </span>DAVote,
+    <span class="doccomment">/// DA certificate was sent
+    </span>DACert,
+    <span class="doccomment">/// VID shares were sent
+    </span>VidDisperse,
+    <span class="doccomment">/// An upgrade vote was sent
+    </span>UpgradeVote,
+    <span class="doccomment">/// An upgrade proposal was sent
+    </span>UpgradePropose,
 }
 </code></pre></div></section></main></body></html>

@@ -278,6 +278,7 @@
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides:
 //! - an opaque constructor [`vid_scheme`] that returns a new instance of a
 //!   VID scheme.
@@ -335,7 +336,8 @@
     // https://github.com/EspressoSystems/HotShot/issues/2152
     </span><span class="kw">let </span>recovery_threshold = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
 
-    <span class="kw">let </span>num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
+    <span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">let </span>num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
         <span class="macro">panic!</span>(<span class="string">"num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}"</span>)
     });
 

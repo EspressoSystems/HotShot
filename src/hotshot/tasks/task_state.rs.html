@@ -251,6 +251,14 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -470,13 +478,21 @@
     <span class="kw">for </span>QuorumVoteTaskState&lt;TYPES, I&gt;
 {
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; QuorumVoteTaskState&lt;TYPES, I&gt; {
+        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+
         QuorumVoteTaskState {
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            consensus,
             latest_voted_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_dependencies: HashMap::new(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
             committee_network: handle.hotshot.networks.da_network.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
             id: handle.hotshot.id,
+            storage: handle.storage.clone(),
         }
     }
 }

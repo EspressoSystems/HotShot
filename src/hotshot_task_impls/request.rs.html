@@ -373,7 +373,7 @@
         task: <span class="kw-2">&amp;mut </span>hotshot_task::task::Task&lt;<span class="self">Self</span>&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
+            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>state = task.state();
                 <span class="kw">let </span>prop_view = proposal.get_view_number();
                 <span class="kw">if </span>prop_view &gt;= state.view {
@@ -403,7 +403,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(<span class="kw">_</span>)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
     }
@@ -568,7 +568,7 @@
     </span><span class="kw">async fn </span>handle_response_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: SequencingMessage&lt;TYPES&gt;) {
         <span class="kw">let </span>event = <span class="kw">match </span>message {
             SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop)) =&gt; {
-                HotShotEvent::VidDisperseRecv(prop)
+                HotShotEvent::VIDShareRecv(prop)
             }
             <span class="kw">_ </span>=&gt; <span class="kw">return</span>,
         };

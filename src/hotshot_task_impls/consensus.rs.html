@@ -1668,6 +1668,9 @@
 <a href="#1666" id="1666">1666</a>
 <a href="#1667" id="1667">1667</a>
 <a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
@@ -1782,7 +1785,7 @@
     UpgradeCertificate::validate(<span class="kw-2">&amp;</span>proposal.data.upgrade_certificate, <span class="kw-2">&amp;</span>quorum_membership)<span class="question-mark">?</span>;
 
     <span class="comment">// Validate that the upgrade certificate is re-attached, if we saw one on the parent
-    </span>proposed_leaf.extends_upgrade(parent_leaf, decided_upgrade_certificate)<span class="question-mark">?</span>;
+    </span>proposed_leaf.extends_upgrade(<span class="kw-2">&amp;</span>parent_leaf, <span class="kw-2">&amp;</span>decided_upgrade_certificate)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
     <span class="comment">// Create a positive vote if either liveness or safety check
@@ -1836,7 +1839,10 @@
     .<span class="kw">await</span>;
     <span class="comment">// Notify other tasks
     </span>broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+        Arc::new(HotShotEvent::QuorumProposalValidated(
+            proposal.data.clone(),
+            parent_leaf,
+        )),
         <span class="kw-2">&amp;</span>event_stream,
     )
     .<span class="kw">await</span>;
@@ -2450,7 +2456,7 @@
                         <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
                         justify_qc.get_data().leaf_commit
                     );
-                    <span class="kw">let </span>leaf = Leaf::from_proposal(proposal);
+                    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
 
                     <span class="kw">let </span>state = Arc::new(
                         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(
@@ -2539,7 +2545,7 @@
                         .map(AnyhowTracing::err_as_debug),
                     ));
             }
-            HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
+            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
                 <span class="kw">let </span>view = proposal.get_view_number();
                 <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
@@ -2891,7 +2897,7 @@
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }
             }
-            HotShotEvent::VidDisperseRecv(disperse) =&gt; {
+            HotShotEvent::VIDShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.get_view_number();
 
                 <span class="macro">debug!</span>(
@@ -3310,7 +3316,7 @@
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
-                | HotShotEvent::QuorumProposalValidated(<span class="kw">_</span>)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
                 | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
                 | HotShotEvent::DACertificateRecv(<span class="kw">_</span>)
@@ -3318,7 +3324,7 @@
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(<span class="kw">_</span>)
                 | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
-                | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown,
         )

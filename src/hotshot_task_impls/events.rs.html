@@ -149,11 +149,6 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">use </span>either::Either;
@@ -205,15 +200,10 @@
     </span>QuorumProposalSend(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     </span>QuorumVoteSend(QuorumVote&lt;TYPES&gt;),
-    <span class="comment">// TODO: Complete the dependency implementation.
-    // &lt;https://github.com/EspressoSystems/HotShot/issues/2710&gt;
-    </span><span class="doccomment">/// Dummy quorum vote to test if the quorum vote dependency works. Should be removed and
-    /// replaced by `QuorumVoteSend` once the above TODO is done.
-    </span>DummyQuorumVoteSend(TYPES::Time),
     <span class="doccomment">/// All dependencies for the quorum vote are validated.
     </span>QuorumVoteDependenciesValidated(TYPES::Time),
-    <span class="doccomment">/// A proposal was validated. This means it comes from the correct leader and has a correct QC.
-    </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;),
+    <span class="doccomment">/// A quorum proposal with the given parent leaf is validated.
+    </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DAProposalSend(Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -283,10 +273,10 @@
     ///
     /// Like [`HotShotEvent::DAProposalSend`].
     </span>VidDisperseSend(Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
-    <span class="doccomment">/// Vid disperse data has been received from the network; handled by the DA task
+    <span class="doccomment">/// Vid disperse share has been received from the network; handled by the consensus task
     ///
     /// Like [`HotShotEvent::DAProposalRecv`].
-    </span>VidDisperseRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+    </span>VIDShareRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// VID share data is validated.
     </span>VIDShareValidated(VidDisperseShare&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
