@@ -535,10 +535,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        error!(
-            "self.decided_upgrade_cert is {:?}",
-            self.decided_upgrade_cert.clone()
-        );
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
@@ -1371,8 +1367,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
     }
 
+    #[cfg(feature = "proposal-task")]
+    pub async fn publish_proposal_if_able(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> bool {
+        true
+    }
+
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
+    #[cfg(not(feature = "proposal-task"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,
