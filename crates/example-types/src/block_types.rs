@@ -198,9 +198,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         payload_commitment: VidCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         _offered_fee: u64,
-        _fee_signature: Option<
-            <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
-        >,
+        _fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     ) -> Self {
         let parent = parent_leaf.get_block_header();
 

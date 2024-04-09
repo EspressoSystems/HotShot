@@ -106,10 +106,12 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         payload_commitment = Some(proposal_payload_comm);
                     }
                 }
-                HotShotEvent::SendPayloadCommitmentAndMetadata(
+                HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                     payload_commitment,
                     metadata,
                     _view,
+                    _,
+                    _,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
@@ -230,10 +232,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::PayloadAndMetadata => {
-                        if let HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        if let HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                             _payload_commitment,
                             _metadata,
                             view,
+                            _,
+                            _,
                         ) = event
                         {
                             *view
@@ -300,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(_, _, _, _, _) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalRecv(_, _) => {
@@ -428,7 +432,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                 }
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                _metadata,
+                view,
+                _,
+                _,
+            ) => {
                 let view = *view;
                 if view < self.latest_proposed_view {
                     debug!(
@@ -523,7 +533,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QCFormed(_)
-                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
+                | HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::Shutdown,
         )

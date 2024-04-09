@@ -206,6 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: handle.storage.clone(),
+            builder_info: None,
         }
     }
 }

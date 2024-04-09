@@ -1,5 +1,5 @@
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
-use crate::helpers::{broadcast_event, calculate_vid_disperse};
+use crate::helpers::{broadcast_event, calculate_vid_disperse_using_precompute_data};
 use async_broadcast::Sender;
 use async_lock::RwLock;
 
@@ -64,22 +64,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 metadata,
                 view_number,
                 builder_vid_commitment,
-                _,
-                _,
+                builder_vid_precompute_data,
+                offered_fee,
+                fee_signature,
             ) => {
-                let vid_disperse = calculate_vid_disperse(
+                // Use the precompute data provided by builder to do vid dispersal
+                let vid_disperse = calculate_vid_disperse_using_precompute_data(
                     encoded_transactions.clone(),
                     self.membership.clone(),
                     *view_number,
+                    builder_vid_precompute_data.clone(),
                 )
                 .await;
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(
-                    Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        *builder_vid_commitment,
-                        metadata.clone(),
-                        *view_number,
-                    )),
+                    Arc::new(
+                        HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                            *builder_vid_commitment,
+                            metadata.clone(),
+                            *view_number,
+                            *offered_fee,
+                            fee_signature.clone(),
+                        ),
+                    ),
                     &event_stream,
                 )
                 .await;
@@ -174,7 +181,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _, _, _, _)
+                | HotShotEvent::BlockRecv(_, _, _, _, _, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )

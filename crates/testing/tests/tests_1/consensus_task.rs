@@ -74,7 +74,13 @@ async fn test_consensus_task() {
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QCFormed(either::Left(cert)),
             // We must have a payload commitment and metadata to propose.
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                (),
+                ViewNumber::new(2),
+                (),
+                (),
+            ),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),

@@ -248,6 +248,12 @@ async fn build_quorum_proposal_and_signature(
             parent_leaf.get_block_header(),
         ),
     );
+
+    // mock builder fee signature
+    let builder_signature =
+        <BLSPubKey as SignatureKey>::sign(private_key, parent_leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment!");
+
     let block_header = TestBlockHeader::new(
         &*parent_state,
         &TestInstanceState {},
@@ -255,7 +261,7 @@ async fn build_quorum_proposal_and_signature(
         payload_commitment,
         (),
         0,
-        None,
+        builder_signature,
     )
     .await;
     let mut proposal = QuorumProposal::<TestTypes> {

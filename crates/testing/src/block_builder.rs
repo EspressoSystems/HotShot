@@ -26,7 +26,10 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
-    traits::{block_contents::vid_commitment, election::Membership, node_implementation::NodeType},
+    traits::{
+        block_contents::precompute_vid_commitment, election::Membership,
+        node_implementation::NodeType,
+    },
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
@@ -489,7 +492,7 @@ fn build_block(
 
     let commitment = block_payload.builder_commitment(&());
 
-    let vid_commitment = vid_commitment(
+    let (vid_commitment, vid_precompute_data) = precompute_vid_commitment(
         &block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
@@ -522,6 +525,18 @@ fn build_block(
                 panic!("Failed to sign block: {}", e);
             }
         };
+    let fee_signature = {
+        let mut fee_info: Vec<u8> = Vec::new();
+        fee_info.extend_from_slice(123_u64.to_be_bytes().as_ref());
+        fee_info.extend_from_slice(commitment.as_ref());
+        fee_info.extend_from_slice(vid_commitment.as_ref());
+        match <TestTypes as NodeType>::SignatureKey::sign(&priv_key, &fee_info) {
+            Ok(sig) => sig,
+            Err(e) => {
+                panic!("Failed to sign block: {}", e);
+            }
+        }
+    };
 
     let block = AvailableBlockData {
         block_payload,
@@ -540,7 +555,9 @@ fn build_block(
     };
     let header_input = AvailableBlockHeaderInput {
         vid_commitment,
-        signature: signature_over_vid_commitment,
+        vid_precompute_data,
+        fee_signature,
+        message_signature: signature_over_vid_commitment,
         sender: pub_key,
         _phantom: std::marker::PhantomData,
     };

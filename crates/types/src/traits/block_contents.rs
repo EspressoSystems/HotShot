@@ -2,7 +2,6 @@
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
-
 use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, ValidatedState},
@@ -10,7 +9,7 @@ use crate::{
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 use committable::{Commitment, Committable};
-use jf_primitives::vid::VidScheme;
+use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{
@@ -111,6 +110,20 @@ pub fn vid_commitment(
     vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
 
+/// Compute the VID payload commitment.
+/// # Panics
+/// If the VID computation fails.
+#[must_use]
+pub fn precompute_vid_commitment(
+    encoded_transactions: &Vec<u8>,
+    num_storage_nodes: usize,
+) -> (
+    <VidSchemeType as VidScheme>::Commit,
+    <VidSchemeType as Precomputable>::PrecomputeData,
+) {
+    #[allow(clippy::panic)]
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+}
 /// The number of storage nodes to use when computing the genesis VID commitment.
 ///
 /// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually

@@ -357,6 +357,12 @@ pub struct ConsensusTaskState<
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// Builder info
+    pub builder_info: Option<(
+        u64,
+        <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
+    )>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -1369,13 +1375,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                metadata,
+                view,
+                offered_fee,
+                fee_signature,
+            ) => {
                 let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
                     metadata: metadata.clone(),
                 });
+                // store the builder_info
+                self.builder_info = Some((*offered_fee, fee_signature.clone()));
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
@@ -1530,6 +1544,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let parent = parent_leaf.clone();
                 let state = state.clone();
                 let upgrade_cert = self.decided_upgrade_cert.clone();
+                let builder_fee = self.builder_info.clone().unwrap().0;
+                let builder_signature = self.builder_info.clone().unwrap().1;
+
                 async_spawn(async move {
                     create_and_send_proposal(
                         pub_key,
@@ -1544,6 +1561,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         upgrade_cert,
                         None,
                         delay,
+                        builder_fee,
+                        builder_signature,
                     )
                     .await;
                 });
@@ -1585,6 +1604,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let metadata = commit_and_metadata.metadata.clone();
             let state = state.clone();
             let delay = self.round_start_delay;
+            let builder_fee = self.builder_info.clone().unwrap().0;
+            let builder_signature = self.builder_info.clone().unwrap().1;
+
             async_spawn(async move {
                 create_and_send_proposal(
                     pub_key,
@@ -1599,6 +1621,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     proposal_upgrade_certificate,
                     proposal_certificate,
                     delay,
+                    builder_fee,
+                    builder_signature,
                 )
                 .await;
             });
@@ -1625,7 +1649,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::UpgradeCertificateFormed(_)
                 | HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
-                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
+                | HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(..)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
                 | HotShotEvent::VidDisperseRecv(..)

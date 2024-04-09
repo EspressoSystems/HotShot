@@ -108,10 +108,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
-    SendPayloadCommitmentAndMetadata(
+    SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
         VidCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        // Builder Offered Fee
+        u64,
+        // Builder Fee signatue
+        <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
