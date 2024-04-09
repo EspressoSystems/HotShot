@@ -1641,6 +1641,33 @@
 <a href="#1639" id="1639">1639</a>
 <a href="#1640" id="1640">1640</a>
 <a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
@@ -1654,7 +1681,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>core::time::Duration;
-<span class="kw">use </span>futures::future::FutureExt;
+<span class="kw">use </span>futures::future::{join_all, FutureExt};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::data::null_block;
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
@@ -1687,7 +1714,7 @@
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
@@ -1963,6 +1990,10 @@
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
 
+    <span class="doccomment">/// Spawned tasks related to a specific view, so we can cancel them when
+    /// they are stale
+    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::Time, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+
     <span class="doccomment">/// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -1998,6 +2029,17 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
     ConsensusTaskState&lt;TYPES, I, A&gt;
 {
+    <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
+    </span><span class="kw">async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
+        <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, tasks)) = <span class="self">self</span>.spawned_tasks.pop_first() {
+            <span class="kw">let </span><span class="kw-2">mut </span>to_cancel = tasks.into_iter().map(cancel_task).collect();
+            cancel.append(<span class="kw-2">&amp;mut </span>to_cancel);
+        }
+        <span class="self">self</span>.spawned_tasks = keep;
+        join_all(cancel).<span class="kw">await</span>;
+    }
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus vote if able"</span>, level = <span class="string">"error"</span>)]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
@@ -2477,22 +2519,25 @@
                     <span class="kw">return</span>;
                 };
 
-                async_spawn(
-                    validate_proposal(
-                        proposal.clone(),
-                        parent_leaf,
-                        <span class="self">self</span>.consensus.clone(),
-                        <span class="self">self</span>.decided_upgrade_cert.clone(),
-                        <span class="self">self</span>.quorum_membership.clone(),
-                        parent_state.clone(),
-                        view_leader_key,
-                        event_stream.clone(),
-                        sender,
-                        <span class="self">self</span>.output_event_stream.clone(),
-                        <span class="self">self</span>.storage.clone(),
-                    )
-                    .map(AnyhowTracing::err_as_debug),
-                );
+                <span class="self">self</span>.spawned_tasks
+                    .entry(proposal.data.get_view_number())
+                    .or_default()
+                    .push(async_spawn(
+                        validate_proposal(
+                            proposal.clone(),
+                            parent_leaf,
+                            <span class="self">self</span>.consensus.clone(),
+                            <span class="self">self</span>.decided_upgrade_cert.clone(),
+                            <span class="self">self</span>.quorum_membership.clone(),
+                            parent_state.clone(),
+                            view_leader_key,
+                            event_stream.clone(),
+                            sender,
+                            <span class="self">self</span>.output_event_stream.clone(),
+                            <span class="self">self</span>.storage.clone(),
+                        )
+                        .map(AnyhowTracing::err_as_debug),
+                    ));
             }
             HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
@@ -2655,6 +2700,9 @@
                 </span><span class="kw">let </span>qc = consensus.high_qc.clone();
 
                 drop(consensus);
+                <span class="kw">if </span>new_decide_reached {
+                    <span class="self">self</span>.cancel_tasks(new_anchor_view).<span class="kw">await</span>;
+                }
                 <span class="kw">if </span>should_propose {
                     <span class="macro">debug!</span>(
                         <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
@@ -3166,23 +3214,26 @@
                 <span class="kw">let </span>parent = parent_leaf.clone();
                 <span class="kw">let </span>state = state.clone();
                 <span class="kw">let </span>upgrade_cert = <span class="self">self</span>.decided_upgrade_cert.clone();
-                async_spawn(<span class="kw">async move </span>{
-                    create_and_send_proposal(
-                        pub_key,
-                        priv_key,
-                        consensus,
-                        sender,
-                        view,
-                        null_block_commitment,
-                        metadata,
-                        parent,
-                        state,
-                        upgrade_cert,
-                        <span class="prelude-val">None</span>,
-                        delay,
-                    )
-                    .<span class="kw">await</span>;
-                });
+                <span class="self">self</span>.spawned_tasks
+                    .entry(view)
+                    .or_default()
+                    .push(async_spawn(<span class="kw">async move </span>{
+                        create_and_send_proposal(
+                            pub_key,
+                            priv_key,
+                            consensus,
+                            sender,
+                            view,
+                            null_block_commitment,
+                            metadata,
+                            parent,
+                            state,
+                            upgrade_cert,
+                            <span class="prelude-val">None</span>,
+                            delay,
+                        )
+                        .<span class="kw">await</span>;
+                    }));
                 <span class="kw">return</span>;
             }
         }
@@ -3221,23 +3272,26 @@
             <span class="kw">let </span>metadata = commit_and_metadata.metadata.clone();
             <span class="kw">let </span>state = state.clone();
             <span class="kw">let </span>delay = <span class="self">self</span>.round_start_delay;
-            async_spawn(<span class="kw">async move </span>{
-                create_and_send_proposal(
-                    pub_key,
-                    priv_key,
-                    consensus,
-                    sender,
-                    view,
-                    commit,
-                    metadata,
-                    parent_leaf.clone(),
-                    state,
-                    proposal_upgrade_certificate,
-                    proposal_certificate,
-                    delay,
-                )
-                .<span class="kw">await</span>;
-            });
+            <span class="self">self</span>.spawned_tasks
+                .entry(view)
+                .or_default()
+                .push(async_spawn(<span class="kw">async move </span>{
+                    create_and_send_proposal(
+                        pub_key,
+                        priv_key,
+                        consensus,
+                        sender,
+                        view,
+                        commit,
+                        metadata,
+                        parent_leaf.clone(),
+                        state,
+                        proposal_upgrade_certificate,
+                        proposal_certificate,
+                        delay,
+                    )
+                    .<span class="kw">await</span>;
+                }));
 
             <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;
             <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;

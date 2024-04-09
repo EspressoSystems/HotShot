@@ -249,6 +249,8 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -263,6 +265,7 @@
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
+<span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::{collections::HashMap, marker::PhantomData};
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
@@ -442,6 +445,7 @@
             vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_task: <span class="prelude-val">None</span>,
+            spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_cert: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
