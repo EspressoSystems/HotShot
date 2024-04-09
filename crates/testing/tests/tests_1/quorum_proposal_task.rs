@@ -1,6 +1,7 @@
 use hotshot::tasks::inject_quorum_proposal_polls;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::state_types::TestValidatedState;
 use hotshot_task_impls::events::HotShotEvent::*;
 use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
 use hotshot_testing::predicates::{exact, quorum_proposal_send};
@@ -10,10 +11,13 @@ use hotshot_testing::{
     task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::data::{ViewChangeEvidence, ViewNumber};
-use hotshot_types::simple_vote::ViewSyncFinalizeData;
-use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
-use hotshot_types::vid::VidSchemeType;
+use hotshot_types::{
+    data::{ViewChangeEvidence, ViewNumber},
+    simple_vote::ViewSyncFinalizeData,
+    traits::node_implementation::{ConsensusTime, NodeType},
+    utils::{View, ViewInner},
+    vid::VidSchemeType,
+};
 use jf_primitives::vid::VidScheme;
 
 fn make_payload_commitment(
@@ -44,23 +48,50 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
+    let consensus = handle.get_consensus();
+    let mut consensus = consensus.write().await;
+
+    // `find_parent_leaf_and_state` depends on the existence of prior values in the consensus
+    // state, but since we do not spin up the consensus task, these values must be manually filled
+    // out.
+
+    // First, insert a parent view whose leaf commitment will be returned in the lower function
+    // call.
+    consensus.validated_state_map.insert(
+        ViewNumber::new(1),
+        View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaves[1].get_parent_commitment(),
+                state: TestValidatedState::default().into(),
+                delta: None,
+            },
+        },
+    );
+
+    // Match an entry into the saved leaves for the parent commitment, returning the generated leaf
+    // for this call.
+    consensus
+        .saved_leaves
+        .insert(leaves[1].get_parent_commitment(), leaves[1].clone());
+
+    // Release the write lock before proceeding with the test
+    drop(consensus);
     let cert = proposals[1].data.justify_qc.clone();
 
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
         inputs: vec![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalValidated(proposals[1].data.clone()),
             QCFormed(either::Left(cert.clone())),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
-        outputs: vec![
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            quorum_proposal_send(),
-        ],
+        outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };
 
@@ -206,8 +237,8 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
     // This should result in the proposal failing to be sent.
     let view_2 = TestScriptStage {
-        inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![exact(QuorumProposalValidated(proposals[1].data.clone()))],
+        inputs: vec![QuorumProposalValidated(proposals[1].data.clone())],
+        outputs: vec![],
         asserts: vec![],
     };
 
