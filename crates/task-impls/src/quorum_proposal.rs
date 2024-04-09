@@ -355,7 +355,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
-        let id = self.id;
         EventDependency::new(
             event_receiver,
             Box::new(move |event| {
@@ -411,7 +410,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    info!("Node {} Depencency {:?} is complete!", id, dependency_type);
+                    info!("Dependency {:?} is complete!", dependency_type);
                 }
                 valid
             }),
@@ -645,17 +644,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
                 let view = *view;
-                debug!("Got payload commitment and meta {:?}", payload_commitment);
-                info!("GOT PAYLOAD COMMITMENT FOR VIEW {:?}", view);
+                debug!(
+                    "Got payload commitment {:?} for view {view:?}",
+                    payload_commitment
+                );
 
-                // if self.consensus.read().await.high_qc.get_view_number() + 1 == view {
                 self.create_dependency_task_if_new(
                     view,
                     event_receiver,
                     event_sender,
                     event.clone(),
                 );
-                // }
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
