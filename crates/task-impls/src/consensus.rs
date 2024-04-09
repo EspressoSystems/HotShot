@@ -1367,6 +1367,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
     }
 
+    /// Ignores old propose behavior and lets QuorumProposalTask take over.
     #[cfg(feature = "proposal-task")]
     pub async fn publish_proposal_if_able(
         &mut self,

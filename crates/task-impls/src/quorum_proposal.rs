@@ -21,10 +21,10 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     constants::LOOK_AHEAD,
-    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
-    simple_certificate::{UpgradeCertificate, ViewSyncFinalizeCertificate2},
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -50,24 +50,6 @@ use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
-
-/// Validate a quorum proposal.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_quorum_proposal<TYPES: NodeType>(
-    _quorum_proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
-
-/// Validate a view sync cert or a timeout cert.
-#[allow(clippy::needless_pass_by_value)]
-fn validate_view_sync_finalize_certificate<TYPES: NodeType>(
-    _certificate: ViewSyncFinalizeCertificate2<TYPES>,
-    _event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-) -> bool {
-    true
-}
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -100,9 +82,11 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 
     /// Output events to application
+    #[allow(dead_code)]
     output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// Membership for Timeout votes/certs
+    #[allow(dead_code)]
     timeout_membership: Arc<TYPES::Membership>,
 
     /// Membership for Quorum Certs/votes
@@ -115,16 +99,19 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// View timeout from config.
+    #[allow(dead_code)]
     timeout: u64,
 
     /// Round start delay from config, in milliseconds.
     round_start_delay: u64,
 
     /// The node's id
+    #[allow(dead_code)]
     id: u64,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
+    /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
     pub async fn publish_proposal_if_able(
         &self,
@@ -244,8 +231,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             event_stream,
         )
         .await;
-
-        return true;
+        true
     }
 }
 
