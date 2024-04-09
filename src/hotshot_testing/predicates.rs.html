@@ -274,12 +274,10 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_task_impls::{
-    consensus::{null_block, ConsensusTaskState},
-    events::HotShotEvent,
-    events::HotShotEvent::<span class="kw-2">*</span>,
+    consensus::ConsensusTaskState, events::HotShotEvent, events::HotShotEvent::<span class="kw-2">*</span>,
 };
+<span class="kw">use </span>hotshot_types::data::null_block;
 <span class="kw">use </span>hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
 <span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::sync::Arc;
@@ -288,7 +286,7 @@
 
 <span class="kw">use </span>hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 
-<span class="attr">#[derive(Eq, PartialEq, Copy, Clone)]
+<span class="attr">#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 </span><span class="kw">pub enum </span>PredicateResult {
     Pass,
 

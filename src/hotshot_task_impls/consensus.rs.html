@@ -1635,21 +1635,12 @@
 <a href="#1633" id="1633">1633</a>
 <a href="#1634" id="1634">1634</a>
 <a href="#1635" id="1635">1635</a>
-<a href="#1636" id="1636">1636</a>
-<a href="#1637" id="1637">1637</a>
-<a href="#1638" id="1638">1638</a>
-<a href="#1639" id="1639">1639</a>
-<a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
 };
+<span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -1657,7 +1648,9 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="kw">use </span>hotshot_types::data::null_block;
 <span class="kw">use </span>hotshot_types::event::LeafInfo;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
@@ -1665,7 +1658,7 @@
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData},
+    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         consensus_api::ConsensusApi,
@@ -1710,40 +1703,54 @@
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 </span><span class="kw">async fn </span>validate_proposal&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    quorum_membership: Arc&lt;TYPES::Membership&gt;,
     parent_state: Arc&lt;TYPES::ValidatedState&gt;,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     sender: TYPES::SignatureKey,
     event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
     storage: Arc&lt;RwLock&lt;<span class="kw">impl </span>Storage&lt;TYPES&gt;&gt;&gt;,
-) {
-    <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>(validated_state, state_delta) = parent_state
         .validate_and_apply_header(
             <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
             <span class="kw-2">&amp;</span>parent_leaf,
             <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
         )
         .<span class="kw">await
-    else </span>{
-        <span class="macro">error!</span>(<span class="string">"Block header doesn't extend the proposal"</span>,);
-        <span class="kw">return</span>;
-    };
+        </span>.context(<span class="string">"Block header doesn't extend the proposal!"</span>)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>state = Arc::new(validated_state);
     <span class="kw">let </span>delta = Arc::new(state_delta);
     <span class="kw">let </span>parent_commitment = parent_leaf.commit();
     <span class="kw">let </span>view = proposal.data.get_view_number();
+
     <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     proposed_leaf.set_parent_commitment(parent_commitment);
 
-    <span class="comment">// Validate the signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    </span><span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, proposed_leaf.commit().as_ref()) {
-        <span class="macro">error!</span>(<span class="question-mark">?</span>proposal.signature, <span class="string">"Could not verify proposal."</span>);
-        <span class="kw">return</span>;
-    }
+    <span class="comment">// Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+    //
+    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
+    //
+    //    proposal.validate_signature(&amp;quorum_membership)?;
+    //
+    // in a future PR.
+    </span><span class="macro">ensure!</span>(
+        view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, proposed_leaf.commit().as_ref()),
+        <span class="string">"Could not verify proposal."
+    </span>);
+
+    UpgradeCertificate::validate(<span class="kw-2">&amp;</span>proposal.data.upgrade_certificate, <span class="kw-2">&amp;</span>quorum_membership)<span class="question-mark">?</span>;
+
+    <span class="comment">// Validate that the upgrade certificate is re-attached, if we saw one on the parent
+    </span>proposed_leaf.extends_upgrade(parent_leaf, decided_upgrade_certificate)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
     <span class="comment">// Create a positive vote if either liveness or safety check
     // passes.
@@ -1766,9 +1773,7 @@
     );
     <span class="kw">let </span>safety_check = outcome.is_ok();
 
-    <span class="comment">// Skip if both saftey and liveness checks fail.
-    </span><span class="kw">if </span>!safety_check &amp;&amp; !liveness_check {
-        <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view);
+    <span class="macro">ensure!</span>(safety_check || liveness_check, {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = outcome {
             broadcast_event(
                 Event {
@@ -1779,8 +1784,9 @@
             )
             .<span class="kw">await</span>;
         }
-        <span class="kw">return</span>;
-    }
+
+        <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view)
+    });
 
     <span class="comment">// We accept the proposal, notify the application layer
 
@@ -1829,6 +1835,8 @@
     </span>{
         <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
     }
+
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
@@ -1886,8 +1894,13 @@
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
 
-    <span class="doccomment">/// last Upgrade Certificate this node formed
-    </span><span class="kw">pub </span>upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    </span><span class="kw">pub </span>formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// last View Sync Certificate or Timeout Certificate this node formed.
     </span><span class="kw">pub </span>proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
@@ -1941,7 +1954,7 @@
             }
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_cert {
-                <span class="kw">if </span>view_is_between_versions(<span class="self">self</span>.cur_view, <span class="kw-2">&amp;</span>upgrade_cert.data)
+                <span class="kw">if </span>upgrade_cert.in_interim(<span class="self">self</span>.cur_view)
                     &amp;&amp; <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment())
                         != null_block::commitment(<span class="self">self</span>.quorum_membership.total_nodes())
                 {
@@ -2163,6 +2176,10 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
+        <span class="macro">error!</span>(
+            <span class="string">"self.decided_upgrade_cert is {:?}"</span>,
+            <span class="self">self</span>.decided_upgrade_cert.clone()
+        );
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>sender = sender.clone();
@@ -2239,32 +2256,15 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="comment">// Validate the upgrade certificate, if one is attached.
-                // Continue unless the certificate is invalid.
-                //
-                // Note: we are *not* directly voting on the upgrade certificate here.
-                // Once a certificate has been (allegedly) formed, it has already been voted on.
-                // The certificate is either valid or invalid, and we are simply validating it.
-                //
-                // SS: It is possible that we may wish to vote against any quorum proposal
-                // if it attaches an upgrade certificate that we cannot support.
-                // But I don't think there's much point in this -- if the UpgradeCertificate
-                // threshold (90%) has been reached, voting against the QuorumProposal on that basis
-                // will probably be completely symbolic anyway.
-                //
-                // We should just make sure we don't *sign* an UpgradeCertificate for an upgrade
-                // that we do not support.
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>upgrade_cert) = proposal.data.upgrade_certificate {
-                    <span class="kw">if </span>upgrade_cert.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
-                        <span class="self">self</span>.consensus
-                            .write()
-                            .<span class="kw">await
-                            </span>.saved_upgrade_certs
-                            .insert(view, upgrade_cert.clone());
-                    } <span class="kw">else </span>{
-                        <span class="macro">error!</span>(<span class="string">"Invalid upgrade_cert in proposal for view {}"</span>, <span class="kw-2">*</span>view);
-                        <span class="kw">return</span>;
-                    }
+                <span class="comment">// Validate the upgrade certificate -- this is just a signature validation.
+                // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = UpgradeCertificate::validate(
+                    <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
+                ) {
+                    <span class="macro">warn!</span>(<span class="string">"{:?}"</span>, e);
+
+                    <span class="kw">return</span>;
                 }
 
                 <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
@@ -2411,17 +2411,23 @@
 
                     <span class="kw">return</span>;
                 };
-                async_spawn(validate_proposal(
-                    proposal.clone(),
-                    parent_leaf,
-                    <span class="self">self</span>.consensus.clone(),
-                    parent_state.clone(),
-                    view_leader_key,
-                    event_stream.clone(),
-                    sender,
-                    <span class="self">self</span>.output_event_stream.clone(),
-                    <span class="self">self</span>.storage.clone(),
-                ));
+
+                async_spawn(
+                    validate_proposal(
+                        proposal.clone(),
+                        parent_leaf,
+                        <span class="self">self</span>.consensus.clone(),
+                        <span class="self">self</span>.decided_upgrade_cert.clone(),
+                        <span class="self">self</span>.quorum_membership.clone(),
+                        parent_state.clone(),
+                        view_leader_key,
+                        event_stream.clone(),
+                        sender,
+                        <span class="self">self</span>.output_event_stream.clone(),
+                        <span class="self">self</span>.storage.clone(),
+                    )
+                    .map(AnyhowTracing::err_as_debug),
+                );
             }
             HotShotEvent::QuorumProposalValidated(proposal) =&gt; {
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
@@ -2474,9 +2480,13 @@
                                         .last_synced_block_height
                                         .set(usize::try_from(leaf.get_height()).unwrap_or(<span class="number">0</span>));
                                 }
-                                <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = consensus.saved_upgrade_certs.get(<span class="kw-2">&amp;</span>leaf.get_view_number()) {
-                                    <span class="macro">info!</span>(<span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>, upgrade_cert);
-                                    <span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">Some</span>(upgrade_cert.clone());
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = leaf.get_upgrade_certificate() {
+                                  <span class="kw">if </span>cert.data.decide_by &lt; view {
+                                    <span class="macro">warn!</span>(<span class="string">"Failed to decide an upgrade certificate in time. Ignoring."</span>);
+                                  } <span class="kw">else </span>{
+                                    <span class="macro">info!</span>(<span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>, cert);
+                                    <span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+                                  }
                                 }
                                 <span class="comment">// If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
@@ -2747,10 +2757,11 @@
                     <span class="kw-2">*</span>cert.view_number
                 );
 
-                <span class="comment">// Update our current upgrade_cert as long as it's still relevant.
-                </span><span class="kw">if </span>cert.view_number &gt;= <span class="self">self</span>.cur_view {
-                    <span class="macro">debug!</span>(<span class="string">"Updating current upgrade_cert"</span>);
-                    <span class="self">self</span>.upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+                <span class="comment">// Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
+                </span><span class="kw">if </span>cert.data.decide_by &gt;= <span class="self">self</span>.cur_view + <span class="number">3 </span>{
+                    <span class="macro">debug!</span>(<span class="string">"Updating current formed_upgrade_certificate"</span>);
+
+                    <span class="self">self</span>.formed_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
             HotShotEvent::DACertificateRecv(cert) =&gt; {
@@ -2843,7 +2854,7 @@
                 <span class="comment">// If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) = <span class="self">self</span>.decided_upgrade_cert {
-                    <span class="kw">if </span>new_view &gt;= cert.data.new_version_first_block {
+                    <span class="kw">if </span>new_view == cert.data.new_version_first_view {
                         <span class="macro">warn!</span>(
                             <span class="string">"Updating version based on a decided upgrade cert: {:?}"</span>,
                             cert
@@ -2856,9 +2867,6 @@
                             <span class="kw-2">&amp;</span>event_stream,
                         )
                         .<span class="kw">await</span>;
-
-                        <span class="comment">// Discard the old upgrade certificate, which is no longer relevant.
-                        </span><span class="self">self</span>.decided_upgrade_cert = <span class="prelude-val">None</span>;
                     }
                 }
 
@@ -3077,7 +3085,7 @@
 
         <span class="comment">// Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_cert {
-            <span class="kw">if </span>view_is_between_versions(<span class="self">self</span>.cur_view, <span class="kw-2">&amp;</span>upgrade_cert.data) {
+            <span class="kw">if </span>upgrade_cert.in_interim(<span class="self">self</span>.cur_view) {
                 <span class="kw">let </span><span class="prelude-val">Ok</span>((_payload, metadata)) =
                     &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(Vec::new())
                 <span class="kw">else </span>{
@@ -3107,7 +3115,7 @@
                     view_number: view,
                     justify_qc: consensus.high_qc.clone(),
                     proposal_certificate: <span class="prelude-val">None</span>,
-                    upgrade_certificate: <span class="prelude-val">None</span>,
+                    upgrade_certificate: <span class="self">self</span>.decided_upgrade_cert.clone(),
                 };
 
                 <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
@@ -3154,21 +3162,25 @@
                 commit_and_metadata.metadata.clone(),
             )
             .<span class="kw">await</span>;
-            <span class="kw">let </span>upgrade_cert = <span class="kw">if </span><span class="self">self
-                </span>.upgrade_cert
-                .as_ref()
-                .is_some_and(|cert| cert.view_number == view)
-            {
-                <span class="macro">debug!</span>(<span class="string">"Attaching upgrade certificate to proposal."</span>);
-                <span class="comment">// If the cert view number matches, set upgrade_cert to self.upgrade_cert
-                // and set self.upgrade_cert to None.
-                //
-                // Note: the certificate is discarded, regardless of whether the vote on the proposal succeeds or not.
-                </span><span class="self">self</span>.upgrade_cert.take()
-            } <span class="kw">else </span>{
-                <span class="comment">// Otherwise, set upgrade_cert to None.
-                </span><span class="prelude-val">None
-            </span>};
+
+            <span class="comment">// In order of priority, we should try to attach:
+            //   - the parent certificate if it exists, or
+            //   - our own certificate that we formed.
+            // In either case, we need to ensure that the certificate is still relevant.
+            //
+            // Note: once we reach a point of potentially propose with our formed upgrade certificate, we will ALWAYS drop it. If we cannot immediately use it for whatever reason, we choose to discard it.
+            // It is possible that multiple nodes form separate upgrade certificates for the some upgrade if we are not careful about voting. But this shouldn't bother us: the first leader to propose is the one whose certificate will be used. And if that fails to reach a decide for whatever reason, we may lose our own certificate, but something will likely have gone wrong there anyway.
+            </span><span class="kw">let </span>formed_upgrade_certificate = <span class="self">self</span>.formed_upgrade_certificate.take();
+            <span class="kw">let </span><span class="kw-2">mut </span>proposal_upgrade_certificate = parent_leaf
+                .get_upgrade_certificate()
+                .or(formed_upgrade_certificate);
+
+            <span class="kw">if </span>!proposal_upgrade_certificate.clone().is_some_and(|cert| {
+                cert.is_relevant(view, <span class="self">self</span>.decided_upgrade_cert.clone())
+                    .is_ok()
+            }) {
+                proposal_upgrade_certificate = <span class="prelude-val">None</span>;
+            }
 
             <span class="comment">// We only want to proposal to be attached if any of them are valid.
             </span><span class="kw">let </span>proposal_certificate = <span class="self">self
@@ -3183,7 +3195,7 @@
                 view_number: view,
                 justify_qc: consensus.high_qc.clone(),
                 proposal_certificate,
-                upgrade_certificate: upgrade_cert.clone(),
+                upgrade_certificate: proposal_upgrade_certificate.clone(),
             };
 
             <span class="kw">let </span><span class="kw-2">mut </span>new_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
@@ -3257,37 +3269,5 @@
     <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
     }
-}
-
-<span class="kw">pub mod </span>null_block {
-    <span class="attr">#![allow(missing_docs)]
-    </span><span class="kw">use </span>hotshot_types::vid::{vid_scheme, VidCommitment};
-    <span class="kw">use </span>jf_primitives::vid::VidScheme;
-    <span class="kw">use </span>memoize::memoize;
-
-    <span class="doccomment">/// The commitment for a null block payload.
-    ///
-    /// Note: the commitment depends on the network (via `num_storage_nodes`),
-    /// and may change (albeit rarely) during execution.
-    ///
-    /// We memoize the result to avoid having to recalculate it.
-    </span><span class="attr">#[memoize(SharedCache, Capacity: <span class="number">10</span>)]
-    #[must_use]
-    </span><span class="kw">pub fn </span>commitment(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
-        <span class="kw">let </span>vid_result = vid_scheme(num_storage_nodes).commit_only(<span class="kw-2">&amp;</span>Vec::new());
-
-        <span class="kw">match </span>vid_result {
-            <span class="prelude-val">Ok</span>(r) =&gt; <span class="prelude-val">Some</span>(r),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
-        }
-    }
-}
-
-<span class="doccomment">/// Test whether a view is in the range defined by an upgrade certificate.
-</span><span class="kw">fn </span>view_is_between_versions&lt;TYPES: NodeType&gt;(
-    view: TYPES::Time,
-    upgrade_data: <span class="kw-2">&amp;</span>UpgradeProposalData&lt;TYPES&gt;,
-) -&gt; bool {
-    view &gt; upgrade_data.old_version_last_block &amp;&amp; view &lt; upgrade_data.new_version_first_block
 }
 </code></pre></div></section></main></body></html>

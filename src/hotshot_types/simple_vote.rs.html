@@ -258,6 +258,10 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple vote types.
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
@@ -330,12 +334,15 @@
     </span><span class="kw">pub </span>old_version: Version,
     <span class="doccomment">/// The new version that we are upgrading to.
     </span><span class="kw">pub </span>new_version: Version,
+    <span class="doccomment">/// The last view in which we are allowed to reach a decide on this upgrade.
+    /// If it is not decided by that view, we discard it.
+    </span><span class="kw">pub </span>decide_by: TYPES::Time,
     <span class="doccomment">/// A unique identifier for the specific protocol being voted on.
     </span><span class="kw">pub </span>new_version_hash: Vec&lt;u8&gt;,
     <span class="doccomment">/// The last block for which the old version will be in effect.
-    </span><span class="kw">pub </span>old_version_last_block: TYPES::Time,
+    </span><span class="kw">pub </span>old_version_last_view: TYPES::Time,
     <span class="doccomment">/// The first block for which the new version will be in effect.
-    </span><span class="kw">pub </span>new_version_first_block: TYPES::Time,
+    </span><span class="kw">pub </span>new_version_first_view: TYPES::Time,
 }
 
 <span class="doccomment">/// Marker trait for data or commitments that can be voted on.
@@ -456,8 +463,9 @@
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>builder = committable::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>);
         builder
-            .u64(<span class="kw-2">*</span><span class="self">self</span>.new_version_first_block)
-            .u64(<span class="kw-2">*</span><span class="self">self</span>.old_version_last_block)
+            .u64(<span class="kw-2">*</span><span class="self">self</span>.decide_by)
+            .u64(<span class="kw-2">*</span><span class="self">self</span>.new_version_first_view)
+            .u64(<span class="kw-2">*</span><span class="self">self</span>.old_version_last_view)
             .var_size_bytes(<span class="self">self</span>.new_version_hash.as_slice())
             .u16(<span class="self">self</span>.new_version.minor)
             .u16(<span class="self">self</span>.new_version.major)
