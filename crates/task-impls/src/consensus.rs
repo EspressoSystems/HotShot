@@ -44,7 +44,7 @@ use crate::vote_collection::HandleVoteEvent;
 use chrono::Utc;
 use hotshot_types::data::VidDisperseShare;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
@@ -319,6 +319,10 @@ pub struct ConsensusTaskState<
 
     /// timeout task handle
     pub timeout_task: Option<JoinHandle<()>>,
+
+    /// Spawned tasks related to a specific view, so we can cancel them when
+    /// they are stale
+    pub spawned_tasks: BTreeMap<TYPES::Time, JoinHandle<()>>,
 
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
@@ -834,21 +838,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                async_spawn(
-                    validate_proposal(
-                        proposal.clone(),
-                        parent_leaf,
-                        self.consensus.clone(),
-                        self.decided_upgrade_cert.clone(),
-                        self.quorum_membership.clone(),
-                        parent_state.clone(),
-                        view_leader_key,
-                        event_stream.clone(),
-                        sender,
-                        self.output_event_stream.clone(),
-                        self.storage.clone(),
-                    )
-                    .map(AnyhowTracing::err_as_debug),
+                self.spawned_tasks.insert(
+                    proposal.data.get_view_number(),
+                    async_spawn(
+                        validate_proposal(
+                            proposal.clone(),
+                            parent_leaf,
+                            self.consensus.clone(),
+                            self.decided_upgrade_cert.clone(),
+                            self.quorum_membership.clone(),
+                            parent_state.clone(),
+                            view_leader_key,
+                            event_stream.clone(),
+                            sender,
+                            self.output_event_stream.clone(),
+                            self.storage.clone(),
+                        )
+                        .map(AnyhowTracing::err_as_debug),
+                    ),
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal) => {
@@ -978,6 +985,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         &self.output_event_stream,
                     );
                     let old_anchor_view = consensus.last_decided_view;
+                    self.spawned_tasks = self.spawned_tasks.split_off(&new_anchor_view);
                     consensus.collect_garbage(old_anchor_view, new_anchor_view);
                     consensus.last_decided_view = new_anchor_view;
                     consensus
@@ -1523,23 +1531,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let parent = parent_leaf.clone();
                 let state = state.clone();
                 let upgrade_cert = self.decided_upgrade_cert.clone();
-                async_spawn(async move {
-                    create_and_send_proposal(
-                        pub_key,
-                        priv_key,
-                        consensus,
-                        sender,
-                        view,
-                        null_block_commitment,
-                        metadata,
-                        parent,
-                        state,
-                        upgrade_cert,
-                        None,
-                        delay,
-                    )
-                    .await;
-                });
+                self.spawned_tasks.insert(
+                    view,
+                    async_spawn(async move {
+                        create_and_send_proposal(
+                            pub_key,
+                            priv_key,
+                            consensus,
+                            sender,
+                            view,
+                            null_block_commitment,
+                            metadata,
+                            parent,
+                            state,
+                            upgrade_cert,
+                            None,
+                            delay,
+                        )
+                        .await;
+                    }),
+                );
                 return;
             }
         }
@@ -1578,23 +1589,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let metadata = commit_and_metadata.metadata.clone();
             let state = state.clone();
             let delay = self.round_start_delay;
-            async_spawn(async move {
-                create_and_send_proposal(
-                    pub_key,
-                    priv_key,
-                    consensus,
-                    sender,
-                    view,
-                    commit,
-                    metadata,
-                    parent_leaf.clone(),
-                    state,
-                    proposal_upgrade_certificate,
-                    proposal_certificate,
-                    delay,
-                )
-                .await;
-            });
+            self.spawned_tasks.insert(
+                view,
+                async_spawn(async move {
+                    create_and_send_proposal(
+                        pub_key,
+                        priv_key,
+                        consensus,
+                        sender,
+                        view,
+                        commit,
+                        metadata,
+                        parent_leaf.clone(),
+                        state,
+                        proposal_upgrade_certificate,
+                        proposal_certificate,
+                        delay,
+                    )
+                    .await;
+                }),
+            );
 
             self.proposal_cert = None;
             self.payload_commitment_and_metadata = None;
