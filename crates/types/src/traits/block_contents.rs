@@ -29,6 +29,9 @@ pub trait Transaction:
 
     /// Get the length of the transaction
     fn len(&self) -> usize;
+
+    /// Whether or not the transaction is empty
+    fn is_empty(&self) -> bool;
 }
 
 /// Abstraction over the full contents of a block

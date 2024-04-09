@@ -294,6 +294,7 @@ pub struct SimpleBuilderSource<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
     priv_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     membership: Arc<TYPES::Membership>,
+    #[allow(clippy::type_complexity)]
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
 }
@@ -389,6 +390,7 @@ where
 
 #[derive(Clone)]
 pub struct SimpleBuilderTask<TYPES: NodeType> {
+    #[allow(clippy::type_complexity)]
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     decided_transactions: LruCache<Commitment<TYPES::Transaction>, ()>,

@@ -74,6 +74,11 @@ impl Transaction for TestTransaction {
     fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Returns whether or not the transaction is empty
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 /// A [`BlockPayload`] that contains a list of `TestTransaction`.
