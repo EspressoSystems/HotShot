@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{ensure, Result};
-use committable::{Commitment, CommitmentBoundsArkless, Committable};
+use committable::{Commitment, Committable};
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 
