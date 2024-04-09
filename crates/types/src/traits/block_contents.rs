@@ -9,7 +9,7 @@ use crate::{
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
-use commit::{Commitment, Committable};
+use committable::{Commitment, Committable};
 use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -24,6 +24,14 @@ use std::{
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
+    /// Build a transaction from bytes
+    fn from_bytes(bytes: &[u8]) -> Self;
+
+    /// Get the length of the transaction
+    fn len(&self) -> usize;
+
+    /// Whether or not the transaction is empty
+    fn is_empty(&self) -> bool;
 }
 
 /// Abstraction over the full contents of a block

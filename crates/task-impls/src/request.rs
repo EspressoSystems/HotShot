@@ -22,7 +22,7 @@ use hotshot_types::{
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
 use tracing::{debug, error, info, instrument, warn};
-use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
+use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -75,7 +75,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         task: &mut hotshot_task::task::Task<Self>,
     ) -> Option<Self::Output> {
         match event.as_ref() {
-            HotShotEvent::QuorumProposalValidated(proposal) => {
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let state = task.state();
                 let prop_view = proposal.get_view_number();
                 if prop_view >= state.view {
@@ -105,7 +105,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(_)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::ViewChange(_)
         )
     }
@@ -270,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
             SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
-                HotShotEvent::VidDisperseRecv(prop)
+                HotShotEvent::VIDShareRecv(prop)
             }
             _ => return,
         };
