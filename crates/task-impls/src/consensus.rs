@@ -1525,6 +1525,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     )
                     .await;
                 });
+                return;
             }
         }
 
