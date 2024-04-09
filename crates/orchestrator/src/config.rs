@@ -46,6 +46,8 @@ pub struct Libp2pConfig {
     pub online_time: u64,
     /// number of transactions per view
     pub num_txn_per_round: usize,
+    /// whether to start in libp2p::kad::Mode::Server mode
+    pub server_mode: bool,
 }
 
 /// configuration serialized into a file
@@ -69,6 +71,8 @@ pub struct Libp2pConfigFile {
     pub mesh_n: usize,
     /// time node has been running
     pub online_time: u64,
+    /// whether to start in libp2p::kad::Mode::Server mode
+    pub server_mode: bool,
 }
 
 /// configuration for a web server
@@ -474,6 +478,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
                 propose_max_round_time: val.config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
                 num_txn_per_round: val.transactions_per_round,
+                server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
