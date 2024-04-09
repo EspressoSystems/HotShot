@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use futures::{future::BoxFuture, Stream, StreamExt};
 use hotshot::{
-    traits::{BlockPayload, TestableNodeImplementation},
+    traits::BlockPayload,
     types::{Event, EventType, SignatureKey},
 };
 use hotshot_builder_api::{
@@ -37,25 +37,21 @@ use tide_disco::{method::ReadState, App, Url};
 #[async_trait]
 pub trait TestBuilderImplementation {
     type TYPES: NodeType;
-    type I: TestableNodeImplementation<Self::TYPES>;
     async fn start(
         membership: Arc<<Self::TYPES as NodeType>::Membership>,
     ) -> (Option<Box<dyn BuilderTask<TYPES = Self::TYPES>>>, Url);
 }
 
-pub struct RandomBuilderImplementation<I: TestableNodeImplementation<TestTypes>> {
-    _marker: std::marker::PhantomData<I>,
+pub struct RandomBuilderImplementation<TYPES: NodeType> {
+    _marker: std::marker::PhantomData<TYPES>,
 }
 
 #[async_trait]
-impl<I: TestableNodeImplementation<TestTypes>> TestBuilderImplementation
-    for RandomBuilderImplementation<I>
-{
-    type TYPES = TestTypes;
-    type I = I;
+impl<TYPES: NodeType> TestBuilderImplementation for RandomBuilderImplementation<TYPES> {
+    type TYPES = TYPES;
 
     async fn start(
-        _membership: Arc<<TestTypes as NodeType>::Membership>,
+        _membership: Arc<<TYPES as NodeType>::Membership>,
     ) -> (Option<Box<dyn BuilderTask<TYPES = Self::TYPES>>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
         let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
@@ -64,16 +60,13 @@ impl<I: TestableNodeImplementation<TestTypes>> TestBuilderImplementation
     }
 }
 
-pub struct SimpleBuilderImplementation<I: TestableNodeImplementation<TestTypes>> {
-    _marker: std::marker::PhantomData<I>,
+pub struct SimpleBuilderImplementation<TYPES: NodeType> {
+    _marker: std::marker::PhantomData<TYPES>,
 }
 
 #[async_trait]
-impl<I: TestableNodeImplementation<TestTypes>> TestBuilderImplementation
-    for SimpleBuilderImplementation<I>
-{
+impl<TYPES: NodeType> TestBuilderImplementation for SimpleBuilderImplementation<TYPES> {
     type TYPES = TestTypes;
-    type I = I;
 
     async fn start(
         membership: Arc<<TestTypes as NodeType>::Membership>,
