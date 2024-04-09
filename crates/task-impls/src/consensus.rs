@@ -1449,7 +1449,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return false;
                 };
 
-                // TODO: Put the signature received from the builder in the block header
+                // TODO: Put the signature and fee received from the builder in the block header
                 let block_header = TYPES::BlockHeader::new(
                     state,
                     &consensus.instance_state,
@@ -1505,6 +1505,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         if let Some(commit_and_metadata) = &self.payload_commitment_and_metadata {
+            // TODO: Put the signature and fee received from the builder in the block header
             let block_header = TYPES::BlockHeader::new(
                 state,
                 &consensus.instance_state,
