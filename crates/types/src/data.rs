@@ -562,7 +562,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
     ///
     /// # Errors
-    /// Returns `Err` if the child fails to correctly reattach the upgrade certificate.
+    /// Returns an error if the certificates are not identical, or that when we no longer see a
+    /// cert, it's for the right reason.
     pub fn extends_upgrade(
         &self,
         parent: &Self,
