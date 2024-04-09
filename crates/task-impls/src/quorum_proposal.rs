@@ -1,15 +1,9 @@
 use crate::{consensus::validate_proposal, helpers::AnyhowTracing};
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
-use chrono::Utc;
 use committable::Committable;
 use either::Either;
 use futures::future::FutureExt;
@@ -33,9 +27,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         states::ValidatedState,
         storage::Storage,
-        BlockPayload,
     },
-    utils::Terminator,
     vote::{Certificate, HasViewNumber},
 };
 
