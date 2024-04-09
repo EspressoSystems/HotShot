@@ -2,6 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use either::Either;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
@@ -21,9 +23,6 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument};
@@ -139,13 +138,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalDependenciesValidated(
-                self.view_number,
-            )),
-            &self.sender,
-        )
-        .await;
         broadcast_event(
             Arc::new(HotShotEvent::DummyQuorumProposalSend(self.view_number)),
             &self.sender,
@@ -488,11 +480,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !validate_quorum_proposal(proposal.clone(), event_sender.clone()) {
                     return;
                 }
-                broadcast_event(
-                    Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
-                    &event_sender.clone(),
-                )
-                .await;
 
                 self.create_dependency_task_if_new(
                     view + 1,

@@ -1,10 +1,12 @@
-use crate::types::SystemContextHandle;
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+};
 
 use async_trait::async_trait;
-use hotshot_task_impls::builder::BuilderClient;
-use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
 use hotshot_task_impls::{
-    consensus::ConsensusTaskState, da::DATaskState, quorum_vote::QuorumVoteTaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, da::DATaskState,
+    quorum_proposal::QuorumProposalTaskState, quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
     vid::VIDTaskState, view_sync::ViewSyncTaskState,
 };
@@ -12,8 +14,9 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
-use std::{collections::HashMap, marker::PhantomData};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -191,7 +194,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             timeout_task: None,
-            upgrade_cert: None,
+            spawned_tasks: BTreeMap::new(),
+            formed_upgrade_certificate: None,
             proposal_cert: None,
             decided_upgrade_cert: None,
             version: handle.hotshot.version.clone(),
@@ -215,13 +219,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for QuorumVoteTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> QuorumVoteTaskState<TYPES, I> {
+        let consensus = handle.hotshot.get_consensus();
+
         QuorumVoteTaskState {
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            consensus,
             latest_voted_view: handle.get_cur_view().await,
             vote_dependencies: HashMap::new(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
             committee_network: handle.hotshot.networks.da_network.clone(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
             id: handle.hotshot.id,
+            storage: handle.storage.clone(),
         }
     }
 }

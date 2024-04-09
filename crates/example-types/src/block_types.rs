@@ -3,8 +3,7 @@ use std::{
     mem::size_of,
 };
 
-use crate::node_types::TestTypes;
-use commit::{Commitment, Committable, RawCommitmentBuilder};
+use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
@@ -18,6 +17,8 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
+
+use crate::node_types::TestTypes;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -52,7 +53,7 @@ impl TestTransaction {
 
 impl Committable for TestTransaction {
     fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("Txn Comm");
+        let builder = committable::RawCommitmentBuilder::new("Txn Comm");
         let mut hasher = Keccak256::new();
         hasher.update(&self.0);
         let generic_array = hasher.finalize();
@@ -64,7 +65,22 @@ impl Committable for TestTransaction {
     }
 }
 
-impl Transaction for TestTransaction {}
+impl Transaction for TestTransaction {
+    /// Create a transaction from bytes
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(bytes.to_vec())
+    }
+
+    /// Get the length of the transaction in bytes
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns whether or not the transaction is empty
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 /// A [`BlockPayload`] that contains a list of `TestTransaction`.
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -159,7 +175,7 @@ impl BlockPayload for TestBlockPayload {
     ) -> Vec<Commitment<Self::Transaction>> {
         self.transactions
             .iter()
-            .map(commit::Committable::commit)
+            .map(committable::Committable::commit)
             .collect()
     }
 

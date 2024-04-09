@@ -3,19 +3,18 @@
 /// Configuration for the webserver
 pub mod config;
 
-use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
-use async_compatibility_layer::channel::OneShotReceiver;
-use async_lock::RwLock;
-use clap::Args;
-use futures::FutureExt;
-
-use hotshot_types::traits::signature_key::SignatureKey;
-use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use std::{
     collections::{BTreeMap, HashMap},
     io,
     path::PathBuf,
 };
+
+use async_compatibility_layer::channel::OneShotReceiver;
+use async_lock::RwLock;
+use clap::Args;
+use futures::FutureExt;
+use hotshot_types::traits::signature_key::SignatureKey;
+use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -23,7 +22,9 @@ use tide_disco::{
     Api, App, StatusCode, Url,
 };
 use tracing::{debug, info};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 
 /// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline
@@ -1110,9 +1111,10 @@ pub async fn run_web_server<
 
     let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State<KEY>, Error, NetworkVersion>::with_state(state);
+    let mut app = App::<State<KEY>, Error>::with_state(state);
 
-    app.register_module("api", web_api).unwrap();
+    app.register_module::<Error, NetworkVersion>("api", web_api)
+        .unwrap();
 
     let app_future = app.serve(url, bind_version);
 

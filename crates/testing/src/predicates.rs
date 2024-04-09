@@ -1,17 +1,17 @@
-use hotshot_task_impls::{
-    consensus::{null_block, ConsensusTaskState},
-    events::HotShotEvent,
-    events::HotShotEvent::*,
-};
-use hotshot_types::traits::{block_contents::BlockHeader, node_implementation::NodeType};
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use hotshot::types::SystemContextHandle;
-
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_task_impls::{
+    consensus::ConsensusTaskState,
+    events::{HotShotEvent, HotShotEvent::*},
+};
+use hotshot_types::{
+    data::null_block,
+    traits::{block_contents::BlockHeader, node_implementation::NodeType},
+};
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum PredicateResult {
     Pass,
 
@@ -178,7 +178,7 @@ where
 {
     let info = "QuorumProposalValidated".to_string();
     let function = |e: &Arc<HotShotEvent<TYPES>>| {
-        PredicateResult::from(matches!(e.as_ref(), QuorumProposalValidated(_)))
+        PredicateResult::from(matches!(e.as_ref(), QuorumProposalValidated(..)))
     };
 
     Predicate {

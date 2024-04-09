@@ -1,8 +1,8 @@
-use crate::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
 };
+
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
@@ -20,12 +20,14 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
 use tracing::{debug, error, instrument};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::{
+    builder::BuilderClient,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<

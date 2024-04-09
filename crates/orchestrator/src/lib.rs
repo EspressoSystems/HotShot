@@ -5,29 +5,17 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
+use std::{collections::HashSet, fs::OpenOptions, io, io::ErrorKind};
+
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
+use csv::Writer;
+use futures::FutureExt;
 use hotshot_types::{
     constants::Version01,
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     PeerConfig,
 };
-use std::fs::OpenOptions;
-use std::{collections::HashSet, io, io::ErrorKind};
-use tide_disco::{Api, App, RequestError};
-
-use surf_disco::Url;
-use tide_disco::{
-    api::ApiError,
-    error::ServerError,
-    method::{ReadState, WriteState},
-};
-
-use futures::FutureExt;
-
-use crate::config::NetworkConfig;
-
-use csv::Writer;
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -35,10 +23,19 @@ use libp2p::{
     },
     Multiaddr, PeerId,
 };
-use versioned_binary_serialization::{
+use surf_disco::Url;
+use tide_disco::{
+    api::ApiError,
+    error::ServerError,
+    method::{ReadState, WriteState},
+    Api, App, RequestError,
+};
+use vbs::{
     version::{StaticVersion, StaticVersionType},
     BinarySerializer,
 };
+
+use crate::config::NetworkConfig;
 
 /// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)
@@ -404,7 +401,7 @@ where
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             let Ok((libp2p_address, libp2p_public_key)) =
-                versioned_binary_serialization::Serializer::<Version01>::deserialize(&body_bytes)
+                vbs::Serializer::<Version01>::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
@@ -477,11 +474,8 @@ where
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
 
-    let mut app = App::<
-        RwLock<OrchestratorState<KEY, ELECTION>>,
-        ServerError, OrchestratorVersion
-    >::with_state(state);
-    app.register_module("api", web_api.unwrap())
+    let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
+    app.register_module::<ServerError, OrchestratorVersion>("api", web_api.unwrap())
         .expect("Error registering api");
     tracing::error!("listening on {:?}", url);
     app.serve(url, ORCHESTRATOR_VERSION).await

@@ -2,14 +2,12 @@
 /// types used for this example
 pub mod types;
 
-use crate::infra::read_orchestrator_init_config;
-use crate::infra::OrchestratorArgs;
-use crate::types::ThisRun;
-use crate::{
-    infra::run_orchestrator,
-    types::{DANetwork, NodeImpl, QuorumNetwork},
-};
 use std::sync::Arc;
+
+use crate::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 /// general infra used for this example
 #[path = "../infra/mod.rs"]
@@ -21,7 +19,7 @@ use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::constants::WebServerVersion;
 use surf_disco::Url;
 use tracing::error;
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::main)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::main)]
