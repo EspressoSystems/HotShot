@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
 use anyhow::{Context, Result};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;

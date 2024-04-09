@@ -475,7 +475,7 @@ pub async fn make_simple_builder<TYPES: NodeType>(
 }
 
 /// Helper function to construct all builder data structures from a list of transactions
-async fn build_block(
+async fn build_block<TYPES: NodeType>(
     transactions: Vec<TYPES::Transaction>,
     num_storage_nodes: usize,
     pub_key: TYPES::SignatureKey,

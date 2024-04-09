@@ -3,21 +3,6 @@
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
-use crate::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
-    utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
-};
-use anyhow::{anyhow, Result};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
-use commit::{Commitment, Committable};
-use jf_primitives::vid::VidScheme;
-use serde::{de::DeserializeOwned, Serialize};
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::spawn_blocking;
-
 use std::{
     error::Error,
     fmt::{Debug, Display},
@@ -25,9 +10,14 @@ use std::{
     hash::Hash,
 };
 
+use anyhow::{anyhow, Result};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::spawn_blocking;
 use committable::{Commitment, Committable};
 use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 
 use crate::{
     data::Leaf,
@@ -124,6 +114,9 @@ pub trait TestableBlock: BlockPayload + Debug {
 
 /// Compute the VID payload commitment.
 /// TODO(Gus) delete this function?
+///
+/// # Errors
+/// Returns an error if the VID calculation fails. We expect this to never happen.
 pub async fn vid_commitment(
     encoded_transactions: Vec<u8>,
     num_storage_nodes: usize,

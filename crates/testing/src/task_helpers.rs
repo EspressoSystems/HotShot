@@ -1,16 +1,8 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
-};
-
-use crate::test_builder::TestMetadata;
-use async_compatibility_layer::art::async_block_on;
-use commit::Committable;
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_block_on;
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use committable::Committable;

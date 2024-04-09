@@ -2,8 +2,6 @@ use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, View},
@@ -25,10 +23,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-
-use crate::vote_collection::HandleVoteEvent;
-use hotshot_types::traits::block_contents::vid_commitment;
-use std::{marker::PhantomData, sync::Arc};
 use tracing::{debug, error, instrument, warn};
 
 use crate::{

@@ -10,8 +10,9 @@ use std::{
     marker::PhantomData,
 };
 
-use anyhow::{ensure, Result};
+use anyhow::{anyhow, ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use async_compatibility_layer::art::async_block_on;
 use bincode::Options;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
@@ -41,24 +42,6 @@ use crate::{
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
-use anyhow::{anyhow, ensure, Result};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use async_compatibility_layer::art::async_block_on;
-use bincode::Options;
-use commit::{Commitment, Committable, RawCommitmentBuilder};
-use derivative::Derivative;
-use jf_primitives::vid::VidDisperse as JfVidDisperse;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use snafu::Snafu;
-use std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
-use tracing::error;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(

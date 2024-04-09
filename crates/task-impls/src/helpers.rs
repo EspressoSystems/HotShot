@@ -56,8 +56,11 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
     })
     .await?;
 
-    Ok(VidDisperse::from_membership(view, vid_disperse, membership))
-    VidDisperse::from_membership(view, vid_disperse, membership.as_ref())
+    Ok(VidDisperse::from_membership(
+        view,
+        vid_disperse,
+        membership.as_ref(),
+    ))
 }
 
 /// Utilities to print anyhow logs.
