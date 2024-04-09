@@ -769,7 +769,7 @@ impl NetworkNode {
                                 #[cfg(async_executor_impl = "tokio")]
                                 bootstrap_handle.abort();
                                 #[cfg(async_executor_impl = "tokio")]
-                                bootstrap_handle.await;
+                                let _ = bootstrap_handle.await;
                                 break
                             }
                             fuse = s_output.recv().boxed().fuse();
