@@ -54,11 +54,14 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
     let vid_disperse = spawn_blocking(move || {
         vid_scheme(num_nodes).disperse(&txns).map_err(|err| anyhow!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
     })
-    .await;
+    .await?;
+
+    #[cfg(async_executor_impl = "tokio")]
+    let vid_disperse = vid_disperse?;
 
     Ok(VidDisperse::from_membership(
         view,
-        vid_disperse?,
+        vid_disperse,
         membership.as_ref(),
     ))
 }
