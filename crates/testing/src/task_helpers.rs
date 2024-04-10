@@ -376,7 +376,7 @@ pub fn da_payload_commitment(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let total_nodes = quorum_membership.total_nodes();
 
-    futures::executor::block_on(async move {
+    let payload_commitment = futures::executor::block_on(async move {
         async_spawn(async move {
             vid_commitment(encoded_transactions, total_nodes)
                 .await
@@ -384,7 +384,13 @@ pub fn da_payload_commitment(
                 .expect("Failed to calculate payload commitment.")
         })
         .await
-    })
+    });
+
+    #[cfg(async_executor_impl = "tokio")]
+    let payload_commitment =
+        payload_commitment.expect("Tokio failure in calculating payload commitment.");
+
+    payload_commitment
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>

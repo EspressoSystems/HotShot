@@ -455,7 +455,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         });
 
         #[cfg(async_executor_impl = "tokio")]
-        let payload_commitment = payload_commitment?;
+        let payload_commitment =
+            payload_commitment.expect("Tokio runtime failure in producing genesis leaf.");
 
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
