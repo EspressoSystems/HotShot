@@ -483,16 +483,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         error!("Did not get a VID share for our public key, aborting vote");
                         return false;
                     }
-                    if let Some(da_prop) = consensus.saved_payloads.get(&view) {
-                        if let Err(e) = self.storage.write().await.append_da(da_prop).await {
-                            error!(
-                                "Failed to store DA Proposal with error {:?}, aborting vote",
-                                e
-                            );
-                            return false;
-                        }
-                    }
-
                     broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
                         .await;
                     return true;
@@ -954,11 +944,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 }
                                 // If the block payload is available for this leaf, include it in
                                 // the leaf chain that we send to the client.
-                                if let Some(da_prop) =
+                                if let Some(encoded_txns) =
                                     consensus.saved_payloads.get(&leaf.get_view_number())
                                 {
                                     let payload = BlockPayload::from_bytes(
-                                        da_prop.data.encoded_transactions.clone().into_iter(),
+                                        encoded_txns.clone().into_iter(),
                                         leaf.get_block_header().metadata(),
                                     );
 

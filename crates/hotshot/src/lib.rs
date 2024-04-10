@@ -34,12 +34,11 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
-    data::{DAProposal, Leaf},
+    data::Leaf,
     event::EventType,
-    message::{DataMessage, Message, MessageKind, Proposal},
+    message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
-        block_contents::BlockHeader,
         consensus_api::ConsensusApi,
         election::Membership,
         network::ConnectedNetwork,
@@ -55,7 +54,6 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
-use sha2::{Digest, Sha256};
 use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
@@ -222,26 +220,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            // quick hash the encoded txns with sha256
-            let encoded_transactions_hash = Sha256::digest(&encoded_txns);
 
-            // sign the encoded transactions as opposed to the VID commitment
-            if let Ok(signature) =
-                TYPES::SignatureKey::sign(&private_key, &encoded_transactions_hash)
-            {
-                let da_proposal = DAProposal {
-                    encoded_transactions: encoded_txns,
-                    metadata: anchored_leaf.get_block_header().metadata().clone(),
-                    view_number: anchored_leaf.get_view_number(),
-                };
-                let prop = Proposal {
-                    data: da_proposal,
-                    signature,
-                    _pd: PhantomData,
-                };
-
-                saved_payloads.insert(anchored_leaf.get_view_number(), prop);
-            }
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
         let start_view = initializer.start_view;
