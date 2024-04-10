@@ -1,24 +1,25 @@
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
-    vote_collection::{create_vote_accumulator, AccumulatorInfo, VoteCollectionTaskState},
+use core::time::Duration;
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    marker::PhantomData,
+    sync::Arc,
 };
+
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use chrono::Utc;
 use committable::Committable;
-use core::time::Duration;
 use futures::future::{join_all, FutureExt};
 use hotshot_task::task::{Task, TaskState};
-use hotshot_types::data::null_block;
-use hotshot_types::event::LeafInfo;
 use hotshot_types::{
     consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal},
-    event::{Event, EventType},
+    constants::LOOK_AHEAD,
+    data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    event::{Event, EventType, LeafInfo},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
@@ -37,20 +38,18 @@ use hotshot_types::{
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-use hotshot_types::{constants::LOOK_AHEAD, data::ViewChangeEvidence};
-use vbs::version::Version;
-
-use crate::vote_collection::HandleVoteEvent;
-use chrono::Utc;
-use hotshot_types::data::VidDisperseShare;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
-};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
+use vbs::version::Version;
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -112,7 +111,7 @@ async fn validate_proposal<TYPES: NodeType>(
     UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
-    proposed_leaf.extends_upgrade(parent_leaf, decided_upgrade_certificate)?;
+    proposed_leaf.extends_upgrade(&parent_leaf, &decided_upgrade_certificate)?;
 
     let justify_qc = proposal.data.justify_qc.clone();
     // Create a positive vote if either liveness or safety check
@@ -166,7 +165,10 @@ async fn validate_proposal<TYPES: NodeType>(
     .await;
     // Notify other tasks
     broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalValidated(proposal.data.clone())),
+        Arc::new(HotShotEvent::QuorumProposalValidated(
+            proposal.data.clone(),
+            parent_leaf,
+        )),
         &event_stream,
     )
     .await;
@@ -802,7 +804,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
                     );
-                    let leaf = Leaf::from_proposal(proposal);
+                    let leaf = Leaf::from_quorum_proposal(&proposal.data);
 
                     let state = Arc::new(
                         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
@@ -891,7 +893,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .map(AnyhowTracing::err_as_debug),
                     ));
             }
-            HotShotEvent::QuorumProposalValidated(proposal) => {
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let consensus = self.consensus.upgradable_read().await;
                 let view = proposal.get_view_number();
                 self.current_proposal = Some(proposal.clone());
@@ -1243,7 +1245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.current_proposal = None;
                 }
             }
-            HotShotEvent::VidDisperseRecv(disperse) => {
+            HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
                 debug!(
@@ -1659,7 +1661,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
-                | HotShotEvent::QuorumProposalValidated(_)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::UpgradeCertificateFormed(_)
                 | HotShotEvent::DACertificateRecv(_)
@@ -1667,7 +1669,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
-                | HotShotEvent::VidDisperseRecv(..)
+                | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::Shutdown,
         )

@@ -7,9 +7,9 @@ use std::{
 };
 
 use anyhow::{ensure, Result};
-
 use committable::{Commitment, CommitmentBoundsArkless, Committable};
 use ethereum_types::U256;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     data::{serialize_signature2, Leaf},
@@ -18,13 +18,12 @@ use crate::{
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
     },
     traits::{
-        election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber},
 };
-
-use serde::{Deserialize, Serialize};
 
 /// Trait which allows use to inject different threshold calculations into a Certificate type
 pub trait Threshold<TYPES: NodeType> {
@@ -92,7 +91,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
             .field("vote_commitment", self.vote_commitment)
             .field("view number", self.view_number.commit())
             .var_size_field("signatures", &signature_bytes)
-            .fixed_size_field("is genesis", &[self.is_genesis as u8])
+            .fixed_size_field("is genesis", &[u8::from(self.is_genesis)])
             .finalize()
     }
 }
@@ -180,6 +179,11 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
 }
 
 impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
+    /// Determines whether or not a certificate is relevant (i.e. we still have time to reach a
+    /// decide)
+    ///
+    /// # Errors
+    /// Returns an error when the certificate is no longer relevant
     pub fn is_relevant(
         &self,
         view_number: TYPES::Time,
@@ -194,7 +198,9 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
         Ok(())
     }
 
-    /// Validate an upgrade certificate
+    /// Validate an upgrade certificate.
+    /// # Errors
+    /// Returns an error when the upgrade certificate is invalid.
     pub fn validate(
         upgrade_certificate: &Option<Self>,
         quorum_membership: &TYPES::Membership,

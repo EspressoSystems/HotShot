@@ -1,8 +1,15 @@
 //! Provides the core consensus types
 
-pub use crate::utils::{View, ViewInner};
-use displaydoc::Display;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::{Arc, Mutex},
+};
 
+use committable::Commitment;
+use displaydoc::Display;
+use tracing::error;
+
+pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{DAProposal, Leaf, VidDisperseShare},
     error::HotShotError,
@@ -15,13 +22,6 @@ use crate::{
     },
     utils::{StateAndDelta, Terminator},
 };
-use committable::Commitment;
-
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex},
-};
-use tracing::error;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
