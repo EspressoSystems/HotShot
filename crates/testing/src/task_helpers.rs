@@ -2,7 +2,7 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_block_on;
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use committable::Committable;
@@ -374,11 +374,17 @@ pub fn da_payload_commitment(
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let total_nodes = quorum_membership.total_nodes();
 
-    async_block_on(async {
-        vid_commitment(encoded_transactions, quorum_membership.total_nodes()).await
+    futures::executor::block_on(async move {
+        async_spawn(async move {
+            vid_commitment(encoded_transactions, total_nodes)
+                .await
+                // This isn't an unrecoverable error, but would take quite a bit more work
+                .expect("Failed to calculate payload commitment.")
+        })
+        .await
     })
-    .expect("Failed to calculate payload commitment.")
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>

@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{anyhow, ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use async_compatibility_layer::art::async_block_on;
+use async_compatibility_layer::art::async_spawn;
 use bincode::Options;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
@@ -440,16 +440,23 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     #[must_use]
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let (payload, metadata) = TYPES::BlockPayload::genesis();
-        let payload_bytes = payload
+        let payload_bytes: Vec<_> = payload
             .encode()
             .expect("unable to encode genesis payload")
             .collect();
-        // This isn't an unrecoverable error, but would take quite a bit more work
-        let payload_commitment = async_block_on(async {
-            vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
-                .await
-                .expect("Failed to calculate genesis commitment")
+        let payload_commitment = futures::executor::block_on(async move {
+            async_spawn(async move {
+                vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
+                    .await
+                    // This isn't an unrecoverable error, but would take quite a bit more work
+                    .expect("Failed to calculate genesis commitment")
+            })
+            .await
         });
+
+        #[cfg(async_executor_impl = "tokio")]
+        let payload_commitment = payload_commitment?;
+
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
         Self {
