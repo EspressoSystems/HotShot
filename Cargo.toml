@@ -13,6 +13,7 @@ repository = "https://github.com/EspressoSystems/HotShot"
 [workspace]
 members = [
   "crates/hotshot",
+  "crates/hotshot-qc",
   "crates/hotshot-stake-table",
   "crates/libp2p-networking",
   "crates/macros",

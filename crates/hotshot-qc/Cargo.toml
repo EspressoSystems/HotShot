@@ -15,7 +15,7 @@ ark-std = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 generic-array = { workspace = true }
-hotshot-types = { workspace = true }
+hotshot-types = { path = "../types" }
 jf-primitives = { workspace = true }
 jf-relation = { workspace = true }
 jf-utils = { workspace = true }

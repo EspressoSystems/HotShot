@@ -21,12 +21,14 @@ jobs:
         just_variants:
           - async-std
           - tokio
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
-      - run: rustup toolchain install nightly --profile minimal
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@nightly
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
