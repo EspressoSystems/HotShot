@@ -2,7 +2,7 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_block_on, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use committable::Committable;
@@ -427,12 +427,21 @@ pub fn build_da_certificate(
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> DACertificate<TestTypes> {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let total_nodes = quorum_membership.total_nodes();
 
-    let da_payload_commitment = async_block_on(vid_commitment(
-        encoded_transactions,
-        quorum_membership.total_nodes(),
-    ))
-    .expect("Failed to calculate payload commitment.");
+    let da_payload_commitment = futures::executor::block_on(async move {
+        async_spawn(async move {
+            vid_commitment(encoded_transactions, total_nodes)
+                .await
+                // This isn't an unrecoverable error, but would take quite a bit more work
+                .expect("Failed to calculate genesis commitment")
+        })
+        .await
+    });
+
+    #[cfg(async_executor_impl = "tokio")]
+    let da_payload_commitment =
+        da_payload_commitment.expect("Tokio runtime failure in producing genesis leaf.");
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,
