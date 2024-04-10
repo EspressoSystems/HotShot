@@ -89,7 +89,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_dac = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key().clone())),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -113,7 +113,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_quorum_proposal = TestScriptStage {
         inputs: vec![
             DACertificateRecv(dacs[2].clone()),
-            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key().clone())),
+            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(DACertificateValidated(dacs[2].clone())),

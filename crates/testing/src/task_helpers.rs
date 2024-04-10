@@ -152,13 +152,13 @@ pub fn build_cert<
 }
 
 pub fn get_vid_share<TYPES: NodeType>(
-    shares: &Vec<Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
     pub_key: TYPES::SignatureKey,
 ) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
     shares
         .iter()
-        .cloned()
         .filter(|s| s.data.recipient_key == pub_key)
+        .cloned()
         .collect::<Vec<_>>()
         .first()
         .expect("No VID for key")
