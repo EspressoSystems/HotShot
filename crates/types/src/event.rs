@@ -1,5 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -9,8 +11,6 @@ use crate::{
     simple_certificate::QuorumCertificate,
     traits::{node_implementation::NodeType, ValidatedState},
 };
-
-use std::sync::Arc;
 /// A status event emitted by a `HotShot` instance
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
@@ -58,16 +58,27 @@ impl<TYPES: NodeType> LeafInfo<TYPES> {
 /// The chain of decided leaves with its corresponding state and VID info.
 pub type LeafChain<TYPES> = Vec<LeafInfo<TYPES>>;
 
+/// Utilities for converting between HotShotError and a string.
 pub mod error_adaptor {
-    use super::*;
     use serde::{de::Deserializer, ser::Serializer};
+
+    use super::{Arc, Deserialize, HotShotError, NodeType};
+
+    /// Convert a HotShotError into a string
+    ///
+    /// # Errors
+    /// Returns `Err` if the serializer fails.
     pub fn serialize<S: Serializer, TYPES: NodeType>(
         elem: &Arc<HotShotError<TYPES>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&format!("{}", elem))
+        serializer.serialize_str(&format!("{elem}"))
     }
 
+    /// Convert a string into a HotShotError
+    ///
+    /// # Errors
+    /// Returns `Err` if the string cannot be deserialized.
     pub fn deserialize<'de, D: Deserializer<'de>, TYPES: NodeType>(
         deserializer: D,
     ) -> Result<Arc<HotShotError<TYPES>>, D::Error> {
@@ -159,13 +170,22 @@ pub enum EventType<TYPES: NodeType> {
     },
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
+/// A list of actions that we track for nodes
 pub enum HotShotAction {
+    /// A quorum vote was sent
     Vote,
+    /// A quorum proposal was sent
     Propose,
+    /// DA proposal was sent
     DAPropose,
+    /// DA vote was sent
     DAVote,
+    /// DA certificate was sent
     DACert,
+    /// VID shares were sent
     VidDisperse,
+    /// An upgrade vote was sent
     UpgradeVote,
+    /// An upgrade proposal was sent
     UpgradePropose,
 }

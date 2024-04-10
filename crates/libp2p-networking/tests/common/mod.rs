@@ -1,6 +1,14 @@
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
+
 use async_compatibility_layer::{
-    art::async_sleep,
-    art::async_spawn,
+    art::{async_sleep, async_spawn},
     async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{bounded, RecvError},
     logging::{setup_backtrace, setup_logging},
@@ -14,14 +22,6 @@ use libp2p_networking::network::{
     NetworkNodeType,
 };
 use snafu::{ResultExt, Snafu};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    num::NonZeroUsize,
-    str::FromStr,
-    sync::Arc,
-    time::Duration,
-};
 use tracing::{info, instrument, warn};
 
 #[derive(Clone, Debug)]
@@ -200,7 +200,8 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
             .to_connect_addrs(HashSet::default())
             .bound_addr(Some(addr))
             .ttl(None)
-            .republication_interval(None);
+            .republication_interval(None)
+            .server_mode(true);
         let config = config
             .build()
             .context(NodeConfigSnafu)
@@ -237,6 +238,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
             .replication_factor(replication_factor)
             .bound_addr(Some(addr.clone()))
             .to_connect_addrs(HashSet::default())
+            .server_mode(true)
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;

@@ -1,9 +1,5 @@
 use std::{fmt::Display, path::PathBuf};
 
-use crate::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
 use clap::Args;
 use committable::Committable;
 use derive_more::From;
@@ -21,6 +17,11 @@ use tide_disco::{
     Api, RequestError, StatusCode,
 };
 use vbs::version::StaticVersionType;
+
+use crate::{
+    api::load_api,
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+};
 
 #[derive(Args, Default)]
 pub struct Options {
@@ -122,9 +123,7 @@ where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
     Types: NodeType,
-    <<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType:
-        for<'a> TryFrom<&'a TaggedBase64> + Into<TaggedBase64> + Display,
-    for<'a> <<<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+    for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
 {
