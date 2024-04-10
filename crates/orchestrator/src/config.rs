@@ -114,6 +114,19 @@ pub enum NetworkConfigError {
     FailedToCreatePath(std::io::Error),
 }
 
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, Default)]
+/// configuration for builder type to use
+pub enum BuilderType {
+    /// Use external builder, [config.builder_url] must be
+    /// set to correct builder address
+    External,
+    #[default]
+    /// Simple integrated builder will be started and used by each hotshot node
+    Simple,
+    /// Random integrated builder will be started and used by each hotshot node
+    Random,
+}
+
 /// a network configuration
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(bound(deserialize = ""))]
@@ -160,6 +173,8 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub combined_network_config: Option<CombinedNetworkConfig>,
     /// the commit this run is based on
     pub commit_sha: String,
+    /// builder to use
+    pub builder: BuilderType,
 }
 
 /// the source of the network config
@@ -404,6 +419,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(2500),
             commit_sha: String::new(),
+            builder: BuilderType::Simple,
         }
     }
 }
@@ -449,6 +465,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// combined network config
     #[serde(default)]
     pub combined_network_config: Option<CombinedNetworkConfig>,
+    #[serde(default)]
+    /// builder to use
+    pub builder: BuilderType,
 }
 
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
@@ -491,8 +510,13 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             da_web_server_config: val.da_web_server_config,
             combined_network_config: val.combined_network_config,
             commit_sha: String::new(),
+            builder: val.builder,
         }
     }
+}
+
+fn default_builder_url() -> Url {
+    Url::parse("http://localhost:3311").unwrap()
 }
 
 /// Holds configuration for a `HotShot`
@@ -541,6 +565,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Builder API base URL
+    #[serde(default = "default_builder_url")]
     pub builder_url: Url,
 }
 
@@ -676,7 +701,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
-            builder_url: Url::parse("http://localhost:3311").unwrap(),
+            builder_url: default_builder_url(),
         }
     }
 }

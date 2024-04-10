@@ -25,7 +25,6 @@ use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
         block_contents::{vid_commitment, BlockHeader, Transaction},
-        election::Membership,
         node_implementation::NodeType,
     },
     utils::BuilderCommitment,
@@ -38,26 +37,23 @@ use tide_disco::{method::ReadState, App, Url};
 
 #[async_trait]
 pub trait TestBuilderImplementation<TYPES: NodeType> {
-    async fn start(
-        membership: Arc<<TYPES>::Membership>,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url);
+    async fn start(num_storage_nodes: usize) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url);
 }
 
 pub struct RandomBuilderImplementation;
 
 #[async_trait]
-impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for RandomBuilderImplementation
-where
-    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
-{
-    async fn start(
-        _membership: Arc<TYPES::Membership>,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
+impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for RandomBuilderImplementation {
+    async fn start(num_storage_nodes: usize) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
         let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
-        run_random_builder::<TYPES>(url.clone());
+        run_random_builder::<TYPES>(
+            url.clone(),
+            RandomBuilderOptions {
+                num_storage_nodes,
+                ..Default::default()
+            },
+        );
         (None, url)
     }
 }
@@ -66,17 +62,15 @@ pub struct SimpleBuilderImplementation;
 
 #[async_trait]
 impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplementation
-where
-    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
+// where
+//     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+//         &'a TaggedBase64,
+//     >>::Error: Display,
 {
-    async fn start(
-        membership: Arc<TYPES::Membership>,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
+    async fn start(num_storage_nodes: usize) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
         let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
-        let (source, task) = make_simple_builder(membership).await;
+        let (source, task) = make_simple_builder(num_storage_nodes).await;
 
         let builder_api = hotshot_builder_api::builder::define_api::<
             SimpleBuilderSource<TYPES>,
@@ -270,15 +264,10 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
 ///
 /// # Panics
 /// If constructing and launching the builder fails for any reason
-pub fn run_random_builder<TYPES: NodeType>(url: Url)
-where
-    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
-{
+pub fn run_random_builder<TYPES: NodeType>(url: Url, options: RandomBuilderOptions) {
     let (pub_key, priv_key) = TYPES::SignatureKey::generated_from_seed_indexed([1; 32], 0);
     let source = RandomBuilderSource::new(pub_key, priv_key);
-    source.run(RandomBuilderOptions::default());
+    source.run(options);
 
     let builder_api =
         hotshot_builder_api::builder::define_api::<RandomBuilderSource<TYPES>, TYPES, Version01>(
@@ -295,7 +284,7 @@ where
 pub struct SimpleBuilderSource<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
     priv_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    membership: Arc<TYPES::Membership>,
+    num_storage_nodes: usize,
     #[allow(clippy::type_complexity)]
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
@@ -327,7 +316,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
             .await;
         let (metadata, payload, header_input) = build_block(
             transactions,
-            self.membership.total_nodes(),
+            self.num_storage_nodes,
             self.pub_key.clone(),
             self.priv_key.clone(),
         );
@@ -448,7 +437,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
 }
 
 pub async fn make_simple_builder<TYPES: NodeType>(
-    membership: Arc<TYPES::Membership>,
+    num_storage_nodes: usize,
 ) -> (SimpleBuilderSource<TYPES>, SimpleBuilderTask<TYPES>) {
     let (pub_key, priv_key) = TYPES::SignatureKey::generated_from_seed_indexed([1; 32], 0);
 
@@ -460,7 +449,7 @@ pub async fn make_simple_builder<TYPES: NodeType>(
         priv_key,
         transactions: transactions.clone(),
         blocks: blocks.clone(),
-        membership,
+        num_storage_nodes,
     };
 
     let task = SimpleBuilderTask {

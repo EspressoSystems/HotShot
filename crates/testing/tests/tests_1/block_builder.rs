@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_compatibility_layer::art::async_sleep;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestTransaction},
@@ -12,7 +14,6 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use std::time::Duration;
 use tide_disco::Url;
 
 #[cfg(test)]
@@ -25,11 +26,12 @@ async fn test_random_block_builder() {
     use std::time::Instant;
 
     use hotshot_builder_api::block_info::AvailableBlockData;
+    use hotshot_testing::block_builder::RandomBuilderOptions;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
 
-    run_random_builder::<TestTypes>(api_url.clone());
+    run_random_builder::<TestTypes>(api_url.clone(), RandomBuilderOptions::default());
     let builder_started = Instant::now();
 
     let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);

@@ -116,6 +116,7 @@ futures = { workspace = true }
 hotshot-web-server = { version = "0.5.26", path = "../web_server", default-features = false }
 hotshot-orchestrator = { version = "0.5.26", path = "../orchestrator", default-features = false }
 hotshot-types = { path = "../types" }
+hotshot-testing = { path = "../testing" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.26", default-features = false }
 libp2p-identity = { workspace = true }
 libp2p-networking = { workspace = true }

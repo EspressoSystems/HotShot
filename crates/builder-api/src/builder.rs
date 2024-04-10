@@ -1,16 +1,12 @@
-use std::{fmt::Display, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
 use committable::Committable;
 use derive_more::From;
 use futures::FutureExt;
-use hotshot_types::{
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
-    utils::BuilderCommitment,
-};
+use hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitment};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use tagged_base64::TaggedBase64;
 use tide_disco::{
     api::ApiError,
     method::{ReadState, WriteState},
@@ -123,9 +119,9 @@ where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
     Types: NodeType,
-    for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
+    // for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+    //     &'a TaggedBase64,
+    // >>::Error: Display,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
@@ -148,7 +144,14 @@ where
         .get("claim_block", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
+                let signature = req
+                    .param("signature")?
+                    .as_tagged_base64()?
+                    .try_into()
+                    .map_err(|_| Error::Custom {
+                        message: "Invalid signature".to_owned(),
+                        status: StatusCode::UnprocessableEntity,
+                    })?;
                 state
                     .claim_block(&hash, &signature)
                     .await
@@ -161,7 +164,14 @@ where
         .get("claim_header_input", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
+                let signature = req
+                    .param("signature")?
+                    .as_tagged_base64()?
+                    .try_into()
+                    .map_err(|_| Error::Custom {
+                        message: "Invalid signature".to_owned(),
+                        status: StatusCode::UnprocessableEntity,
+                    })?;
                 state
                     .claim_block_header_input(&hash, &signature)
                     .await

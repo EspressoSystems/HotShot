@@ -38,9 +38,12 @@ use hotshot_orchestrator::{
     self,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{
-        CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
+        BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
         WebServerConfig,
     },
+};
+use hotshot_testing::block_builder::{
+    RandomBuilderImplementation, SimpleBuilderImplementation, TestBuilderImplementation,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -1016,7 +1019,7 @@ pub async fn main_entry_point<
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    let (run_config, source) =
+    let (mut run_config, source) =
         NetworkConfig::<TYPES::SignatureKey, TYPES::ElectionConfigType>::get_complete_config(
             &orchestrator_client,
             args.clone().network_config_file,
@@ -1027,9 +1030,39 @@ pub async fn main_entry_point<
         .await
         .expect("failed to get config");
 
+    let builder_task = match run_config.builder {
+        BuilderType::External => None,
+        BuilderType::Random => {
+            let (builder_task, builder_url) =
+                <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                )
+                .await;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+        BuilderType::Simple => {
+            let (builder_task, builder_url) =
+                <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                )
+                .await;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+    };
+
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
     let hotshot = run.initialize_state_and_hotshot().await;
+
+    if let Some(task) = builder_task {
+        task.start(Box::new(hotshot.get_event_stream()));
+    }
 
     // pre-generate transactions
     let NetworkConfig {
