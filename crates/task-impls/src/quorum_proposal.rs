@@ -239,7 +239,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _view_sync_finalize_cert = None;
         for event in res.iter().flatten() {
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal) => {
+                HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
@@ -383,7 +383,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
 
                     ProposalDependency::Proposal => {
-                        if let HotShotEvent::QuorumProposalValidated(proposal) = event {
+                        if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
                             proposal.view_number
                         } else {
                             return false;
@@ -461,14 +461,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
                 info!(
                     "Node {} Dependency PayloadAndMetadata is complete for view  {}!",
                     self.id, *view_number
                 );
             }
-            HotShotEvent::QuorumProposalValidated(_) => {
+            HotShotEvent::QuorumProposalValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
                 info!(
                     "Node {} Dependency Proposal is complete for view {}!",
@@ -817,7 +817,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     .map(AnyhowTracing::err_as_debug),
                 );
             }
-            HotShotEvent::QuorumProposalValidated(proposal) => {
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let current_proposal = Some(proposal.clone());
                 let new_view = current_proposal.clone().unwrap().view_number + 1;
 
@@ -951,7 +951,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalRecv(_, _)
-                | HotShotEvent::QuorumProposalValidated(_)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)

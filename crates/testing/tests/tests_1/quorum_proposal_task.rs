@@ -87,7 +87,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
         inputs: vec![
-            QuorumProposalValidated(proposals[1].data.clone()),
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
             QCFormed(either::Left(cert.clone())),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
@@ -228,16 +228,21 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
 
     // We run the task here at view 2, but this time we ignore the crucial piece of evidence: the
     // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
     // This should result in the proposal failing to be sent.
     let view_2 = TestScriptStage {
-        inputs: vec![QuorumProposalValidated(proposals[1].data.clone())],
+        inputs: vec![QuorumProposalValidated(
+            proposals[1].data.clone(),
+            leaves[1].clone(),
+        )],
         outputs: vec![],
         asserts: vec![],
     };
