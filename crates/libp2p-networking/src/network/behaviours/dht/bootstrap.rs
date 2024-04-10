@@ -54,10 +54,13 @@ impl DHTBootstrapTask {
                             self.bootstrap().await;
                         }
                     }
-                    Err(_) => self.bootstrap().await,
+                    Err(_) => {
+                        tracing::debug!("Start bootstrap in bootstrap task after timeout");
+                        self.bootstrap().await
+                    },
                 }
             } else if matches!(self.rx.next().await, Some(InputEvent::BootstrapFinished)) {
-                tracing::debug!("Start bootstrap in bootstrap task after timout");
+                tracing::debug!("Bootstrap finished");
                 self.in_progress = false;
             }
         }
