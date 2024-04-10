@@ -54,7 +54,7 @@ async fn test_vid_task() {
     let vid_disperse = VidDisperse::from_membership(
         message.data.view_number,
         vid_disperse,
-        quorum_membership.clone().into(),
+        &quorum_membership,
     );
 
     let vid_proposal = Proposal {
@@ -89,7 +89,7 @@ async fn test_vid_task() {
     ));
 
     input.push(HotShotEvent::VidDisperseSend(vid_proposal.clone(), pub_key));
-    input.push(HotShotEvent::VidDisperseRecv(vid_share_proposal.clone()));
+    input.push(HotShotEvent::VIDShareRecv(vid_share_proposal.clone()));
     input.push(HotShotEvent::Shutdown);
 
     output.insert(
