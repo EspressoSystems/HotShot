@@ -158,6 +158,10 @@ check:
   echo Checking
   cargo check --workspace --bins --tests --examples
 
+clippy: 
+  echo clippy
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
+
 lint: 
   echo linting
   cargo fmt --check

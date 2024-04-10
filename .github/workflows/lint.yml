@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  clippy:
     strategy:
       matrix:
         just_variants:
@@ -27,10 +27,10 @@ jobs:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy,rustfmt
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -45,6 +45,21 @@ jobs:
           tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
           sudo cp just /usr/bin/just
 
-      - name: Run linting
+      - name: Run clippy
         run: |
-          just ${{ matrix.just_variants }} lint
+          just ${{ matrix.just_variants }} clippy
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Check rustfmt
+        run: cargo fmt --check
+          
