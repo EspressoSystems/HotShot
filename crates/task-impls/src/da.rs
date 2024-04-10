@@ -22,7 +22,6 @@ use hotshot_types::{
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
-        storage::Storage,
     },
     utils::ViewInner,
     vote::HasViewNumber,
@@ -171,13 +170,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                if let Err(e) = self.storage.write().await.append_da(proposal).await {
-                    error!(
-                        "Failed to store DA Proposal with error {:?}, aborting vote",
-                        e
-                    );
-                    return None;
-                }
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
                 let payload_commitment =
@@ -199,9 +191,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 };
 
-                // ED Don't think this is necessary?
-                // self.cur_view = view;
-
                 debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DAVoteSend(vote)), &event_stream).await;
@@ -215,9 +204,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 });
 
                 // Record the payload we have promised to make available.
-                consensus
-                    .saved_payloads
-                    .insert(view, proposal.data.encoded_transactions.clone());
+                consensus.saved_payloads.insert(view, proposal.clone());
             }
             HotShotEvent::DAVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number());

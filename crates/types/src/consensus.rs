@@ -4,7 +4,7 @@ pub use crate::utils::{View, ViewInner};
 use displaydoc::Display;
 
 use crate::{
-    data::{Leaf, VidDisperseShare},
+    data::{DAProposal, Leaf, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::{DACertificate, QuorumCertificate},
@@ -64,7 +64,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    pub saved_payloads: BTreeMap<TYPES::Time, Vec<u8>>,
+    pub saved_payloads: BTreeMap<TYPES::Time, Proposal<TYPES, DAProposal<TYPES>>>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,

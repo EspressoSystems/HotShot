@@ -131,7 +131,11 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let txns = consensus.saved_payloads.get(&view)?;
+            let txns = &consensus
+                .saved_payloads
+                .get(&view)?
+                .data
+                .encoded_transactions;
             let vid = calculate_vid_disperse(txns.clone(), self.quorum.clone(), view).await;
             let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;

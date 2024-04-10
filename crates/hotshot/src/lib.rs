@@ -29,7 +29,13 @@ use futures::join;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_task_impls::network;
-use hotshot_types::constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
+use hotshot_types::{
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    data::DAProposal,
+    message::Proposal,
+    traits::block_contents::BlockHeader,
+};
+use sha2::{Digest, Sha256};
 use vbs::version::Version;
 
 use hotshot_task::task::TaskRegistry;
@@ -221,7 +227,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+            // quick hash the encoded txns with sha256
+            let encoded_transactions_hash = Sha256::digest(&encoded_txns);
+
+            // sign the encoded transactions as opposed to the VID commitment
+            if let Ok(signature) =
+                TYPES::SignatureKey::sign(&private_key, &encoded_transactions_hash)
+            {
+                let da_proposal = DAProposal {
+                    encoded_transactions: encoded_txns,
+                    metadata: anchored_leaf.get_block_header().metadata().clone(),
+                    view_number: anchored_leaf.get_view_number(),
+                };
+                let prop = Proposal {
+                    data: da_proposal,
+                    signature,
+                    _pd: PhantomData,
+                };
+
+                saved_payloads.insert(anchored_leaf.get_view_number(), prop);
+            }
         }
 
         let start_view = initializer.start_view;

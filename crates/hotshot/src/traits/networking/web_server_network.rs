@@ -1000,7 +1000,7 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
                 // Only start this task if we haven't already started it.
                 let mut cancel_handle = self.inner.upgrade_vote_task.write().await;
                 if cancel_handle.is_none() {
-                    error!("Starting poll for upgrade proposals!");
+                    debug!("Starting poll for upgrade proposals!");
                     let inner = self.inner.clone();
 
                     // Create sender and receiver for cancelling the task
