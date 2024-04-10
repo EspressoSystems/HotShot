@@ -376,14 +376,16 @@ pub fn da_payload_commitment(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let total_nodes = quorum_membership.total_nodes();
 
-    let payload_commitment = async_block_on(async move {
-        async_spawn(async move {
-            vid_commitment(encoded_transactions, total_nodes)
-                .await
-                // This isn't an unrecoverable error, but would take quite a bit more work
-                .expect("Failed to calculate payload commitment.")
+    let payload_commitment = tokio::task::block_in_place(|| {
+        async_block_on(async move {
+            async_spawn(async move {
+                vid_commitment(encoded_transactions, total_nodes)
+                    .await
+                    // This isn't an unrecoverable error, but would take quite a bit more work
+                    .expect("Failed to calculate payload commitment.")
+            })
+            .await
         })
-        .await
     });
 
     #[cfg(async_executor_impl = "tokio")]
@@ -429,14 +431,16 @@ pub fn build_da_certificate(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let total_nodes = quorum_membership.total_nodes();
 
-    let da_payload_commitment = async_block_on(async move {
-        async_spawn(async move {
-            vid_commitment(encoded_transactions, total_nodes)
-                .await
-                // This isn't an unrecoverable error, but would take quite a bit more work
-                .expect("Failed to calculate genesis commitment")
+    let da_payload_commitment = tokio::task::block_in_place(|| {
+        async_block_on(async move {
+            async_spawn(async move {
+                vid_commitment(encoded_transactions, total_nodes)
+                    .await
+                    // This isn't an unrecoverable error, but would take quite a bit more work
+                    .expect("Failed to calculate genesis commitment")
+            })
+            .await
         })
-        .await
     });
 
     #[cfg(async_executor_impl = "tokio")]

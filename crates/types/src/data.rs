@@ -444,14 +444,16 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .encode()
             .expect("unable to encode genesis payload")
             .collect();
-        let payload_commitment = async_block_on(async move {
-            async_spawn(async move {
-                vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
-                    .await
-                    // This isn't an unrecoverable error, but would take quite a bit more work
-                    .expect("Failed to calculate genesis commitment")
+        let payload_commitment = tokio::task::block_in_place(|| {
+            async_block_on(async move {
+                async_spawn(async move {
+                    vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
+                        .await
+                        // This isn't an unrecoverable error, but would take quite a bit more work
+                        .expect("Failed to calculate genesis commitment")
+                })
+                .await
             })
-            .await
         });
 
         #[cfg(async_executor_impl = "tokio")]
