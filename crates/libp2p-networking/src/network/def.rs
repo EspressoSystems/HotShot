@@ -7,14 +7,13 @@ use libp2p::{
     Multiaddr,
 };
 use libp2p_identity::PeerId;
+use libp2p_swarm_derive::NetworkBehaviour;
 use tracing::{debug, error};
 
 use super::{
     behaviours::request_response::{Request, Response},
     NetworkEventInternal,
 };
-
-use libp2p_swarm_derive::NetworkBehaviour;
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery
