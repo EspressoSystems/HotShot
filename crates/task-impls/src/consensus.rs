@@ -20,7 +20,7 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
@@ -73,7 +73,6 @@ async fn validate_proposal<TYPES: NodeType>(
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     quorum_membership: Arc<TYPES::Membership>,
     parent_state: Arc<TYPES::ValidatedState>,
-    view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
@@ -99,16 +98,7 @@ async fn validate_proposal<TYPES: NodeType>(
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    //
-    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
-    //
-    //    proposal.validate_signature(&quorum_membership)?;
-    //
-    // in a future PR.
-    ensure!(
-        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
-        "Could not verify proposal."
-    );
+    proposal.validate_signature(&quorum_membership)?;
 
     UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
@@ -232,7 +222,7 @@ async fn create_and_send_proposal<TYPES: NodeType>(
     )
     .await;
 
-    let proposal = QuorumProposal {
+    let quorum_proposal = QuorumProposal {
         block_header,
         view_number: view,
         justify_qc: consensus.read().await.high_qc.clone(),
@@ -240,28 +230,14 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         upgrade_certificate: upgrade_cert,
     };
 
-    let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
-    if proposed_leaf.get_parent_commitment() != parent_leaf.commit() {
+    if Leaf::from_quorum_proposal(&quorum_proposal).get_parent_commitment() != parent_leaf.commit()
+    {
         return;
     }
 
-    let Ok(signature) = TYPES::SignatureKey::sign(&private_key, proposed_leaf.commit().as_ref())
-    else {
-        // This should never happen.
-        error!("Failed to sign proposed_leaf.commit()!");
+    let Ok(message) = Proposal::create(quorum_proposal, &private_key) else {
         return;
     };
-
-    let message = Proposal {
-        data: proposal,
-        signature,
-        _pd: PhantomData,
-    };
-    debug!(
-        "Sending null proposal for view {:?} \n {:?}",
-        proposed_leaf.get_view_number(),
-        ""
-    );
 
     async_sleep(Duration::from_millis(round_start_delay)).await;
     broadcast_event(
@@ -379,114 +355,75 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
-    async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
-        if !self.quorum_membership.has_stake(&self.public_key) {
-            debug!(
-                "We were not chosen for consensus committee on {:?}",
-                self.cur_view
-            );
-            return false;
-        }
-
-        if let Some(proposal) = &self.current_proposal {
-            let consensus = self.consensus.read().await;
-            // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
-            } else {
-                debug!(
-                    "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-                    proposal.view_number
-                );
-                return false;
-            }
-
-            if let Some(upgrade_cert) = &self.decided_upgrade_cert {
-                if upgrade_cert.in_interim(self.cur_view)
-                    && Some(proposal.block_header.payload_commitment())
-                        != null_block::commitment(self.quorum_membership.total_nodes())
-                {
-                    info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(self.quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
-                    return false;
-                }
-            }
-
-            // Only vote if you have the DA cert
-            // ED Need to update the view number this is stored under?
-            if let Some(cert) = consensus.saved_da_certs.get(&(proposal.get_view_number())) {
-                let view = cert.view_number;
-                // TODO: do some of this logic without the vote token check, only do that when voting.
-                let justify_qc = proposal.justify_qc.clone();
-                let parent = consensus
-                    .saved_leaves
-                    .get(&justify_qc.get_data().leaf_commit)
-                    .cloned();
-
-                // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                let Some(parent) = parent else {
-                    warn!(
-                                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                                justify_qc.get_data().leaf_commit,
-                                proposal.view_number,
-                            );
-                    return false;
-                };
-                let parent_commitment = parent.commit();
-
-                let proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                if proposed_leaf.get_parent_commitment() != parent_commitment {
-                    return false;
-                }
-
-                // Validate the DAC.
-                let message = if cert.is_valid_cert(self.committee_membership.as_ref()) {
-                    // Validate the block payload commitment for non-genesis DAC.
-                    if cert.get_data().payload_commit != proposal.block_header.payload_commitment()
-                    {
-                        error!("Block payload commitment does not equal da cert payload commitment. View = {}", *view);
-                        return false;
-                    }
-                    if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
-                        QuorumData {
-                            leaf_commit: proposed_leaf.commit(),
-                        },
-                        view,
-                        &self.public_key,
-                        &self.private_key,
-                    ) {
-                        GeneralConsensusMessage::<TYPES>::Vote(vote)
-                    } else {
-                        error!("Unable to sign quorum vote!");
-                        return false;
-                    }
-                } else {
-                    error!(
-                        "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
-                        cert, self.cur_view
-                    );
-                    return false;
-                };
-
-                if let GeneralConsensusMessage::Vote(vote) = message {
-                    debug!(
-                        "Sending vote to next quorum leader {:?}",
-                        vote.get_view_number() + 1
-                    );
-                    broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
-                        .await;
-                    return true;
-                }
-            }
-            debug!(
-                "Received VID share, but couldn't find DAC cert for view {:?}",
-                *proposal.get_view_number(),
-            );
-            return false;
-        }
-        debug!(
-            "Could not vote because we don't have a proposal yet for view {}",
-            *self.cur_view
+    async fn vote_if_able(
+        &mut self,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        ensure!(
+            self.quorum_membership.has_stake(&self.public_key),
+            "We do not have stake in this view, so we cannot vote."
         );
-        false
+
+        let proposal = self
+            .current_proposal
+            .clone()
+            .context("We do not have a proposal for this view, so we cannot vote.")?;
+
+        let consensus = self.consensus.read().await;
+
+        // Only vote if you has seen the VID share for this view
+        let _vid_share = consensus
+            .vid_shares
+            .get(&proposal.view_number)
+            .context("We have not yet seen the VID share for this view, so we cannot vote.")?;
+
+        let da_cert = consensus
+            .saved_da_certs
+            .get(&(proposal.get_view_number()))
+            .context("We have not yet seen the DA certificate for this view, so we cannot vote.")?;
+
+        let null_commitment = null_block::commitment(self.quorum_membership.total_nodes())?;
+
+        ensure!(self.decided_upgrade_cert.is_none() || !self.decided_upgrade_cert.clone().is_some_and(|cert| cert.in_interim(self.cur_view)) || null_commitment == proposal.block_header.payload_commitment(), "Refusing to vote on the proposal because the commitment is not null, and we are between versions.");
+
+        let parent = consensus
+            .saved_leaves
+            .get(&proposal.justify_qc.clone().get_data().leaf_commit)
+            .cloned()
+            .context("Proposal's parent is missing from storage, so we cannot vote.")?;
+
+        let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+
+        ensure!(proposed_leaf.get_parent_commitment() == parent.commit(), "The leaf's stated parent commitment does not match our internal stored parent leaf's commitment.");
+
+        ensure!(
+            da_cert.is_valid_cert(self.committee_membership.as_ref()),
+            "DA certificate is invalid."
+        );
+
+        ensure!(
+            da_cert.get_data().payload_commit == proposal.block_header.payload_commitment(),
+            "Block payload commitment does not match the DA certificate payload commitment."
+        );
+
+        let vote = QuorumVote::<TYPES>::create_signed_vote(
+            QuorumData {
+                leaf_commit: proposed_leaf.commit(),
+            },
+            da_cert.view_number,
+            &self.public_key,
+            &self.private_key,
+        )
+        .context("Failed to create signed quorum vote.")?;
+
+        debug!(
+            "Sending vote to next quorum leader {:?}",
+            vote.get_view_number() + 1
+        );
+
+        broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream).await;
+
+        Ok(())
     }
 
     /// Must only update the view and GC if the view actually changes
@@ -818,7 +755,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
                                 .await;
                         }
-                        if self.vote_if_able(&event_stream).await {
+                        if self.vote_if_able(&event_stream).await.is_ok() {
                             self.current_proposal = None;
                         }
                     }
@@ -838,7 +775,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             self.decided_upgrade_cert.clone(),
                             self.quorum_membership.clone(),
                             parent_state.clone(),
-                            view_leader_key,
                             event_stream.clone(),
                             sender,
                             self.output_event_stream.clone(),
@@ -1020,7 +956,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                 }
 
-                if !self.vote_if_able(&event_stream).await {
+                if self.vote_if_able(&event_stream).await.is_err() {
                     return;
                 }
                 self.current_proposal = None;
@@ -1195,7 +1131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .saved_da_certs
                     .insert(view, cert.clone());
 
-                if self.vote_if_able(&event_stream).await {
+                if self.vote_if_able(&event_stream).await.is_ok() {
                     self.current_proposal = None;
                 }
             }
@@ -1247,7 +1183,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
 
-                if self.vote_if_able(&event_stream).await {
+                if self.vote_if_able(&event_stream).await.is_ok() {
                     self.current_proposal = None;
                 }
             }
@@ -1506,7 +1442,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
-                let Some(null_block_commitment) =
+                let Ok(null_block_commitment) =
                     null_block::commitment(self.quorum_membership.total_nodes())
                 else {
                     // This should never happen.

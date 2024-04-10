@@ -317,6 +317,12 @@ pub struct QuorumProposal<TYPES: NodeType> {
     pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 }
 
+impl<TYPES: NodeType> crate::message::CommittableBytes for QuorumProposal<TYPES> {
+    fn commit_bytes(&self) -> bitvec::prelude::BitVec<u8> {
+        Leaf::from_quorum_proposal(self).commit().into_bits()
+    }
+}
+
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DAProposal<TYPES> {
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
@@ -699,6 +705,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 
 pub mod null_block {
     #![allow(missing_docs)]
+    use anyhow::{anyhow, Result};
     use jf_primitives::vid::VidScheme;
     use memoize::memoize;
 
@@ -710,14 +717,34 @@ pub mod null_block {
     /// and may change (albeit rarely) during execution.
     ///
     /// We memoize the result to avoid having to recalculate it.
+    ///
+    /// The wrapper is needed because anyhow::Error cannot be cloned, which is required to memoize.
     #[memoize(SharedCache, Capacity: 10)]
     #[must_use]
-    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+    fn commitment_inner(num_storage_nodes: usize) -> Option<VidCommitment> {
         let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
 
         match vid_result {
             Ok(r) => Some(r),
             Err(_) => None,
+        }
+    }
+
+    /// The commitment for a null block payload.
+    ///
+    /// Note: the commitment depends on the network (via `num_storage_nodes`),
+    /// and may change (albeit rarely) during execution.
+    ///
+    /// We memoize the result to avoid having to recalculate it.
+    ///
+    /// The wrapper is needed because anyhow::Error cannot be cloned, which is required to memoize.
+    ///
+    /// # Errors
+    /// Returns an error if the VID calculation fails.
+    pub fn commitment(num_storage_nodes: usize) -> Result<VidCommitment> {
+        match commitment_inner(num_storage_nodes) {
+            Some(r) => Ok(r),
+            None => Err(anyhow!("VID calculation failed.")),
         }
     }
 }

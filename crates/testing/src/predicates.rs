@@ -211,8 +211,8 @@ where
     let info = "QuorumProposalSend with null block payload".to_string();
     let function = move |e: &Arc<HotShotEvent<TYPES>>| match e.as_ref() {
         QuorumProposalSend(proposal, _) => PredicateResult::from(
-            Some(proposal.data.block_header.payload_commitment())
-                == null_block::commitment(num_storage_nodes),
+            null_block::commitment(num_storage_nodes)
+                .is_ok_and(|commit| commit == proposal.data.block_header.payload_commitment()),
         ),
         _ => PredicateResult::Fail,
     };

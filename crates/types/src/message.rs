@@ -5,7 +5,8 @@
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
+use bitvec::prelude::BitVec;
 use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -319,6 +320,48 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     /// Phantom for TYPES
     pub _pd: PhantomData<TYPES>,
+}
+
+/// A trait for things that can generate raw byte commitments.
+///
+/// This is needed because a `Commitment<T>` is actually parametrized by the type being committed,
+/// which means that we cannot e.g. implement a `Committable` for `QuorumProposal`, since we are currently using the leaf commitment rather than the proposal commitment.
+///
+/// The better solution would be to use the correct commitment in signing, but that would take some disentangling that will become easier later.
+pub trait CommittableBytes {
+    /// Generate a commitment as a raw bitvec
+    fn commit_bytes(&self) -> BitVec<u8>;
+}
+
+impl<T: Committable> CommittableBytes for T {
+    fn commit_bytes(&self) -> BitVec<u8> {
+        self.commit().into_bits()
+    }
+}
+
+impl<TYPES, PROPOSAL> Proposal<TYPES, PROPOSAL>
+where
+    TYPES: NodeType,
+    PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned + CommittableBytes,
+{
+    /// Construct and sign a proposal.
+    ///
+    /// # Errors
+    /// Returns an error if we were unable to sign the proposal.
+    pub fn create(
+        data: PROPOSAL,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Result<Self> {
+        let commitment = data.commit_bytes();
+        let signature = TYPES::SignatureKey::sign(private_key, commitment.as_raw_slice())
+            .context("Failed to sign proposal commitment.")?;
+
+        Ok(Proposal {
+            data,
+            signature,
+            _pd: PhantomData,
+        })
+    }
 }
 
 impl<TYPES> Proposal<TYPES, QuorumProposal<TYPES>>
