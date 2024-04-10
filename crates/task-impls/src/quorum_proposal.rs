@@ -367,7 +367,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                     ProposalDependency::TimeoutCert => {
                         if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
-                            timeout.view_number + 1
+                            timeout.view_number
                         } else {
                             return false;
                         }
@@ -384,7 +384,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.view_number + 1
+                            proposal.view_number
                         } else {
                             return false;
                         }
