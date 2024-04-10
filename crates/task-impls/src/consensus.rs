@@ -1258,13 +1258,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
-
                 self.consensus
                     .write()
                     .await
@@ -1272,7 +1265,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .entry(view)
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.clone());
-
+                if disperse.data.recipient_key != self.public_key {
+                    self.quorum_network
+                        .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
+                            *disperse.data.view_number,
+                        ))
+                        .await;
+                    return;
+                }
+                // stop polling for the received disperse after verifying it's valid
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        *disperse.data.view_number,
+                    ))
+                    .await;
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }

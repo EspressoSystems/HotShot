@@ -16,7 +16,7 @@ use hotshot_types::traits::network::AsyncGenerator;
 use hotshot_types::{
     boxed_sync,
     constants::{Version01, VERSION_0_1},
-    message::{Message, MessagePurpose},
+    message::{CommitteeConsensusMessage, Message, MessageKind, MessagePurpose, SequencingMessage},
     traits::{
         network::{
             ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg, NetworkReliability,
@@ -175,7 +175,7 @@ impl<K: SignatureKey> TaskMap<K> {
 #[derive(Debug)]
 struct Inner<TYPES: NodeType, NetworkVersion: StaticVersionType> {
     /// Our own key
-    _own_key: TYPES::SignatureKey,
+    own_key: TYPES::SignatureKey,
     /// Queue for messages
     poll_queue_0_1: Arc<RwLock<Vec<RecvMsg<Message<TYPES>>>>>,
     /// Client is running
@@ -331,14 +331,30 @@ impl<TYPES: NodeType, NetworkVersion: StaticVersionType> Inner<TYPES, NetworkVer
                         return true;
                     }
                     MessagePurpose::VidDisperse => {
-                        // TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
+                        let RecvMsg {
+                            message: Some(message),
+                        } = deserialized_message.clone()
+                        else {
+                            return false;
+                        };
+                        let Message {
+                            sender: _,
+                            kind:
+                                MessageKind::Consensus(SequencingMessage::Committee(
+                                    CommitteeConsensusMessage::VidDisperseMsg(vid),
+                                )),
+                        } = message
+                        else {
+                            return false;
+                        };
+                        if vid.data.recipient_key != self.own_key {
+                            // error!("Key {:?} does not match ours for VID", vid.data.recipient_key);
+                            return false;
+                        }
                         self.poll_queue_0_1
                             .write()
                             .await
                             .push(deserialized_message.clone());
-
-                        // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                         return true;
                     }
 
@@ -592,7 +608,7 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
             connected: AtomicBool::new(false),
             client,
             wait_between_polls,
-            _own_key: key,
+            own_key: key,
             is_da: is_da_server,
             tx_index: Arc::default(),
             proposal_task_map: Arc::default(),
@@ -915,9 +931,11 @@ impl<TYPES: NodeType + 'static, NetworkVersion: StaticVersionType + 'static>
                 }
 
                 // Cancel old, stale tasks
-                task_map
-                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
-                    .await;
+                if view_number > 2 {
+                    task_map
+                        .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
+                        .await;
+                }
             }
             ConsensusIntentEvent::PollForLatestProposal => {
                 // Only start this task if we haven't already started it.

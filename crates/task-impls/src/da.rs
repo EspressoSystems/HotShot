@@ -120,6 +120,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
+                if self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_payloads
+                    .contains_key(&view)
+                {
+                    warn!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view);
+                    return None;
+                }
+
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
