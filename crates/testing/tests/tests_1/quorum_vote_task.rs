@@ -2,6 +2,7 @@
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_testing::task_helpers::get_vid_share;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -88,7 +89,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_dac = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key().clone())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -112,7 +113,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let view_no_quorum_proposal = TestScriptStage {
         inputs: vec![
             DACertificateRecv(dacs[2].clone()),
-            VIDShareRecv(vids[2].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key().clone())),
         ],
         outputs: vec![
             exact(DACertificateValidated(dacs[2].clone())),

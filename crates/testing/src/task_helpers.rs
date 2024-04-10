@@ -151,6 +151,20 @@ pub fn build_cert<
     cert
 }
 
+pub fn get_vid_share<TYPES: NodeType>(
+    shares: &Vec<Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    pub_key: TYPES::SignatureKey,
+) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
+    shares
+        .iter()
+        .cloned()
+        .filter(|s| s.data.recipient_key == pub_key)
+        .collect::<Vec<_>>()
+        .first()
+        .expect("No VID for key")
+        .clone()
+}
+
 /// create signature
 /// # Panics
 /// if fails to convert node id into keypair
