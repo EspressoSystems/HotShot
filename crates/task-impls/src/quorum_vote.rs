@@ -628,7 +628,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
 
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
