@@ -616,6 +616,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
                 debug!(
