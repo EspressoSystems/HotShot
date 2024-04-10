@@ -47,17 +47,16 @@ impl DHTBootstrapTask {
         loop {
             tracing::debug!("looping bootstrap");
             if !self.in_progress {
-                match art::async_timeout(Duration::from_secs(120), self.rx.next()).await {
-                    Ok(maybe_event) => {
-                        if let Some(InputEvent::StartBootstrap) = maybe_event {
-                            tracing::debug!("Start bootstrap in bootstrap task");
-                            self.bootstrap().await;
-                        }
+                if let Ok(maybe_event) =
+                    art::async_timeout(Duration::from_secs(120), self.rx.next()).await
+                {
+                    if let Some(InputEvent::StartBootstrap) = maybe_event {
+                        tracing::debug!("Start bootstrap in bootstrap task");
+                        self.bootstrap().await;
                     }
-                    Err(_) => {
-                        tracing::debug!("Start bootstrap in bootstrap task after timeout");
-                        self.bootstrap().await
-                    },
+                } else {
+                    tracing::debug!("Start bootstrap in bootstrap task after timeout");
+                    self.bootstrap().await;
                 }
             } else if matches!(self.rx.next().await, Some(InputEvent::BootstrapFinished)) {
                 tracing::debug!("Bootstrap finished");
