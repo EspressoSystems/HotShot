@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{anyhow, ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use bincode::Options;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
@@ -444,7 +444,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             .encode()
             .expect("unable to encode genesis payload")
             .collect();
-        let payload_commitment = futures::executor::block_on(async move {
+        let payload_commitment = async_block_on(async move {
             async_spawn(async move {
                 vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES)
                     .await

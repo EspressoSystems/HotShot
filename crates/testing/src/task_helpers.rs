@@ -2,7 +2,7 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_block_on, async_spawn};
 use async_lock::RwLockUpgradableReadGuard;
 use bitvec::bitvec;
 use committable::Committable;
@@ -376,7 +376,7 @@ pub fn da_payload_commitment(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let total_nodes = quorum_membership.total_nodes();
 
-    let payload_commitment = futures::executor::block_on(async move {
+    let payload_commitment = async_block_on(async move {
         async_spawn(async move {
             vid_commitment(encoded_transactions, total_nodes)
                 .await
@@ -429,7 +429,7 @@ pub fn build_da_certificate(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let total_nodes = quorum_membership.total_nodes();
 
-    let da_payload_commitment = futures::executor::block_on(async move {
+    let da_payload_commitment = async_block_on(async move {
         async_spawn(async move {
             vid_commitment(encoded_transactions, total_nodes)
                 .await
