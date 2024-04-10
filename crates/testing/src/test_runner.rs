@@ -341,7 +341,8 @@ where
                 config.num_nodes_without_stake as u64,
             )
         });
-        let (mut builder_task, builder_url) = B::start(config.num_nodes_with_stake.into()).await;
+        let (mut builder_task, builder_url) =
+            B::start(config.num_nodes_with_stake.into(), B::Config::default()).await;
         for i in 0..total {
             let mut config = config.clone();
             let node_id = self.next_node_id;

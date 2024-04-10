@@ -15,7 +15,7 @@ use async_compatibility_layer::{
 use async_trait::async_trait;
 use cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
 use chrono::Utc;
-use clap::{Arg, Command, Parser};
+use clap::{value_parser, Arg, Command, Parser};
 use futures::StreamExt;
 use hotshot::{
     traits::{
@@ -193,6 +193,15 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .help("Sets the number of fixed leader for gpu vid, only be used when leaders running on gpu")
                 .required(false),
         )
+        .arg(
+            Arg::new("builder")
+                .short('b')
+                .long("builder")
+                .value_name("BUILDER_TYPE")
+                .value_parser(value_parser!(BuilderType))
+                .help("Sets type of builder. `simple` or `random` to run corresponding integrated builder, `external` to use the one specified by `[config.builder_url]` in config")
+                .required(false),
+        )
         .get_matches();
 
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
@@ -252,6 +261,9 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
             wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
         };
         config.da_web_server_config = Some(updated_da_web_server_config);
+    }
+    if let Some(builder_type) = matches.get_one::<BuilderType>("builder") {
+        config.builder = *builder_type;
     }
 
     (config, orchestrator_url)
@@ -1036,6 +1048,7 @@ pub async fn main_entry_point<
             let (builder_task, builder_url) =
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
+                    run_config.random_builder.clone().unwrap_or_default(),
                 )
                 .await;
 
@@ -1047,6 +1060,7 @@ pub async fn main_entry_point<
             let (builder_task, builder_url) =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
+                    (),
                 )
                 .await;
 
