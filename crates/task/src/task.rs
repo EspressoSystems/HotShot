@@ -178,6 +178,10 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn state(&self) -> &S {
         &self.state
     }
+    /// Consume the task and obtain the underlying state
+    pub fn into_state(self) -> S {
+        self.state
+    }
 
     /// Spawn a new task and register it.  It will get all events not seend
     /// by the task creating it.

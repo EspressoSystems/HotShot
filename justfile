@@ -35,7 +35,7 @@ async := "async-std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
-build_release *ARGS: 
+build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 
 example *ARGS:
@@ -124,6 +124,10 @@ test_quorum_vote_task:
   echo Testing the quorum vote task
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_vote_task -- --test-threads=1 --nocapture
 
+test_quorum_proposal_task:
+  echo Testing the quorum vote task
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_proposal_task -- --test-threads=1 --nocapture
+
 test_da_task:
   echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_da_task -- --test-threads=1 --nocapture
@@ -158,12 +162,12 @@ check:
   echo Checking
   cargo check --workspace --bins --tests --examples
 
-lint: 
+lint:
   echo linting
   cargo fmt --check
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
-lint_release: 
+lint_release:
   echo linting
   cargo fmt --check
   cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
@@ -172,7 +176,7 @@ fmt:
   echo Running cargo fmt
   cargo fmt
 
-fmt_lint: 
+fmt_lint:
   echo Formatting and linting
   cargo fmt
   cargo clippy --workspace --examples --bins --tests -- -D warnings

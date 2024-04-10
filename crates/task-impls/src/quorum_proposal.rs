@@ -15,7 +15,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     constants::LOOK_AHEAD,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
@@ -28,6 +28,7 @@ use hotshot_types::{
         states::ValidatedState,
         storage::Storage,
     },
+    utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -702,6 +703,44 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
+                if proposal.data.justify_qc.get_view_number() != view - 1 {
+                    if let Some(ref received_proposal_cert) = proposal.data.proposal_certificate {
+                        match received_proposal_cert {
+                            ViewChangeEvidence::Timeout(timeout_cert) => {
+                                if timeout_cert.get_data().view != view - 1 {
+                                    warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
+                                    return;
+                                }
+
+                                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
+                                    warn!("Timeout certificate for view {} was invalid", *view);
+                                    return;
+                                }
+                            }
+                            ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                                if view_sync_cert.view_number != view {
+                                    debug!(
+                                        "Cert view number {:?} does not match proposal view number {:?}",
+                                        view_sync_cert.view_number, view
+                                    );
+                                    return;
+                                }
+
+                                // View sync certs must also be valid.
+                                if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
+                                    debug!("Invalid ViewSyncFinalize cert provided");
+                                    return;
+                                }
+                            }
+                        }
+                    } else {
+                        warn!(
+                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                            *view);
+                        return;
+                    }
+                }
+
                 let justify_qc = proposal.data.justify_qc.clone();
 
                 if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
@@ -798,6 +837,73 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
                     );
+
+                    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+
+                    let state = Arc::new(
+                        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(
+                            &proposal.data.block_header,
+                        ),
+                    );
+
+                    consensus.validated_state_map.insert(
+                        view,
+                        View {
+                            view_inner: ViewInner::Leaf {
+                                leaf: leaf.commit(),
+                                state,
+                                delta: None,
+                            },
+                        },
+                    );
+                    consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .update_undecided_state(
+                            consensus.saved_leaves.clone(),
+                            consensus.validated_state_map.clone(),
+                        )
+                        .await
+                    {
+                        warn!("Couldn't store undecided state.  Error: {:?}", e);
+                    }
+
+                    // If we are missing the parent from storage, the safety check will fail.  But we can
+                    // still vote if the liveness check succeeds.
+                    let liveness_check = justify_qc.get_view_number() > consensus.locked_view;
+
+                    let high_qc = consensus.high_qc.clone();
+                    let locked_view = consensus.locked_view;
+
+                    drop(consensus);
+
+                    if liveness_check {
+                        // self.current_proposal = Some(proposal.data.clone());
+                        // let new_view = proposal.data.view_number + 1;
+
+                        // // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                        // let should_propose = self.quorum_membership.get_leader(new_view)
+                        //     == self.public_key
+                        //     && high_qc.view_number
+                        //         == self.current_proposal.clone().unwrap().view_number;
+                        // let qc = high_qc.clone();
+                        // if should_propose {
+                        //     debug!(
+                        //         "Attempting to publish proposal after voting; now in view: {}",
+                        //         *new_view
+                        //     );
+                        //     self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
+                        //         .await;
+                        // }
+                        // if self.vote_if_able(&event_stream).await {
+                        //     self.current_proposal = None;
+                        // }
+                    }
+                    warn!("Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", high_qc, proposal.data.clone(), locked_view);
+
                     return;
                 };
                 async_spawn(
