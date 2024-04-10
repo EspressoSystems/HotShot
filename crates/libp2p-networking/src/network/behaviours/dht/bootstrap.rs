@@ -1,11 +1,7 @@
 use std::time::Duration;
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use futures::{channel::mpsc, StreamExt};
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
 
 use crate::network::ClientRequest;
 
@@ -15,6 +11,8 @@ pub enum InputEvent {
     StartBootstrap,
     /// Bootstrap has finished
     BootstrapFinished,
+    /// Shutdown bootstrap
+    ShutdownBootstrap,
 }
 /// Bootstrap task's state
 pub struct DHTBootstrapTask {
@@ -28,11 +26,7 @@ pub struct DHTBootstrapTask {
 
 impl DHTBootstrapTask {
     /// Run bootstrap task
-    #[must_use]
-    pub fn run(
-        rx: mpsc::Receiver<InputEvent>,
-        tx: UnboundedSender<ClientRequest>,
-    ) -> JoinHandle<()> {
+    pub fn run(rx: mpsc::Receiver<InputEvent>, tx: UnboundedSender<ClientRequest>) {
         art::async_spawn(async move {
             let state = Self {
                 rx,
@@ -40,27 +34,49 @@ impl DHTBootstrapTask {
                 in_progress: false,
             };
             state.run_loop().await;
-        })
+        });
     }
     /// Task's loop
     async fn run_loop(mut self) {
         loop {
             tracing::debug!("looping bootstrap");
-            if !self.in_progress {
-                if let Ok(maybe_event) =
-                    art::async_timeout(Duration::from_secs(120), self.rx.next()).await
-                {
-                    if let Some(InputEvent::StartBootstrap) = maybe_event {
+            if self.in_progress {
+                match self.rx.next().await {
+                    Some(InputEvent::BootstrapFinished) => {
+                        tracing::debug!("Bootstrap finished");
+                        self.in_progress = false;
+                    }
+                    Some(InputEvent::ShutdownBootstrap) => {
+                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        break;
+                    }
+                    Some(_) => {}
+                    None => {
+                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        break;
+                    }
+                }
+            } else if let Ok(maybe_event) =
+                art::async_timeout(Duration::from_secs(120), self.rx.next()).await
+            {
+                match maybe_event {
+                    Some(InputEvent::StartBootstrap) => {
                         tracing::debug!("Start bootstrap in bootstrap task");
                         self.bootstrap().await;
                     }
-                } else {
-                    tracing::debug!("Start bootstrap in bootstrap task after timeout");
-                    self.bootstrap().await;
+                    Some(InputEvent::ShutdownBootstrap) => {
+                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        break;
+                    }
+                    Some(_) => {}
+                    None => {
+                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        break;
+                    }
                 }
-            } else if matches!(self.rx.next().await, Some(InputEvent::BootstrapFinished)) {
-                tracing::debug!("Bootstrap finished");
-                self.in_progress = false;
+            } else {
+                tracing::debug!("Start bootstrap in bootstrap task after timeout");
+                self.bootstrap().await;
             }
         }
     }

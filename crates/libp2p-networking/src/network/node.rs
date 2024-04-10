@@ -16,7 +16,7 @@ use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use futures::{channel::mpsc, select, FutureExt, StreamExt};
+use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::{
     autonat,
@@ -52,7 +52,7 @@ pub use self::{
     },
 };
 use super::{
-    behaviours::dht::bootstrap::{self, DHTBootstrapTask},
+    behaviours::dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -744,11 +744,11 @@ impl NetworkNode {
     > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
-        let (bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
+        let (mut bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
         self.resend_tx = Some(s_input.clone());
-        self.dht_handler.set_bootstrap_sender(bootstrap_tx);
+        self.dht_handler.set_bootstrap_sender(bootstrap_tx.clone());
 
-        let bootstrap_handle = DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
+        DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
         async_spawn(
             async move {
                 let mut fuse = s_output.recv().boxed().fuse();
@@ -765,12 +765,7 @@ impl NetworkNode {
                             debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
-                                #[cfg(async_executor_impl = "async-std")]
-                                bootstrap_handle.cancel().await;
-                                #[cfg(async_executor_impl = "tokio")]
-                                bootstrap_handle.abort();
-                                #[cfg(async_executor_impl = "tokio")]
-                                let _ = bootstrap_handle.await;
+                                let _ = bootstrap_tx.send(InputEvent::ShutdownBootstrap).await;
                                 break
                             }
                             fuse = s_output.recv().boxed().fuse();
