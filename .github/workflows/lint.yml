@@ -30,7 +30,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@nightly
         with:
-          components: [clippy, rustfmt]
+          components: clippy,rustfmt
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
