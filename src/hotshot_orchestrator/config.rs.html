@@ -682,6 +682,11 @@
 <a href="#680" id="680">680</a>
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
@@ -737,6 +742,8 @@
     </span><span class="kw">pub </span>online_time: u64,
     <span class="doccomment">/// number of transactions per view
     </span><span class="kw">pub </span>num_txn_per_round: usize,
+    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
+    </span><span class="kw">pub </span>server_mode: bool,
 }
 
 <span class="doccomment">/// configuration serialized into a file
@@ -760,6 +767,8 @@
     </span><span class="kw">pub </span>mesh_n: usize,
     <span class="doccomment">/// time node has been running
     </span><span class="kw">pub </span>online_time: u64,
+    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
+    </span><span class="kw">pub </span>server_mode: bool,
 }
 
 <span class="doccomment">/// configuration for a web server
@@ -1165,6 +1174,7 @@
                 propose_max_round_time: val.config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
                 num_txn_per_round: val.transactions_per_round,
+                server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),

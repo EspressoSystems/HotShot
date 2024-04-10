@@ -67,6 +67,9 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
@@ -107,6 +110,9 @@
     <span class="doccomment">/// expiratiry for records in DHT
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
+    </span><span class="attr">#[builder(default = <span class="string">"false"</span>)]
+    </span><span class="kw">pub </span>server_mode: bool,
 }
 
 <span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= mesh_n_low &lt;= mesh_n &lt;= mesh_n_high`

@@ -233,9 +233,6 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p's behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
@@ -270,10 +267,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tracing::instrument;
 
-<span class="kw">use </span><span class="self">self</span>::behaviours::{
-    dht::DHTEvent,
-    request_response::{Request, Response},
-};
+<span class="kw">use </span><span class="self">self</span>::behaviours::request_response::{Request, Response};
 <span class="kw">pub use </span><span class="self">self</span>::{
     def::NetworkDef,
     error::NetworkError,
@@ -418,7 +412,7 @@
 /// only used for event processing before relaying to client
 </span><span class="kw">pub enum </span>NetworkEventInternal {
     <span class="doccomment">/// a DHT event
-    </span>DHTEvent(DHTEvent),
+    </span>DHTEvent(libp2p::kad::Event),
     <span class="doccomment">/// a identify event. Is boxed because this event is much larger than the other ones so we want
     /// to store it on the heap.
     </span>IdentifyEvent(Box&lt;IdentifyEvent&gt;),

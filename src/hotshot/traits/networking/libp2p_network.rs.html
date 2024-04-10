@@ -1129,6 +1129,7 @@
 <a href="#1127" id="1127">1127</a>
 <a href="#1128" id="1128">1128</a>
 <a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1505,6 +1506,7 @@
                 NonZeroUsize::new(config.config.num_nodes_with_stake.get() - <span class="number">2</span>)
                     .expect(<span class="string">"failed to calculate replication factor"</span>),
             )
+            .server_mode(libp2p_config.server_mode)
             .identity(keypair)
             .bound_addr(<span class="prelude-val">Some</span>(bind_address.clone()))
             .mesh_params(<span class="prelude-val">Some</span>(MeshParams {

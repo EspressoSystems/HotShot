@@ -161,49 +161,11 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::num::NonZeroUsize;
-
-<span class="kw">use </span>futures::channel::oneshot::Sender;
-<span class="kw">use </span>libp2p::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>libp2p::{
     autonat,
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
+    kad::store::MemoryStore,
     request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
@@ -212,11 +174,7 @@
 <span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">use super</span>::{
-    behaviours::{
-        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        exponential_backoff::ExponentialBackoff,
-        request_response::{Request, Response},
-    },
+    behaviours::request_response::{Request, Response},
     NetworkEventInternal,
 };
 
@@ -238,7 +196,7 @@
     <span class="doccomment">/// purpose: peer routing
     /// purpose: storing pub key &lt;-&gt; peer id bijection
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>dht: DHTBehaviour,
+    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;MemoryStore&gt;,
 
     <span class="doccomment">/// purpose: identifying the addresses from an outside POV
     </span><span class="attr">#[debug(skip)]
@@ -263,7 +221,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         gossipsub: GossipBehaviour,
-        dht: DHTBehaviour,
+        dht: libp2p::kad::Behaviour&lt;MemoryStore&gt;,
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         request_response: cbor::Behaviour&lt;Request, Response&gt;,
@@ -317,36 +275,6 @@
     }
 }
 
-<span class="doccomment">/// DHT functions
-</span><span class="kw">impl </span>NetworkDef {
-    <span class="doccomment">/// Publish a key/value to the kv store.
-    /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`super::error::DHTError`] is
-    /// sent instead.
-    </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, query: KadPutQuery) {
-        <span class="self">self</span>.dht.put_record(query);
-    }
-
-    <span class="doccomment">/// Retrieve a value for a key from the DHT.
-    /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`super::error::DHTError`] is sent instead.
-    </span><span class="kw">pub fn </span>get_record(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        key: Vec&lt;u8&gt;,
-        chan: Sender&lt;Vec&lt;u8&gt;&gt;,
-        factor: NonZeroUsize,
-        retry_count: u8,
-    ) {
-        <span class="self">self</span>.dht.get_record(
-            key,
-            chan,
-            factor,
-            ExponentialBackoff::default(),
-            retry_count,
-        );
-    }
-}
-
 <span class="doccomment">/// Request/response functions
 </span><span class="kw">impl </span>NetworkDef {
     <span class="doccomment">/// Add a direct request for a given peer
@@ -366,8 +294,8 @@
     }
 }
 
-<span class="kw">impl </span>From&lt;DHTEvent&gt; <span class="kw">for </span>NetworkEventInternal {
-    <span class="kw">fn </span>from(event: DHTEvent) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;libp2p::kad::Event&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: libp2p::kad::Event) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::DHTEvent(event)
     }
 }

@@ -741,6 +741,51 @@
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -759,7 +804,7 @@
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-<span class="kw">use </span>futures::{select, FutureExt, StreamExt};
+<span class="kw">use </span>futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 <span class="kw">use </span>hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 <span class="kw">use </span>libp2p::{
     autonat,
@@ -773,7 +818,7 @@
         Info <span class="kw">as </span>IdentifyInfo,
     },
     identity::Keypair,
-    kad::{store::MemoryStore, Behaviour, Config},
+    kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
     request_response::{
         Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
     },
@@ -795,12 +840,13 @@
     },
 };
 <span class="kw">use super</span>::{
+    behaviours::dht::bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
 };
 <span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
-    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
     request_response::{Request, RequestResponseState, Response},
@@ -833,8 +879,12 @@
     </span>request_response_state: RequestResponseState,
     <span class="doccomment">/// Handler for direct messages
     </span>direct_message_state: DMBehaviour,
+    <span class="doccomment">/// Handler for DHT Events
+    </span>dht_handler: DHTBehaviour,
     <span class="doccomment">/// Channel to resend requests, set to Some when we call `spawn_listeners`
     </span>resend_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ClientRequest&gt;&gt;,
+    <span class="doccomment">/// Send to the bootstrap task to tell it to start a bootstrap
+    </span>bootstrap_tx: <span class="prelude-ty">Option</span>&lt;mpsc::Sender&lt;bootstrap::InputEvent&gt;&gt;,
 }
 
 <span class="kw">impl </span>NetworkNode {
@@ -884,7 +934,6 @@
                 bs_nodes.insert(<span class="kw-2">*</span>peer_id, iter::once(addr.clone()).collect());
             }
         }
-        behaviour.dht.add_bootstrap_nodes(bs_nodes);
     }
 
     <span class="doccomment">/// Creates a new `Network` with the given settings.
@@ -1007,7 +1056,10 @@
                 <span class="macro">panic!</span>(<span class="string">"Replication factor not set"</span>);
             }
 
-            <span class="kw">let </span>kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            <span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            <span class="kw">if </span>config.server_mode {
+                kadem.set_mode(<span class="prelude-val">Some</span>(Mode::Server));
+            }
 
             <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
@@ -1037,13 +1089,7 @@
 
             <span class="kw">let </span>network = NetworkDef::new(
                 gossipsub,
-                DHTBehaviour::new(
-                    kadem,
-                    peer_id,
-                    config
-                        .replication_factor
-                        .unwrap_or_else(|| NonZeroUsize::new(<span class="number">4</span>).unwrap()),
-                ),
+                kadem,
                 identify,
                 direct_message,
                 request_response,
@@ -1074,12 +1120,46 @@
             identity,
             peer_id,
             swarm,
-            config,
+            config: config.clone(),
             listener_id: <span class="prelude-val">None</span>,
             request_response_state: RequestResponseState::default(),
             direct_message_state: DMBehaviour::default(),
+            dht_handler: DHTBehaviour::new(
+                peer_id,
+                config
+                    .replication_factor
+                    .unwrap_or(NonZeroUsize::new(<span class="number">4</span>).unwrap()),
+            ),
             resend_tx: <span class="prelude-val">None</span>,
+            bootstrap_tx: <span class="prelude-val">None</span>,
         })
+    }
+
+    <span class="doccomment">/// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`super::error::DHTError`] is
+    /// sent instead.
+    </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>query: KadPutQuery) {
+        <span class="kw">let </span>record = Record::new(query.key.clone(), query.value.clone());
+        <span class="kw">match </span><span class="self">self</span>.swarm.behaviour_mut().dht.put_record(
+            record,
+            libp2p::kad::Quorum::N(<span class="self">self</span>.dht_handler.get_replication_factor()),
+        ) {
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="comment">// failed try again later
+                </span>query.progress = DHTProgress::NotStarted;
+                query.backoff.start_next(<span class="bool-val">false</span>);
+                <span class="macro">error!</span>(<span class="string">"Error publishing to DHT: {e:?} for peer {:?}"</span>, <span class="self">self</span>.peer_id);
+            }
+            <span class="prelude-val">Ok</span>(qid) =&gt; {
+                <span class="macro">info!</span>(<span class="string">"Success publishing {:?} to DHT"</span>, qid);
+                <span class="kw">let </span>query = KadPutQuery {
+                    progress: DHTProgress::InProgress(qid),
+                    ..query
+                };
+                <span class="self">self</span>.dht_handler.put_record(qid, query);
+            }
+        }
     }
 
     <span class="doccomment">/// event handler for client events
@@ -1100,13 +1180,18 @@
             <span class="prelude-val">Ok</span>(msg) =&gt; {
                 <span class="kw">match </span>msg {
                     ClientRequest::BeginBootstrap =&gt; {
-                        <span class="self">self</span>.swarm.behaviour_mut().dht.begin_bootstrap();
+                        <span class="macro">debug!</span>(<span class="string">"begin bootstrap"</span>);
+                        <span class="kw">let _ </span>= <span class="self">self</span>.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) =&gt; {
-                        <span class="self">self</span>.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
+                        <span class="kw">let </span>id = <span class="self">self</span>.swarm.behaviour_mut().dht.get_closest_peers(pid);
+                        <span class="self">self</span>.dht_handler
+                            .in_progress_get_closest_peers
+                            .insert(id, chan);
                     }
                     ClientRequest::GetRoutingTable(chan) =&gt; {
-                        <span class="self">self</span>.swarm.behaviour_mut().dht.print_routing_table();
+                        <span class="self">self</span>.dht_handler
+                            .print_routing_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>.swarm.behaviour_mut().dht);
                         <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">warn!</span>(<span class="string">"Tried to notify client but client not tracking anymore"</span>);
                         }
@@ -1119,7 +1204,7 @@
                             value,
                             backoff: ExponentialBackoff::default(),
                         };
-                        <span class="self">self</span>.swarm.behaviour_mut().put_record(query);
+                        <span class="self">self</span>.put_record(query);
                     }
                     ClientRequest::GetConnectedPeerNum(s) =&gt; {
                         <span class="kw">if </span>s.send(<span class="self">self</span>.num_connected()).is_err() {
@@ -1136,11 +1221,13 @@
                         notify,
                         retry_count,
                     } =&gt; {
-                        <span class="self">self</span>.swarm.behaviour_mut().get_record(
+                        <span class="self">self</span>.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            ExponentialBackoff::default(),
                             retry_count,
+                            <span class="kw-2">&amp;mut </span><span class="self">self</span>.swarm.behaviour_mut().dht,
                         );
                     }
                     ClientRequest::IgnorePeers(_peers) =&gt; {
@@ -1301,9 +1388,9 @@
             } =&gt; {}
             SwarmEvent::Behaviour(b) =&gt; {
                 <span class="kw">let </span>maybe_event = <span class="kw">match </span>b {
-                    NetworkEventInternal::DHTEvent(e) =&gt; <span class="kw">match </span>e {
-                        DHTEvent::IsBootstrapped =&gt; <span class="prelude-val">Some</span>(NetworkEvent::IsBootstrapped),
-                    },
+                    NetworkEventInternal::DHTEvent(e) =&gt; <span class="self">self
+                        </span>.dht_handler
+                        .dht_handle_event(e, <span class="self">self</span>.swarm.behaviour_mut().dht.store_mut()),
                     NetworkEventInternal::IdentifyEvent(e) =&gt; {
                         <span class="comment">// NOTE feed identified peers into kademlia's routing table for peer discovery.
                         </span><span class="kw">if let </span>IdentifyEvent::Received {
@@ -1326,7 +1413,7 @@
                             // with autonat
                             </span><span class="macro">info!</span>(
                                 <span class="string">"local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} "</span>,
-                                behaviour.dht.peer_id, peer_id, listen_addrs, observed_addr
+                                <span class="self">self</span>.dht_handler.peer_id , peer_id, listen_addrs, observed_addr
                                 );
                             <span class="comment">// into hashset to delete duplicates (I checked: there are duplicates)
                             </span><span class="kw">for </span>addr <span class="kw">in </span>listen_addrs.iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;() {
@@ -1445,9 +1532,11 @@
     &gt; {
         <span class="kw">let </span>(s_input, s_output) = unbounded::&lt;ClientRequest&gt;();
         <span class="kw">let </span>(r_input, r_output) = unbounded::&lt;NetworkEvent&gt;();
-
+        <span class="kw">let </span>(<span class="kw-2">mut </span>bootstrap_tx, bootstrap_rx) = mpsc::channel(<span class="number">100</span>);
         <span class="self">self</span>.resend_tx = <span class="prelude-val">Some</span>(s_input.clone());
+        <span class="self">self</span>.dht_handler.set_bootstrap_sender(bootstrap_tx.clone());
 
+        DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
         async_spawn(
             <span class="kw">async move </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>fuse = s_output.recv().boxed().fuse();
@@ -1464,6 +1553,7 @@
                             <span class="macro">debug!</span>(<span class="string">"peerid {:?}\t\thandling msg {:?}"</span>, <span class="self">self</span>.peer_id, msg);
                             <span class="kw">let </span>shutdown = <span class="self">self</span>.handle_client_requests(msg).<span class="kw">await</span><span class="question-mark">?</span>;
                             <span class="kw">if </span>shutdown {
+                                <span class="kw">let _ </span>= bootstrap_tx.send(InputEvent::ShutdownBootstrap).<span class="kw">await</span>;
                                 <span class="kw">break
                             </span>}
                             fuse = s_output.recv().boxed().fuse();
