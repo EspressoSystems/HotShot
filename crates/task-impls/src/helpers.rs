@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use async_broadcast::{SendError, Sender};
 #[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
+use async_std::task::{spawn, JoinHandle};
 use hotshot_types::{
     data::VidDisperse,
     traits::{election::Membership, node_implementation::NodeType},
@@ -11,7 +11,7 @@ use hotshot_types::{
 };
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{spawn, JoinHandle};
 
 /// Cancel a task
 pub async fn cancel_task<T>(task: JoinHandle<T>) {
@@ -51,7 +51,7 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
     view: TYPES::Time,
 ) -> Result<VidDisperse<TYPES>> {
     let num_nodes = membership.total_nodes();
-    let vid_disperse = spawn_blocking(move || {
+    let vid_disperse = spawn(async move {
         vid_scheme(num_nodes).disperse(&txns).map_err(|err| anyhow!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
     })
     .await?;

@@ -12,12 +12,12 @@ use std::{
 
 use anyhow::{anyhow, Result};
 #[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
+use async_std::task::spawn;
 use committable::{Commitment, Committable};
 use jf_primitives::vid::VidScheme;
 use serde::{de::DeserializeOwned, Serialize};
 #[cfg(async_executor_impl = "tokio")]
-use tokio::task::spawn_blocking;
+use tokio::task::spawn;
 
 use crate::{
     data::Leaf,
@@ -121,7 +121,7 @@ pub async fn vid_commitment(
     encoded_transactions: Vec<u8>,
     num_storage_nodes: usize,
 ) -> Result<<VidSchemeType as VidScheme>::Commit> {
-    let payload_commitment = spawn_blocking(move || {
+    let payload_commitment = spawn(async move {
        vid_scheme(num_storage_nodes).commit_only(&encoded_transactions).map_err(|err| anyhow!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
     } ).await?;
 
