@@ -121,6 +121,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
+                if self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_payloads
+                    .contains_key(&view)
+                {
+                    warn!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view);
+                    return None;
+                }
+
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
@@ -160,7 +171,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return None;
                 }
-
                 if let Err(e) = self.storage.write().await.append_da(proposal).await {
                     error!(
                         "Failed to store DA Proposal with error {:?}, aborting vote",
@@ -188,9 +198,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Failed to sign DA Vote!");
                     return None;
                 };
-
-                // ED Don't think this is necessary?
-                // self.cur_view = view;
 
                 debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
 
@@ -318,7 +325,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: view,
                 };
-                debug!("Sending DA proposal for view {:?}", data.view_number);
 
                 let message = Proposal {
                     data,

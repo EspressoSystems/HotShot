@@ -3,7 +3,7 @@ use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::{exact, is_at_view_number, quorum_proposal_send, quorum_proposal_validated},
-    task_helpers::vid_scheme_from_view_number,
+    task_helpers::{vid_scheme_from_view_number, get_vid_share},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
@@ -52,7 +52,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -70,12 +70,11 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
     ];
 
-    let view_2_outputs = 
-        vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            quorum_proposal_validated(),
-            quorum_proposal_send(),
-        ];
+    let view_2_outputs = vec![
+        exact(ViewChange(ViewNumber::new(2))),
+        quorum_proposal_validated(),
+        quorum_proposal_send(),
+    ];
 
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
