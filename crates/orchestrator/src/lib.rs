@@ -115,6 +115,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             commit_sha: self.config.commit_sha.clone(),
             total_nodes: self.config.config.num_nodes_with_stake.into(),
             da_committee_size: self.config.config.da_staked_committee_size,
+            fixed_leader_for_gpuvid: self.config.config.fixed_leader_for_gpuvid,
             transactions_per_round: self.config.transactions_per_round,
             transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,

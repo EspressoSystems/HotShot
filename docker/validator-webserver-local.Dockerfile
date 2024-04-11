@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG ASYNC_EXECUTOR=async-std
 
-COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/release/examples/validator-webserver /usr/local/bin/validator-webserver
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/release-lto/examples/validator-webserver /usr/local/bin/validator-webserver
 
 # logging
 ENV RUST_LOG="warn"

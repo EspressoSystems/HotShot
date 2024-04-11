@@ -35,7 +35,7 @@ do
             do
                 for transaction_size in 512 4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
-                    rounds=10 #100
+                    rounds=100
                     # start webserver
                     just async_std example webserver -- http://0.0.0.0:9000 &
                     just async_std example webserver -- http://0.0.0.0:9001 &
@@ -51,7 +51,7 @@ do
                                                                     --transactions_per_round ${transactions_per_round} \
                                                                     --transaction_size ${transaction_size} \
                                                                     --rounds ${rounds} \
-                                                                    --commit_sha test &
+                                                                    --commit_sha 16threads_test &
                     sleep 30
 
                     # start validators

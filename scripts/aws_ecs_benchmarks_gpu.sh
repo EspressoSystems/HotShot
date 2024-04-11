@@ -35,35 +35,41 @@ do
             do
                 for transaction_size in 512 #4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
-                    rounds=10 #100
-                    # start webserver
-                    just async_std example webserver -- http://0.0.0.0:9000 &
-                    just async_std example webserver -- http://0.0.0.0:9001 &
-                    sleep 1m
+                    for fixed_leader_for_gpuvid in 1
+                    do
+                        rounds=10 #100
+                        # start webserver
+                        just async_std example webserver -- http://0.0.0.0:9000 &
+                        just async_std example webserver -- http://0.0.0.0:9001 &
+                        sleep 1m
 
-                    # start orchestrator
-                    just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
-                                                                    --orchestrator_url http://0.0.0.0:4444 \
-                                                                    --webserver_url ${webserver_url} \
-                                                                    --da_webserver_url ${da_webserver_url} \
-                                                                    --total_nodes ${total_nodes} \
-                                                                    --da_committee_size ${da_committee_size} \
-                                                                    --transactions_per_round ${transactions_per_round} \
-                                                                    --transaction_size ${transaction_size} \
-                                                                    --rounds ${rounds} \
-                                                                    --fixed_leader_for_gpuvid 1 \ 
-                                                                    --commit_sha with_gpu &
-                    sleep 30
+                        # start orchestrator
+                        just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
+                                                                        --orchestrator_url http://0.0.0.0:4444 \
+                                                                        --webserver_url ${webserver_url} \
+                                                                        --da_webserver_url ${da_webserver_url} \
+                                                                        --total_nodes ${total_nodes} \
+                                                                        --da_committee_size ${da_committee_size} \
+                                                                        --transactions_per_round ${transactions_per_round} \
+                                                                        --transaction_size ${transaction_size} \
+                                                                        --rounds ${rounds} \
+                                                                        --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \ 
+                                                                        --commit_sha with_gpu &
+                        sleep 30
+                        
+                        # start leaders on GPU FIRST and WAIT for enough time till it registerred at orchestrator
+                        # this step need to be done manually
 
-                    # start validators
-                    ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
-                    sleep $(($rounds + $total_nodes))
+                        # start validators
+                        ecs scale --region us-east-2 hotshot hotshot_centralized $(($total_nodes - 1)) --timeout -1
+                        sleep $(($rounds + $total_nodes))
 
-                    # kill them
-                    ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
-                    sleep 1m
-                    for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
-                    for pid in $(ps -ef | grep "webserver" | awk '{print $2}'); do kill -9 $pid; done
+                        # kill them
+                        ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                        sleep 1m
+                        for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
+                        for pid in $(ps -ef | grep "webserver" | awk '{print $2}'); do kill -9 $pid; done
+                    done
                 done
             done
         fi
