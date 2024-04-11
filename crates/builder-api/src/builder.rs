@@ -137,8 +137,8 @@ where
         .get("available_blocks", |req, state| {
             async move {
                 let hash = req.blob_param("parent_hash")?;
-                let signature = req.blob_param("signature")?;
                 let sender = req.blob_param("sender")?;
+                let signature = req.blob_param("signature")?;
                 state
                     .get_available_blocks(&hash, sender, &signature)
                     .await
@@ -151,8 +151,8 @@ where
         .get("claim_block", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
                 let sender = req.blob_param("sender")?;
+                let signature = req.blob_param("signature")?;
                 state
                     .claim_block(&hash, sender, &signature)
                     .await
@@ -165,8 +165,8 @@ where
         .get("claim_header_input", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
                 let sender = req.blob_param("sender")?;
+                let signature = req.blob_param("signature")?;
                 state
                     .claim_block_header_input(&hash, sender, &signature)
                     .await
