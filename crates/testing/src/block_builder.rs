@@ -52,6 +52,7 @@ where
     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     async fn start(
         _membership: Arc<TYPES::Membership>,
@@ -71,6 +72,7 @@ where
     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     async fn start(
         membership: Arc<TYPES::Membership>,
@@ -221,6 +223,8 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
         _for_parent: &VidCommitment,
+        _sender: TYPES::SignatureKey,
+        _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         Ok(self
             .blocks
@@ -235,6 +239,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
         let mut blocks = self.blocks.write().await;
@@ -250,6 +255,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
         let mut blocks = self.blocks.write().await;
@@ -276,6 +282,7 @@ where
     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     let (pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
     let source = RandomBuilderSource::new(pub_key, priv_key);
@@ -319,6 +326,8 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
         _for_parent: &VidCommitment,
+        _sender: TYPES::SignatureKey,
+        _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         let transactions = self
             .transactions
@@ -348,6 +357,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
         let mut blocks = self.blocks.write().await;
@@ -358,6 +368,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
         let mut blocks = self.blocks.write().await;
@@ -375,6 +386,7 @@ where
     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     pub async fn run(self, url: Url) {
         let builder_api = hotshot_builder_api::builder::define_api::<

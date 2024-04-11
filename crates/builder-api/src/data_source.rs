@@ -16,12 +16,15 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     async fn get_available_blocks(
         &self,
         for_parent: &VidCommitment,
+        sender: TYPES::SignatureKey,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError>;
 
     /// to claim a block from the list of provided available blocks
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
 
@@ -29,6 +32,7 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError>;
 
