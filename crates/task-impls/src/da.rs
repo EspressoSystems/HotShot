@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -22,8 +22,10 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::ViewInner,
-    vote::HasViewNumber,
+    vid::VidSchemeType,
+    vote::{HasViewNumber, Vote},
 };
+use jf_primitives::vid::VidScheme;
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
@@ -80,6 +82,9 @@ pub struct DATaskState<
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// Latest proposed payload commitment, to verify votes
+    pub proposed_commits: BTreeMap<TYPES::Time, <VidSchemeType as VidScheme>::Commit>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
@@ -224,6 +229,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.da_membership.get_leader(view + 1) == self.public_key);
                     return None;
                 }
+                let Some(commit) = self.proposed_commits.get(&view) else {
+                    error!("Received a vote for a view we didn't propose yet");
+                    return None;
+                };
+                if vote.get_data().payload_commit != *commit {
+                    error!("Received vote that does not match the proposed commitment");
+                    return None;
+                }
                 let mut collector = self.vote_collector.write().await;
 
                 if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view
@@ -289,6 +302,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         .await;
                 }
 
+                self.proposed_commits = self.proposed_commits.split_off(&view);
+
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.da_membership.get_leader(self.cur_view + 1) != self.public_key {
                     return None;
@@ -318,7 +333,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Failed to sign block payload!");
                     return None;
                 };
+                let txns = encoded_transactions.clone();
+                let num_nodes = self.quorum_membership.total_nodes();
+                let payload_commitment =
+                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                #[cfg(async_executor_impl = "tokio")]
+                let payload_commitment = payload_commitment.unwrap();
 
+                self.proposed_commits.insert(view, payload_commitment);
                 let data: DAProposal<TYPES> = DAProposal {
                     encoded_transactions: encoded_transactions.clone(),
                     metadata: metadata.clone(),

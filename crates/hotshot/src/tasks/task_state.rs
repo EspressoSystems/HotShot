@@ -115,6 +115,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
             storage: handle.storage.clone(),
+            proposed_commits: BTreeMap::new(),
         }
     }
 }
