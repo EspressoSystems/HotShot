@@ -44,6 +44,7 @@ do
                         sleep 1m
 
                         # start orchestrator
+                        # just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.7.196:9000 --da_webserver_url http://172.31.7.196:9001 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 1000000 --rounds 20 --fixed_leader_for_gpuvid 1 --commit_sha with_gpu
                         just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
                                                                         --orchestrator_url http://0.0.0.0:4444 \
                                                                         --webserver_url ${webserver_url} \
