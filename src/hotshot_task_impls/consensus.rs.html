@@ -1647,6 +1647,13 @@
 <a href="#1645" id="1645">1645</a>
 <a href="#1646" id="1646">1646</a>
 <a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -1715,7 +1722,7 @@
 /// a `QuorumProposalValidated` event.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-</span><span class="kw">async fn </span>validate_proposal&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>validate_proposal&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
@@ -1961,9 +1968,6 @@
     <span class="doccomment">/// Consensus api
     </span><span class="kw">pub </span>api: A,
 
-    <span class="doccomment">/// needed to typecheck
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
-
     <span class="doccomment">/// Current Vote collection task, with it's view.
     </span><span class="kw">pub </span>vote_collector:
         RwLock&lt;VoteCollectorOption&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;&gt;,
@@ -2140,7 +2144,6 @@
 
     <span class="doccomment">/// Must only update the view and GC if the view actually changes
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus update view"</span>, level = <span class="string">"error"</span>)]
-
     </span><span class="kw">async fn </span>update_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         new_view: TYPES::Time,
@@ -2269,7 +2272,8 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"proposal-task"</span>))]
+            </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>sender = sender.clone();
                 <span class="macro">debug!</span>(
                     <span class="string">"Received Quorum Proposal for view {}"</span>,
@@ -3074,8 +3078,18 @@
         }
     }
 
+    <span class="doccomment">/// Ignores old propose behavior and lets QuorumProposalTask take over.
+    </span><span class="attr">#[cfg(feature = <span class="string">"proposal-task"</span>)]
+    </span><span class="kw">pub async fn </span>publish_proposal_if_able(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _view: TYPES::Time,
+        _event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    ) {
+    }
+
     <span class="doccomment">/// Sends a proposal if possible from the high qc we have
     </span><span class="attr">#[allow(clippy::too_many_lines)]
+    #[cfg(not(feature = <span class="string">"proposal-task"</span>))]
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,

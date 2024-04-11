@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ProposalDependency"],"fn":["validate_quorum_proposal","validate_view_sync_finalize_certificate"],"struct":["ProposalDependencyHandle","QuorumProposalTaskState"]};
+window.SIDEBAR_ITEMS = {"enum":["ProposalDependency"],"struct":["ProposalDependencyHandle","QuorumProposalTaskState"]};
