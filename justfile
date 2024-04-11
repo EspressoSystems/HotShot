@@ -45,7 +45,7 @@ example_fixed_leader *ARGS:
   RUST_LOG=error,hotshot_orchestrator::config="info" cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
 
 example_gpuvid_leader *ARGS:
-  RUST_LOG=error,hotshot_orchestrator::config="info" cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
+  RUST_LOG=info cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
 
 test *ARGS:
   echo Testing {{ARGS}}
