@@ -30,7 +30,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 
-use crate::consensus::BUILDER_FEE;
 use crate::{
     consensus::CommitmentAndMetadata,
     events::HotShotEvent,
@@ -184,8 +183,6 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &parent_leaf,
             commit_and_metadata.commitment,
             commit_and_metadata.metadata.clone(),
-            BUILDER_FEE,
-            None,
         )
         .await;
 

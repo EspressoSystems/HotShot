@@ -16,7 +16,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     data::Leaf,
-    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, ValidatedState},
+    traits::{node_implementation::NodeType, ValidatedState},
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
@@ -138,10 +138,6 @@ pub trait BlockHeader<TYPES: NodeType>:
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
-        fee_amount: u64,
-        fee_signature: Option<
-            <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
-        >,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.

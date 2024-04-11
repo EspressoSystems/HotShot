@@ -244,8 +244,6 @@ async fn build_quorum_proposal_and_signature(
         &parent_leaf,
         payload_commitment,
         (),
-        0,
-        None,
     )
     .await;
     let mut proposal = QuorumProposal::<TestTypes> {
