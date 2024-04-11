@@ -47,7 +47,7 @@ use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
-    event::EventType,
+    event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
@@ -59,6 +59,7 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
+    vote::HasViewNumber,
     HotShotConfig,
 };
 
@@ -191,7 +192,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 anchored_leaf.get_block_header(),
             )),
         };
-
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -199,11 +199,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state,
-                    delta: initializer.state_delta,
+                    state: validated_state.clone(),
+                    delta: initializer.state_delta.clone(),
                 },
             },
         );
+
         for (view_num, inner) in initializer.undecided_state {
             validated_state_map.insert(view_num, inner);
         }
@@ -241,7 +242,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
-            high_qc: initializer.high_qc,
+            high_qc: initializer.high_qc.clone(),
             metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
@@ -249,7 +250,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
         let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
-
+        // Emit decide for genesis leaf if it;s the genesis
+        if initializer.high_qc.get_view_number() == TYPES::Time::genesis() {
+            let decide = Event {
+                view_number: TYPES::Time::genesis(),
+                event: EventType::Decide {
+                    leaf_chain: Arc::new(vec![LeafInfo {
+                        leaf: anchored_leaf,
+                        state: validated_state,
+                        delta: initializer.state_delta,
+                        vid_share: None,
+                    }]),
+                    qc: initializer.high_qc.into(),
+                    block_size: None,
+                },
+            };
+            external_tx
+                .broadcast_direct(decide)
+                .await
+                .expect("Fialed broadcasting to brand new channel");
+        }
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
         external_tx.set_await_active(false);
