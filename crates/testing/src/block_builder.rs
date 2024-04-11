@@ -1,5 +1,10 @@
 use std::{
-    collections::HashMap, fmt::Display, num::NonZeroUsize, ops::Deref, sync::Arc, time::Duration,
+    collections::HashMap,
+    fmt::Display,
+    num::NonZeroUsize,
+    ops::Deref,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -260,12 +265,18 @@ pub fn run_random_builder<TYPES: NodeType>(
     async_spawn(app.serve(url, STATIC_VER_0_1));
 }
 
+#[derive(Debug, Clone)]
+struct SubmittedTransaction<TYPES: NodeType> {
+    claimed: Option<Instant>,
+    transaction: TYPES::Transaction,
+}
+
 pub struct SimpleBuilderSource<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
     priv_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     num_storage_nodes: usize,
     #[allow(clippy::type_complexity)]
-    transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
+    transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
 }
 
@@ -290,7 +301,20 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
         let transactions = self
             .transactions
             .read(|txns| {
-                Box::pin(async { txns.values().cloned().collect::<Vec<TYPES::Transaction>>() })
+                Box::pin(async {
+                    txns.values()
+                        .filter(|txn| {
+                            // We want transactions that are either unclaimed, or claimed long ago
+                            // and thus probably not included, or they would've been decided on
+                            // already and removed from the queue
+                            txn.claimed
+                                .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
+                                .unwrap_or(true)
+                        })
+                        .cloned()
+                        .map(|txn| txn.transaction)
+                        .collect::<Vec<TYPES::Transaction>>()
+                })
             })
             .await;
         let (metadata, payload, header_input) = build_block(
@@ -317,9 +341,26 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
         block_hash: &BuilderCommitment,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
-        let mut blocks = self.blocks.write().await;
-        let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
-        entry.payload.take().ok_or(BuildError::Missing)
+        let payload = {
+            let mut blocks = self.blocks.write().await;
+            let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
+            entry.payload.take().ok_or(BuildError::Missing)?
+        };
+
+        let now = Instant::now();
+
+        let claimed_transactions = payload
+            .block_payload
+            .transaction_commitments(&payload.metadata);
+
+        let mut transactions = self.transactions.write().await;
+        for txn_hash in claimed_transactions {
+            if let Some(txn) = transactions.get_mut(&txn_hash) {
+                txn.claimed = Some(now);
+            }
+        }
+
+        Ok(payload)
     }
 
     async fn claim_block_header_input(
@@ -361,7 +402,7 @@ where
 #[derive(Clone)]
 pub struct SimpleBuilderTask<TYPES: NodeType> {
     #[allow(clippy::type_complexity)]
-    transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
+    transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     decided_transactions: LruCache<Commitment<TYPES::Transaction>, ()>,
 }
@@ -399,11 +440,33 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                             }
                             self.blocks.write().await.clear();
                         }
+                        EventType::DAProposal { proposal, .. } => {
+                            let payload = TYPES::BlockPayload::from_bytes(
+                                proposal.data.encoded_transactions.into_iter(),
+                                &proposal.data.metadata,
+                            );
+                            let now = Instant::now();
+
+                            let mut queue = self.transactions.write().await;
+                            for commitment in
+                                payload.transaction_commitments(&proposal.data.metadata)
+                            {
+                                if let Some(txn) = queue.get_mut(&commitment) {
+                                    txn.claimed = Some(now);
+                                }
+                            }
+                        }
                         EventType::Transactions { transactions } => {
                             let mut queue = self.transactions.write().await;
                             for transaction in transactions {
                                 if !self.decided_transactions.contains(&transaction.commit()) {
-                                    queue.insert(transaction.commit(), transaction.clone());
+                                    queue.insert(
+                                        transaction.commit(),
+                                        SubmittedTransaction {
+                                            claimed: None,
+                                            transaction: transaction.clone(),
+                                        },
+                                    );
                                 }
                             }
                         }
