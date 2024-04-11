@@ -8,24 +8,24 @@ use std::sync::Arc;
 
 use crate::predicates::{Predicate, PredicateResult};
 
-type BooleanCallback<TYPES> = Arc<dyn Fn(Arc<HotShotEvent<TYPES>>) -> bool + Send + Sync>;
+type EventCallback<TYPES> = Arc<dyn Fn(Arc<HotShotEvent<TYPES>>) -> bool + Send + Sync>;
 
-pub struct EventBooleanPredicate<TYPES>
+pub struct EventPredicate<TYPES>
 where
     TYPES: NodeType + Send + Sync,
 {
-    check: BooleanCallback<TYPES>,
+    check: EventCallback<TYPES>,
     info: String,
 }
 
-impl<TYPES: NodeType> std::fmt::Debug for EventBooleanPredicate<TYPES> {
+impl<TYPES: NodeType> std::fmt::Debug for EventPredicate<TYPES> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.info)
     }
 }
 
 #[async_trait]
-impl<TYPES> Predicate<Arc<HotShotEvent<TYPES>>> for EventBooleanPredicate<TYPES>
+impl<TYPES> Predicate<Arc<HotShotEvent<TYPES>>> for EventPredicate<TYPES>
 where
     TYPES: NodeType + Send + Sync + 'static,
 {
@@ -38,106 +38,106 @@ where
     }
 }
 
-pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Box<EventBooleanPredicate<TYPES>>
+pub fn exact<TYPES>(event: HotShotEvent<TYPES>) -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = format!("{:?}", event);
     let event = Arc::new(event);
 
-    let check: BooleanCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
+    let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
         let event_clone = event.clone();
         *e == *event_clone
     });
 
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn leaf_decided<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn leaf_decided<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "LeafDecided".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), LeafDecided(_)));
 
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn quorum_vote_send<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn quorum_vote_send<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "QuorumVoteSend".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumVoteSend(_)));
 
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn view_change<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn view_change<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "ViewChange".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), ViewChange(_)));
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn upgrade_certificate_formed<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn upgrade_certificate_formed<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "UpgradeCertificateFormed".to_string();
-    let check: BooleanCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
+    let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
         matches!(e.as_ref(), UpgradeCertificateFormed(_))
     });
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn quorum_proposal_send_with_upgrade_certificate<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend with UpgradeCertificate attached".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| match e.as_ref() {
             QuorumProposalSend(proposal, _) => proposal.data.upgrade_certificate.is_some(),
             _ => false,
         });
-    Box::new(EventBooleanPredicate { info, check })
+    Box::new(EventPredicate { info, check })
 }
 
-pub fn quorum_proposal_validated<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn quorum_proposal_validated<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalValidated".to_string();
-    let check: BooleanCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
+    let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
         matches!(*e.clone(), QuorumProposalValidated(..))
     });
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn quorum_proposal_send<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn quorum_proposal_send<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), QuorumProposalSend(..)));
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
 pub fn quorum_proposal_send_with_null_block<TYPES>(
     num_storage_nodes: usize,
-) -> Box<EventBooleanPredicate<TYPES>>
+) -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "QuorumProposalSend with null block payload".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| match e.as_ref() {
             QuorumProposalSend(proposal, _) => {
                 Some(proposal.data.block_header.payload_commitment())
@@ -145,15 +145,15 @@ where
             }
             _ => false,
         });
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
 
-pub fn timeout_vote_send<TYPES>() -> Box<EventBooleanPredicate<TYPES>>
+pub fn timeout_vote_send<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
 {
     let info = "TimeoutVoteSend".to_string();
-    let check: BooleanCallback<TYPES> =
+    let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), TimeoutVoteSend(..)));
-    Box::new(EventBooleanPredicate { check, info })
+    Box::new(EventPredicate { check, info })
 }
