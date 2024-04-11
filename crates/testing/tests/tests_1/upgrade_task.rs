@@ -189,6 +189,7 @@ async fn test_upgrade_and_consensus_task() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
     let mut views = Vec::new();
+    let mut builder_infos = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -199,6 +200,7 @@ async fn test_upgrade_and_consensus_task() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     generator.add_upgrade(upgrade_data.clone());
@@ -210,6 +212,7 @@ async fn test_upgrade_and_consensus_task() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     let upgrade_votes = other_handles
@@ -245,10 +248,12 @@ async fn test_upgrade_and_consensus_task() {
         vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         vec![
             DACertificateRecv(dacs[1].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[2].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(2),
+                builder_infos[2].2,
+                builder_infos[2].3.clone(),
             ),
             QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
         ],
@@ -346,6 +351,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
     let mut views = Vec::new();
+    let mut builder_infos = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -356,6 +362,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     generator.add_upgrade(upgrade_data.clone());
@@ -367,6 +374,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // We are now in the upgrade period, and set the transactions to null for the QuorumProposalRecv in view 5.
@@ -380,6 +388,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // We set the transactions to something not null for view 6, but we expect the node to emit a quorum proposal where they are still null.
@@ -392,6 +401,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     // For view 7, we set the transactions to something not null. The node should fail to vote on this.
@@ -404,6 +414,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
         views.push(view.clone());
+        builder_infos.push(view.builder_info.clone());
     }
 
     let consensus_state = ConsensusTaskState::<
@@ -433,58 +444,70 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             VidDisperseRecv(vids[1].0[0].clone()),
             DACertificateRecv(dacs[1].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[1].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(2),
+                builder_infos[1].2,
+                builder_infos[1].3.clone(),
             ),
         ],
         vec![
             DACertificateRecv(dacs[2].clone()),
             VidDisperseRecv(vids[2].0[0].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[2].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(3),
+                builder_infos[2].2,
+                builder_infos[2].3.clone(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
         vec![
             DACertificateRecv(dacs[3].clone()),
             VidDisperseRecv(vids[3].0[0].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[3].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(4),
+                builder_infos[3].2,
+                builder_infos[3].3.clone(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
         vec![
             DACertificateRecv(dacs[4].clone()),
             VidDisperseRecv(vids[4].0[0].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[4].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(5),
+                builder_infos[4].2,
+                builder_infos[4].3.clone(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
         vec![
             DACertificateRecv(dacs[5].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[5].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(6),
+                builder_infos[5].2,
+                builder_infos[5].3.clone(),
             ),
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
         vec![
             DACertificateRecv(dacs[6].clone()),
             VidDisperseRecv(vids[6].0[0].clone()),
-            SendPayloadCommitmentAndMetadata(
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
                 vids[6].0[0].data.payload_commitment,
                 (),
                 ViewNumber::new(7),
+                builder_infos[6].2,
+                builder_infos[6].3.clone(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],

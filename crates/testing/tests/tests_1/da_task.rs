@@ -34,7 +34,7 @@ async fn test_da_task() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let (payload_commit, precompute_data) = precompute_vid_commitment(
+    let (payload_commit, _precompute_data) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -78,9 +78,9 @@ async fn test_da_task() {
                 (),
                 ViewNumber::new(2),
                 builder_infos[0].0,
-                builder_infos[0].1,
+                builder_infos[0].1.clone(),
                 builder_infos[0].2,
-                builder_infos[0].3,
+                builder_infos[0].3.clone(),
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
@@ -119,7 +119,7 @@ async fn test_da_task_storage_failure() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let (payload_commit, precompute_data) = precompute_vid_commitment(
+    let (payload_commit, _precompute_data) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -163,9 +163,9 @@ async fn test_da_task_storage_failure() {
                 (),
                 ViewNumber::new(2),
                 builder_infos[0].0,
-                builder_infos[0].1,
+                builder_infos[0].1.clone(),
                 builder_infos[0].2,
-                builder_infos[0].3,
+                builder_infos[0].3.clone(),
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],

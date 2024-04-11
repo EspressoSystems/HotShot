@@ -1,21 +1,26 @@
 use hotshot::types::SignatureKey;
 use hotshot_example_types::{block_types::TestTransaction, node_types::TestTypes};
-use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
-use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
+use hotshot_task_impls::{
+    events::HotShotEvent, helpers::calculate_vid_disperse_using_precompute_data, vid::VIDTaskState,
+};
+use hotshot_testing::task_helpers::build_system_handle;
 use hotshot_types::{
     data::{DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
     traits::{
+        block_contents::precompute_vid_commitment,
         consensus_api::ConsensusApi,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
+        signature_key::BuilderSignatureKey,
     },
 };
-use jf_primitives::vid::VidScheme;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-
+use std::sync::Arc;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_task() {
+    const BUILDER_FEE: u64 = 0;
     use hotshot_task_impls::harness::run_harness;
     use hotshot_types::message::Proposal;
 
@@ -27,19 +32,44 @@ async fn test_vid_task() {
     let pub_key = *handle.public_key();
 
     // quorum membership for VID share distribution
+    //let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    //let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
+    // let transactions = vec![TestTransaction(vec![0])];
+    // let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    //let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    //let payload_commitment = vid_disperse.commit;
+
+    // quorum membership for VID share distribution
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
+    //let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let payload_commitment = vid_disperse.commit;
+
+    let (payload_commitment, precompute_data) =
+        precompute_vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+
+    let vid_disperse: VidDisperse<TestTypes> = calculate_vid_disperse_using_precompute_data(
+        encoded_transactions.clone(),
+        Arc::new(quorum_membership),
+        ViewNumber::new(0),
+        precompute_data.clone(),
+    )
+    .await;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
         handle.private_key(),
         payload_commitment.as_ref(),
     )
     .expect("Failed to sign block payload!");
+    //  mock signature
+    let builder_signature = <TestTypes as NodeType>::BuilderSignatureKey::sign_builder_message(
+        handle.private_key(),
+        payload_commitment.as_ref(),
+    )
+    .expect("Failed to sign builder message!");
+
     let proposal: DAProposal<TestTypes> = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: (),
@@ -50,12 +80,6 @@ async fn test_vid_task() {
         signature,
         _pd: PhantomData,
     };
-
-    let vid_disperse = VidDisperse::from_membership(
-        message.data.view_number,
-        vid_disperse,
-        quorum_membership.clone().into(),
-    );
 
     let vid_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -82,6 +106,10 @@ async fn test_vid_task() {
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
+        payload_commitment.clone(),
+        precompute_data,
+        BUILDER_FEE,
+        builder_signature.clone(),
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),
@@ -98,7 +126,13 @@ async fn test_vid_task() {
     );
 
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        HotShotEvent::SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+            payload_commitment,
+            (),
+            ViewNumber::new(2),
+            BUILDER_FEE,
+            builder_signature,
+        ),
         1,
     );
     output.insert(

@@ -401,7 +401,7 @@ pub fn build_vid_proposal(
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
     precompute_data: VidPrecomputeData,
 ) -> Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>> {
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     let vid_disperse = VidDisperse::from_membership(

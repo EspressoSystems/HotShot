@@ -62,7 +62,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
                 (),
                 ViewNumber::new(2),
                 builder_infos[1].2,
-                builder_infos[1].3,
+                builder_infos[1].3.clone(),
             ),
         ],
         outputs: vec![
@@ -97,9 +97,12 @@ async fn test_quorum_proposal_task_qc_timeout() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut builder_infos = Vec::new();
+
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        builder_infos.push(view.builder_info.clone());
     }
     let timeout_data = TimeoutData {
         view: ViewNumber::new(1),
@@ -108,6 +111,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        builder_infos.push(view.builder_info.clone());
     }
 
     // Get the proposal cert out for the view sync input
@@ -124,6 +128,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 payload_commitment,
                 (),
                 ViewNumber::new(2),
+                builder_infos[1].2,
+                builder_infos[1].3.clone(),
             ),
         ],
         outputs: vec![
@@ -158,9 +164,11 @@ async fn test_quorum_proposal_task_view_sync() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut builder_infos = Vec::new();
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        builder_infos.push(view.builder_info.clone());
     }
 
     let view_sync_finalize_data = ViewSyncFinalizeData {
@@ -171,6 +179,7 @@ async fn test_quorum_proposal_task_view_sync() {
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        builder_infos.push(view.builder_info.clone());
     }
 
     // Get the proposal cert out for the view sync input
@@ -183,7 +192,13 @@ async fn test_quorum_proposal_task_view_sync() {
     let view_2 = TestScriptStage {
         inputs: vec![
             ViewSyncFinalizeCertificate2Recv(cert.clone()),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadataAndBuilderFeesInfo(
+                payload_commitment,
+                (),
+                ViewNumber::new(2),
+                builder_infos[1].2,
+                builder_infos[1].3.clone(),
+            ),
         ],
         outputs: vec![
             exact(QuorumProposalDependenciesValidated(ViewNumber::new(2))),

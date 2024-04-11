@@ -239,9 +239,8 @@ impl<
                     ) {
                         error!("Failed to verify available block data response message signature");
                         continue;
-                    } else {
-                        block_data
                     }
+                    block_data
                 }
                 Err(err) => {
                     error!(%err, "Failed to claim block");
@@ -280,9 +279,8 @@ impl<
                     ) {
                         error!("Failed to verify fee signature");
                         continue;
-                    } else {
-                        header_input
                     }
+                    header_input
                 }
                 Err(err) => {
                     error!(%err, "Failed to claim block");

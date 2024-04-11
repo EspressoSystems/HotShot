@@ -82,7 +82,7 @@ async fn test_consensus_task() {
                 (),
                 ViewNumber::new(2),
                 builder_infos[1].2,
-                builder_infos[1].3,
+                builder_infos[1].3.clone(),
             ),
         ],
         outputs: vec![
@@ -368,7 +368,7 @@ async fn test_view_sync_finalize_propose() {
                 (),
                 ViewNumber::new(4),
                 builder_infos[1].2,
-                builder_infos[1].3,
+                builder_infos[1].3.clone(),
             ),
         ],
         outputs: vec![
