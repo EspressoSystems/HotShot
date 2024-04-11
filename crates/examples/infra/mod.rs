@@ -492,8 +492,8 @@ pub trait RunDA<
                                 let leaf = &leaf_info.leaf;
                                 // use println for tmp debugging on Datadog
                                 let cur_view = *leaf.get_view_number();
-                                if cur_view % 10 == 0 {
-                                    println!("Decide event for leaf: {}", );
+                                if cur_view > 0 && cur_view % 10 == 0 {
+                                    println!("Decide event for leaf: {:?}", cur_view);
                                 }
 
                                 // iterate all the decided transactions to calculate latency
