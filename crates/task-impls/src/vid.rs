@@ -71,14 +71,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let encoded_transactions = encoded_transactions.clone();
                 // get the number of quorum committee members to be used for VID calculation
                 let num_storage_nodes = self.membership.total_nodes();
-
                 // calculate vid shares
                 let vid_disperse = spawn_blocking(move || {
-                    #[allow(clippy::panic)]
                     vid_scheme(num_storage_nodes).disperse(&encoded_transactions).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_storage_nodes},{})\n\terror: : {err}", encoded_transactions.len()))
                 })
                 .await;
-
                 #[cfg(async_executor_impl = "tokio")]
                 // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
                 let vid_disperse = vid_disperse.unwrap();
