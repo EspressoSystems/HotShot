@@ -3,7 +3,7 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent::*;
 use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
-use hotshot_testing::predicates::exact;
+use hotshot_testing::predicates::event::exact;
 use hotshot_testing::task_helpers::vid_scheme_from_view_number;
 use hotshot_testing::{
     script::{run_test_script, TestScriptStage},
@@ -57,9 +57,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
             QCFormed(either::Left(cert.clone())),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
-        outputs: vec![
-            exact(DummyQuorumProposalSend(ViewNumber::new(2))),
-        ],
+        outputs: vec![exact(DummyQuorumProposalSend(ViewNumber::new(2)))],
         asserts: vec![],
     };
 
@@ -112,9 +110,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
             QCFormed(either::Right(cert.clone())),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
-        outputs: vec![
-            exact(DummyQuorumProposalSend(ViewNumber::new(2))),
-        ],
+        outputs: vec![exact(DummyQuorumProposalSend(ViewNumber::new(2)))],
         asserts: vec![],
     };
 
@@ -170,9 +166,7 @@ async fn test_quorum_proposal_task_view_sync() {
             ViewSyncFinalizeCertificate2Recv(cert.clone()),
             SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
         ],
-        outputs: vec![
-            exact(DummyQuorumProposalSend(ViewNumber::new(2))),
-        ],
+        outputs: vec![exact(DummyQuorumProposalSend(ViewNumber::new(2)))],
         asserts: vec![],
     };
 
@@ -188,7 +182,6 @@ async fn test_quorum_proposal_task_view_sync() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_with_incomplete_events() {
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 

@@ -9,7 +9,8 @@ use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
-    predicates::*,
+    predicates::event::*,
+    predicates::upgrade::*,
     script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
 };
