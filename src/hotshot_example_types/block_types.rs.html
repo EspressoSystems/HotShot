@@ -268,13 +268,6 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -446,16 +439,6 @@
         <span class="prelude-val">Ok</span>(TestTransaction::encode(<span class="self">self</span>.transactions.clone())<span class="question-mark">?</span>.into_iter())
     }
 
-    <span class="kw">fn </span>transaction_commitments(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata,
-    ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
-        <span class="self">self</span>.transactions
-            .iter()
-            .map(committable::Committable::commit)
-            .collect()
-    }
-
     <span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment {
         <span class="kw">let </span><span class="kw-2">mut </span>digest = sha2::Sha256::new();
         <span class="kw">for </span>txn <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.transactions {
@@ -464,8 +447,11 @@
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    <span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::Transaction&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.transactions
+    <span class="kw">fn </span>get_transactions&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        _metadata: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Metadata,
+    ) -&gt; <span class="kw">impl </span><span class="lifetime">'a </span>+ Iterator&lt;Item = <span class="self">Self</span>::Transaction&gt; {
+        <span class="self">self</span>.transactions.iter().cloned()
     }
 }
 

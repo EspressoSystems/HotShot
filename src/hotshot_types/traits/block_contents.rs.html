@@ -158,6 +158,18 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -249,13 +261,25 @@
     </span><span class="kw">fn </span>transaction_commitments(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata,
-    ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt;;
+    ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
+        <span class="self">self</span>.get_transactions(metadata)
+            .map(|tx| tx.commit())
+            .collect()
+    }
+
+    <span class="doccomment">/// Number of transactions in the block.
+    </span><span class="kw">fn </span>num_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; usize {
+        <span class="self">self</span>.get_transactions(metadata).count()
+    }
 
     <span class="doccomment">/// Generate commitment that builders use to sign block options.
     </span><span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment;
 
     <span class="doccomment">/// Get the transactions in the payload.
-    </span><span class="kw">fn </span>get_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::Transaction&gt;;
+    </span><span class="kw">fn </span>get_transactions&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        metadata: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Metadata,
+    ) -&gt; <span class="kw">impl </span><span class="lifetime">'a </span>+ Iterator&lt;Item = <span class="self">Self</span>::Transaction&gt;;
 }
 
 <span class="doccomment">/// extra functions required on block to be usable by hotshot-testing

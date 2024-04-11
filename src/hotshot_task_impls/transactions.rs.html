@@ -258,7 +258,6 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -415,8 +414,7 @@
         )&gt; = <span class="prelude-val">None</span>;
         <span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.api.propose_max_round_time()
             &amp;&amp; latest_block.as_ref().map_or(<span class="bool-val">true</span>, |(data, <span class="kw">_</span>)| {
-                data.block_payload.get_transactions(<span class="kw-2">&amp;</span>data.metadata).len()
-                    &lt; <span class="self">self</span>.api.min_transactions()
+                data.block_payload.num_transactions(<span class="kw-2">&amp;</span>data.metadata) &lt; <span class="self">self</span>.api.min_transactions()
             })
         {
             <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span><span class="self">self
@@ -473,7 +471,7 @@
                 }
             };
 
-            <span class="kw">let </span>num_txns = block.block_payload.get_transactions(<span class="kw-2">&amp;</span>block.metadata).len();
+            <span class="kw">let </span>num_txns = block.block_payload.num_transactions(<span class="kw-2">&amp;</span>block.metadata);
 
             latest_block = <span class="prelude-val">Some</span>((block, header_input));
             <span class="kw">if </span>num_txns &gt;= <span class="self">self</span>.api.min_transactions() {
