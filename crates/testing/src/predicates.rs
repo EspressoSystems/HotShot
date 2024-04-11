@@ -1,7 +1,6 @@
-use std::{collections::HashSet, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::Future;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
@@ -60,7 +59,7 @@ where
     TYPES: NodeType + Send + Sync + 'static,
 {
     async fn evaluate(&self, input: &Arc<HotShotEvent<TYPES>>) -> PredicateResult {
-        PredicateResult::from((self.check)(input.clone().into()))
+        PredicateResult::from((self.check)(input.clone()))
     }
 
     async fn info(&self) -> String {
