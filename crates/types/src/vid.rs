@@ -8,6 +8,8 @@
 //! This crate and all downstream crates should talk to the VID scheme only
 //! via the traits exposed here.
 
+use std::{fmt::Debug, ops::Range};
+
 use ark_bn254::Bn254;
 use jf_primitives::{
     pcs::{
@@ -28,7 +30,6 @@ use jf_primitives::{
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::{fmt::Debug, ops::Range};
 
 /// VID scheme constructor.
 ///
@@ -55,6 +56,7 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // https://github.com/EspressoSystems/HotShot/issues/2152
     let recovery_threshold = 1 << num_storage_nodes.ilog2();
 
+    #[allow(clippy::panic)]
     let num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
         panic!("num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}")
     });

@@ -3,9 +3,8 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::parse::Result;
 use syn::{
-    parse::{Parse, ParseStream},
+    parse::{Parse, ParseStream, Result},
     parse_macro_input, Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token,
 };
 
@@ -119,7 +118,7 @@ impl TestData {
             async fn #test_name() {
                 async_compatibility_layer::logging::setup_logging();
                 async_compatibility_layer::logging::setup_backtrace();
-                (#metadata).gen_launcher::<#ty, #imply>(0).launch().run_test::<SimpleBuilderImplementation<#imply>>().await;
+                (#metadata).gen_launcher::<#ty, #imply>(0).launch().run_test::<SimpleBuilderImplementation>().await;
             }
         }
     }
@@ -354,7 +353,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         #task_names.state().handle_result(&res).await;
                     }
 
-                    while let Ok(received_output) = test_receiver.try_recv() {
+                    while let Ok(Ok(received_output)) = async_timeout(Duration::from_millis(35), test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output);
 
                         let output_asserts = &mut #task_expectations[stage_number].output_asserts;

@@ -3,12 +3,30 @@
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+};
+
+use anyhow::{ensure, Result};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use bincode::Options;
+use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
+use derivative::Derivative;
+use jf_primitives::vid::VidDisperse as JfVidDisperse;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use snafu::Snafu;
+use tracing::error;
+
 use crate::{
     message::Proposal,
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::UpgradeProposalData,
+    simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
@@ -23,22 +41,6 @@ use crate::{
     vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use bincode::Options;
-use committable::{Commitment, Committable, RawCommitmentBuilder};
-use derivative::Derivative;
-use jf_primitives::vid::VidDisperse as JfVidDisperse;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use snafu::Snafu;
-use std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
-use tracing::error;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -156,7 +158,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub fn from_membership(
         view_number: TYPES::Time,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: Arc<TYPES::Membership>,
+        membership: &TYPES::Membership,
     ) -> Self {
         let shares = membership
             .get_staked_committee(view_number)
@@ -185,6 +187,7 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
+    /// Check that the given ViewChangeEvidence is relevant to the current view.
     pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
         match self {
             ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.get_data().view == *view - 1,
@@ -194,6 +197,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+/// VID share and associated metadata for a single node
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::Time,
@@ -267,6 +271,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         Some(vid_disperse)
     }
 
+    /// Split a VID share proposal into a proposal for each recipient.
     pub fn to_vid_share_proposals(
         vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
     ) -> Vec<Proposal<TYPES, VidDisperseShare<TYPES>>> {
@@ -424,6 +429,24 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> QuorumCertificate<TYPES> {
+    #[must_use]
+    /// Creat the Genesis certificate
+    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+        let data = QuorumData {
+            leaf_commit: Leaf::genesis(instance_state).commit(),
+        };
+        let commit = data.commit();
+        Self {
+            data,
+            vote_commitment: commit,
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
+            signatures: None,
+            _pd: PhantomData,
+        }
+    }
+}
+
 impl<TYPES: NodeType> Leaf<TYPES> {
     /// Create a new leaf from its components.
     ///
@@ -441,10 +464,23 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         let block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
+
+        let null_quorum_data = QuorumData {
+            leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
+        };
+
+        let justify_qc = QuorumCertificate {
+            data: null_quorum_data.clone(),
+            vote_commitment: null_quorum_data.commit(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
+            signatures: None,
+            _pd: PhantomData,
+        };
+
         Self {
             view_number: TYPES::Time::genesis(),
-            justify_qc: QuorumCertificate::<TYPES>::genesis(),
-            parent_commitment: fake_commitment(),
+            justify_qc,
+            parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
@@ -473,11 +509,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_parent_commitment(&self) -> Commitment<Self> {
         self.parent_commitment
     }
-    /// Commitment to this leaf's parent.
-    pub fn set_parent_commitment(&mut self, commitment: Commitment<Self>) {
-        self.parent_commitment = commitment;
-    }
-    /// Get a reference to the block header contained in this leaf.
+    /// The block header contained in this leaf.
     pub fn get_block_header(&self) -> &<TYPES as NodeType>::BlockHeader {
         &self.block_header
     }
@@ -525,6 +557,49 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// A commitment to the block payload contained in this leaf.
     pub fn get_payload_commitment(&self) -> VidCommitment {
         self.get_block_header().payload_commitment()
+    }
+
+    /// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
+    ///
+    /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
+    ///
+    /// # Errors
+    /// Returns an error if the certificates are not identical, or that when we no longer see a
+    /// cert, it's for the right reason.
+    pub fn extends_upgrade(
+        &self,
+        parent: &Self,
+        decided_upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
+    ) -> Result<()> {
+        match (
+            self.get_upgrade_certificate(),
+            parent.get_upgrade_certificate(),
+        ) {
+            // Easiest cases are:
+            //   - no upgrade certificate on either: this is the most common case, and is always fine.
+            //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
+            (None | Some(_), None) => {}
+            // If we no longer see a cert, we have to make sure that we either:
+            //    - no longer care because we have passed new_version_first_view, or
+            //    - no longer care because we have passed `decide_by` without deciding the certificate.
+            (None, Some(parent_cert)) => {
+                ensure!(self.get_view_number() > parent_cert.data.new_version_first_view
+                    || (self.get_view_number() > parent_cert.data.decide_by && decided_upgrade_certificate.is_none()),
+                       "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
+                );
+            }
+            // If we both have a certificate, they should be identical.
+            // Technically, this prevents us from initiating a new upgrade in the view immediately following an upgrade.
+            // I think this is a fairly lax restriction.
+            (Some(cert), Some(parent_cert)) => {
+                ensure!(cert == parent_cert, "The new leaf does not extend the parent leaf, because it has attached a different upgrade certificate.");
+            }
+        }
+
+        // This check should be added once we sort out the genesis leaf/justify_qc issue.
+        // ensure!(self.get_parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
+
+        Ok(())
     }
 }
 
@@ -600,10 +675,7 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
 }
 
 impl<TYPES: NodeType> Leaf<TYPES> {
-    pub fn from_proposal(proposal: &Proposal<TYPES, QuorumProposal<TYPES>>) -> Self {
-        Self::from_quorum_proposal(&proposal.data)
-    }
-
+    /// Constructs a leaf from a given quorum proposal.
     pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal<TYPES>) -> Self {
         // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
@@ -623,10 +695,29 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_payload: None,
         }
     }
+}
 
-    pub fn commit_from_proposal(
-        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    ) -> Commitment<Self> {
-        Leaf::from_proposal(proposal).commit()
+pub mod null_block {
+    #![allow(missing_docs)]
+    use jf_primitives::vid::VidScheme;
+    use memoize::memoize;
+
+    use crate::vid::{vid_scheme, VidCommitment};
+
+    /// The commitment for a null block payload.
+    ///
+    /// Note: the commitment depends on the network (via `num_storage_nodes`),
+    /// and may change (albeit rarely) during execution.
+    ///
+    /// We memoize the result to avoid having to recalculate it.
+    #[memoize(SharedCache, Capacity: 10)]
+    #[must_use]
+    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
+
+        match vid_result {
+            Ok(r) => Some(r),
+            Err(_) => None,
+        }
     }
 }

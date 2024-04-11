@@ -1,19 +1,12 @@
 use std::{cmp::max, marker::PhantomData};
 
+use committable::Committable;
+use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use sha2::{Digest, Sha256};
-
-use crate::task_helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
-use committable::Committable;
-
-use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
-
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
@@ -22,17 +15,19 @@ use hotshot_types::{
         ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DAData, DAVote, TimeoutData, TimeoutVote, UpgradeProposalData, UpgradeVote,
-        ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DAData, DAVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
     },
 };
+use sha2::{Digest, Sha256};
 
-use hotshot_types::simple_vote::QuorumData;
-use hotshot_types::simple_vote::QuorumVote;
+use crate::task_helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 
 #[derive(Clone)]
 pub struct TestView {
@@ -49,6 +44,7 @@ pub struct TestView {
     pub da_certificate: DACertificate<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
+    formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
     timeout_cert_data: Option<TimeoutData<TestTypes>>,
 }
@@ -89,7 +85,7 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(),
+            justify_qc: QuorumCertificate::genesis(&TestInstanceState {}),
             upgrade_certificate: None,
             proposal_certificate: None,
         };
@@ -116,7 +112,6 @@ impl TestView {
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
-        leaf.set_parent_commitment(Leaf::genesis(&TestInstanceState {}).commit());
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment!");
@@ -137,6 +132,7 @@ impl TestView {
             transactions,
             leader_public_key,
             upgrade_data: None,
+            formed_upgrade_certificate: None,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
@@ -215,7 +211,7 @@ impl TestView {
 
             Some(cert)
         } else {
-            None
+            self.formed_upgrade_certificate.clone()
         };
 
         let view_sync_certificate = if let Some(ref data) = self.view_sync_finalize_data {
@@ -272,7 +268,7 @@ impl TestView {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
-            upgrade_certificate,
+            upgrade_certificate: upgrade_certificate.clone(),
             proposal_certificate,
         };
 
@@ -320,6 +316,9 @@ impl TestView {
             // so we reset for the next view.
             transactions: Vec::new(),
             upgrade_data: None,
+            // We preserve the upgrade_certificate once formed,
+            // and reattach it on every future view until cleared.
+            formed_upgrade_certificate: upgrade_certificate,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,

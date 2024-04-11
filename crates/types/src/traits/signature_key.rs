@@ -1,12 +1,13 @@
 //! Minimal compatibility over public key signatures
-use bitvec::prelude::*;
-use ethereum_types::U256;
-use jf_primitives::errors::PrimitivesError;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
+
+use bitvec::prelude::*;
+use ethereum_types::U256;
+use jf_primitives::errors::PrimitivesError;
+use serde::{Deserialize, Serialize};
 use tagged_base64::TaggedBase64;
 
 /// Type representing stake table entries in a `StakeTable`
@@ -68,7 +69,8 @@ pub trait SignatureKey:
         + Eq
         + Serialize
         + for<'a> Deserialize<'a>
-        + Into<TaggedBase64>;
+        + Into<TaggedBase64>
+        + for<'a> TryFrom<&'a TaggedBase64>;
     /// The type of the assembled qc: assembled signature + `BitVec`
     type QCType: Send
         + Sync
