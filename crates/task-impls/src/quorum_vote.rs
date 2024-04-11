@@ -619,7 +619,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .entry(view)
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.clone());
-
+                if disperse.data.recipient_key != self.public_key {
+                    debug!("Got a Valid VID share but it's not for our key");
+                    return;
+                }
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     &event_sender.clone(),
