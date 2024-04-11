@@ -169,16 +169,6 @@ impl BlockPayload for TestBlockPayload {
         Ok(TestTransaction::encode(self.transactions.clone())?.into_iter())
     }
 
-    fn transaction_commitments(
-        &self,
-        _metadata: &Self::Metadata,
-    ) -> Vec<Commitment<Self::Transaction>> {
-        self.transactions
-            .iter()
-            .map(committable::Committable::commit)
-            .collect()
-    }
-
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
         for txn in &self.transactions {
@@ -187,8 +177,11 @@ impl BlockPayload for TestBlockPayload {
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    fn get_transactions(&self, _metadata: &Self::Metadata) -> &Vec<Self::Transaction> {
-        &self.transactions
+    fn get_transactions<'a>(
+        &'a self,
+        _metadata: &'a Self::Metadata,
+    ) -> impl 'a + Iterator<Item = Self::Transaction> {
+        self.transactions.iter().cloned()
     }
 }
 
@@ -250,6 +243,15 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
+    }
+
+    fn builder_commitment(
+        &self,
+        _metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
+    ) -> BuilderCommitment {
+        let mut digest = sha2::Sha256::new();
+        digest.update(self.payload_commitment.as_ref());
+        BuilderCommitment::from_raw_digest(digest.finalize())
     }
 }
 
