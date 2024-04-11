@@ -142,6 +142,7 @@ pub trait SignatureKey:
     fn genesis_proposer_pk() -> Self;
 }
 
+/// Builder Signature Key trait with minimal requirements
 pub trait BuilderSignatureKey:
     Send
     + Sync

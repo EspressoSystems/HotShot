@@ -16,7 +16,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
+    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, ValidatedState},
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidSchemeType},
 };

@@ -17,7 +17,10 @@ use tracing::instrument;
 use crate::{
     qc::{BitVectorQC, QCParams},
     stake_table::StakeTableEntry,
-    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
+    traits::{
+        qc::QuorumCertificateScheme,
+        signature_key::{BuilderSignatureKey, SignatureKey},
+    },
 };
 
 /// BLS private key used to sign a message
@@ -129,7 +132,7 @@ impl SignatureKey for BLSPubKey {
 
 // Currently implement builder signature key for BLS
 // Sequencer will implement the same trait for ethereum types
-// Builder signature key
+/// Builder signature key
 pub type BuilderKey = BLSPubKey;
 
 impl BuilderSignatureKey for BuilderKey {

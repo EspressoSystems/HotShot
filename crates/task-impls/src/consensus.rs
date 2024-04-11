@@ -41,9 +41,16 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
+use vbs::version::Version;
 
-// TODO: This should be replaced with builder fee based on builder response
-/// Builder Fee
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
+
 pub const BUILDER_FEE: u64 = 0;
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
@@ -223,6 +230,8 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         &parent_leaf,
         commitment,
         metadata,
+        BUILDER_FEE,
+        None,
     )
     .await;
 
