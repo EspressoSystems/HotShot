@@ -2,7 +2,9 @@ use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
-    predicates::event::{exact, quorum_proposal_send, quorum_proposal_validated},
+    predicates::event::{
+        exact, quorum_proposal_send, quorum_proposal_validated,
+    },
     task_helpers::{get_vid_share, vid_scheme_from_view_number},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
@@ -51,7 +53,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[1].clone()),
+            DACertificateRecv(dacs[0].clone()),
             VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
