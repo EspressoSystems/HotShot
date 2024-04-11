@@ -26,7 +26,7 @@ pub struct AvailableBlockData<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     pub signature:
         <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
-    pub sender: TYPES::SignatureKey,
+    pub sender: <TYPES as NodeType>::BuilderSignatureKey,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]

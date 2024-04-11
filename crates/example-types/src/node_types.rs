@@ -6,7 +6,10 @@ use hotshot::traits::{
     NodeImplementation,
 };
 use hotshot_types::{
-    constants::WebServerVersion, data::ViewNumber, message::Message, signature_key::BLSPubKey,
+    constants::WebServerVersion,
+    data::ViewNumber,
+    message::Message,
+    signature_key::{BLSPubKey, BuilderKey},
     traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};

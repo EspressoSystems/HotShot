@@ -131,7 +131,7 @@ impl SignatureKey for BLSPubKey {
 }
 
 // Currently implement builder signature key for BLS
-// Sequencer will implement the same trait for ethereum types
+// So copy pasta here, but actually Sequencer will implement the same trait for ethereum types
 /// Builder signature key
 pub type BuilderKey = BLSPubKey;
 
@@ -154,5 +154,14 @@ impl BuilderSignatureKey for BuilderKey {
 
     fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool {
         BLSOverBN254CurveSignatureScheme::verify(&(), self, data, signature).is_ok()
+    }
+
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::BuilderPrivateKey) {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let kp = KeyPair::generate(&mut ChaCha20Rng::from_seed(new_seed));
+        (kp.ver_key(), kp.sign_key_ref().clone())
     }
 }
