@@ -39,7 +39,7 @@ async fn test_quorum_vote_task_success() {
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
             exact(DACertificateValidated(view.da_certificate.clone())),
-            exact(VIDShareValidated(view.vid_proposal.0[0].data.clone())),
+            exact(VIDShareValidated(view.vid_proposal.0[0].clone())),
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
             quorum_vote_send(),
         ],
@@ -94,7 +94,7 @@ async fn test_quorum_vote_task_miss_dependency() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
-            exact(VIDShareValidated(vids[0].0[0].data.clone())),
+            exact(VIDShareValidated(vids[0].0[0].clone())),
         ],
         asserts: vec![],
     };
@@ -117,7 +117,7 @@ async fn test_quorum_vote_task_miss_dependency() {
         ],
         outputs: vec![
             exact(DACertificateValidated(dacs[2].clone())),
-            exact(VIDShareValidated(vids[2].0[0].data.clone())),
+            exact(VIDShareValidated(vids[2].0[0].clone())),
         ],
         asserts: vec![],
     };
