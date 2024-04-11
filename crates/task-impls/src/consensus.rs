@@ -1240,11 +1240,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.clone());
                 if disperse.data.recipient_key != self.public_key {
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
-                            *disperse.data.view_number,
-                        ))
-                        .await;
                     return;
                 }
                 // stop polling for the received disperse after verifying it's valid

@@ -605,13 +605,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 }
 
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
-
                 self.consensus
                     .write()
                     .await
@@ -623,6 +616,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     debug!("Got a Valid VID share but it's not for our key");
                     return;
                 }
+                // stop polling for the received disperse after verifying it's valid
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        *disperse.data.view_number,
+                    ))
+                    .await;
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     &event_sender.clone(),
