@@ -501,6 +501,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         });
         // View changed, let's start primary again
         self.primary_down.store(false, Ordering::Relaxed);
+        self.primary_fail_counter.store(0, Ordering::Relaxed);
     }
 
     fn is_primary_down(&self) -> bool {
