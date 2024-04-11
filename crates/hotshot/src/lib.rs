@@ -61,6 +61,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -222,7 +223,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
         let start_view = initializer.start_view;
@@ -286,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                QuorumCertificate::genesis(),
+                self.consensus.read().await.high_qc.clone(),
             ))))
             .await
             .expect("Genesis Broadcast failed");
@@ -697,13 +699,13 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         Ok(Self {
             inner: Leaf::genesis(&instance_state),
-            instance_state,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(),
+            high_qc: QuorumCertificate::genesis(&instance_state),
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
+            instance_state,
         })
     }
 

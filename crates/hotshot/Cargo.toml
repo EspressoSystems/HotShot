@@ -57,16 +57,16 @@ vbs = { workspace = true }
 jf-primitives.workspace = true
 hotshot-orchestrator = { path = "../orchestrator" }
 blake3.workspace = true
+sha2 = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-cdn-client = { workspace = true, features = ["runtime-tokio"] }
+cdn-client = { workspace = true }
 cdn-broker = { workspace = true, features = [
-  "runtime-tokio",
   "strong-consistency",
   "global-permits",
 ] }
-cdn-marshal = { workspace = true, features = ["runtime-tokio"] }
+cdn-marshal = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }

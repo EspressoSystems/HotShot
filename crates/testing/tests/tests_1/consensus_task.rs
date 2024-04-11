@@ -3,9 +3,10 @@ use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::task_helpers::key_pair_for_id;
+use hotshot_testing::task_helpers::get_vid_share;
 use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
-    predicates::{
+    predicates::event::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
@@ -56,7 +57,7 @@ async fn test_consensus_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -103,7 +104,6 @@ async fn test_consensus_vote() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::exact,
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
@@ -135,7 +135,7 @@ async fn test_consensus_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
@@ -187,7 +187,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -199,7 +199,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VIDShareRecv(vids[1].0[0].clone()),
+        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
         DACertificateRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
@@ -297,7 +297,7 @@ async fn test_view_sync_finalize_propose() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -378,8 +378,6 @@ async fn test_view_sync_finalize_propose() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will indeed vote if the cert is valid and matches the correct view number.
 async fn test_view_sync_finalize_vote() {
-    use hotshot_testing::predicates::timeout_vote_send;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -420,7 +418,7 @@ async fn test_view_sync_finalize_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -480,8 +478,6 @@ async fn test_view_sync_finalize_vote() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
 async fn test_view_sync_finalize_vote_fail_view_number() {
-    use hotshot_testing::predicates::timeout_vote_send;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -522,7 +518,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -618,7 +614,7 @@ async fn test_vid_disperse_storage_failure() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),

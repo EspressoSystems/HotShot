@@ -13,7 +13,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
-    event::{Event, EventType, LeafInfo},
+    event::{Event, EventType},
     message::GeneralConsensusMessage,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
@@ -49,21 +49,26 @@ enum VoteDependency {
 }
 
 /// Handler for the vote dependency.
-struct VoteDependencyHandle<TYPES: NodeType> {
+struct VoteDependencyHandle<TYPES: NodeType, S: Storage<TYPES>> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
     /// Private Key.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// Reference to the storage.
+    pub storage: Arc<RwLock<S>>,
     /// View number to vote on.
     view_number: TYPES::Time,
     /// Event sender.
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
 }
-impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
+impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
+    for VoteDependencyHandle<TYPES, S>
+{
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut leaf = None;
+        let mut disperse_share = None;
         for event in res {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
@@ -77,14 +82,16 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                         payload_commitment = Some(proposal_payload_comm);
                     }
                     let parent_commitment = parent_leaf.commit();
-                    let mut proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    proposed_leaf.set_parent_commitment(parent_commitment);
+                    let proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                    if proposed_leaf.get_parent_commitment() != parent_commitment {
+                        return;
+                    }
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DACertificateValidated(cert) => {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
-                        if !cert.is_genesis && cert_payload_comm != comm {
+                        if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
@@ -93,7 +100,8 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                     }
                 }
                 HotShotEvent::VIDShareValidated(share) => {
-                    let vid_payload_commitment = share.payload_commitment;
+                    let vid_payload_commitment = share.data.payload_commitment;
+                    disperse_share = Some(share.clone());
                     if let Some(comm) = payload_commitment {
                         if vid_payload_commitment != comm {
                             error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
@@ -137,6 +145,14 @@ impl<TYPES: NodeType> HandleDepOutput for VoteDependencyHandle<TYPES> {
                 "Sending vote to next quorum leader {:?}",
                 vote.get_view_number() + 1
             );
+            // Add to the storage.
+            let Some(disperse) = disperse_share else {
+                return;
+            };
+            if let Err(e) = self.storage.write().await.append_vid(&disperse).await {
+                error!("Failed to store VID share with error {:?}", e);
+                return;
+            }
             broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
         }
     }
@@ -213,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                     VoteDependency::Vid => {
                         if let HotShotEvent::VIDShareValidated(disperse) = event {
-                            disperse.view_number
+                            disperse.data.view_number
                         } else {
                             return false;
                         }
@@ -255,6 +271,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             VoteDependencyHandle {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
+                storage: self.storage.clone(),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -317,31 +334,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
                 let consensus = self.consensus.upgradable_read().await;
                 // Get the parent leaf and state.
-                let parent = if justify_qc.is_genesis {
-                    // Send the `Decide` event for the genesis block if the justify QC is genesis.
-                    let leaf = Leaf::genesis(&consensus.instance_state);
-                    let (validated_state, state_delta) =
-                        TYPES::ValidatedState::genesis(&consensus.instance_state);
-                    let state = Arc::new(validated_state);
-                    broadcast_event(
-                        Event {
-                            view_number: TYPES::Time::genesis(),
-                            event: EventType::Decide {
-                                leaf_chain: Arc::new(vec![LeafInfo::new(
-                                    leaf.clone(),
-                                    state.clone(),
-                                    Some(Arc::new(state_delta)),
-                                    None,
-                                )]),
-                                qc: Arc::new(justify_qc.clone()),
-                                block_size: None,
-                            },
-                        },
-                        &self.output_event_stream,
-                    )
-                    .await;
-                    Some((leaf, state))
-                } else {
+                let parent = {
                     match consensus
                         .saved_leaves
                         .get(&justify_qc.get_data().leaf_commit)
@@ -440,8 +433,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let delta = Arc::new(state_delta);
                 let parent_commitment = parent_leaf.commit();
                 let view = proposal.data.get_view_number();
-                let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-                proposed_leaf.set_parent_commitment(parent_commitment);
+                let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+                if proposed_leaf.get_parent_commitment() != parent_commitment {
+                    return;
+                }
 
                 // Validate the signature. This should also catch if `leaf_commitment`` does not
                 // equal our calculated parent commitment.
@@ -610,28 +605,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 }
 
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
-
-                // Add to the storage.
-                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
-                    error!("Failed to store VID share with error {:?}", e);
-                    return;
-                }
                 self.consensus
                     .write()
                     .await
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
-
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                if disperse.data.recipient_key != self.public_key {
+                    debug!("Got a Valid VID share but it's not for our key");
+                    return;
+                }
+                // stop polling for the received disperse after verifying it's valid
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        *disperse.data.view_number,
+                    ))
+                    .await;
                 broadcast_event(
-                    Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
+                    Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     &event_sender.clone(),
                 )
                 .await;
