@@ -270,7 +270,7 @@
     /// Like [`HotShotEvent::DAProposalRecv`].
     </span>VIDShareRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// VID share data is validated.
-    </span>VIDShareValidated(VidDisperseShare&lt;TYPES&gt;),
+    </span>VIDShareValidated(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network

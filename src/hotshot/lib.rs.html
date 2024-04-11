@@ -735,6 +735,8 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -798,6 +800,7 @@
     },
     HotShotConfig,
 };
+
 <span class="comment">// -- Rexports
 // External
 </span><span class="doccomment">/// Reexport rand crate
@@ -959,7 +962,8 @@
                     <span class="kw">return </span><span class="prelude-val">Err</span>(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
         <span class="kw">let </span>start_view = initializer.start_view;

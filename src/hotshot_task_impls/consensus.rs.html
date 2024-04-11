@@ -1654,6 +1654,10 @@
 <a href="#1652" id="1652">1652</a>
 <a href="#1653" id="1653">1653</a>
 <a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -2044,14 +2048,13 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_proposal {
             <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
             <span class="comment">// Only vote if you has seen the VID share for this view
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_vid_share) = consensus.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) {
-            } <span class="kw">else </span>{
+            </span><span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) <span class="kw">else </span>{
                 <span class="macro">debug!</span>(
                     <span class="string">"We have not seen the VID share for this view {:?} yet, so we cannot vote."</span>,
                     proposal.view_number
                 );
                 <span class="kw">return </span><span class="bool-val">false</span>;
-            }
+            };
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_cert {
                 <span class="kw">if </span>upgrade_cert.in_interim(<span class="self">self</span>.cur_view)
@@ -2124,6 +2127,19 @@
                         <span class="string">"Sending vote to next quorum leader {:?}"</span>,
                         vote.get_view_number() + <span class="number">1
                     </span>);
+                    <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
+                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(vid_share) = vid_shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
+                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_vid(vid_share).<span class="kw">await </span>{
+                            <span class="macro">error!</span>(
+                                <span class="string">"Failed to store VID Disperse Proposal with error {:?}, aborting vote"</span>,
+                                e
+                            );
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="macro">error!</span>(<span class="string">"Did not get a VID share for our public key, aborting vote"</span>);
+                        <span class="kw">return </span><span class="bool-val">false</span>;
+                    }
                     broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
                         .<span class="kw">await</span>;
                     <span class="kw">return </span><span class="bool-val">true</span>;
@@ -2578,7 +2594,7 @@
                                         .vid_shares
                                         .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                         .unwrap_or(<span class="kw-2">&amp;</span>HashMap::new())
-                                        .get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned();
+                                        .get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned().map(|prop| prop.data);
 
                                 <span class="comment">// Add our data into a new `LeafInfo`
                                 </span>leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
@@ -2876,30 +2892,22 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="comment">// stop polling for the received disperse after verifying it's valid
-                </span><span class="self">self</span>.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        <span class="kw-2">*</span>disperse.data.view_number,
-                    ))
-                    .<span class="kw">await</span>;
-
-                <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_vid(disperse).<span class="kw">await </span>{
-                    <span class="macro">error!</span>(
-                        <span class="string">"Failed to store VID Disperse Proposal with error {:?}, aborting vote"</span>,
-                        e
-                    );
-                    <span class="kw">return</span>;
-                }
-
                 <span class="self">self</span>.consensus
                     .write()
                     .<span class="kw">await
                     </span>.vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
-
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
+                    <span class="kw">return</span>;
+                }
+                <span class="comment">// stop polling for the received disperse after verifying it's valid
+                </span><span class="self">self</span>.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        <span class="kw-2">*</span>disperse.data.view_number,
+                    ))
+                    .<span class="kw">await</span>;
                 <span class="kw">if </span><span class="self">self</span>.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await </span>{
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }

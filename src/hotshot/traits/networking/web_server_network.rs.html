@@ -1315,6 +1315,24 @@
 <a href="#1313" id="1313">1313</a>
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1341,7 +1359,7 @@
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{Version01, VERSION_0_1},
-    message::{Message, MessagePurpose},
+    message::{CommitteeConsensusMessage, Message, MessageKind, MessagePurpose, SequencingMessage},
     traits::{
         network::{
             AsyncGenerator, ConnectedNetwork, ConsensusIntentEvent, NetworkError, NetworkMsg,
@@ -1488,7 +1506,7 @@
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>Inner&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
     <span class="doccomment">/// Our own key
-    </span>_own_key: TYPES::SignatureKey,
+    </span>own_key: TYPES::SignatureKey,
     <span class="doccomment">/// Queue for messages
     </span>poll_queue_0_1: Arc&lt;RwLock&lt;Vec&lt;RecvMsg&lt;Message&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Client is running
@@ -1644,15 +1662,31 @@
                         </span><span class="kw">return </span><span class="bool-val">true</span>;
                     }
                     MessagePurpose::VidDisperse =&gt; {
-                        <span class="comment">// TODO copy-pasted from `MessagePurpose::Proposal` https://github.com/EspressoSystems/HotShot/issues/1690
-
-                        </span><span class="self">self</span>.poll_queue_0_1
+                        <span class="kw">let </span>RecvMsg {
+                            message: <span class="prelude-val">Some</span>(message),
+                        } = deserialized_message.clone()
+                        <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        };
+                        <span class="kw">let </span>Message {
+                            sender: <span class="kw">_</span>,
+                            kind:
+                                MessageKind::Consensus(SequencingMessage::Committee(
+                                    CommitteeConsensusMessage::VidDisperseMsg(vid),
+                                )),
+                        } = message
+                        <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        };
+                        <span class="kw">if </span>vid.data.recipient_key != <span class="self">self</span>.own_key {
+                            <span class="comment">// error!("Key {:?} does not match ours for VID", vid.data.recipient_key);
+                            </span><span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                        <span class="self">self</span>.poll_queue_0_1
                             .write()
                             .<span class="kw">await
                             </span>.push(deserialized_message.clone());
-
-                        <span class="comment">// Only pushing the first proposal since we will soon only be allowing 1 proposal per view
-                        </span><span class="kw">return </span><span class="bool-val">true</span>;
+                        <span class="kw">return </span><span class="bool-val">true</span>;
                     }
 
                     MessagePurpose::Internal =&gt; {
@@ -1905,7 +1939,7 @@
             connected: AtomicBool::new(<span class="bool-val">false</span>),
             client,
             wait_between_polls,
-            _own_key: key,
+            own_key: key,
             is_da: is_da_server,
             tx_index: Arc::default(),
             proposal_task_map: Arc::default(),
@@ -2228,9 +2262,11 @@
                 }
 
                 <span class="comment">// Cancel old, stale tasks
-                </span>task_map
-                    .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
-                    .<span class="kw">await</span>;
+                </span><span class="kw">if </span>view_number &gt; <span class="number">2 </span>{
+                    task_map
+                        .prune_tasks(view_number, ConsensusIntentEvent::CancelPollForVIDDisperse)
+                        .<span class="kw">await</span>;
+                }
             }
             ConsensusIntentEvent::PollForLatestProposal =&gt; {
                 <span class="comment">// Only start this task if we haven't already started it.
@@ -2295,7 +2331,7 @@
                 <span class="comment">// Only start this task if we haven't already started it.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.upgrade_vote_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
-                    <span class="macro">error!</span>(<span class="string">"Starting poll for upgrade proposals!"</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Starting poll for upgrade proposals!"</span>);
                     <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
 
                     <span class="comment">// Create sender and receiver for cancelling the task

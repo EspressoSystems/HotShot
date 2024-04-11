@@ -209,6 +209,7 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -221,7 +222,9 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
-    message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    message::{
+        CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
@@ -334,7 +337,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::Time,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;VidDisperseShare&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
         <span class="kw">let </span>contained = consensus
             .vid_shares
@@ -348,11 +351,13 @@
             <span class="kw">for </span>share <span class="kw">in </span>shares {
                 <span class="kw">let </span>s = share.clone();
                 <span class="kw">let </span>key: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey = s.recipient_key;
-                consensus
-                    .vid_shares
-                    .entry(view)
-                    .or_default()
-                    .insert(key, share);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
+                    consensus
+                        .vid_shares
+                        .entry(view)
+                        .or_default()
+                        .insert(key, prop);
+                }
             }
             <span class="kw">return </span>consensus.vid_shares.get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>.get(key).cloned();
         }
@@ -368,11 +373,8 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(share) = <span class="self">self</span>.get_or_calc_vid_share(view, <span class="kw-2">&amp;</span>pub_key).<span class="kw">await else </span>{
                     <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
                 };
-                <span class="kw">let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) <span class="kw">else </span>{
-                    <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
-                };
                 <span class="kw">let </span>seq_msg =
-                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop));
+                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(share));
                 <span class="self">self</span>.make_msg(ResponseMessage::Found(seq_msg))
             }
             <span class="comment">// TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651

@@ -388,6 +388,13 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -511,6 +518,17 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                <span class="kw">if </span><span class="self">self
+                    </span>.consensus
+                    .read()
+                    .<span class="kw">await
+                    </span>.saved_payloads
+                    .contains_key(<span class="kw-2">&amp;</span>view)
+                {
+                    <span class="macro">warn!</span>(<span class="string">"Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away"</span>, view);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
                 <span class="comment">// ED Is this the right leader?
@@ -550,7 +568,6 @@
                     );
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_da(proposal).<span class="kw">await </span>{
                     <span class="macro">error!</span>(
                         <span class="string">"Failed to store DA Proposal with error {:?}, aborting vote"</span>,
@@ -579,10 +596,7 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
 
-                <span class="comment">// ED Don't think this is necessary?
-                // self.cur_view = view;
-
-                </span><span class="macro">debug!</span>(<span class="string">"Sending vote to the DA leader {:?}"</span>, vote.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"Sending vote to the DA leader {:?}"</span>, vote.get_view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DAVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;

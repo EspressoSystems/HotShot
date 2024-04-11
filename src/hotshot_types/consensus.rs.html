@@ -390,6 +390,7 @@
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -405,6 +406,7 @@
 <span class="kw">use crate</span>::{
     data::{Leaf, VidDisperseShare},
     error::HotShotError,
+    message::Proposal,
     simple_certificate::{DACertificate, QuorumCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
@@ -420,7 +422,7 @@
 <span class="doccomment">/// A type alias for `BTreeMap&lt;T::Time, HashMap&lt;T::SignatureKey, Proposal&lt;T, VidDisperseShare&lt;T&gt;&gt;&gt;&gt;`
 </span><span class="kw">pub type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, VidDisperseShare&lt;TYPES&gt;&gt;,
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 
 <span class="doccomment">/// A reference to the consensus algorithm

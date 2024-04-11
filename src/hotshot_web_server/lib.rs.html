@@ -1121,7 +1121,6 @@
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
 
 /// Configuration for the webserver
@@ -1195,7 +1194,7 @@
     <span class="doccomment">/// view sync: view number of oldest votes in memory
     </span>oldest_view_sync_vote: u64,
     <span class="doccomment">/// view number -&gt; (secret, string)
-    </span>vid_disperses: HashMap&lt;u64, (String, Vec&lt;u8&gt;)&gt;,
+    </span>vid_disperses: HashMap&lt;u64, Vec&lt;Vec&lt;u8&gt;&gt;&gt;,
     <span class="doccomment">/// view for the oldest vid disperal
     </span>oldest_vid_disperse: u64,
     <span class="doccomment">/// view of most recent vid dispersal
@@ -1468,13 +1467,13 @@
     </span><span class="kw">fn </span>get_vid_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;, Error&gt; {
         <span class="kw">match </span><span class="self">self</span>.vid_disperses.get(<span class="kw-2">&amp;</span>view_number) {
             <span class="prelude-val">Some</span>(disperse) =&gt; {
-                <span class="kw">if </span>disperse.<span class="number">1</span>.is_empty() {
+                <span class="kw">if </span>disperse.is_empty() {
                     <span class="prelude-val">Err</span>(ServerError {
                         status: StatusCode::NotImplemented,
                         message: <span class="macro">format!</span>(<span class="string">"VID disperse not found for view {view_number}"</span>),
                     })
                 } <span class="kw">else </span>{
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[disperse.<span class="number">1</span>.clone()]))
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(disperse.clone()))
                 }
             }
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
@@ -1816,8 +1815,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>post_vid_disperse(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, <span class="kw-2">mut </span>disperse: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">info!</span>(<span class="string">"Received VID disperse for view {}"</span>, view_number);
+    <span class="kw">fn </span>post_vid_disperse(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: u64, disperse: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">if </span>view_number &gt; <span class="self">self</span>.recent_vid_disperse {
             <span class="self">self</span>.recent_vid_disperse = view_number;
         }
@@ -1831,8 +1829,8 @@
         }
         <span class="self">self</span>.vid_disperses
             .entry(view_number)
-            .and_modify(|(<span class="kw">_</span>, empty_proposal)| empty_proposal.append(<span class="kw-2">&amp;mut </span>disperse))
-            .or_insert_with(|| (String::new(), disperse));
+            .or_default()
+            .push(disperse);
         <span class="prelude-val">Ok</span>(())
     }
 

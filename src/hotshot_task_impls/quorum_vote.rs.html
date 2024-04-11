@@ -675,6 +675,18 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -726,21 +738,26 @@
 }
 
 <span class="doccomment">/// Handler for the vote dependency.
-</span><span class="kw">struct </span>VoteDependencyHandle&lt;TYPES: NodeType&gt; {
+</span><span class="kw">struct </span>VoteDependencyHandle&lt;TYPES: NodeType, S: Storage&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Public key.
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Private Key.
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// Reference to the storage.
+    </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;S&gt;&gt;,
     <span class="doccomment">/// View number to vote on.
     </span>view_number: TYPES::Time,
     <span class="doccomment">/// Event sender.
     </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 }
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleDepOutput <span class="kw">for </span>VoteDependencyHandle&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, S: Storage&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; HandleDepOutput
+    <span class="kw">for </span>VoteDependencyHandle&lt;TYPES, S&gt;
+{
     <span class="kw">type </span>Output = Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;;
     <span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
         <span class="kw">let </span><span class="kw-2">mut </span>payload_commitment = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>leaf = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>disperse_share = <span class="prelude-val">None</span>;
         <span class="kw">for </span>event <span class="kw">in </span>res {
             <span class="kw">match </span>event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) =&gt; {
@@ -772,7 +789,8 @@
                     }
                 }
                 HotShotEvent::VIDShareValidated(share) =&gt; {
-                    <span class="kw">let </span>vid_payload_commitment = share.payload_commitment;
+                    <span class="kw">let </span>vid_payload_commitment = share.data.payload_commitment;
+                    disperse_share = <span class="prelude-val">Some</span>(share.clone());
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>vid_payload_commitment != comm {
                             <span class="macro">error!</span>(<span class="string">"VID has inconsistent payload commitment with quorum proposal or DAC."</span>);
@@ -816,6 +834,14 @@
                 <span class="string">"Sending vote to next quorum leader {:?}"</span>,
                 vote.get_view_number() + <span class="number">1
             </span>);
+            <span class="comment">// Add to the storage.
+            </span><span class="kw">let </span><span class="prelude-val">Some</span>(disperse) = disperse_share <span class="kw">else </span>{
+                <span class="kw">return</span>;
+            };
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_vid(<span class="kw-2">&amp;</span>disperse).<span class="kw">await </span>{
+                <span class="macro">error!</span>(<span class="string">"Failed to store VID share with error {:?}"</span>, e);
+                <span class="kw">return</span>;
+            }
             broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
         }
     }
@@ -892,7 +918,7 @@
                     }
                     VoteDependency::Vid =&gt; {
                         <span class="kw">if let </span>HotShotEvent::VIDShareValidated(disperse) = event {
-                            disperse.view_number
+                            disperse.data.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -934,6 +960,7 @@
             VoteDependencyHandle {
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
+                storage: <span class="self">self</span>.storage.clone(),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -1267,28 +1294,25 @@
                     }
                 }
 
-                <span class="comment">// stop polling for the received disperse after verifying it's valid
-                </span><span class="self">self</span>.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        <span class="kw-2">*</span>disperse.data.view_number,
-                    ))
-                    .<span class="kw">await</span>;
-
-                <span class="comment">// Add to the storage.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_vid(disperse).<span class="kw">await </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to store VID share with error {:?}"</span>, e);
-                    <span class="kw">return</span>;
-                }
                 <span class="self">self</span>.consensus
                     .write()
                     .<span class="kw">await
                     </span>.vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
-
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
+                    <span class="macro">debug!</span>(<span class="string">"Got a Valid VID share but it's not for our key"</span>);
+                    <span class="kw">return</span>;
+                }
+                <span class="comment">// stop polling for the received disperse after verifying it's valid
+                </span><span class="self">self</span>.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        <span class="kw-2">*</span>disperse.data.view_number,
+                    ))
+                    .<span class="kw">await</span>;
                 broadcast_event(
-                    Arc::new(HotShotEvent::VIDShareValidated(disperse.data.clone())),
+                    Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
