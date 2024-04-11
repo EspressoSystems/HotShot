@@ -549,6 +549,21 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Display,
@@ -578,6 +593,7 @@
         block_contents::{vid_commitment, BlockHeader, Transaction},
         election::Membership,
         node_implementation::NodeType,
+        signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
     vid::VidCommitment,
@@ -602,6 +618,7 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">async fn </span>start(
         _membership: Arc&lt;TYPES::Membership&gt;,
@@ -621,6 +638,7 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">async fn </span>start(
         membership: Arc&lt;TYPES::Membership&gt;,
@@ -689,8 +707,8 @@
             </span>LruCache&lt;BuilderCommitment, BlockEntry&lt;TYPES&gt;&gt;,
         &gt;,
     &gt;,
-    pub_key: TYPES::SignatureKey,
-    priv_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    pub_key: TYPES::BuilderSignatureKey,
+    priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; RandomBuilderSource&lt;TYPES&gt; {
@@ -698,8 +716,8 @@
     </span><span class="attr">#[must_use]
     #[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics if 256 == 0
     </span><span class="kw">pub fn </span>new(
-        pub_key: TYPES::SignatureKey,
-        priv_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        pub_key: TYPES::BuilderSignatureKey,
+        priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             blocks: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(<span class="number">256</span>).unwrap()))),
@@ -771,6 +789,8 @@
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
+        _sender: TYPES::SignatureKey,
+        _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self
             </span>.blocks
@@ -785,6 +805,7 @@
     <span class="kw">async fn </span>claim_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
@@ -800,6 +821,7 @@
     <span class="kw">async fn </span>claim_block_header_input(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockHeaderInput&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
@@ -812,7 +834,7 @@
         <span class="prelude-val">Ok</span>(header_input)
     }
 
-    <span class="kw">async fn </span>get_builder_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey, BuildError&gt; {
+    <span class="kw">async fn </span>get_builder_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::BuilderSignatureKey, BuildError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.pub_key.clone())
     }
 }
@@ -826,8 +848,9 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
-    <span class="kw">let </span>(pub_key, priv_key) = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
+    <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
     <span class="kw">let </span>source = RandomBuilderSource::new(pub_key, priv_key);
     source.run(RandomBuilderOptions::default());
 
@@ -844,8 +867,8 @@
 }
 
 <span class="kw">pub struct </span>SimpleBuilderSource&lt;TYPES: NodeType&gt; {
-    pub_key: TYPES::SignatureKey,
-    priv_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    pub_key: TYPES::BuilderSignatureKey,
+    priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
     membership: Arc&lt;TYPES::Membership&gt;,
     <span class="attr">#[allow(clippy::type_complexity)]
     </span>transactions: Arc&lt;RwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
@@ -869,6 +892,8 @@
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
+        _sender: TYPES::SignatureKey,
+        _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
         <span class="kw">let </span>transactions = <span class="self">self
             </span>.transactions
@@ -898,6 +923,7 @@
     <span class="kw">async fn </span>claim_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
@@ -908,6 +934,7 @@
     <span class="kw">async fn </span>claim_block_header_input(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockHeaderInput&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
@@ -915,7 +942,7 @@
         entry.header_input.take().ok_or(BuildError::Missing)
     }
 
-    <span class="kw">async fn </span>get_builder_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey, BuildError&gt; {
+    <span class="kw">async fn </span>get_builder_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::BuilderSignatureKey, BuildError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.pub_key.clone())
     }
 }
@@ -925,6 +952,7 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">pub async fn </span>run(<span class="self">self</span>, url: Url) {
         <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
@@ -1001,7 +1029,7 @@
 <span class="kw">pub async fn </span>make_simple_builder&lt;TYPES: NodeType&gt;(
     membership: Arc&lt;TYPES::Membership&gt;,
 ) -&gt; (SimpleBuilderSource&lt;TYPES&gt;, SimpleBuilderTask&lt;TYPES&gt;) {
-    <span class="kw">let </span>(pub_key, priv_key) = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
+    <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
 
     <span class="kw">let </span>transactions = Arc::new(RwLock::new(HashMap::new()));
     <span class="kw">let </span>blocks = Arc::new(RwLock::new(HashMap::new()));
@@ -1027,8 +1055,8 @@
 </span><span class="kw">fn </span>build_block&lt;TYPES: NodeType&gt;(
     transactions: Vec&lt;TYPES::Transaction&gt;,
     num_storage_nodes: usize,
-    pub_key: TYPES::SignatureKey,
-    priv_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    pub_key: TYPES::BuilderSignatureKey,
+    priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
 ) -&gt; (
     AvailableBlockInfo&lt;TYPES&gt;,
     AvailableBlockData&lt;TYPES&gt;,
@@ -1051,7 +1079,7 @@
         block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
         block_info.extend_from_slice(<span class="number">123_u64</span>.to_be_bytes().as_ref());
         block_info.extend_from_slice(commitment.as_ref());
-        <span class="kw">match </span>TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>priv_key, <span class="kw-2">&amp;</span>block_info) {
+        <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_builder_message(<span class="kw-2">&amp;</span>priv_key, <span class="kw-2">&amp;</span>block_info) {
             <span class="prelude-val">Ok</span>(sig) =&gt; sig,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">panic!</span>(<span class="string">"Failed to sign block: {}"</span>, e);
@@ -1060,20 +1088,22 @@
     };
 
     <span class="kw">let </span>signature_over_builder_commitment =
-        <span class="kw">match </span>TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>priv_key, commitment.as_ref()) {
+        <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_builder_message(<span class="kw-2">&amp;</span>priv_key, commitment.as_ref()) {
             <span class="prelude-val">Ok</span>(sig) =&gt; sig,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">panic!</span>(<span class="string">"Failed to sign block: {}"</span>, e);
             }
         };
 
-    <span class="kw">let </span>signature_over_vid_commitment =
-        <span class="kw">match </span>TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>priv_key, vid_commitment.as_ref()) {
-            <span class="prelude-val">Ok</span>(sig) =&gt; sig,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Failed to sign block: {}"</span>, e);
-            }
-        };
+    <span class="kw">let </span>signature_over_vid_commitment = <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_builder_message(
+        <span class="kw-2">&amp;</span>priv_key,
+        vid_commitment.as_ref(),
+    ) {
+        <span class="prelude-val">Ok</span>(sig) =&gt; sig,
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="macro">panic!</span>(<span class="string">"Failed to sign block: {}"</span>, e);
+        }
+    };
 
     <span class="kw">let </span>block = AvailableBlockData {
         block_payload,

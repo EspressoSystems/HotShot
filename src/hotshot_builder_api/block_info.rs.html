@@ -37,10 +37,13 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{hash::Hash, marker::PhantomData};
 
 <span class="kw">use </span>hotshot_types::{
-    traits::{node_implementation::NodeType, signature_key::SignatureKey, BlockPayload},
+    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey, BlockPayload},
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
@@ -48,13 +51,14 @@
 
 <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound = <span class="string">""</span>)]
-</span><span class="kw">pub struct </span>AvailableBlockInfo&lt;I: NodeType&gt; {
+</span><span class="kw">pub struct </span>AvailableBlockInfo&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>block_hash: BuilderCommitment,
     <span class="kw">pub </span>block_size: u64,
     <span class="kw">pub </span>offered_fee: u64,
-    <span class="kw">pub </span>signature: &lt;&lt;I <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    <span class="kw">pub </span>sender: &lt;I <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    <span class="kw">pub </span>_phantom: PhantomData&lt;I&gt;,
+    <span class="kw">pub </span>signature:
+        &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
+    <span class="kw">pub </span>sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,
+    <span class="kw">pub </span>_phantom: PhantomData&lt;TYPES&gt;,
 }
 
 <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
@@ -62,16 +66,18 @@
 </span><span class="kw">pub struct </span>AvailableBlockData&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>block_payload: TYPES::BlockPayload,
     <span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-    <span class="kw">pub </span>signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    <span class="kw">pub </span>sender: TYPES::SignatureKey,
+    <span class="kw">pub </span>signature:
+        &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
+    <span class="kw">pub </span>sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,
 }
 
 <span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound = <span class="string">""</span>)]
-</span><span class="kw">pub struct </span>AvailableBlockHeaderInput&lt;I: NodeType&gt; {
+</span><span class="kw">pub struct </span>AvailableBlockHeaderInput&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>vid_commitment: VidCommitment,
-    <span class="kw">pub </span>signature: &lt;&lt;I <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    <span class="kw">pub </span>sender: &lt;I <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    <span class="kw">pub </span>_phantom: PhantomData&lt;I&gt;,
+    <span class="kw">pub </span>signature:
+        &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
+    <span class="kw">pub </span>sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,
+    <span class="kw">pub </span>_phantom: PhantomData&lt;TYPES&gt;,
 }
 </code></pre></div></section></main></body></html>

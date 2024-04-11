@@ -258,6 +258,17 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -417,9 +428,20 @@
                 data.block_payload.num_transactions(<span class="kw-2">&amp;</span>data.metadata) &lt; <span class="self">self</span>.api.min_transactions()
             })
         {
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(request_signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                last_leaf.get_block_header().payload_commitment().as_ref(),
+            ) <span class="kw">else </span>{
+                <span class="macro">error!</span>(<span class="string">"Failed to sign block hash"</span>);
+                <span class="kw">continue</span>;
+            };
             <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span><span class="self">self
                 </span>.builder_client
-                .get_available_blocks(last_leaf.get_block_header().payload_commitment())
+                .get_available_blocks(
+                    last_leaf.get_block_header().payload_commitment(),
+                    <span class="self">self</span>.public_key.clone(),
+                    <span class="kw-2">&amp;</span>request_signature,
+                )
                 .<span class="kw">await
             </span>{
                 <span class="prelude-val">Ok</span>(blocks) =&gt; blocks,
@@ -442,7 +464,7 @@
                 <span class="kw">continue</span>;
             }
 
-            <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(request_signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 block_info.block_hash.as_ref(),
             ) <span class="kw">else </span>{
@@ -451,8 +473,8 @@
             };
 
             <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join! </span>{
-                <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), <span class="kw-2">&amp;</span>signature),
-                <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash, <span class="kw-2">&amp;</span>signature)
+                <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
+                <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash, <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
             };
 
             <span class="kw">let </span>block = <span class="kw">match </span>block {

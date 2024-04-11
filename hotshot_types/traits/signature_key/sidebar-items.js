@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["SignatureKey","StakeTableEntryType"]};
+window.SIDEBAR_ITEMS = {"trait":["BuilderSignatureKey","SignatureKey","StakeTableEntryType"]};

@@ -268,6 +268,15 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -513,6 +522,15 @@
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata {
         <span class="kw-2">&amp;</span>()
+    }
+
+    <span class="kw">fn </span>builder_commitment(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _metadata: <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    ) -&gt; BuilderCommitment {
+        <span class="kw">let </span><span class="kw-2">mut </span>digest = sha2::Sha256::new();
+        digest.update(<span class="self">self</span>.payload_commitment.as_ref());
+        BuilderCommitment::from_raw_digest(digest.finalize())
     }
 }
 

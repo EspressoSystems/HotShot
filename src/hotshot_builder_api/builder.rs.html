@@ -212,6 +212,11 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, path::PathBuf};
 
 <span class="kw">use </span>clap::Args;
@@ -337,6 +342,7 @@
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + BuilderDataSource&lt;Types&gt;,
     Types: NodeType,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;Types::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
     <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;Types::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
@@ -350,8 +356,10 @@
         .get(<span class="string">"available_blocks"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash = req.blob_param(<span class="string">"parent_hash"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
                 state
-                    .get_available_blocks(<span class="kw-2">&amp;</span>hash)
+                    .get_available_blocks(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await
                     </span>.context(BlockAvailableSnafu {
                         resource: hash.to_string(),
@@ -362,9 +370,10 @@
         </span>.get(<span class="string">"claim_block"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash: BuilderCommitment = req.blob_param(<span class="string">"block_hash"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
                 state
-                    .claim_block(<span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>signature)
+                    .claim_block(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await
                     </span>.context(BlockClaimSnafu {
                         resource: hash.to_string(),
@@ -375,9 +384,10 @@
         </span>.get(<span class="string">"claim_header_input"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash: BuilderCommitment = req.blob_param(<span class="string">"block_hash"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
                 state
-                    .claim_block_header_input(<span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>signature)
+                    .claim_block_header_input(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await
                     </span>.context(BlockClaimSnafu {
                         resource: hash.to_string(),

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["BLSPrivKey","BLSPubKey","BLSPublicParam"]};
+window.SIDEBAR_ITEMS = {"type":["BLSPrivKey","BLSPubKey","BLSPublicParam","BuilderKey"]};

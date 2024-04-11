@@ -170,6 +170,12 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -339,5 +345,11 @@
 
     <span class="doccomment">/// Get the metadata.
     </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata;
+
+    <span class="doccomment">/// Get the builder commitment
+    </span><span class="kw">fn </span>builder_commitment(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        metadata: <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    ) -&gt; BuilderCommitment;
 }
 </code></pre></div></section></main></body></html>
