@@ -1025,7 +1025,7 @@
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.clone(),
+                QuorumCertificate::genesis(),
             ))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
@@ -1436,13 +1436,13 @@
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
+            instance_state,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
-            high_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>instance_state),
+            high_qc: QuorumCertificate::genesis(),
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
-            instance_state,
         })
     }
 

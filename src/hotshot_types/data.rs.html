@@ -695,34 +695,6 @@
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -738,7 +710,7 @@
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>jf_primitives::vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
 <span class="kw">use </span>rand::Rng;
@@ -751,7 +723,7 @@
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::{QuorumData, UpgradeProposalData},
+    simple_vote::UpgradeProposalData,
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
@@ -1154,24 +1126,6 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; QuorumCertificate&lt;TYPES&gt; {
-    <span class="attr">#[must_use]
-    </span><span class="doccomment">/// Creat the Genesis certificate
-    </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>data = QuorumData {
-            leaf_commit: Leaf::genesis(instance_state).commit(),
-        };
-        <span class="kw">let </span>commit = data.commit();
-        <span class="self">Self </span>{
-            data,
-            vote_commitment: commit,
-            view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
-            signatures: <span class="prelude-val">None</span>,
-            _pd: PhantomData,
-        }
-    }
-}
-
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
     <span class="doccomment">/// Create a new leaf from its components.
     ///
@@ -1189,23 +1143,10 @@
         <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         <span class="kw">let </span>block_header =
             TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
-
-        <span class="kw">let </span>null_quorum_data = QuorumData {
-            leaf_commit: Commitment::&lt;Leaf&lt;TYPES&gt;&gt;::default_commitment_no_preimage(),
-        };
-
-        <span class="kw">let </span>justify_qc = QuorumCertificate {
-            data: null_quorum_data.clone(),
-            vote_commitment: null_quorum_data.commit(),
-            view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
-            signatures: <span class="prelude-val">None</span>,
-            _pd: PhantomData,
-        };
-
         <span class="self">Self </span>{
             view_number: TYPES::Time::genesis(),
-            justify_qc,
-            parent_commitment: null_quorum_data.leaf_commit,
+            justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),
+            parent_commitment: fake_commitment(),
             upgrade_certificate: <span class="prelude-val">None</span>,
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">Some</span>(payload),
@@ -1234,7 +1175,11 @@
     </span><span class="kw">pub fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="self">self</span>.parent_commitment
     }
-    <span class="doccomment">/// The block header contained in this leaf.
+    <span class="doccomment">/// Commitment to this leaf's parent.
+    </span><span class="kw">pub fn </span>set_parent_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: Commitment&lt;<span class="self">Self</span>&gt;) {
+        <span class="self">self</span>.parent_commitment = commitment;
+    }
+    <span class="doccomment">/// Get a reference to the block header contained in this leaf.
     </span><span class="kw">pub fn </span>get_block_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
         <span class="kw-2">&amp;</span><span class="self">self</span>.block_header
     }
@@ -1300,10 +1245,9 @@
             <span class="self">self</span>.get_upgrade_certificate(),
             parent.get_upgrade_certificate(),
         ) {
-            <span class="comment">// Easiest cases are:
-            //   - no upgrade certificate on either: this is the most common case, and is always fine.
-            //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
-            </span>(<span class="prelude-val">None </span>| <span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt; {}
+            <span class="comment">// If the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade. Again, this is always fine.
+            // But, if we have no upgrade certificate on either is the most common case, and is always fine.
+            </span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>) | <span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {}
             <span class="comment">// If we no longer see a cert, we have to make sure that we either:
             //    - no longer care because we have passed new_version_first_view, or
             //    - no longer care because we have passed `decide_by` without deciding the certificate.

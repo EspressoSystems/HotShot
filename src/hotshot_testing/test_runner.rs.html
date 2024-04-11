@@ -698,7 +698,7 @@
             latest_view: <span class="prelude-val">None</span>,
             changes,
             last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
-            high_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
+            high_qc: QuorumCertificate::genesis(),
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;, SpinningTask&lt;TYPES, I&gt;&gt;::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),

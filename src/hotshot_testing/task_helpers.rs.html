@@ -725,7 +725,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>proposal = QuorumProposal::&lt;TestTypes&gt; {
         block_header: block_header.clone(),
         view_number: ViewNumber::new(<span class="number">1</span>),
-        justify_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
+        justify_qc: QuorumCertificate::genesis(),
         upgrade_certificate: <span class="prelude-val">None</span>,
         proposal_certificate: <span class="prelude-val">None</span>,
     };

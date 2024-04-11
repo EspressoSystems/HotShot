@@ -687,6 +687,26 @@
 <a href="#685" id="685">685</a>
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -702,7 +722,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::Leaf,
-    event::{Event, EventType},
+    event::{Event, EventType, LeafInfo},
     message::GeneralConsensusMessage,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
@@ -771,16 +791,14 @@
                         payload_commitment = <span class="prelude-val">Some</span>(proposal_payload_comm);
                     }
                     <span class="kw">let </span>parent_commitment = parent_leaf.commit();
-                    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    <span class="kw">if </span>proposed_leaf.get_parent_commitment() != parent_commitment {
-                        <span class="kw">return</span>;
-                    }
+                    <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                    proposed_leaf.set_parent_commitment(parent_commitment);
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
                 }
                 HotShotEvent::DACertificateValidated(cert) =&gt; {
                     <span class="kw">let </span>cert_payload_comm = cert.get_data().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
-                        <span class="kw">if </span>cert_payload_comm != comm {
+                        <span class="kw">if </span>!cert.is_genesis &amp;&amp; cert_payload_comm != comm {
                             <span class="macro">error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);
                             <span class="kw">return</span>;
                         }
@@ -1023,7 +1041,31 @@
 
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
                 <span class="comment">// Get the parent leaf and state.
-                </span><span class="kw">let </span>parent = {
+                </span><span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
+                    <span class="comment">// Send the `Decide` event for the genesis block if the justify QC is genesis.
+                    </span><span class="kw">let </span>leaf = Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state);
+                    <span class="kw">let </span>(validated_state, state_delta) =
+                        TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>consensus.instance_state);
+                    <span class="kw">let </span>state = Arc::new(validated_state);
+                    broadcast_event(
+                        Event {
+                            view_number: TYPES::Time::genesis(),
+                            event: EventType::Decide {
+                                leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
+                                    leaf.clone(),
+                                    state.clone(),
+                                    <span class="prelude-val">Some</span>(Arc::new(state_delta)),
+                                    <span class="prelude-val">None</span>,
+                                )]),
+                                qc: Arc::new(justify_qc.clone()),
+                                block_size: <span class="prelude-val">None</span>,
+                            },
+                        },
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
+                    )
+                    .<span class="kw">await</span>;
+                    <span class="prelude-val">Some</span>((leaf, state))
+                } <span class="kw">else </span>{
                     <span class="kw">match </span>consensus
                         .saved_leaves
                         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
@@ -1122,10 +1164,8 @@
                 <span class="kw">let </span>delta = Arc::new(state_delta);
                 <span class="kw">let </span>parent_commitment = parent_leaf.commit();
                 <span class="kw">let </span>view = proposal.data.get_view_number();
-                <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
-                <span class="kw">if </span>proposed_leaf.get_parent_commitment() != parent_commitment {
-                    <span class="kw">return</span>;
-                }
+                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
+                proposed_leaf.set_parent_commitment(parent_commitment);
 
                 <span class="comment">// Validate the signature. This should also catch if `leaf_commitment`` does not
                 // equal our calculated parent commitment.

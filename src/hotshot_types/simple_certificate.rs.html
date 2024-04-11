@@ -215,6 +215,33 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -224,12 +251,12 @@
 };
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>committable::{Commitment, Committable};
+<span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable};
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::serialize_signature2,
+    data::{serialize_signature2, Leaf},
     simple_vote::{
         DAData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
@@ -289,6 +316,8 @@
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// assembled signature for certificate aggregation
     </span><span class="kw">pub </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType&gt;,
+    <span class="doccomment">/// If this QC is for the genesis block
+    </span><span class="kw">pub </span>is_genesis: bool,
     <span class="doccomment">/// phantom data for `THRESHOLD` and `TYPES`
     </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, THRESHOLD)&gt;,
 }
@@ -306,6 +335,7 @@
             .field(<span class="string">"vote_commitment"</span>, <span class="self">self</span>.vote_commitment)
             .field(<span class="string">"view number"</span>, <span class="self">self</span>.view_number.commit())
             .var_size_field(<span class="string">"signatures"</span>, <span class="kw-2">&amp;</span>signature_bytes)
+            .fixed_size_field(<span class="string">"is genesis"</span>, <span class="kw-2">&amp;</span>[u8::from(<span class="self">self</span>.is_genesis)])
             .finalize()
     }
 }
@@ -327,11 +357,12 @@
             vote_commitment,
             view_number: view,
             signatures: <span class="prelude-val">Some</span>(sig),
+            is_genesis: <span class="bool-val">false</span>,
             _pd: PhantomData,
         }
     }
     <span class="kw">fn </span>is_valid_cert&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; bool {
-        <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::Time::genesis() {
+        <span class="kw">if </span><span class="self">self</span>.is_genesis &amp;&amp; <span class="self">self</span>.view_number == TYPES::Time::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
@@ -364,7 +395,30 @@
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>QuorumCertificate&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"view: {:?}"</span>, <span class="self">self</span>.view_number)
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">"view: {:?}, is_genesis: {:?}"</span>,
+            <span class="self">self</span>.view_number, <span class="self">self</span>.is_genesis
+        )
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; QuorumCertificate&lt;TYPES&gt; {
+    <span class="attr">#[must_use]
+    </span><span class="doccomment">/// Creat the Genisis certificate
+    </span><span class="kw">pub fn </span>genesis() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>data = QuorumData {
+            leaf_commit: Commitment::&lt;Leaf&lt;TYPES&gt;&gt;::default_commitment_no_preimage(),
+        };
+        <span class="kw">let </span>commit = data.commit();
+        <span class="self">Self </span>{
+            data,
+            vote_commitment: commit,
+            view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            signatures: <span class="prelude-val">None</span>,
+            is_genesis: <span class="bool-val">true</span>,
+            _pd: PhantomData,
+        }
     }
 }
 
