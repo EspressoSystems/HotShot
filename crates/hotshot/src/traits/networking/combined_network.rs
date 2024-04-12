@@ -304,7 +304,19 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     async fn wait_for_ready(&self) {
-        self.secondary().wait_for_ready().await;
+        // If we compiled in non-testing mode, wait for either network to be ready
+        #[cfg(not(feature = "hotshot-testing"))]
+        select! {
+            _ = self.primary().wait_for_ready().fuse() => {},
+            _ = self.secondary().wait_for_ready().fuse() => {},
+        }
+
+        // If we compiled in testing mode, always wait for the secondary network to be ready
+        #[cfg(feature = "hotshot-testing")]
+        {
+            self.primary().wait_for_ready().await;
+            self.secondary().wait_for_ready().await;
+        }
     }
 
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
