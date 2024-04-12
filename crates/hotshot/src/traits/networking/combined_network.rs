@@ -145,15 +145,16 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     ) -> Result<(), NetworkError> {
         // Check if primary is down
         let mut primary_failed = false;
-        if self.primary_fail_counter.load(Ordering::Relaxed) > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+        if self.primary_down.load(Ordering::Relaxed) {
+            primary_failed = true;
+        } else if self.primary_fail_counter.load(Ordering::Relaxed)
+            > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
             warn!(
                 "Primary failed more than {} times and is considered down now",
                 COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             );
             self.primary_down.store(true, Ordering::Relaxed);
-            primary_failed = true;
-        } else if self.primary_down.load(Ordering::Relaxed) {
             primary_failed = true;
         }
 
