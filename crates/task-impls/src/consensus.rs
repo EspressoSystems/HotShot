@@ -208,7 +208,7 @@ pub(crate) async fn validate_proposal<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
-async fn create_and_send_proposal<TYPES: NodeType>(
+pub(crate) async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -757,6 +757,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     debug!("Updating high QC");
                     consensus.high_qc = justify_qc.clone();
                 }
+                let decided_upgrade_cert = consensus.decided_upgrade_cert.clone();
 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 let Some((parent_leaf, parent_state)) = parent else {
@@ -843,7 +844,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             proposal.clone(),
                             parent_leaf,
                             self.consensus.clone(),
-                            self.decided_upgrade_cert.clone(),
+                            decided_upgrade_cert,
                             self.quorum_membership.clone(),
                             parent_state.clone(),
                             view_leader_key,
@@ -871,6 +872,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let old_anchor_view = consensus.last_decided_view;
                 let parent_view = proposal.justify_qc.get_view_number();
                 let mut current_chain_length = 0usize;
+                let mut decided_upgrade_cert = None;
                 if parent_view + 1 == view {
                     current_chain_length += 1;
                     if let Err(e) = consensus.visit_leaf_ancestors(
@@ -911,7 +913,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                                   } else {
                                     info!("Updating consensus state with decided upgrade certificate: {:?}", cert);
-                                    self.decided_upgrade_cert = Some(cert.clone());
+                                    decided_upgrade_cert = Some(cert.clone());
+                                    // consensus.decided_upgrade_cert = Some(cert.clone());
                                   }
                                 }
                                 // If the block payload is available for this leaf, include it in
@@ -960,6 +963,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+                consensus.decided_upgrade_cert = decided_upgrade_cert;
                 if new_commit_reached {
                     consensus.locked_view = new_locked_view;
                 }
@@ -1182,7 +1186,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if cert.data.decide_by >= self.cur_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
 
-                    self.formed_upgrade_certificate = Some(cert.clone());
+                    self.consensus.write().await.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
             HotShotEvent::DACertificateRecv(cert) => {
@@ -1224,8 +1228,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                debug!("VID disperse data is not more than one view older.");
-
                 if !self.validate_disperse(disperse) {
                     warn!("Could not verify VID dispersal/share sig.");
                     return;
@@ -1266,7 +1268,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
-                if let Some(ref cert) = self.decided_upgrade_cert {
+                if let Some(ref cert) = self.consensus.read().await.decided_upgrade_cert {
                     if new_view == cert.data.new_version_first_view {
                         warn!(
                             "Updating version based on a decided upgrade cert: {:?}",
@@ -1507,7 +1509,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
-        if let Some(upgrade_cert) = &self.decided_upgrade_cert {
+        if let Some(upgrade_cert) = self.consensus.read().await.decided_upgrade_cert.clone() {
             if upgrade_cert.in_interim(self.cur_view) {
                 let Ok((_payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
@@ -1531,7 +1533,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let delay = self.round_start_delay;
                 let parent = parent_leaf.clone();
                 let state = state.clone();
-                let upgrade_cert = self.decided_upgrade_cert.clone();
                 self.spawned_tasks
                     .entry(view)
                     .or_default()
@@ -1546,7 +1547,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             metadata,
                             parent,
                             state,
-                            upgrade_cert,
+                            Some(upgrade_cert),
                             None,
                             delay,
                         )
