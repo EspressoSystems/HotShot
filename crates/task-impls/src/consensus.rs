@@ -50,7 +50,6 @@ use crate::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-
 /// Alias for the block payload commitment and the associated metadata.
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     /// Vid Commitment
@@ -66,7 +65,7 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-async fn validate_proposal<TYPES: NodeType>(
+pub(crate) async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -308,9 +307,6 @@ pub struct ConsensusTaskState<
     /// Consensus api
     pub api: A,
 
-    /// needed to typecheck
-    pub _pd: PhantomData<I>,
-
     /// Current Vote collection task, with it's view.
     pub vote_collector:
         RwLock<VoteCollectorOption<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>>,
@@ -387,14 +383,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         if let Some(proposal) = &self.current_proposal {
             let consensus = self.consensus.read().await;
             // Only vote if you has seen the VID share for this view
-            if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
-            } else {
+            let Some(vid_shares) = consensus.vid_shares.get(&proposal.view_number) else {
                 debug!(
                     "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
                     proposal.view_number
                 );
                 return false;
-            }
+            };
 
             if let Some(upgrade_cert) = &self.decided_upgrade_cert {
                 if upgrade_cert.in_interim(self.cur_view)
@@ -471,6 +466,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
+                    // Add to the storage that we have received the VID disperse for a specific view
+                    if let Some(vid_share) = vid_shares.get(&self.public_key) {
+                        if let Err(e) = self.storage.write().await.append_vid(vid_share).await {
+                            error!(
+                                "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
+                                e
+                            );
+                            return false;
+                        }
+                    } else {
+                        error!("Did not get a VID share for our public key, aborting vote");
+                        return false;
+                    }
                     broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
                         .await;
                     return true;
@@ -491,7 +499,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     /// Must only update the view and GC if the view actually changes
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
-
     async fn update_view(
         &mut self,
         new_view: TYPES::Time,
@@ -620,6 +627,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
                 debug!(
@@ -949,7 +957,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .vid_shares
                                         .get(&leaf.get_view_number())
                                         .unwrap_or(&HashMap::new())
-                                        .get(&self.public_key).cloned();
+                                        .get(&self.public_key).cloned().map(|prop| prop.data);
 
                                 // Add our data into a new `LeafInfo`
                                 leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
@@ -1247,30 +1255,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 }
 
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
-
-                // Add to the storage that we have received the VID disperse for a specific view
-                if let Err(e) = self.storage.write().await.append_vid(disperse).await {
-                    error!(
-                        "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
-                        e
-                    );
-                    return;
-                }
-
                 self.consensus
                     .write()
                     .await
                     .vid_shares
                     .entry(view)
                     .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.data.clone());
-
+                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                if disperse.data.recipient_key != self.public_key {
+                    return;
+                }
+                // stop polling for the received disperse after verifying it's valid
+                self.quorum_network
+                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
+                        *disperse.data.view_number,
+                    ))
+                    .await;
                 if self.vote_if_able(&event_stream).await {
                     self.current_proposal = None;
                 }
@@ -1449,8 +1449,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
     }
 
+    /// Ignores old propose behavior and lets QuorumProposalTask take over.
+    #[cfg(feature = "proposal-task")]
+    pub async fn publish_proposal_if_able(
+        &mut self,
+        _view: TYPES::Time,
+        _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) {
+    }
+
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
+    #[cfg(not(feature = "proposal-task"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,

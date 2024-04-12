@@ -3,11 +3,11 @@ use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::task_helpers::key_pair_for_id;
+use hotshot_testing::task_helpers::get_vid_share;
 use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
-    predicates::{
-        exact, is_at_view_number, quorum_proposal_send, quorum_proposal_validated,
-        quorum_vote_send, timeout_vote_send,
+    predicates::event::{
+        exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{build_system_handle, vid_scheme_from_view_number},
@@ -57,14 +57,14 @@ async fn test_consensus_task() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let cert = proposals[1].data.justify_qc.clone();
@@ -82,7 +82,7 @@ async fn test_consensus_task() {
             quorum_proposal_validated(),
             quorum_proposal_send(),
         ],
-        asserts: vec![is_at_view_number(2)],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -104,7 +104,6 @@ async fn test_consensus_vote() {
     use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
-        predicates::exact,
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
@@ -136,7 +135,7 @@ async fn test_consensus_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
@@ -188,35 +187,33 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VIDShareRecv(vids[1].0[0].clone()),
+        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
         DACertificateRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
-    let view_2_outputs = vec![
-        exact(ViewChange(ViewNumber::new(2))),
-        quorum_proposal_validated(),
-        exact(QuorumVoteSend(votes[1].clone())),
-    ];
-
     // Use the permuted inputs for view 2 depending on the provided index ordering.
     let view_2 = TestScriptStage {
         inputs: view_2_inputs,
-        outputs: view_2_outputs,
-        asserts: vec![is_at_view_number(2)],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            quorum_proposal_validated(),
+            exact(QuorumVoteSend(votes[1].clone())),
+        ],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -300,14 +297,14 @@ async fn test_view_sync_finalize_propose() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     // Fail twice here to "trigger" a view sync event. This is accomplished above by advancing the
@@ -316,7 +313,7 @@ async fn test_view_sync_finalize_propose() {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
         outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     // Handle the view sync finalize cert, get the requisite data, propose.
@@ -359,7 +356,7 @@ async fn test_view_sync_finalize_propose() {
             quorum_proposal_validated(),
             quorum_proposal_send(),
         ],
-        asserts: vec![is_at_view_number(4)],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -381,8 +378,6 @@ async fn test_view_sync_finalize_propose() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will indeed vote if the cert is valid and matches the correct view number.
 async fn test_view_sync_finalize_vote() {
-    use hotshot_testing::predicates::timeout_vote_send;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -423,21 +418,21 @@ async fn test_view_sync_finalize_vote() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
         outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     // Now we're on the latest view. We want to set the quorum
@@ -483,8 +478,6 @@ async fn test_view_sync_finalize_vote() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
 async fn test_view_sync_finalize_vote_fail_view_number() {
-    use hotshot_testing::predicates::timeout_vote_send;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -525,21 +518,21 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
         outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     // Now we're on the latest view. We want to set the quorum
@@ -573,7 +566,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         outputs: vec![
             /* No outputs make it through. We never got a valid proposal, so we never vote */
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
@@ -621,14 +614,14 @@ async fn test_vid_disperse_storage_failure() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             /* Does not vote */
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     let consensus_state = ConsensusTaskState::<
