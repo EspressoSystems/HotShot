@@ -304,10 +304,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     async fn wait_for_ready(&self) {
-        join!(
-            self.primary().wait_for_ready(),
-            self.secondary().wait_for_ready()
-        );
+            self.primary().wait_for_ready().await;
     }
 
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>

@@ -541,11 +541,15 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         let handle = self.inner.handle.clone();
         let dht_timeout = self.inner.dht_timeout;
         let latest_seen_view = self.inner.latest_seen_view.clone();
-
+        let is_ready = self.inner.is_ready.clone();
         // deals with handling lookup queue. should be infallible
         async_spawn(async move {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
+                if !is_ready.load(Ordering::Relaxed) {
+                    warn!("Can't lookup node in Libp2p, not ready yet");
+                    continue;
+                }
                 /// defines lookahead threshold based on the constant
                 #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
@@ -980,6 +984,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipients: BTreeSet<K>,
         bind_version: VER,
     ) -> Result<(), NetworkError> {
+        self.wait_for_ready().await;
         let future_results = recipients
             .into_iter()
             .map(|r| self.direct_message(message.clone(), r, bind_version));
@@ -1007,6 +1012,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipient: K,
         bind_version: VER,
     ) -> Result<(), NetworkError> {
+        self.wait_for_ready().await;
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
@@ -1018,7 +1024,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             return Ok(());
         }
 
-        self.wait_for_ready().await;
 
         let pid = match self
             .inner
