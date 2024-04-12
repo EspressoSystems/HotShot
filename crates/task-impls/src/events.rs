@@ -126,7 +126,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Like [`HotShotEvent::DAProposalRecv`].
     VIDShareRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
     /// VID share data is validated.
-    VIDShareValidated(VidDisperseShare<TYPES>),
+    VIDShareValidated(Proposal<TYPES, VidDisperseShare<TYPES>>),
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
@@ -139,10 +139,4 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
-    /** Quorum Proposal Task **/
-    /// Dummy quorum proposal to test if the quorum proposal dependency task works.
-    DummyQuorumProposalSend(TYPES::Time),
-    /// All required dependencies of the quorum proposal have been validated and the task is ready
-    /// to propose.
-    QuorumProposalDependenciesValidated(TYPES::Time),
 }
