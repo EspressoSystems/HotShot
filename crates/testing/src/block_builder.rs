@@ -25,7 +25,7 @@ use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
-        block_contents::{vid_commitment, BlockHeader},
+        block_contents::{precompute_vid_commitment, BlockHeader},
         election::Membership,
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
@@ -507,7 +507,7 @@ fn build_block<TYPES: NodeType>(
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let vid_commitment = vid_commitment(
+    let (vid_commmitment_pre, precompute_data) = precompute_vid_commitment(
         &block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
@@ -542,11 +542,24 @@ fn build_block<TYPES: NodeType>(
 
     let signature_over_vid_commitment = match TYPES::BuilderSignatureKey::sign_builder_message(
         &priv_key,
-        vid_commitment.as_ref(),
+        vid_commmitment_pre.as_ref(),
     ) {
         Ok(sig) => sig,
         Err(e) => {
             panic!("Failed to sign block: {}", e);
+        }
+    };
+
+    let signature_over_fee_info = {
+        let mut fee_info: Vec<u8> = Vec::new();
+        fee_info.extend_from_slice(123_u64.to_be_bytes().as_ref());
+        fee_info.extend_from_slice(vid_commmitment_pre.as_ref());
+        fee_info.extend_from_slice(commitment.as_ref());
+        match TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, &fee_info) {
+            Ok(sig) => sig,
+            Err(e) => {
+                panic!("Failed to sign block: {}", e);
+            }
         }
     };
 
@@ -565,8 +578,10 @@ fn build_block<TYPES: NodeType>(
         _phantom: std::marker::PhantomData,
     };
     let header_input = AvailableBlockHeaderInput {
-        vid_commitment,
-        signature: signature_over_vid_commitment,
+        vid_commitment: vid_commmitment_pre,
+        vid_precompute_data: precompute_data,
+        message_signature: signature_over_vid_commitment.clone(),
+        fee_signature: signature_over_fee_info,
         sender: pub_key,
         _phantom: std::marker::PhantomData,
     };
