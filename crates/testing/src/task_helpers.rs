@@ -151,6 +151,20 @@ pub fn build_cert<
     cert
 }
 
+pub fn get_vid_share<TYPES: NodeType>(
+    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
+    pub_key: TYPES::SignatureKey,
+) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
+    shares
+        .iter()
+        .filter(|s| s.data.recipient_key == pub_key)
+        .cloned()
+        .collect::<Vec<_>>()
+        .first()
+        .expect("No VID for key")
+        .clone()
+}
+
 /// create signature
 /// # Panics
 /// if fails to convert node id into keypair
@@ -249,7 +263,7 @@ async fn build_quorum_proposal_and_signature(
     let mut proposal = QuorumProposal::<TestTypes> {
         block_header: block_header.clone(),
         view_number: ViewNumber::new(1),
-        justify_qc: QuorumCertificate::genesis(&TestInstanceState {}),
+        justify_qc: QuorumCertificate::genesis(),
         upgrade_certificate: None,
         proposal_certificate: None,
     };
