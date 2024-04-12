@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fmt::Display,
     num::NonZeroUsize,
     ops::Deref,
     sync::Arc,
@@ -21,11 +20,12 @@ use hotshot_builder_api::{
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
+use hotshot_example_types::block_types::TestTransaction;
 use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
+        block_contents::{vid_commitment, BlockHeader},
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
@@ -34,7 +34,6 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
-use tagged_base64::TaggedBase64;
 use tide_disco::{method::ReadState, App, Url};
 
 #[async_trait]
@@ -50,7 +49,10 @@ pub trait TestBuilderImplementation<TYPES: NodeType> {
 pub struct RandomBuilderImplementation;
 
 #[async_trait]
-impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for RandomBuilderImplementation {
+impl<TYPES> TestBuilderImplementation<TYPES> for RandomBuilderImplementation
+where
+    TYPES: NodeType<Transaction = TestTransaction>,
+{
     type Config = RandomBuilderConfig;
 
     async fn start(
@@ -118,7 +120,10 @@ pub struct RandomBuilderSource<TYPES: NodeType> {
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
 }
 
-impl<TYPES: NodeType> RandomBuilderSource<TYPES> {
+impl<TYPES> RandomBuilderSource<TYPES>
+where
+    TYPES: NodeType<Transaction = TestTransaction>,
+{
     /// Create new [`RandomBuilderSource`]
     #[must_use]
     #[allow(clippy::missing_panics_doc)] // ony panics if 256 == 0
@@ -143,7 +148,7 @@ impl<TYPES: NodeType> RandomBuilderSource<TYPES> {
             let time_per_block = Duration::from_secs(1) / options.blocks_per_second;
             loop {
                 let start = std::time::Instant::now();
-                let transactions: Vec<TYPES::Transaction> = (0..options.txn_in_block)
+                let transactions: Vec<TestTransaction> = (0..options.txn_in_block)
                     .map(|_| {
                         let mut bytes = vec![
                             0;
@@ -152,7 +157,7 @@ impl<TYPES: NodeType> RandomBuilderSource<TYPES> {
                                 .expect("We are NOT running on a 16-bit platform")
                         ];
                         rng.fill_bytes(&mut bytes);
-                        TYPES::Transaction::from_bytes(&bytes)
+                        TestTransaction(bytes)
                     })
                     .collect();
 
@@ -250,11 +255,10 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
 ///
 /// # Panics
 /// If constructing and launching the builder fails for any reason
-pub fn run_random_builder<TYPES: NodeType>(
-    url: Url,
-    num_storage_nodes: usize,
-    options: RandomBuilderConfig,
-) {
+pub fn run_random_builder<TYPES>(url: Url, num_storage_nodes: usize, options: RandomBuilderConfig)
+where
+    TYPES: NodeType<Transaction = TestTransaction>,
+{
     let (pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
     let source = RandomBuilderSource::new(pub_key, priv_key);
     source.run(num_storage_nodes, options);
@@ -388,13 +392,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> SimpleBuilderSource<TYPES>
-where
-    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
-    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
-{
+impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
     pub async fn run(self, url: Url) {
         let builder_api = hotshot_builder_api::builder::define_api::<
             SimpleBuilderSource<TYPES>,
@@ -525,8 +523,6 @@ fn build_block<TYPES: NodeType>(
     AvailableBlockData<TYPES>,
     AvailableBlockHeaderInput<TYPES>,
 ) {
-    let block_size = transactions.iter().map(|t| t.len() as u64).sum::<u64>();
-
     let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(transactions)
         .expect("failed to build block payload from transactions");
 
@@ -536,6 +532,13 @@ fn build_block<TYPES: NodeType>(
         &block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
+
+    // Get block size from the encoded payload
+    let block_size = block_payload
+        .encode()
+        .expect("failed to encode block")
+        .collect::<Vec<u8>>()
+        .len() as u64;
 
     let signature_over_block_info = {
         let mut block_info: Vec<u8> = Vec::new();
