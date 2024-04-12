@@ -564,6 +564,17 @@
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Display,
@@ -587,10 +598,11 @@
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
+<span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
-        block_contents::{vid_commitment, BlockHeader, Transaction},
+        block_contents::{vid_commitment, BlockHeader},
         election::Membership,
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
@@ -618,6 +630,7 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
     <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">async fn </span>start(
@@ -711,7 +724,10 @@
     priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RandomBuilderSource&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RandomBuilderSource&lt;TYPES&gt;
+<span class="kw">where
+    </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
+{
     <span class="doccomment">/// Create new [`RandomBuilderSource`]
     </span><span class="attr">#[must_use]
     #[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics if 256 == 0
@@ -736,7 +752,7 @@
             <span class="kw">let </span>time_per_block = Duration::from_secs(<span class="number">1</span>) / options.blocks_per_second;
             <span class="kw">loop </span>{
                 <span class="kw">let </span>start = std::time::Instant::now();
-                <span class="kw">let </span>transactions: Vec&lt;TYPES::Transaction&gt; = (<span class="number">0</span>..options.txn_in_block)
+                <span class="kw">let </span>transactions: Vec&lt;TestTransaction&gt; = (<span class="number">0</span>..options.txn_in_block)
                     .map(|<span class="kw">_</span>| {
                         <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[
                             <span class="number">0</span>;
@@ -745,7 +761,7 @@
                                 .expect(<span class="string">"We are NOT running on a 16-bit platform"</span>)
                         ];
                         rng.fill_bytes(<span class="kw-2">&amp;mut </span>bytes);
-                        TYPES::Transaction::from_bytes(<span class="kw-2">&amp;</span>bytes)
+                        TestTransaction(bytes)
                     })
                     .collect();
 
@@ -848,6 +864,7 @@
     for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
+    TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
     <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
@@ -1062,8 +1079,6 @@
     AvailableBlockData&lt;TYPES&gt;,
     AvailableBlockHeaderInput&lt;TYPES&gt;,
 ) {
-    <span class="kw">let </span>block_size = transactions.iter().map(|t| t.len() <span class="kw">as </span>u64).sum::&lt;u64&gt;();
-
     <span class="kw">let </span>(block_payload, metadata) = TYPES::BlockPayload::from_transactions(transactions)
         .expect(<span class="string">"failed to build block payload from transactions"</span>);
 
@@ -1073,6 +1088,13 @@
         <span class="kw-2">&amp;</span>block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
+
+    <span class="comment">// Get block size from the encoded payload
+    </span><span class="kw">let </span>block_size = block_payload
+        .encode()
+        .expect(<span class="string">"failed to encode block"</span>)
+        .collect::&lt;Vec&lt;u8&gt;&gt;()
+        .len() <span class="kw">as </span>u64;
 
     <span class="kw">let </span>signature_over_block_info = {
         <span class="kw">let </span><span class="kw-2">mut </span>block_info: Vec&lt;u8&gt; = Vec::new();
