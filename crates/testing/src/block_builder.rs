@@ -507,7 +507,7 @@ fn build_block<TYPES: NodeType>(
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let (vid_commmitment_pre, precompute_data) = precompute_vid_commitment(
+    let (vid_commitment, precompute_data) = precompute_vid_commitment(
         &block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
@@ -524,6 +524,7 @@ fn build_block<TYPES: NodeType>(
         block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
         block_info.extend_from_slice(123_u64.to_be_bytes().as_ref());
         block_info.extend_from_slice(commitment.as_ref());
+
         match TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, &block_info) {
             Ok(sig) => sig,
             Err(e) => {
@@ -542,7 +543,7 @@ fn build_block<TYPES: NodeType>(
 
     let signature_over_vid_commitment = match TYPES::BuilderSignatureKey::sign_builder_message(
         &priv_key,
-        vid_commmitment_pre.as_ref(),
+        vid_commitment.as_ref(),
     ) {
         Ok(sig) => sig,
         Err(e) => {
@@ -553,8 +554,8 @@ fn build_block<TYPES: NodeType>(
     let signature_over_fee_info = {
         let mut fee_info: Vec<u8> = Vec::new();
         fee_info.extend_from_slice(123_u64.to_be_bytes().as_ref());
-        fee_info.extend_from_slice(vid_commmitment_pre.as_ref());
         fee_info.extend_from_slice(commitment.as_ref());
+        fee_info.extend_from_slice(vid_commitment.as_ref());
         match TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, &fee_info) {
             Ok(sig) => sig,
             Err(e) => {
@@ -567,18 +568,18 @@ fn build_block<TYPES: NodeType>(
         block_payload,
         metadata,
         sender: pub_key.clone(),
-        signature: signature_over_block_info,
+        signature: signature_over_builder_commitment,
     };
     let metadata = AvailableBlockInfo {
         sender: pub_key.clone(),
-        signature: signature_over_builder_commitment,
+        signature: signature_over_block_info,
         block_hash: commitment,
         block_size,
         offered_fee: 123,
         _phantom: std::marker::PhantomData,
     };
     let header_input = AvailableBlockHeaderInput {
-        vid_commitment: vid_commmitment_pre,
+        vid_commitment,
         vid_precompute_data: precompute_data,
         message_signature: signature_over_vid_commitment.clone(),
         fee_signature: signature_over_fee_info,

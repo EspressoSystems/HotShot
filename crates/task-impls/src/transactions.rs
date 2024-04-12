@@ -205,12 +205,11 @@ impl<
                 combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
                 combined_response_bytes
             };
-
             if !block_info
                 .sender
                 .validate_builder_signature(&block_info.signature, &combined_message_bytes)
             {
-                error!("Failed to verify available block response message signature");
+                error!("Failed to verify available block info response message signature");
                 continue;
             }
 
