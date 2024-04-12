@@ -546,14 +546,14 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         async_spawn(async move {
             // cancels on shutdown
             while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
-                if !is_ready.load(Ordering::Relaxed) {
-                    warn!("Can't lookup node in Libp2p, not ready yet");
-                    continue;
-                }
                 /// defines lookahead threshold based on the constant
                 #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
 
+                if !is_ready.load(Ordering::Relaxed) {
+                    warn!("Can't lookup node in Libp2p, not ready yet");
+                    continue;
+                }
                 info!("Performing lookup for peer {:?}", pk);
 
                 // only run if we are not too close to the next view number
@@ -1023,7 +1023,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 .map_err(|_x| NetworkError::ShutDown)?;
             return Ok(());
         }
-
 
         let pid = match self
             .inner
