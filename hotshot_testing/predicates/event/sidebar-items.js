@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["exact","leaf_decided","quorum_proposal_send","quorum_proposal_send_with_null_block","quorum_proposal_send_with_upgrade_certificate","quorum_proposal_validated","quorum_vote_send","timeout_vote_send","upgrade_certificate_formed","view_change"],"struct":["EventPredicate"],"type":["EventCallback"]};

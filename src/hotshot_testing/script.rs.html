@@ -229,6 +229,17 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
@@ -243,8 +254,8 @@
 
 <span class="kw">pub struct </span>TestScriptStage&lt;TYPES: NodeType, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt; {
     <span class="kw">pub </span>inputs: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    <span class="kw">pub </span>outputs: Vec&lt;Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;,
-    <span class="kw">pub </span>asserts: Vec&lt;Predicate&lt;S&gt;&gt;,
+    <span class="kw">pub </span>outputs: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
+    <span class="kw">pub </span>asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;S&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// A `TestScript` is a sequence of triples (input sequence, output sequence, assertions).
@@ -274,24 +285,28 @@
     <span class="macro">panic!</span>(<span class="string">"{}"</span>, output_missing_error);
 }
 
-<span class="kw">pub fn </span>validate_task_state_or_panic&lt;S&gt;(stage_number: usize, state: <span class="kw-2">&amp;</span>S, assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;) {
+<span class="kw">pub async fn </span>validate_task_state_or_panic&lt;S&gt;(
+    stage_number: usize,
+    state: <span class="kw-2">&amp;</span>S,
+    assert: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Predicate&lt;S&gt;,
+) {
     <span class="macro">assert!</span>(
-        (assert.function)(state) == PredicateResult::Pass,
+        assert.evaluate(state).<span class="kw">await </span>== PredicateResult::Pass,
         <span class="string">"Stage {} | Task state failed to satisfy: {:?}"</span>,
         stage_number,
         assert
     );
 }
 
-<span class="kw">pub fn </span>validate_output_or_panic&lt;S&gt;(
+<span class="kw">pub async fn </span>validate_output_or_panic&lt;S&gt;(
     stage_number: usize,
     output: <span class="kw-2">&amp;</span>S,
-    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
+    assert: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Predicate&lt;S&gt; + <span class="lifetime">'static</span>),
 ) -&gt; PredicateResult
 <span class="kw">where
     </span>S: std::fmt::Debug,
 {
-    <span class="kw">let </span>result = (assert.function)(output);
+    <span class="kw">let </span>result = assert.evaluate(output).<span class="kw">await</span>;
 
     <span class="kw">match </span>result {
         PredicateResult::Pass =&gt; result,
@@ -357,7 +372,14 @@
             </span>{
                 <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
-                result = validate_output_or_panic(stage_number, <span class="kw-2">&amp;</span>received_output, assert);
+                result = validate_output_or_panic(
+                    stage_number,
+                    <span class="kw-2">&amp;</span>received_output,
+                    <span class="comment">// The first * dereferences &amp;Box&lt;dyn&gt; to Box&lt;dyn&gt;, the second one then dereferences the Box&lt;dyn&gt; to the
+                    // trait object itself and then we're good to go.
+                    </span><span class="kw-2">&amp;**</span>assert,
+                )
+                .<span class="kw">await</span>;
 
                 to_task
                     .broadcast(received_output.clone())
@@ -385,7 +407,7 @@
         }
 
         <span class="kw">for </span>assert <span class="kw">in </span><span class="kw-2">&amp;mut </span>stage.asserts {
-            validate_task_state_or_panic(stage_number, task.state(), assert);
+            validate_task_state_or_panic(stage_number, task.state(), <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
         }
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(received_output) = from_task.try_recv() {
@@ -400,8 +422,8 @@
 }
 
 <span class="kw">pub struct </span>Expectations&lt;TYPES: NodeType, S&gt; {
-    <span class="kw">pub </span>output_asserts: Vec&lt;Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;,
-    <span class="kw">pub </span>task_state_asserts: Vec&lt;Predicate&lt;S&gt;&gt;,
+    <span class="kw">pub </span>output_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
+    <span class="kw">pub </span>task_state_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;S&gt;&gt;&gt;,
 }
 
 <span class="kw">pub fn </span>panic_extra_output_in_script&lt;S&gt;(stage_number: usize, script_name: String, output: <span class="kw-2">&amp;</span>S)
@@ -428,14 +450,14 @@
     <span class="macro">panic!</span>(<span class="string">"{}"</span>, output_missing_error);
 }
 
-<span class="kw">pub fn </span>validate_task_state_or_panic_in_script&lt;S&gt;(
+<span class="kw">pub async fn </span>validate_task_state_or_panic_in_script&lt;S&gt;(
     stage_number: usize,
     script_name: String,
     state: <span class="kw-2">&amp;</span>S,
-    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
+    assert: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Predicate&lt;S&gt;,
 ) {
     <span class="macro">assert!</span>(
-        (assert.function)(state) == PredicateResult::Pass,
+        assert.evaluate(state).<span class="kw">await </span>== PredicateResult::Pass,
         <span class="string">"Stage {} | Task state in {} failed to satisfy: {:?}"</span>,
         stage_number,
         script_name,
@@ -443,14 +465,14 @@
     );
 }
 
-<span class="kw">pub fn </span>validate_output_or_panic_in_script&lt;S: std::fmt::Debug&gt;(
+<span class="kw">pub async fn </span>validate_output_or_panic_in_script&lt;S: std::fmt::Debug&gt;(
     stage_number: usize,
     script_name: String,
     output: <span class="kw-2">&amp;</span>S,
-    assert: <span class="kw-2">&amp;mut </span>Predicate&lt;S&gt;,
+    assert: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Predicate&lt;S&gt;,
 ) {
     <span class="macro">assert!</span>(
-        (assert.function)(output) == PredicateResult::Pass,
+        assert.evaluate(output).<span class="kw">await </span>== PredicateResult::Pass,
         <span class="string">"Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
         stage_number,
         script_name,

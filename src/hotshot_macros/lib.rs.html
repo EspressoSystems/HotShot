@@ -787,7 +787,7 @@
 
                         <span class="kw">let </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
 
-                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, assert);
+                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
 
                         #output_index_names += <span class="number">1</span>;
                     }
@@ -815,7 +815,7 @@
 
                         <span class="kw">let </span><span class="kw-2">mut </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
 
-                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, assert);
+                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output, <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
 
                         #output_index_names += <span class="number">1</span>;
                     }
@@ -833,7 +833,7 @@
             <span class="kw">let </span>task_state_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].task_state_asserts;
 
             <span class="kw">for </span>assert <span class="kw">in </span>task_state_asserts {
-                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), assert);
+                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
             }
         )*
     } }
