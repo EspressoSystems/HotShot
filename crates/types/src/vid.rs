@@ -11,7 +11,6 @@
 use ark_bn254::Bn254;
 use jf_primitives::{
     pcs::{
-        checked_fft_size,
         prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
         PolynomialCommitmentScheme,
     },
@@ -111,7 +110,7 @@ pub struct SmallRangeProofType(
     SmallRangeProof<<UnivariateKzgPCS<E> as PolynomialCommitmentScheme>::Proof>,
 );
 
-#[cfg(not(feature = "aztec-srs"))]
+#[cfg(feature = "test-srs")]
 lazy_static! {
     /// SRS comment
     ///
@@ -122,17 +121,18 @@ lazy_static! {
         UnivariateKzgPCS::<E>::gen_srs_for_testing(
             &mut rng,
             // TODO what's the maximum possible SRS size?
-            checked_fft_size(200).unwrap(),
+            jf_primitives::pcs::checked_fft_size(200).unwrap(),
         )
         .unwrap()
     };
 }
 
-#[cfg(feature = "aztec-srs")]
+// By default, use SRS from Aztec's ceremony
+#[cfg(not(feature = "test-srs"))]
 lazy_static! {
     /// SRS comment
     static ref KZG_SRS: UnivariateUniversalParams<E> = {
-        let srs = ark_srs::aztec20::kzg10_setup(2u64.pow(20) as usize + 2)
+        let srs = ark_srs::kzg10::aztec20::setup(2u64.pow(20) as usize + 2)
             .expect("Aztec SRS fail to load");
         UnivariateUniversalParams {
             powers_of_g: srs.powers_of_g,
