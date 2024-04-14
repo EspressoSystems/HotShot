@@ -1,10 +1,7 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use crate::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
-    vid::VidCommitment,
-};
+use std::{ops::Deref, sync::Arc};
+
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::{
     config::{
@@ -13,12 +10,17 @@ use bincode::{
     },
     DefaultOptions, Options,
 };
-use commit::Commitment;
+use committable::Commitment;
 use digest::OutputSizeUser;
 use sha2::Digest;
-use std::{ops::Deref, sync::Arc};
 use tagged_base64::tagged;
 use typenum::Unsigned;
+
+use crate::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    vid::VidCommitment,
+};
 
 /// A view's state
 #[derive(Debug)]
@@ -182,7 +184,7 @@ impl AsRef<Sha256Digest> for BuilderCommitment {
 
 /// For the wire format, we use bincode with the following options:
 ///   - No upper size limit
-///   - Litte endian encoding
+///   - Little endian encoding
 ///   - Varint encoding
 ///   - Reject trailing bytes
 #[allow(clippy::type_complexity)]

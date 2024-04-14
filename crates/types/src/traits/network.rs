@@ -7,17 +7,23 @@ use async_compatibility_layer::art::async_sleep;
 use async_std::future::TimeoutError;
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use futures::channel::{mpsc, oneshot};
+use futures::{
+    channel::{mpsc, oneshot},
+    Future,
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
-use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{
-    data::ViewNumber,
-    message::{MessagePurpose, SequencingMessage},
-    BoxSyncFuture,
+use std::{
+    collections::{BTreeSet, HashMap},
+    fmt::Debug,
+    hash::Hash,
+    pin::Pin,
+    sync::Arc,
+    time::Duration,
 };
+
 use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use futures::future::join_all;
@@ -27,14 +33,14 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{
-    collections::{BTreeSet, HashMap},
-    fmt::Debug,
-    hash::Hash,
-    sync::Arc,
-    time::Duration,
+use vbs::version::StaticVersionType;
+
+use super::{node_implementation::NodeType, signature_key::SignatureKey};
+use crate::{
+    data::ViewNumber,
+    message::{MessagePurpose, SequencingMessage},
+    BoxSyncFuture,
 };
-use versioned_binary_serialization::version::StaticVersionType;
 
 /// for any errors we decide to add to memory network
 #[derive(Debug, Snafu, Serialize, Deserialize)]
@@ -77,10 +83,10 @@ pub enum WebServerNetworkError {
 }
 
 /// the type of transmission
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum TransmitType {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransmitType<TYPES: NodeType> {
     /// directly transmit
-    Direct,
+    Direct(TYPES::SignatureKey),
     /// broadcast the message to all
     Broadcast,
     /// broadcast to DA committee
@@ -96,7 +102,7 @@ pub enum NetworkError {
         /// source of error
         source: Box<dyn std::error::Error + Send + Sync>,
     },
-    /// collection of libp2p secific errors
+    /// collection of libp2p specific errors
     Libp2pMulti {
         /// sources of errors
         sources: Vec<Box<dyn std::error::Error + Send + Sync>>,
@@ -128,6 +134,8 @@ pub enum NetworkError {
     CouldNotDeliver,
     /// Attempted to deliver a message to an unknown node
     NoSuchNode,
+    /// No bootstrap nodes were specified on network creation
+    NoBootstrapNodesSpecified,
     /// Failed to serialize a network message
     FailedToSerialize {
         /// Originating bincode error
@@ -153,7 +161,10 @@ pub enum NetworkError {
     /// The requested data was not found
     NotFound,
     /// Multiple errors
-    MultipleErrors { errors: Vec<Box<NetworkError>> },
+    MultipleErrors {
+        /// vec of errors
+        errors: Vec<Box<NetworkError>>,
+    },
 }
 #[derive(Clone, Debug)]
 // Storing view number as a u64 to avoid the need TYPES generic
@@ -161,8 +172,12 @@ pub enum NetworkError {
 pub enum ConsensusIntentEvent<K: SignatureKey> {
     /// Poll for votes for a particular view
     PollForVotes(u64),
+    /// Poll for upgrade votes for a particular view
+    PollForUpgradeVotes(u64),
     /// Poll for a proposal for a particular view
     PollForProposal(u64),
+    /// Poll for an upgrade proposal for a particular view
+    PollForUpgradeProposal(u64),
     /// Poll for VID disperse data for a particular view
     PollForVIDDisperse(u64),
     /// Poll for the most recent [quorum/da] proposal the webserver has
@@ -206,6 +221,8 @@ impl<K: SignatureKey> ConsensusIntentEvent<K> {
         match &self {
             ConsensusIntentEvent::PollForVotes(view_number)
             | ConsensusIntentEvent::PollForProposal(view_number)
+            | ConsensusIntentEvent::PollForUpgradeVotes(view_number)
+            | ConsensusIntentEvent::PollForUpgradeProposal(view_number)
             | ConsensusIntentEvent::PollForDAC(view_number)
             | ConsensusIntentEvent::PollForViewSyncVotes(view_number)
             | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
@@ -271,7 +288,7 @@ pub enum RequestKind<TYPES: NodeType> {
     DAProposal(TYPES::Time),
 }
 
-/// A resopnse for a request.  `SequencingMessage` is the same as other network messages
+/// A response for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -302,10 +319,6 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self);
-
-    /// checks if the network is ready
-    /// nonblocking
-    async fn is_ready(&self) -> bool;
 
     /// Blocks until the network is shut down
     /// then returns true
@@ -416,6 +429,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     fn update_view(&self, _view: u64) {}
 }
 
+/// A channel generator for types that need asynchronous execution
+pub type AsyncGenerator<T> = Pin<Box<dyn Fn(u64) -> Pin<Box<dyn Future<Output = T>>>>>;
+
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<TYPES: NodeType>
 where
@@ -431,7 +447,7 @@ where
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static>;
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)>;
 
     /// Get the number of messages in-flight.
     ///
@@ -597,7 +613,7 @@ impl NetworkReliability for PartiallySynchronousNetwork {
         true
     }
     fn sample_delay(&self) -> Duration {
-        // act asyncronous before gst
+        // act asynchronous before gst
         if self.start.elapsed() < self.gst {
             if self.asynchronous.sample_keep() {
                 self.asynchronous.sample_delay()
@@ -606,7 +622,7 @@ impl NetworkReliability for PartiallySynchronousNetwork {
                 self.synchronous.sample_delay() + self.gst
             }
         } else {
-            // act syncronous after gst
+            // act synchronous after gst
             self.synchronous.sample_delay()
         }
     }

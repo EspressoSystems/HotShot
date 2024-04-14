@@ -1,9 +1,11 @@
-use async_broadcast::{Receiver, RecvError};
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
-use futures::stream::StreamExt;
-use futures::FutureExt;
 use std::future::Future;
+
+use async_broadcast::{Receiver, RecvError};
+use futures::{
+    future::BoxFuture,
+    stream::{FuturesUnordered, StreamExt},
+    FutureExt,
+};
 
 /// Type which describes the idea of waiting for a dependency to complete
 pub trait Dependency<T> {
@@ -43,7 +45,7 @@ pub struct AndDependency<T> {
     deps: Vec<BoxFuture<'static, Option<T>>>,
 }
 impl<T: Clone + Send + Sync> Dependency<Vec<T>> for AndDependency<T> {
-    /// Returns a vector of all of the results from it's dependencies.  
+    /// Returns a vector of all of the results from it's dependencies.
     /// The results will be in a random order
     async fn completed(self) -> Option<Vec<T>> {
         let futures = FuturesUnordered::from_iter(self.deps);
@@ -77,7 +79,7 @@ impl<T: Clone + Send + Sync + 'static> AndDependency<T> {
     }
 }
 
-/// Defines a dependency that complets when one of it's dependencies compeltes
+/// Defines a dependency that completes when one of it's dependencies completes
 pub struct OrDependency<T> {
     /// Dependencies being combined
     deps: Vec<BoxFuture<'static, Option<T>>>,
@@ -108,20 +110,25 @@ impl<T: Clone + Send + Sync + 'static> OrDependency<T> {
         }
         Self { deps: pinned }
     }
-    /// Add another dependecy
+    /// Add another dependency
     pub fn add_dep(&mut self, dep: impl Dependency<T> + Send + 'static) {
         self.deps.push(dep.completed().boxed());
     }
 }
 
-/// A dependency that listens on a chanel for an event
+/// A dependency that listens on a channel for an event
 /// that matches what some value it wants.
 pub struct EventDependency<T: Clone + Send + Sync> {
-    /// Channel of incomming events
+    /// Channel of incoming events
     pub(crate) event_rx: Receiver<T>,
+
     /// Closure which returns true if the incoming `T` is the
     /// thing that completes this dependency
     pub(crate) match_fn: Box<dyn Fn(&T) -> bool + Send>,
+
+    /// The potentially externally completed dependency. If the dependency was seeded from an event
+    /// message, we can mark it as already done in lieu of other events still pending.
+    completed_dependency: Option<T>,
 }
 
 impl<T: Clone + Send + Sync + 'static> EventDependency<T> {
@@ -131,13 +138,26 @@ impl<T: Clone + Send + Sync + 'static> EventDependency<T> {
         Self {
             event_rx: receiver,
             match_fn: Box::new(match_fn),
+            completed_dependency: None,
         }
+    }
+
+    /// Mark a dependency as completed.
+    pub fn mark_as_completed(&mut self, dependency: T) {
+        self.completed_dependency = Some(dependency);
     }
 }
 
 impl<T: Clone + Send + Sync + 'static> Dependency<T> for EventDependency<T> {
     async fn completed(mut self) -> Option<T> {
+        if let Some(dependency) = self.completed_dependency {
+            return Some(dependency);
+        }
         loop {
+            if let Some(dependency) = self.completed_dependency {
+                return Some(dependency);
+            }
+
             match self.event_rx.recv_direct().await {
                 Ok(event) => {
                     if (self.match_fn)(&event) {
@@ -157,13 +177,15 @@ impl<T: Clone + Send + Sync + 'static> Dependency<T> for EventDependency<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AndDependency, Dependency, EventDependency, OrDependency};
     use async_broadcast::{broadcast, Receiver};
+
+    use super::{AndDependency, Dependency, EventDependency, OrDependency};
 
     fn eq_dep(rx: Receiver<usize>, val: usize) -> EventDependency<usize> {
         EventDependency {
             event_rx: rx,
             match_fn: Box::new(move |v| *v == val),
+            completed_dependency: None,
         }
     }
 

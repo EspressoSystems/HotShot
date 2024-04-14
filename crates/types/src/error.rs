@@ -4,14 +4,16 @@
 //! occur while interacting with this crate.
 
 //use crate::traits::network::TimeoutErr;
-use crate::traits::{block_contents::BlockPayload, node_implementation::NodeType};
+use std::num::NonZeroU64;
+
 #[cfg(async_executor_impl = "async-std")]
 use async_std::future::TimeoutError;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::num::NonZeroU64;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
+
+use crate::traits::{block_contents::BlockPayload, node_implementation::NodeType};
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
@@ -46,7 +48,7 @@ pub enum HotShotError<TYPES: NodeType> {
     },
     /// Item was not present in storage
     LeafNotFound {/* TODO we should create a way to to_string */},
-    /// Error accesing storage
+    /// Error accessing storage
     /// Invalid state machine state
     #[snafu(display("Invalid state machine state: {}", context))]
     InvalidState {
@@ -73,7 +75,7 @@ pub enum HotShotError<TYPES: NodeType> {
         /// Threshold of signatures needed for a quorum
         threshold: NonZeroU64,
     },
-    /// Miscelaneous error
+    /// Miscellaneous error
     /// TODO fix this with
     /// #181 <https://github.com/EspressoSystems/HotShot/issues/181>
     Misc {

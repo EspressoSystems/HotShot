@@ -1,5 +1,9 @@
-use hotshot::{traits::TestableNodeImplementation, HotShotError};
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    sync::Arc,
+};
 
+use hotshot::{traits::TestableNodeImplementation, HotShotError};
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
     data::Leaf,
@@ -10,10 +14,6 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use snafu::Snafu;
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    sync::Arc,
-};
 use tracing::error;
 
 use crate::test_runner::{HotShotTaskCompleted, Node};
@@ -52,7 +52,7 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
     NotEnoughDecides {
         /// expected number of decides
         expected: usize,
-        /// acutal number of decides
+        /// actual number of decides
         got: usize,
     },
     /// mismatched leaves for a view
@@ -423,9 +423,20 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         let num_failed = self.failed_nodes.len();
 
         if check_leaf && self.leaf_map.len() != 1 {
-            error!("LEAF MAP (that is mismatched) IS: {:?}", self.leaf_map);
-            self.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
-            return;
+            let (quorum_leaf, count) = self
+                .leaf_map
+                .iter()
+                .max_by(|(_, v), (_, other_val)| v.cmp(other_val))
+                .unwrap();
+            if *count >= threshold {
+                for leaf in self.leaf_map.keys() {
+                    if leaf.get_view_number() > quorum_leaf.get_view_number() {
+                        error!("LEAF MAP (that is mismatched) IS: {:?}", self.leaf_map);
+                        self.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
+                        return;
+                    }
+                }
+            }
         }
 
         if check_block && self.block_map.len() != 1 {

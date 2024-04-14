@@ -1,19 +1,12 @@
 use std::{cmp::max, marker::PhantomData};
 
+use committable::Committable;
+use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use sha2::{Digest, Sha256};
-
-use crate::task_helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
-use commit::Committable;
-
-use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
-
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
@@ -22,17 +15,19 @@ use hotshot_types::{
         ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DAData, DAVote, TimeoutData, TimeoutVote, UpgradeProposalData, UpgradeVote,
-        ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DAData, DAVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
     },
 };
+use sha2::{Digest, Sha256};
 
-use hotshot_types::simple_vote::QuorumData;
-use hotshot_types::simple_vote::QuorumVote;
+use crate::task_helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 
 #[derive(Clone)]
 pub struct TestView {
@@ -49,6 +44,7 @@ pub struct TestView {
     pub da_certificate: DACertificate<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
+    formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
     timeout_cert_data: Option<TimeoutData<TestTypes>>,
 }
@@ -94,7 +90,6 @@ impl TestView {
             proposal_certificate: None,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -113,16 +108,11 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let leaf = Leaf {
-            view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(),
-            parent_commitment: Leaf::genesis(&TestInstanceState {}).commit(),
-            block_header: block_header.clone(),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            block_payload: Some(TestBlockPayload {
-                transactions: transactions.clone(),
-            }),
-        };
+        let mut leaf = Leaf::from_quorum_proposal(&quorum_proposal_inner);
+        leaf.fill_block_payload_unchecked(TestBlockPayload {
+            transactions: transactions.clone(),
+        });
+        leaf.set_parent_commitment(Leaf::genesis(&TestInstanceState {}).commit());
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment!");
@@ -143,6 +133,7 @@ impl TestView {
             transactions,
             leader_public_key,
             upgrade_data: None,
+            formed_upgrade_certificate: None,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
@@ -221,7 +212,7 @@ impl TestView {
 
             Some(cert)
         } else {
-            None
+            self.formed_upgrade_certificate.clone()
         };
 
         let view_sync_certificate = if let Some(ref data) = self.view_sync_finalize_data {
@@ -274,27 +265,21 @@ impl TestView {
             payload_commitment,
         };
 
-        let leaf = Leaf {
-            view_number: next_view,
-            justify_qc: quorum_certificate.clone(),
-            parent_commitment: old.leaf.commit(),
-            block_header: block_header.clone(),
-            // Note: this field is not relevant in calculating the leaf commitment.
-            block_payload: Some(TestBlockPayload {
-                transactions: transactions.clone(),
-            }),
-        };
-
-        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
-            .expect("Failed to sign leaf commitment.");
-
         let proposal = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
-            upgrade_certificate,
+            upgrade_certificate: upgrade_certificate.clone(),
             proposal_certificate,
         };
+
+        let mut leaf = Leaf::from_quorum_proposal(&proposal);
+        leaf.fill_block_payload_unchecked(TestBlockPayload {
+            transactions: transactions.clone(),
+        });
+
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment.");
 
         let quorum_proposal = Proposal {
             data: proposal,
@@ -302,7 +287,6 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let transactions = vec![TestTransaction(vec![0])];
         let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
@@ -333,6 +317,9 @@ impl TestView {
             // so we reset for the next view.
             transactions: Vec::new(),
             upgrade_data: None,
+            // We preserve the upgrade_certificate once formed,
+            // and reattach it on every future view until cleared.
+            formed_upgrade_certificate: upgrade_certificate,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
@@ -433,6 +420,17 @@ impl TestViewGenerator {
             });
         } else {
             tracing::error!("Cannot attach view sync finalize to the genesis view.");
+        }
+    }
+
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+        if let Some(ref view) = self.current_view {
+            self.current_view = Some(TestView {
+                timeout_cert_data: Some(timeout_data),
+                ..view.clone()
+            });
+        } else {
+            tracing::error!("Cannot attach timeout cert to the genesis view.")
         }
     }
 

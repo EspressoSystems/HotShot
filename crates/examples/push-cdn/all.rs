@@ -2,18 +2,21 @@
 /// The types we're importing
 pub mod types;
 
-use crate::infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs};
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
 use async_compatibility_layer::art::async_spawn;
-use cdn_broker::reexports::crypto::signature::KeyPair;
-use cdn_broker::Broker;
+use cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
 use cdn_marshal::Marshal;
-use hotshot::traits::implementations::{TestingDef, WrappedSignatureKey};
-use hotshot::types::SignatureKey;
+use hotshot::{
+    traits::implementations::{TestingDef, WrappedSignatureKey},
+    types::SignatureKey,
+};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
-use std::net::{IpAddr, Ipv4Addr};
+
+use crate::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 /// The infra implementation
 #[path = "../infra/mod.rs"]
@@ -96,6 +99,7 @@ async fn main() {
     let marshal_config = cdn_marshal::ConfigBuilder::default()
         .bind_address(marshal_endpoint.clone())
         .discovery_endpoint("test.sqlite".to_string())
+        .metrics_enabled(false)
         .build()
         .expect("failed to build marshal config");
 
@@ -119,7 +123,7 @@ async fn main() {
             infra::main_entry_point::<TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,
-                    public_ip: Some(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                    advertise_address: None,
                     network_config_file: None,
                 },
             )

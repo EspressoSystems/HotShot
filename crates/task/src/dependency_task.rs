@@ -1,9 +1,8 @@
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
+use futures::Future;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
-
-use futures::Future;
 
 use crate::dependency::Dependency;
 
@@ -52,10 +51,9 @@ mod test {
     use std::time::Duration;
 
     use async_broadcast::{broadcast, Receiver, Sender};
-    use futures::{stream::FuturesOrdered, StreamExt};
-
     #[cfg(async_executor_impl = "async-std")]
     use async_std::task::sleep;
+    use futures::{stream::FuturesOrdered, StreamExt};
     #[cfg(async_executor_impl = "tokio")]
     use tokio::time::sleep;
 
@@ -82,10 +80,7 @@ mod test {
     }
 
     fn eq_dep(rx: Receiver<usize>, val: usize) -> EventDependency<usize> {
-        EventDependency {
-            event_rx: rx,
-            match_fn: Box::new(move |v| *v == val),
-        }
+        EventDependency::new(rx, Box::new(move |v| *v == val))
     }
 
     #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]

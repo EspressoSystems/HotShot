@@ -1,8 +1,12 @@
-//! Abstractions over the immutable instance-level state and hte global state that blocks modify.
+//! Abstractions over the immutable instance-level state and the global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
 //! compatibilities over the current network state, which is modified by the transactions contained
 //! within blocks.
+
+use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
+
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::block_contents::TestableBlock;
 use crate::{
@@ -12,8 +16,6 @@ use crate::{
         BlockPayload,
     },
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 /// Instance-level state, which allows us to fetch missing validated state.
 pub trait InstanceState: Debug + Send + Sync {}
@@ -35,9 +37,9 @@ pub trait ValidatedState<TYPES: NodeType>:
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
-    /// The type of the instance-level state this state is assocaited with
+    /// The type of the instance-level state this state is associated with
     type Instance: InstanceState;
-    /// The type of the state delta this state is assocaited with.
+    /// The type of the state delta this state is associated with.
     type Delta: StateDelta;
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;

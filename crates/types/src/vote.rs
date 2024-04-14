@@ -6,7 +6,7 @@ use std::{
 };
 
 use bitvec::{bitvec, vec::BitVec};
-use commit::Commitment;
+use committable::Commitment;
 use either::Either;
 use ethereum_types::U256;
 use tracing::error;
@@ -73,7 +73,7 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Get the vote commitment which the votes commit to
     fn get_data_commitment(&self) -> Commitment<Self::Voteable>;
 }
-/// Mapping of vote commitment to sigatures and bitvec
+/// Mapping of vote commitment to signatures and bitvec
 type SignersMap<COMMITMENT, KEY> = HashMap<
     COMMITMENT,
     (
@@ -87,7 +87,7 @@ pub struct VoteAccumulator<
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
 > {
-    /// Map of all signatures accumlated so far
+    /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
         Commitment<VOTE::Commitment>,
         TYPES::SignatureKey,
@@ -105,9 +105,6 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
-    ///
-    /// # Panics
-    /// Panics if the vote comes from a node not in the stake table
     pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.get_signing_key();
 
@@ -121,10 +118,12 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             return Either::Left(());
         };
         let stake_table = membership.get_committee_qc_stake_table();
-        let vote_node_id = stake_table
+        let Some(vote_node_id) = stake_table
             .iter()
             .position(|x| *x == stake_table_entry.clone())
-            .unwrap();
+        else {
+            return Either::Left(());
+        };
 
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
             vote.get_signature();

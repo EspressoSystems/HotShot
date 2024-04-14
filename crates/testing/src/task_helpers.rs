@@ -1,26 +1,27 @@
 #![allow(clippy::panic)]
-use std::marker::PhantomData;
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
-};
-
-use crate::test_builder::TestMetadata;
-use commit::Committable;
+use async_broadcast::{Receiver, Sender};
+use async_lock::RwLockUpgradableReadGuard;
+use bitvec::bitvec;
+use committable::Committable;
 use ethereum_types::U256;
 use hotshot::{
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, Networks, SystemContext,
 };
+use hotshot_example_types::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    node_types::{MemoryImpl, TestTypes},
+    state_types::{TestInstanceState, TestValidatedState},
+};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidDisperse, ViewNumber},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::{DACertificate, QuorumCertificate},
-    simple_vote::{DAData, DAVote, SimpleVote},
+    simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
         block_contents::{vid_commitment, BlockHeader, TestableBlock},
         consensus_api::ConsensusApi,
@@ -29,25 +30,14 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
+    utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber, Vote},
 };
-
-use async_broadcast::{Receiver, Sender};
-use async_lock::RwLockUpgradableReadGuard;
-use bitvec::bitvec;
-use hotshot_types::simple_vote::QuorumData;
-use hotshot_types::simple_vote::QuorumVote;
-use hotshot_types::utils::View;
-use hotshot_types::utils::ViewInner;
-use hotshot_types::vote::Certificate;
-use hotshot_types::vote::Vote;
-
 use jf_primitives::vid::VidScheme;
-
-use hotshot_types::data::VidDisperseShare;
 use serde::Serialize;
-use std::{fmt::Debug, hash::Hash, sync::Arc};
+
+use crate::test_builder::TestMetadata;
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -63,7 +53,7 @@ pub async fn build_system_handle(
 
     let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
 
-    let networks = (launcher.resource_generator.channel_generator)(node_id);
+    let networks = (launcher.resource_generator.channel_generator)(node_id).await;
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
@@ -98,18 +88,22 @@ pub async fn build_system_handle(
         quorum_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         da_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             committee_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
         vid_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config.clone(),
+            config.fixed_leader_for_gpuvid,
         ),
         view_sync_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             quorum_election_config,
+            config.fixed_leader_for_gpuvid,
         ),
     };
 
@@ -155,6 +149,20 @@ pub fn build_cert<
         vote.get_view_number(),
     );
     cert
+}
+
+pub fn get_vid_share<TYPES: NodeType>(
+    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
+    pub_key: TYPES::SignatureKey,
+) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
+    shares
+        .iter()
+        .filter(|s| s.data.recipient_key == pub_key)
+        .cloned()
+        .collect::<Vec<_>>()
+        .first()
+        .expect("No VID for key")
+        .clone()
 }
 
 /// create signature
@@ -240,7 +248,9 @@ async fn build_quorum_proposal_and_signature(
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
     let mut parent_state = Arc::new(
-        <TestValidatedState as ValidatedState<TestTypes>>::from_header(&parent_leaf.block_header),
+        <TestValidatedState as ValidatedState<TestTypes>>::from_header(
+            parent_leaf.get_block_header(),
+        ),
     );
     let block_header = TestBlockHeader::new(
         &*parent_state,
@@ -250,17 +260,6 @@ async fn build_quorum_proposal_and_signature(
         (),
     )
     .await;
-    // current leaf that can be re-assigned everytime when entering a new view
-    let mut leaf = Leaf {
-        view_number: ViewNumber::new(1),
-        justify_qc: consensus.high_qc.clone(),
-        parent_commitment: parent_leaf.commit(),
-        block_header: block_header.clone(),
-        block_payload: None,
-    };
-
-    let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
-        .expect("Failed to sign leaf commitment!");
     let mut proposal = QuorumProposal::<TestTypes> {
         block_header: block_header.clone(),
         view_number: ViewNumber::new(1),
@@ -268,6 +267,11 @@ async fn build_quorum_proposal_and_signature(
         upgrade_certificate: None,
         proposal_certificate: None,
     };
+    // current leaf that can be re-assigned everytime when entering a new view
+    let mut leaf = Leaf::from_quorum_proposal(&proposal);
+
+    let mut signature = <BLSPubKey as SignatureKey>::sign(private_key, leaf.commit().as_ref())
+        .expect("Failed to sign leaf commitment!");
 
     // Only view 2 is tested, higher views are not tested
     for cur_view in 2..=view {
@@ -307,17 +311,6 @@ async fn build_quorum_proposal_and_signature(
             private_key,
         );
         // create a new leaf for the current view
-        let parent_leaf = leaf.clone();
-        let leaf_new_view = Leaf {
-            view_number: ViewNumber::new(cur_view),
-            justify_qc: created_qc.clone(),
-            parent_commitment: parent_leaf.commit(),
-            block_header: block_header.clone(),
-            block_payload: None,
-        };
-        let signature_new_view =
-            <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
-                .expect("Failed to sign leaf commitment!");
         let proposal_new_view = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: ViewNumber::new(cur_view),
@@ -325,6 +318,10 @@ async fn build_quorum_proposal_and_signature(
             upgrade_certificate: None,
             proposal_certificate: None,
         };
+        let leaf_new_view = Leaf::from_quorum_proposal(&proposal_new_view);
+        let signature_new_view =
+            <BLSPubKey as SignatureKey>::sign(private_key, leaf_new_view.commit().as_ref())
+                .expect("Failed to sign leaf commitment!");
         proposal = proposal_new_view;
         signature = signature_new_view;
         leaf = leaf_new_view;
@@ -405,7 +402,7 @@ pub fn build_vid_proposal(
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(encoded_transactions).unwrap(),
-        &quorum_membership.clone().into(),
+        quorum_membership,
     );
 
     VidDisperseShare::from_vid_disperse(vid_disperse)
@@ -447,39 +444,9 @@ pub async fn build_vote(
     handle: &SystemContextHandle<TestTypes, MemoryImpl>,
     proposal: QuorumProposal<TestTypes>,
 ) -> GeneralConsensusMessage<TestTypes> {
-    let consensus_lock = handle.get_consensus();
-    let consensus = consensus_lock.read().await;
-
-    let justify_qc = proposal.justify_qc.clone();
     let view = ViewNumber::new(*proposal.view_number);
-    let parent = if justify_qc.is_genesis {
-        let Some(genesis_view) = consensus.validated_state_map.get(&ViewNumber::new(0)) else {
-            panic!("Couldn't find genesis view in state map.");
-        };
-        let Some(leaf) = genesis_view.get_leaf_commitment() else {
-            panic!("Genesis view points to a view without a leaf");
-        };
-        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
-            panic!("Failed to find genesis leaf.");
-        };
-        leaf.clone()
-    } else {
-        consensus
-            .saved_leaves
-            .get(&justify_qc.get_data().leaf_commit)
-            .cloned()
-            .unwrap()
-    };
 
-    let parent_commitment = parent.commit();
-
-    let leaf: Leaf<_> = Leaf {
-        view_number: view,
-        justify_qc: proposal.justify_qc.clone(),
-        parent_commitment,
-        block_header: proposal.block_header,
-        block_payload: None,
-    };
+    let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
     let vote = QuorumVote::<TestTypes>::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(),

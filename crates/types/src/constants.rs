@@ -1,6 +1,6 @@
 //! configurable constants for hotshot
 
-use versioned_binary_serialization::version::{StaticVersion, Version};
+use vbs::version::{StaticVersion, Version};
 
 /// the number of views to gather information for ahead of time
 pub const LOOK_AHEAD: u64 = 5;
@@ -28,6 +28,9 @@ pub const VERSION_0_1: Version = Version {
     major: VERSION_MAJ,
     minor: VERSION_MIN,
 };
+
+/// Constant for the base protocol version in this instance of HotShot.
+pub const BASE_VERSION: Version = VERSION_0_1;
 
 /// Type for protocol static version 0.1.
 pub type Version01 = StaticVersion<VERSION_MAJ, VERSION_MIN>;

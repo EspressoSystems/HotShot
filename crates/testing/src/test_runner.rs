@@ -1,47 +1,48 @@
 #![allow(clippy::panic)]
-use super::{
-    completion_task::CompletionTask,
-    overall_safety_task::{OverallSafetyTask, RoundCtx},
-    txn_task::TxnTask,
-};
-use crate::{
-    completion_task::CompletionTaskDescription,
-    spinning_task::{ChangeNode, SpinningTask, UpDown},
-    test_launcher::{Networks, TestLauncher},
-    txn_task::TxnTaskDescription,
-    view_sync_task::ViewSyncTask,
-};
-use async_broadcast::broadcast;
-use either::Either::{self, Left, Right};
-use futures::future::join_all;
-use hotshot::{types::SystemContextHandle, Memberships};
-use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
-
-use hotshot::{traits::TestableNodeImplementation, HotShotInitializer, SystemContext};
-
-use hotshot_task::task::{Task, TaskRegistry, TestTask};
-use hotshot_types::{
-    consensus::ConsensusMetricsValue,
-    data::Leaf,
-    traits::{
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
-    },
-    HotShotConfig, ValidatorConfig,
-};
-use hotshot_types::{constants::EVENT_CHANNEL_SIZE, simple_certificate::QuorumCertificate};
-use hotshot_types::{
-    message::Message,
-    traits::{network::ConnectedNetwork, node_implementation::NodeImplementation},
-};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
 
+use async_broadcast::broadcast;
+use either::Either::{self, Left, Right};
+use futures::future::join_all;
+use hotshot::{
+    traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
+    Memberships, SystemContext,
+};
+use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_task::task::{Task, TaskRegistry, TestTask};
+use hotshot_types::{
+    consensus::ConsensusMetricsValue,
+    constants::EVENT_CHANNEL_SIZE,
+    data::Leaf,
+    message::Message,
+    simple_certificate::QuorumCertificate,
+    traits::{
+        election::Membership,
+        network::ConnectedNetwork,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    },
+    HotShotConfig, ValidatorConfig,
+};
 #[allow(deprecated)]
 use tracing::info;
+
+use super::{
+    completion_task::CompletionTask,
+    overall_safety_task::{OverallSafetyTask, RoundCtx},
+    txn_task::TxnTask,
+};
+use crate::{
+    block_builder::TestBuilderImplementation,
+    completion_task::CompletionTaskDescription,
+    spinning_task::{ChangeNode, SpinningTask, UpDown},
+    test_launcher::{Networks, TestLauncher},
+    txn_task::TxnTaskDescription,
+    view_sync_task::ViewSyncTask,
+};
 
 /// a node participating in a test
 #[derive(Clone)]
@@ -65,7 +66,6 @@ pub type LateNodeContext<TYPES, I> = Either<
 >;
 
 /// A yet-to-be-started node that participates in tests
-#[derive(Clone)]
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The underlying networks belonging to the node
     pub networks: Networks<TYPES, I>,
@@ -127,12 +127,12 @@ where
         Storage = TestStorage<TYPES>,
     >,
 {
-    /// excecute test
+    /// execute test
     ///
     /// # Panics
     /// if the test fails
     #[allow(clippy::too_many_lines)]
-    pub async fn run_test(mut self) {
+    pub async fn run_test<B: TestBuilderImplementation<TYPES>>(mut self) {
         let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
@@ -150,7 +150,7 @@ where
             }
         }
 
-        self.add_nodes(
+        self.add_nodes::<B>(
             self.launcher.metadata.num_nodes_with_stake,
             &late_start_nodes,
         )
@@ -327,25 +327,39 @@ where
     ///
     /// # Panics
     /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes(&mut self, total: usize, late_start: &HashSet<u64>) -> Vec<u64> {
+    pub async fn add_nodes<B: TestBuilderImplementation<TYPES>>(
+        &mut self,
+        total: usize,
+        late_start: &HashSet<u64>,
+    ) -> Vec<u64> {
         let mut results = vec![];
+        let config = self.launcher.resource_generator.config.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+        let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
+            TYPES::Membership::default_election_config(
+                config.num_nodes_with_stake.get() as u64,
+                config.num_nodes_without_stake as u64,
+            )
+        });
+        let (mut builder_task, builder_url) =
+            B::start(Arc::new(<TYPES as NodeType>::Membership::create_election(
+                known_nodes_with_stake.clone(),
+                quorum_election_config.clone(),
+                config.fixed_leader_for_gpuvid,
+            )))
+            .await;
         for i in 0..total {
+            let mut config = config.clone();
             let node_id = self.next_node_id;
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
-            let config = self.launcher.resource_generator.config.clone();
-            let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-            let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-                TYPES::Membership::default_election_config(
-                    config.num_nodes_with_stake.get() as u64,
-                    config.num_nodes_without_stake as u64,
-                )
-            });
+
             let committee_election_config = I::committee_election_config_generator();
             let memberships = Memberships {
                 quorum_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
@@ -353,17 +367,22 @@ where
                         config.da_staked_committee_size as u64,
                         config.num_nodes_without_stake as u64,
                     ),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    quorum_election_config,
+                    quorum_election_config.clone(),
+                    config.fixed_leader_for_gpuvid,
                 ),
             };
-            let networks = (self.launcher.resource_generator.channel_generator)(node_id);
+            config.builder_url = builder_url.clone();
+
+            let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
 
             if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
@@ -399,10 +418,17 @@ where
                         },
                     );
                 } else {
+                    let handle = hotshot.run_tasks().await;
+                    if node_id == 1 {
+                        if let Some(task) = builder_task.take() {
+                            task.start(Box::new(handle.get_event_stream()))
+                        }
+                    }
+
                     self.nodes.push(Node {
                         node_id,
                         networks,
-                        handle: hotshot.run_tasks().await,
+                        handle,
                     });
                 }
             }

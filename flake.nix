@@ -41,13 +41,19 @@
           "rustfmt"
           "llvm-tools-preview"
         ];
-        fenixStable = fenix.packages.${system}.stable.withComponents [
-          "cargo"
-          "clippy"
-          "rust-src"
-          "rustc"
-          "rustfmt"
-          "llvm-tools-preview"
+        fenixStable = fenix.packages.${system}.combine [
+          ( fenix.packages.${system}.stable.withComponents [
+              "cargo"
+              "clippy"
+              "rust-src"
+              "rustc"
+              "llvm-tools-preview"
+            ]
+          )
+          ( fenix.packages.${system}.latest.withComponents [
+              "rustfmt"
+            ]
+          )
         ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system};
@@ -160,7 +166,7 @@
 
         # TODO uncomment when fetching dependencies is unborked
         # pkgsAndChecksList = pkgs.lib.mapAttrsToList (name: val: { packages.${name} = val.build; checks.${name} = val.build.override { runTests = true; }; }) project.workspaceMembers;
-        # # programatically generate output packages based on what exists in the workspace
+        # # programmatically generate output packages based on what exists in the workspace
         # pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
 
         buildDeps = with pkgs;

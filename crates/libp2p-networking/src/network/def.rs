@@ -1,24 +1,19 @@
-use futures::channel::oneshot::Sender;
 use libp2p::{
+    autonat,
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
+    kad::store::MemoryStore,
     request_response::{cbor, OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
-use std::num::NonZeroUsize;
+use libp2p_swarm_derive::NetworkBehaviour;
 use tracing::{debug, error};
 
 use super::{
-    behaviours::{
-        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        exponential_backoff::ExponentialBackoff,
-        request_response::{Request, Response},
-    },
+    behaviours::request_response::{Request, Response},
     NetworkEventInternal,
 };
-
-use libp2p_swarm_derive::NetworkBehaviour;
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -29,7 +24,7 @@ use libp2p_swarm_derive::NetworkBehaviour;
 #[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
-    /// NOTE gossipsub works ONLY for sharing messsages right now
+    /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
     /// <https://github.com/libp2p/rust-libp2p/issues/2398>
     #[debug(skip)]
@@ -38,7 +33,7 @@ pub struct NetworkDef {
     /// purpose: peer routing
     /// purpose: storing pub key <-> peer id bijection
     #[debug(skip)]
-    pub dht: DHTBehaviour,
+    pub dht: libp2p::kad::Behaviour<MemoryStore>,
 
     /// purpose: identifying the addresses from an outside POV
     #[debug(skip)]
@@ -51,6 +46,11 @@ pub struct NetworkDef {
     /// Behaviour for requesting and receiving data
     #[debug(skip)]
     pub request_response: libp2p::request_response::cbor::Behaviour<Request, Response>,
+
+    /// Auto NAT behaviour to determine if we are publically reachable and
+    /// by which address
+    #[debug(skip)]
+    pub autonat: libp2p::autonat::Behaviour,
 }
 
 impl NetworkDef {
@@ -58,10 +58,11 @@ impl NetworkDef {
     #[must_use]
     pub fn new(
         gossipsub: GossipBehaviour,
-        dht: DHTBehaviour,
+        dht: libp2p::kad::Behaviour<MemoryStore>,
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
         request_response: cbor::Behaviour<Request, Response>,
+        autonat: autonat::Behaviour,
     ) -> NetworkDef {
         Self {
             gossipsub,
@@ -69,6 +70,7 @@ impl NetworkDef {
             identify,
             direct_message,
             request_response,
+            autonat,
         }
     }
 }
@@ -98,45 +100,15 @@ impl NetworkDef {
     /// Subscribe to a given topic
     pub fn subscribe_gossip(&mut self, t: &str) {
         if let Err(e) = self.gossipsub.subscribe(&IdentTopic::new(t)) {
-            error!("Failed to subsribe to topic {:?}. Error: {:?}", t, e);
+            error!("Failed to subscribe to topic {:?}. Error: {:?}", t, e);
         }
     }
 
     /// Unsubscribe from a given topic
     pub fn unsubscribe_gossip(&mut self, t: &str) {
         if let Err(e) = self.gossipsub.unsubscribe(&IdentTopic::new(t)) {
-            error!("Failed to unsubsribe from topic {:?}. Error: {:?}", t, e);
+            error!("Failed to unsubscribe from topic {:?}. Error: {:?}", t, e);
         }
-    }
-}
-
-/// DHT functions
-impl NetworkDef {
-    /// Publish a key/value to the kv store.
-    /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`super::error::DHTError`] is
-    /// sent instead.
-    pub fn put_record(&mut self, query: KadPutQuery) {
-        self.dht.put_record(query);
-    }
-
-    /// Retrieve a value for a key from the DHT.
-    /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`super::error::DHTError`] is sent instead.
-    pub fn get_record(
-        &mut self,
-        key: Vec<u8>,
-        chan: Sender<Vec<u8>>,
-        factor: NonZeroUsize,
-        retry_count: u8,
-    ) {
-        self.dht.get_record(
-            key,
-            chan,
-            factor,
-            ExponentialBackoff::default(),
-            retry_count,
-        );
     }
 }
 
@@ -159,8 +131,8 @@ impl From<GossipEvent> for NetworkEventInternal {
     }
 }
 
-impl From<DHTEvent> for NetworkEventInternal {
-    fn from(event: DHTEvent) -> Self {
+impl From<libp2p::kad::Event> for NetworkEventInternal {
+    fn from(event: libp2p::kad::Event) -> Self {
         Self::DHTEvent(event)
     }
 }
@@ -179,5 +151,11 @@ impl From<libp2p::request_response::Event<Vec<u8>, Vec<u8>>> for NetworkEventInt
 impl From<libp2p::request_response::Event<Request, Response>> for NetworkEventInternal {
     fn from(event: libp2p::request_response::Event<Request, Response>) -> Self {
         Self::RequestResponseEvent(event)
+    }
+}
+
+impl From<libp2p::autonat::Event> for NetworkEventInternal {
+    fn from(event: libp2p::autonat::Event) -> Self {
+        Self::AutonatEvent(event)
     }
 }

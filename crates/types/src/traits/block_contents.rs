@@ -3,21 +3,22 @@
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
 //! describe the behaviors that a block is expected to have.
 
-use crate::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
-    utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
-};
-use commit::{Commitment, Committable};
-use jf_primitives::vid::VidScheme;
-use serde::{de::DeserializeOwned, Serialize};
-
 use std::{
     error::Error,
     fmt::{Debug, Display},
     future::Future,
     hash::Hash,
+};
+
+use committable::{Commitment, Committable};
+use jf_primitives::vid::VidScheme;
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    utils::BuilderCommitment,
+    vid::{vid_scheme, VidCommitment, VidSchemeType},
 };
 
 /// Abstraction over any type of transaction. Used by [`BlockPayload`].
@@ -80,13 +81,25 @@ pub trait BlockPayload:
     fn transaction_commitments(
         &self,
         metadata: &Self::Metadata,
-    ) -> Vec<Commitment<Self::Transaction>>;
+    ) -> Vec<Commitment<Self::Transaction>> {
+        self.get_transactions(metadata)
+            .map(|tx| tx.commit())
+            .collect()
+    }
+
+    /// Number of transactions in the block.
+    fn num_transactions(&self, metadata: &Self::Metadata) -> usize {
+        self.get_transactions(metadata).count()
+    }
 
     /// Generate commitment that builders use to sign block options.
     fn builder_commitment(&self, metadata: &Self::Metadata) -> BuilderCommitment;
 
     /// Get the transactions in the payload.
-    fn get_transactions(&self, metadata: &Self::Metadata) -> &Vec<Self::Transaction>;
+    fn get_transactions<'a>(
+        &'a self,
+        metadata: &'a Self::Metadata,
+    ) -> impl 'a + Iterator<Item = Self::Transaction>;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
@@ -146,4 +159,10 @@ pub trait BlockHeader<TYPES: NodeType>:
 
     /// Get the metadata.
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
+
+    /// Get the builder commitment
+    fn builder_commitment(
+        &self,
+        metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
+    ) -> BuilderCommitment;
 }

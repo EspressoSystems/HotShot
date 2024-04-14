@@ -3,31 +3,31 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::data::{QuorumProposal, UpgradeProposal, VidDisperseShare};
-use crate::simple_certificate::{
-    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-    ViewSyncPreCommitCertificate2,
-};
-use crate::simple_vote::{
-    DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-    ViewSyncPreCommitVote,
-};
-use crate::traits::network::ResponseMessage;
-use crate::traits::signature_key::SignatureKey;
-use crate::vote::HasViewNumber;
-use crate::{
-    data::DAProposal,
-    simple_vote::QuorumVote,
-    traits::{
-        network::{DataRequest, NetworkMsg, ViewMessage},
-        node_implementation::{ConsensusTime, NodeType},
-    },
-};
-use derivative::Derivative;
-use either::Either::{self, Left, Right};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
+
+use anyhow::{ensure, Result};
+use committable::Committable;
+use derivative::Derivative;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use crate::{
+    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    simple_certificate::{
+        DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+        ViewSyncPreCommitCertificate2,
+    },
+    simple_vote::{
+        DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        ViewSyncPreCommitVote,
+    },
+    traits::{
+        election::Membership,
+        network::{DataRequest, NetworkMsg, ResponseMessage, ViewMessage},
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
+    },
+    vote::HasViewNumber,
+};
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
@@ -80,7 +80,9 @@ pub enum MessagePurpose {
     /// VID disperse, like [`Proposal`].
     VidDisperse,
     /// Message with an upgrade proposal.
-    Upgrade,
+    UpgradeProposal,
+    /// Upgrade vote.
+    UpgradeVote,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -192,17 +194,19 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
 /// Messages for sequencing consensus.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
-pub struct SequencingMessage<TYPES: NodeType>(
-    pub Either<GeneralConsensusMessage<TYPES>, CommitteeConsensusMessage<TYPES>>,
-);
+pub enum SequencingMessage<TYPES: NodeType> {
+    /// Messages related to validating and sequencing consensus
+    General(GeneralConsensusMessage<TYPES>),
+
+    /// Messages related to the sequencing consensus protocol for the DA committee.
+    Committee(CommitteeConsensusMessage<TYPES>),
+}
 
 impl<TYPES: NodeType> SequencingMessage<TYPES> {
-    // TODO: Disable panic after the `ViewSync` case is implemented.
     /// Get the view number this message relates to
-    #[allow(clippy::panic)]
     fn view_number(&self) -> TYPES::Time {
-        match &self.0 {
-            Left(general_message) => {
+        match &self {
+            SequencingMessage::General(general_message) => {
                 match general_message {
                     GeneralConsensusMessage::Proposal(p) => {
                         // view of leader in the leaf when proposal
@@ -235,7 +239,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
             }
-            Right(committee_message) => {
+            SequencingMessage::Committee(committee_message) => {
                 match committee_message {
                     CommitteeConsensusMessage::DAProposal(p) => {
                         // view of leader in the leaf when proposal
@@ -258,8 +262,8 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
     /// Get the message purpos
     #[allow(clippy::panic)]
     fn purpose(&self) -> MessagePurpose {
-        match &self.0 {
-            Left(general_message) => match general_message {
+        match &self {
+            SequencingMessage::General(general_message) => match general_message {
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
                 GeneralConsensusMessage::Vote(_) | GeneralConsensusMessage::TimeoutVote(_) => {
                     MessagePurpose::Vote
@@ -274,10 +278,10 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     MessagePurpose::ViewSyncCertificate
                 }
 
-                GeneralConsensusMessage::UpgradeProposal(_)
-                | GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::Upgrade,
+                GeneralConsensusMessage::UpgradeProposal(_) => MessagePurpose::UpgradeProposal,
+                GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::UpgradeVote,
             },
-            Right(committee_message) => match committee_message {
+            SequencingMessage::Committee(committee_message) => match committee_message {
                 CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
                 CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
@@ -315,4 +319,25 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     /// Phantom for TYPES
     pub _pd: PhantomData<TYPES>,
+}
+
+impl<TYPES> Proposal<TYPES, QuorumProposal<TYPES>>
+where
+    TYPES: NodeType,
+{
+    /// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    pub fn validate_signature(&self, quorum_membership: &TYPES::Membership) -> Result<()> {
+        let view_number = self.data.get_view_number();
+        let view_leader_key = quorum_membership.get_leader(view_number);
+        let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
+
+        ensure!(
+            view_leader_key.validate(&self.signature, proposed_leaf.commit().as_ref()),
+            "Proposal signature is invalid."
+        );
+
+        Ok(())
+    }
 }

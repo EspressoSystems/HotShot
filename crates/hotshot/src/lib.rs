@@ -12,6 +12,9 @@ pub mod types;
 
 pub mod tasks;
 
+#[cfg(feature = "proposal-task")]
+use crate::tasks::add_quorum_proposal_task;
+
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -20,20 +23,29 @@ use crate::{
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
+
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
+
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use commit::Committable;
+use committable::Committable;
 use futures::join;
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_task_impls::helpers::broadcast_event;
-use hotshot_task_impls::network;
-use hotshot_types::constants::{EVENT_CHANNEL_SIZE, STATIC_VER_0_1};
-
 use hotshot_task::task::TaskRegistry;
+use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
+// Internal
+/// Reexport error type
+pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
     event::EventType,
     message::{DataMessage, Message, MessageKind},
@@ -49,23 +61,14 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    num::NonZeroUsize,
-    sync::Arc,
-    time::Duration,
-};
-use tasks::{add_request_network_task, add_response_task, add_vid_task};
-use tracing::{debug, instrument, trace};
 
 // -- Rexports
 // External
 /// Reexport rand crate
 pub use rand;
-// Internal
-/// Reexport error type
-pub use hotshot_types::error::HotShotError;
+use tasks::{add_request_network_task, add_response_task, add_vid_task};
+use tracing::{debug, instrument, trace};
+use vbs::version::Version;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -74,7 +77,7 @@ pub const H_256: usize = 32;
 
 /// Bundle of the networks used in consensus
 pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Newtork for reaching all nodes
+    /// Network for reaching all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for reaching the DA committee
@@ -135,6 +138,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 
+    /// The network version
+    version: Arc<RwLock<Version>>,
+
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
     pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
@@ -182,7 +188,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let validated_state = match initializer.validated_state {
             Some(state) => state,
             None => Arc::new(TYPES::ValidatedState::from_header(
-                &anchored_leaf.block_header,
+                anchored_leaf.get_block_header(),
             )),
         };
 
@@ -217,7 +223,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
+
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
         let start_view = initializer.start_view;
@@ -231,7 +238,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_leaves,
             saved_payloads,
             saved_da_certs: HashMap::new(),
-            saved_upgrade_certs: HashMap::new(),
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
@@ -239,6 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
+        let version = Arc::new(RwLock::new(BASE_VERSION));
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
         let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
@@ -253,6 +260,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             public_key,
             private_key,
             config,
+            version,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
@@ -489,22 +497,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 &handle,
             )
             .await;
+            add_request_network_task(
+                registry.clone(),
+                event_tx.clone(),
+                event_rx.activate_cloned(),
+                &handle,
+            )
+            .await;
         }
-        add_request_network_task(
-            registry.clone(),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
 
         add_network_event_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),
             quorum_network.clone(),
-            quorum_membership,
+            quorum_membership.clone(),
             network::quorum_filter,
+            handle.get_storage().clone(),
+        )
+        .await;
+        add_network_event_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            quorum_network.clone(),
+            quorum_membership,
+            network::upgrade_filter,
             handle.get_storage().clone(),
         )
         .await;
@@ -545,6 +563,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
+        // TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
+        // <https://github.com/EspressoSystems/HotShot/issues/2712>
+        // add_quorum_vote_task(
+        //     registry.clone(),
+        //     event_tx.clone(),
+        //     event_rx.activate_cloned(),
+        //     &handle,
+        // )
+        // .await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),
@@ -574,6 +601,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_upgrade_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        #[cfg(feature = "proposal-task")]
+        add_quorum_proposal_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),
@@ -632,13 +667,13 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Optional validated state.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`. Otherwise, we'll construct
+    /// If it's given, we'll use it to construct the `SystemContext`. Otherwise, we'll construct
     /// the state from the block header.
     validated_state: Option<Arc<TYPES::ValidatedState>>,
 
     /// Optional state delta.
     ///
-    /// If it's given, we'll use it to constrcut the `SystemContext`.
+    /// If it's given, we'll use it to construct the `SystemContext`.
     state_delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
@@ -677,7 +712,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// # Arguments
     /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
     /// after restart.
-    /// * `validated_state` - Optional validated state that if given, will be used to constrcut the
+    /// * `validated_state` - Optional validated state that if given, will be used to construct the
     /// `SystemContext`.
     pub fn from_reload(
         anchor_leaf: Leaf<TYPES>,

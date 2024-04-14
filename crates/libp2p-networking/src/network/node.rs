@@ -5,36 +5,22 @@ mod config;
 /// allows for control over the libp2p network
 mod handle;
 
-pub use self::{
-    config::{
-        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-    },
-    handle::{
-        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver,
-    },
+use std::{
+    collections::{HashMap, HashSet},
+    iter,
+    num::{NonZeroU32, NonZeroUsize},
+    time::Duration,
 };
 
-use super::{
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
-    NetworkNodeType,
-};
-
-use crate::network::behaviours::{
-    dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
-    direct_message::{DMBehaviour, DMRequest},
-    exponential_backoff::ExponentialBackoff,
-    request_response::{Request, RequestResponseState, Response},
-};
 use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-use futures::{select, FutureExt, StreamExt};
+use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
-use libp2p::{core::transport::ListenerId, StreamProtocol};
 use libp2p::{
+    autonat,
+    core::transport::ListenerId,
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
         Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
@@ -44,23 +30,39 @@ use libp2p::{
         Info as IdentifyInfo,
     },
     identity::Keypair,
-    kad::{store::MemoryStore, Behaviour, Config},
+    kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
     request_response::{
         Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
     },
     swarm::SwarmEvent,
-    Multiaddr, Swarm, SwarmBuilder,
+    Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
 };
 use libp2p_identity::PeerId;
 use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
-use std::{
-    collections::{HashMap, HashSet},
-    iter,
-    num::{NonZeroU32, NonZeroUsize},
-    time::Duration,
-};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+pub use self::{
+    config::{
+        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+    },
+    handle::{
+        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeReceiver,
+    },
+};
+use super::{
+    behaviours::dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
+    NetworkNodeType,
+};
+use crate::network::behaviours::{
+    dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    direct_message::{DMBehaviour, DMRequest},
+    exponential_backoff::ExponentialBackoff,
+    request_response::{Request, RequestResponseState, Response},
+};
 
 /// Maximum size of a message
 pub const MAX_GOSSIP_MSG_SIZE: usize = 2_000_000_000;
@@ -89,8 +91,12 @@ pub struct NetworkNode {
     request_response_state: RequestResponseState,
     /// Handler for direct messages
     direct_message_state: DMBehaviour,
+    /// Handler for DHT Events
+    dht_handler: DHTBehaviour,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
+    /// Send to the bootstrap task to tell it to start a bootstrap
+    bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
 }
 
 impl NetworkNode {
@@ -127,29 +133,19 @@ impl NetworkNode {
     /// the `spawn_listeners` function
     /// will start connecting to peers
     #[instrument(skip(self))]
-    pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
+    pub fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
         info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         let mut shuffled = known_peers.iter().collect::<Vec<_>>();
         shuffled.shuffle(&mut thread_rng());
         for (peer_id, addr) in shuffled {
-            match peer_id {
-                Some(peer_id) => {
-                    // if we know the peerid, add address.
-                    if *peer_id != self.peer_id {
-                        behaviour.dht.add_address(peer_id, addr.clone());
-                        bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
-                    }
-                }
-                None => {
-                    // <https://github.com/EspressoSystems/hotshot/issues/290>
-                    // TODO actually implement this part
-                    // if we don't know the peerid, dial to find out what the peerid is
-                }
+            if *peer_id != self.peer_id {
+                behaviour.dht.add_address(peer_id, addr.clone());
+                behaviour.autonat.add_server(*peer_id, Some(addr.clone()));
+                bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
             }
         }
-        behaviour.dht.add_bootstrap_nodes(bs_nodes);
     }
 
     /// Creates a new `Network` with the given settings.
@@ -272,7 +268,10 @@ impl NetworkNode {
                 panic!("Replication factor not set");
             }
 
-            let kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            let mut kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            if config.server_mode {
+                kadem.set_mode(Some(Mode::Server));
+            }
 
             let rrconfig = RequestResponseConfig::default();
 
@@ -295,18 +294,18 @@ impl NetworkNode {
                     rrconfig.clone(),
                 );
 
+            let autonat_config = autonat::Config {
+                only_global_ips: false,
+                ..Default::default()
+            };
+
             let network = NetworkDef::new(
                 gossipsub,
-                DHTBehaviour::new(
-                    kadem,
-                    peer_id,
-                    config
-                        .replication_factor
-                        .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
-                ),
+                kadem,
                 identify,
                 direct_message,
                 request_response,
+                autonat::Behaviour::new(peer_id, autonat_config),
             );
 
             // build swarm
@@ -324,10 +323,8 @@ impl NetworkNode {
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {
-            if let Some(peer) = peer {
-                if peer != swarm.local_peer_id() {
-                    swarm.behaviour_mut().add_address(peer, addr.clone());
-                }
+            if peer != swarm.local_peer_id() {
+                swarm.behaviour_mut().add_address(peer, addr.clone());
             }
         }
 
@@ -335,12 +332,46 @@ impl NetworkNode {
             identity,
             peer_id,
             swarm,
-            config,
+            config: config.clone(),
             listener_id: None,
             request_response_state: RequestResponseState::default(),
             direct_message_state: DMBehaviour::default(),
+            dht_handler: DHTBehaviour::new(
+                peer_id,
+                config
+                    .replication_factor
+                    .unwrap_or(NonZeroUsize::new(4).unwrap()),
+            ),
             resend_tx: None,
+            bootstrap_tx: None,
         })
+    }
+
+    /// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`super::error::DHTError`] is
+    /// sent instead.
+    pub fn put_record(&mut self, mut query: KadPutQuery) {
+        let record = Record::new(query.key.clone(), query.value.clone());
+        match self.swarm.behaviour_mut().dht.put_record(
+            record,
+            libp2p::kad::Quorum::N(self.dht_handler.get_replication_factor()),
+        ) {
+            Err(e) => {
+                // failed try again later
+                query.progress = DHTProgress::NotStarted;
+                query.backoff.start_next(false);
+                error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
+            }
+            Ok(qid) => {
+                info!("Success publishing {:?} to DHT", qid);
+                let query = KadPutQuery {
+                    progress: DHTProgress::InProgress(qid),
+                    ..query
+                };
+                self.dht_handler.put_record(qid, query);
+            }
+        }
     }
 
     /// event handler for client events
@@ -361,13 +392,18 @@ impl NetworkNode {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        self.swarm.behaviour_mut().dht.begin_bootstrap();
+                        debug!("begin bootstrap");
+                        let _ = self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
-                        self.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
+                        let id = self.swarm.behaviour_mut().dht.get_closest_peers(pid);
+                        self.dht_handler
+                            .in_progress_get_closest_peers
+                            .insert(id, chan);
                     }
                     ClientRequest::GetRoutingTable(chan) => {
-                        self.swarm.behaviour_mut().dht.print_routing_table();
+                        self.dht_handler
+                            .print_routing_table(&mut self.swarm.behaviour_mut().dht);
                         if chan.send(()).is_err() {
                             warn!("Tried to notify client but client not tracking anymore");
                         }
@@ -380,7 +416,7 @@ impl NetworkNode {
                             value,
                             backoff: ExponentialBackoff::default(),
                         };
-                        self.swarm.behaviour_mut().put_record(query);
+                        self.put_record(query);
                     }
                     ClientRequest::GetConnectedPeerNum(s) => {
                         if s.send(self.num_connected()).is_err() {
@@ -397,11 +433,13 @@ impl NetworkNode {
                         notify,
                         retry_count,
                     } => {
-                        self.swarm.behaviour_mut().get_record(
+                        self.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            ExponentialBackoff::default(),
                             retry_count,
+                            &mut self.swarm.behaviour_mut().dht,
                         );
                     }
                     ClientRequest::IgnorePeers(_peers) => {
@@ -488,7 +526,7 @@ impl NetworkNode {
         Ok(false)
     }
 
-    /// event handler for events emited from the swarm
+    /// event handler for events emitted from the swarm
     #[allow(clippy::type_complexity)]
     #[instrument(skip(self))]
     async fn handle_swarm_events(
@@ -554,7 +592,6 @@ impl NetworkNode {
                 address: _,
             }
             | SwarmEvent::NewExternalAddrCandidate { .. }
-            | SwarmEvent::ExternalAddrConfirmed { .. }
             | SwarmEvent::ExternalAddrExpired { .. }
             | SwarmEvent::IncomingConnection {
                 connection_id: _,
@@ -563,9 +600,9 @@ impl NetworkNode {
             } => {}
             SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
-                    NetworkEventInternal::DHTEvent(e) => match e {
-                        DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
-                    },
+                    NetworkEventInternal::DHTEvent(e) => self
+                        .dht_handler
+                        .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut()),
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
                         if let IdentifyEvent::Received {
@@ -588,7 +625,7 @@ impl NetworkNode {
                             // with autonat
                             info!(
                                 "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
-                                behaviour.dht.peer_id, peer_id, listen_addrs, observed_addr
+                                self.dht_handler.peer_id , peer_id, listen_addrs, observed_addr
                                 );
                             // into hashset to delete duplicates (I checked: there are duplicates)
                             for addr in listen_addrs.iter().collect::<HashSet<_>>() {
@@ -622,6 +659,29 @@ impl NetworkNode {
                     NetworkEventInternal::RequestResponseEvent(e) => {
                         self.request_response_state.handle_request_response(e)
                     }
+                    NetworkEventInternal::AutonatEvent(e) => {
+                        match e {
+                            autonat::Event::InboundProbe(_) => {}
+                            autonat::Event::OutboundProbe(e) => match e {
+                                autonat::OutboundProbeEvent::Request { .. }
+                                | autonat::OutboundProbeEvent::Response { .. } => {}
+                                autonat::OutboundProbeEvent::Error {
+                                    probe_id: _,
+                                    peer,
+                                    error,
+                                } => {
+                                    warn!(
+                                        "Autonat Probe failed to peer {:?}, with error: {:?}",
+                                        peer, error
+                                    );
+                                }
+                            },
+                            autonat::Event::StatusChanged { old, new } => {
+                                info!("autonat Status changed. Old: {:?}, New: {:?}", old, new);
+                            }
+                        };
+                        None
+                    }
                 };
 
                 if let Some(event) = maybe_event {
@@ -653,6 +713,13 @@ impl NetworkNode {
             SwarmEvent::ListenerError { listener_id, error } => {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
+            SwarmEvent::ExternalAddrConfirmed { address } => {
+                let my_id = *self.swarm.local_peer_id();
+                self.swarm
+                    .behaviour_mut()
+                    .dht
+                    .add_address(&my_id, address.clone());
+            }
             _ => {
                 error!(
                     "Unhandled swarm event {:?}. This should not be possible.",
@@ -677,9 +744,11 @@ impl NetworkNode {
     > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
-
+        let (mut bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
         self.resend_tx = Some(s_input.clone());
+        self.dht_handler.set_bootstrap_sender(bootstrap_tx.clone());
 
+        DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
         async_spawn(
             async move {
                 let mut fuse = s_output.recv().boxed().fuse();
@@ -696,6 +765,7 @@ impl NetworkNode {
                             debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
+                                let _ = bootstrap_tx.send(InputEvent::ShutdownBootstrap).await;
                                 break
                             }
                             fuse = s_output.recv().boxed().fuse();

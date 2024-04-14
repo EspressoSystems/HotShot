@@ -3,19 +3,18 @@
 /// Configuration for the webserver
 pub mod config;
 
-use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
-use async_compatibility_layer::channel::OneShotReceiver;
-use async_lock::RwLock;
-use clap::Args;
-use futures::FutureExt;
-
-use hotshot_types::traits::signature_key::SignatureKey;
-use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use std::{
     collections::{BTreeMap, HashMap},
     io,
     path::PathBuf,
 };
+
+use async_compatibility_layer::channel::OneShotReceiver;
+use async_lock::RwLock;
+use clap::Args;
+use futures::FutureExt;
+use hotshot_types::traits::signature_key::SignatureKey;
+use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -23,7 +22,9 @@ use tide_disco::{
     Api, App, StatusCode, Url,
 };
 use tracing::{debug, info};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 
 /// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline
@@ -37,6 +38,8 @@ type Error = ServerError;
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     proposals: BTreeMap<u64, (String, Vec<u8>)>,
+    /// view number -> (secret, proposal)
+    upgrade_proposals: BTreeMap<u64, (String, Vec<u8>)>,
     /// for view sync: view number -> (relay, certificate)
     view_sync_certificates: BTreeMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> relay
@@ -51,18 +54,24 @@ struct WebServerState<KEY> {
     oldest_certificate: u64,
     /// view number -> Vec(index, vote)
     votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    /// view number -> Vec(index, vote)
+    upgrade_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view sync: view number -> Vec(relay, vote)
     view_sync_votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
     /// view number -> highest vote index for that view number
     vote_index: HashMap<u64, u64>,
+    /// view number -> highest vote index for that view number
+    upgrade_vote_index: HashMap<u64, u64>,
     /// view_sync: view number -> highest vote index for that view number
     view_sync_vote_index: HashMap<u64, u64>,
     /// view number of oldest votes in memory
     oldest_vote: u64,
+    /// view number of oldest votes in memory
+    oldest_upgrade_vote: u64,
     /// view sync: view number of oldest votes in memory
     oldest_view_sync_vote: u64,
     /// view number -> (secret, string)
-    vid_disperses: HashMap<u64, (String, Vec<u8>)>,
+    vid_disperses: HashMap<u64, Vec<Vec<u8>>>,
     /// view for the oldest vid disperal
     oldest_vid_disperse: u64,
     /// view of most recent vid dispersal
@@ -98,6 +107,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
             proposals: BTreeMap::new(),
+            upgrade_proposals: BTreeMap::new(),
             da_certificates: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
@@ -114,6 +124,9 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             view_sync_certificates: BTreeMap::new(),
             view_sync_votes: HashMap::new(),
             view_sync_vote_index: HashMap::new(),
+            upgrade_votes: HashMap::new(),
+            oldest_upgrade_vote: 0,
+            upgrade_vote_index: HashMap::new(),
 
             vid_disperses: HashMap::new(),
             oldest_vid_disperse: 0,
@@ -151,6 +164,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get upgrade proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_upgrade_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get latest quanrum proposal
     /// # Errors
     /// Error if unable to serve.
@@ -172,6 +189,14 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    /// Get upgrade votes
+    /// # Errors
+    /// Error if unable to serve.
+    fn get_upgrade_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error>;
     /// Get view sync votes
     /// # Errors
     /// Error if unable to serve.
@@ -194,6 +219,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    /// Post upgrade vote
+    /// # Errors
+    /// Error if unable to serve.
+    fn post_upgrade_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     /// Post view sync vote
     /// # Errors
     /// Error if unable to serve.
@@ -203,6 +232,10 @@ pub trait WebServerDataSource<KEY> {
     /// # Errors
     /// Error if unable to serve.
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
+    /// Post upgrade proposal
+    /// # Errors
+    /// Error if unable to serve.
+    fn post_upgrade_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     /// Post view sync certificate
     /// # Errors
     /// Error if unable to serve.
@@ -286,18 +319,38 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             }),
         }
     }
+    /// Return the proposal the server has received for a particular view
+    fn get_upgrade_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        match self.upgrade_proposals.get(&view_number) {
+            Some(proposal) => {
+                if proposal.1.is_empty() {
+                    Err(ServerError {
+                        status: StatusCode::NotImplemented,
+                        message: format!("Proposal empty for view {view_number}"),
+                    })
+                } else {
+                    tracing::error!("found proposal");
+                    Ok(Some(vec![proposal.1.clone()]))
+                }
+            }
+            None => Err(ServerError {
+                status: StatusCode::NotImplemented,
+                message: format!("Proposal not found for view {view_number}"),
+            }),
+        }
+    }
 
     /// Return the VID disperse data that the server has received for a particular view
     fn get_vid_disperse(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.vid_disperses.get(&view_number) {
             Some(disperse) => {
-                if disperse.1.is_empty() {
+                if disperse.is_empty() {
                     Err(ServerError {
                         status: StatusCode::NotImplemented,
                         message: format!("VID disperse not found for view {view_number}"),
                     })
                 } else {
-                    Ok(Some(vec![disperse.1.clone()]))
+                    Ok(Some(disperse.clone()))
                 }
             }
             None => Err(ServerError {
@@ -340,6 +393,26 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
+                ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
+            }
+        }
+        if ret_votes.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(ret_votes))
+        }
+    }
+
+    /// Return all votes the server has received for a particular view from provided index to most recent
+    fn get_upgrade_votes(
+        &self,
+        view_number: u64,
+        index: u64,
+    ) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        let votes = self.upgrade_votes.get(&view_number);
+        let mut ret_votes = vec![];
+        if let Some(votes) = votes {
+            for i in index..*self.upgrade_vote_index.get(&view_number).unwrap() {
                 ret_votes.push(votes[usize::try_from(i).unwrap()].1.clone());
             }
         }
@@ -494,6 +567,35 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
+    /// Stores a received vote in the `WebServerState`
+    fn post_upgrade_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
+        // Only keep vote history for MAX_VIEWS number of views
+        if self.upgrade_votes.len() >= MAX_VIEWS {
+            self.upgrade_votes.remove(&self.oldest_upgrade_vote);
+            while !self.upgrade_votes.contains_key(&self.oldest_upgrade_vote) {
+                self.oldest_upgrade_vote += 1;
+            }
+        }
+
+        // don't accept the vote if it is too old
+        if self.oldest_upgrade_vote > view_number {
+            return Err(ServerError {
+                status: StatusCode::Gone,
+                message: "Posted vote is too old".to_string(),
+            });
+        }
+
+        let next_index = self.upgrade_vote_index.entry(view_number).or_insert(0);
+        self.upgrade_votes
+            .entry(view_number)
+            .and_modify(|current_votes| current_votes.push((*next_index, vote.clone())))
+            .or_insert_with(|| vec![(*next_index, vote)]);
+        self.upgrade_vote_index
+            .entry(view_number)
+            .and_modify(|index| *index += 1);
+        Ok(())
+    }
+
     /// Stores a received VID vote in the `WebServerState`
     fn post_vid_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
         // Only keep vote history for MAX_VIEWS number of views
@@ -572,8 +674,25 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_vid_disperse(&mut self, view_number: u64, mut disperse: Vec<u8>) -> Result<(), Error> {
-        info!("Received VID disperse for view {}", view_number);
+    fn post_upgrade_proposal(
+        &mut self,
+        view_number: u64,
+        mut proposal: Vec<u8>,
+    ) -> Result<(), Error> {
+        tracing::error!("Received upgrade proposal for view {}", view_number);
+
+        if self.upgrade_proposals.len() >= MAX_VIEWS {
+            self.upgrade_proposals.pop_first();
+        }
+
+        self.upgrade_proposals
+            .entry(view_number)
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
+            .or_insert_with(|| (String::new(), proposal));
+        Ok(())
+    }
+
+    fn post_vid_disperse(&mut self, view_number: u64, disperse: Vec<u8>) -> Result<(), Error> {
         if view_number > self.recent_vid_disperse {
             self.recent_vid_disperse = view_number;
         }
@@ -587,8 +706,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
         self.vid_disperses
             .entry(view_number)
-            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut disperse))
-            .or_insert_with(|| (String::new(), disperse));
+            .or_default()
+            .push(disperse);
         Ok(())
     }
 
@@ -781,6 +900,13 @@ where
         }
         .boxed()
     })?
+    .get("get_upgrade_proposal", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            state.get_upgrade_proposal(view_number)
+        }
+        .boxed()
+    })?
     .get("getviddisperse", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -817,6 +943,14 @@ where
         }
         .boxed()
     })?
+    .get("get_upgrade_votes", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let index: u64 = req.integer_param("index")?;
+            state.get_upgrade_votes(view_number, index)
+        }
+        .boxed()
+    })?
     .get("getviewsyncvotes", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -841,6 +975,15 @@ where
         }
         .boxed()
     })?
+    .post("post_upgrade_vote", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
+            let vote = req.body_bytes();
+            state.post_upgrade_vote(view_number, vote)
+        }
+        .boxed()
+    })?
     .post("postviewsyncvote", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
@@ -855,6 +998,14 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
+        }
+        .boxed()
+    })?
+    .post("post_upgrade_proposal", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let proposal = req.body_bytes();
+            state.post_upgrade_proposal(view_number, proposal)
         }
         .boxed()
     })?
@@ -959,9 +1110,10 @@ pub async fn run_web_server<
 
     let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State<KEY>, Error, NetworkVersion>::with_state(state);
+    let mut app = App::<State<KEY>, Error>::with_state(state);
 
-    app.register_module("api", web_api).unwrap();
+    app.register_module::<Error, NetworkVersion>("api", web_api)
+        .unwrap();
 
     let app_future = app.serve(url, bind_version);
 

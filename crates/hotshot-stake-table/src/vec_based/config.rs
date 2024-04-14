@@ -1,19 +1,19 @@
 //! Config file for stake table
-use crate::utils::ToFields;
 use ark_ff::PrimeField;
 use ark_std::vec;
-use jf_utils::to_bytes;
-
 /// Schnorr verification key as auxiliary information
 pub use hotshot_types::light_client::StateVerKey;
 /// BLS verification key as indexing key
 pub use jf_primitives::signatures::bls_over_bn254::VerKey as QCVerKey;
+use jf_utils::to_bytes;
+
+use crate::utils::ToFields;
 /// Type for commitment
 pub type FieldType = ark_ed_on_bn254::Fq;
 
 /// Hashable representation of a key
 /// NOTE: commitment is only used in light client contract.
-/// For this application, we needs only hash the Schnorr verfication key.
+/// For this application, we needs only hash the Schnorr verification key.
 impl ToFields<FieldType> for StateVerKey {
     const SIZE: usize = 2;
 

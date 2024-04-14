@@ -1,6 +1,7 @@
 use std::{fmt::Display, path::PathBuf};
 
 use clap::Args;
+use committable::Committable;
 use derive_more::From;
 use futures::FutureExt;
 use hotshot_types::{
@@ -15,7 +16,7 @@ use tide_disco::{
     method::{ReadState, WriteState},
     Api, RequestError, StatusCode,
 };
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 use crate::{
     api::load_api,
@@ -79,6 +80,11 @@ pub enum Error {
     TxnSubmit {
         source: BuildError,
     },
+    #[snafu(display("error getting builder address: {source}"))]
+    #[from(ignore)]
+    BuilderAddress {
+        source: BuildError,
+    },
     Custom {
         message: String,
         status: StatusCode,
@@ -105,6 +111,7 @@ impl tide_disco::error::Error for Error {
             Error::TxnUnpack { .. } => StatusCode::BadRequest,
             Error::TxnSubmit { .. } => StatusCode::InternalServerError,
             Error::Custom { .. } => StatusCode::InternalServerError,
+            Error::BuilderAddress { .. } => StatusCode::InternalServerError,
         }
     }
 }
@@ -116,9 +123,8 @@ where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
     Types: NodeType,
-    <<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType:
-        for<'a> TryFrom<&'a TaggedBase64> + Into<TaggedBase64> + Display,
-    for<'a> <<<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+    for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
+    for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
 {
@@ -131,8 +137,10 @@ where
         .get("available_blocks", |req, state| {
             async move {
                 let hash = req.blob_param("parent_hash")?;
+                let sender = req.blob_param("sender")?;
+                let signature = req.blob_param("signature")?;
                 state
-                    .get_available_blocks(&hash)
+                    .get_available_blocks(&hash, sender, &signature)
                     .await
                     .context(BlockAvailableSnafu {
                         resource: hash.to_string(),
@@ -143,9 +151,10 @@ where
         .get("claim_block", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let sender = req.blob_param("sender")?;
                 let signature = req.blob_param("signature")?;
                 state
-                    .claim_block(&hash, &signature)
+                    .claim_block(&hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
                         resource: hash.to_string(),
@@ -156,13 +165,23 @@ where
         .get("claim_header_input", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let sender = req.blob_param("sender")?;
                 let signature = req.blob_param("signature")?;
                 state
-                    .claim_block_header_input(&hash, &signature)
+                    .claim_block_header_input(&hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
                         resource: hash.to_string(),
                     })
+            }
+            .boxed()
+        })?
+        .get("builder_address", |_req, state| {
+            async move {
+                state
+                    .get_builder_address()
+                    .await
+                    .context(BuilderAddressSnafu)
             }
             .boxed()
         })?;
@@ -188,8 +207,9 @@ where
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .context(TxnUnpackSnafu)?;
+                let hash = tx.commit();
                 state.submit_txn(tx).await.context(TxnSubmitSnafu)?;
-                Ok(())
+                Ok(hash)
             }
             .boxed()
         })?;

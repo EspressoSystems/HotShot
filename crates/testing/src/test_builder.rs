@@ -1,25 +1,24 @@
-use hotshot::traits::NetworkReliability;
-use hotshot_example_types::storage_types::TestStorage;
-use hotshot_orchestrator::config::ValidatorConfigFile;
-use hotshot_types::traits::election::Membership;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-
+use hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
+use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::{
-    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
+    traits::{election::Membership, node_implementation::NodeType},
+    ExecutionType, HotShotConfig, ValidatorConfig,
 };
+use tide_disco::Url;
 
-use super::completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription};
 use super::{
-    overall_safety_task::OverallSafetyPropertiesDescription, txn_task::TxnTaskDescription,
+    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
+    txn_task::TxnTaskDescription,
 };
 use crate::{
     spinning_task::SpinningTaskDescription,
     test_launcher::{ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
-use hotshot_example_types::state_types::TestInstanceState;
 /// data describing how a round should be timed.
 #[derive(Clone, Debug, Copy)]
 pub struct TimingData {
@@ -87,7 +86,7 @@ impl Default for TimingData {
             round_start_delay: 100,
             start_delay: 100,
             propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::from_millis(100),
+            propose_max_round_time: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             secondary_network_delay: Duration::from_millis(1000),
             view_sync_timeout: Duration::from_millis(2000),
@@ -287,10 +286,11 @@ impl TestMetadata {
             my_own_validator_config,
             da_staked_committee_size,
             da_non_staked_committee_size,
+            fixed_leader_for_gpuvid: 0,
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             timeout_ratio: (11, 10),
-            round_start_delay: 1,
+            round_start_delay: 25,
             start_delay: 1,
             // TODO do we use these fields??
             propose_min_round_time: Duration::from_millis(0),
@@ -301,6 +301,8 @@ impl TestMetadata {
                 num_nodes_with_stake as u64,
                 0,
             )),
+            // Placeholder until we spin up the builder
+            builder_url: Url::parse("http://localhost:9999").expect("Valid URL"),
         };
         let TimingData {
             next_view_timeout,

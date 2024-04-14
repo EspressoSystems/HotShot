@@ -3,8 +3,7 @@ use std::{
     mem::size_of,
 };
 
-use crate::node_types::TestTypes;
-use commit::{Commitment, Committable, RawCommitmentBuilder};
+use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
@@ -18,6 +17,8 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
+
+use crate::node_types::TestTypes;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -52,7 +53,7 @@ impl TestTransaction {
 
 impl Committable for TestTransaction {
     fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("Txn Comm");
+        let builder = committable::RawCommitmentBuilder::new("Txn Comm");
         let mut hasher = Keccak256::new();
         hasher.update(&self.0);
         let generic_array = hasher.finalize();
@@ -153,16 +154,6 @@ impl BlockPayload for TestBlockPayload {
         Ok(TestTransaction::encode(self.transactions.clone())?.into_iter())
     }
 
-    fn transaction_commitments(
-        &self,
-        _metadata: &Self::Metadata,
-    ) -> Vec<Commitment<Self::Transaction>> {
-        self.transactions
-            .iter()
-            .map(commit::Committable::commit)
-            .collect()
-    }
-
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
         for txn in &self.transactions {
@@ -171,8 +162,11 @@ impl BlockPayload for TestBlockPayload {
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    fn get_transactions(&self, _metadata: &Self::Metadata) -> &Vec<Self::Transaction> {
-        &self.transactions
+    fn get_transactions<'a>(
+        &'a self,
+        _metadata: &'a Self::Metadata,
+    ) -> impl 'a + Iterator<Item = Self::Transaction> {
+        self.transactions.iter().cloned()
     }
 }
 
@@ -197,7 +191,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         payload_commitment: VidCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
-        let parent = &parent_leaf.block_header;
+        let parent = parent_leaf.get_block_header();
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
         if timestamp < parent.timestamp {
@@ -234,6 +228,15 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
+    }
+
+    fn builder_commitment(
+        &self,
+        _metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
+    ) -> BuilderCommitment {
+        let mut digest = sha2::Sha256::new();
+        digest.update(self.payload_commitment.as_ref());
+        BuilderCommitment::from_raw_digest(digest.finalize())
     }
 }
 

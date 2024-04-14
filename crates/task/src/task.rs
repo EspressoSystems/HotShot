@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, SendError, Sender};
 use async_compatibility_layer::art::async_timeout;
@@ -8,14 +7,11 @@ use async_std::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
-use futures::{future::select_all, Future};
-
 #[cfg(async_executor_impl = "async-std")]
 use futures::future::join_all;
-
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
-
+use futures::{future::select_all, Future};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::{
     sync::RwLock,
@@ -32,7 +28,7 @@ use crate::{
 pub trait TaskState: Send {
     /// Type of event sent and received by the task
     type Event: Clone + Send + Sync + 'static;
-    /// The result returned when this task compeltes
+    /// The result returned when this task completes
     type Output: Send;
     /// Handle event and update state.  Return true if the task is finished
     /// false otherwise.  The handler can access the state through `Task::state_mut`
@@ -183,7 +179,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
         &self.state
     }
 
-    /// Spawn a new task adn register it.  It will get all events not seend
+    /// Spawn a new task and register it.  It will get all events not seend
     /// by the task creating it.
     pub async fn run_sub_task(&self, state: S) {
         let task = Task {
@@ -323,7 +319,7 @@ impl TaskRegistry {
     }
     /// Wait for the results of all the tasks registered
     /// # Panics
-    /// Panics if one of the tasks paniced
+    /// Panics if one of the tasks panicked
     pub async fn join_all(self) -> Vec<()> {
         #[cfg(async_executor_impl = "async-std")]
         let ret = join_all(self.task_handles.into_inner()).await;
@@ -335,13 +331,15 @@ impl TaskRegistry {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{collections::HashSet, time::Duration};
+
     use async_broadcast::broadcast;
     #[cfg(async_executor_impl = "async-std")]
     use async_std::task::sleep;
-    use std::{collections::HashSet, time::Duration};
     #[cfg(async_executor_impl = "tokio")]
     use tokio::time::sleep;
+
+    use super::*;
 
     #[derive(Default)]
     pub struct DummyHandle {

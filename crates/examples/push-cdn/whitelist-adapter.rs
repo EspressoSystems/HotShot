@@ -2,20 +2,17 @@
 //! all brokers. Right now, we do this by asking the orchestrator for the list of
 //! allowed public keys. In the future, we will pull the stake table from the L1.
 
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use anyhow::Context;
-use anyhow::Result;
-use cdn_broker::reexports::discovery::DiscoveryClient;
-use cdn_broker::reexports::discovery::{Embedded, Redis};
+use anyhow::{Context, Result};
+use cdn_broker::reexports::discovery::{DiscoveryClient, Embedded, Redis};
 use clap::Parser;
 use hotshot_example_types::node_types::TestTypes;
-use hotshot_orchestrator::client::OrchestratorClient;
-use hotshot_orchestrator::client::ValidatorArgs;
-use hotshot_orchestrator::config::NetworkConfig;
-use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_orchestrator::{
+    client::{OrchestratorClient, ValidatorArgs},
+    config::NetworkConfig,
+};
+use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use surf_disco::Url;
 
 #[derive(Parser, Debug)]
@@ -47,14 +44,11 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     // Create a new `OrchestratorClient` from the supplied URL
-    let orchestrator_client = OrchestratorClient::new(
-        ValidatorArgs {
-            url: Url::from_str(&args.orchestrator_url).with_context(|| "Invalid URL")?,
-            public_ip: None,
-            network_config_file: None,
-        },
-        "whitelist-adapter".to_string(),
-    );
+    let orchestrator_client = OrchestratorClient::new(ValidatorArgs {
+        url: Url::from_str(&args.orchestrator_url).with_context(|| "Invalid URL")?,
+        advertise_address: None,
+        network_config_file: None,
+    });
 
     // Attempt to get the config from the orchestrator.
     // Loops internally until the config is received.

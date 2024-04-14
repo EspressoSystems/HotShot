@@ -3,12 +3,12 @@
 // Needed to avoid the non-binding `let` warning.
 #![allow(clippy::let_underscore_untyped)]
 
-use super::node_implementation::NodeType;
-
-use crate::{traits::signature_key::SignatureKey, PeerConfig};
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
 use snafu::Snafu;
-use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
+
+use super::node_implementation::NodeType;
+use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -48,6 +48,7 @@ pub trait Membership<TYPES: NodeType>:
     fn create_election(
         entries: Vec<PeerConfig<TYPES::SignatureKey>>,
         config: TYPES::ElectionConfigType,
+        fixed_leader_for_gpuvid: usize,
     ) -> Self;
 
     /// Clone the public key and corresponding stake table for current elected committee

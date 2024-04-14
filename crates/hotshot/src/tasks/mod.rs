@@ -3,13 +3,10 @@
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
 
-use crate::tasks::task_state::CreateTaskState;
-use crate::ConsensusApi;
+use std::{sync::Arc, time::Duration};
 
-use crate::types::SystemContextHandle;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-
 use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
@@ -17,6 +14,7 @@ use hotshot_task_impls::{
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
+    quorum_proposal::QuorumProposalTaskState,
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
@@ -25,19 +23,18 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    constants::Version01,
-    message::Message,
-    traits::{election::Membership, network::ConnectedNetwork, storage::Storage},
-};
-use hotshot_types::{
-    message::Messages,
+    constants::{Version01, VERSION_0_1},
+    message::{Message, Messages},
     traits::{
-        network::ConsensusIntentEvent,
+        election::Membership,
+        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        storage::Storage,
     },
 };
-use std::{sync::Arc, time::Duration};
 use tracing::error;
+
+use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -68,13 +65,16 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     rx: RequestReceiver<TYPES>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let state = NetworkResponseState::new(
+    let state = NetworkResponseState::<TYPES>::new(
         handle.hotshot.get_consensus(),
         rx,
-        handle.hotshot.memberships.quorum_membership.clone(),
+        handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
+        handle.private_key().clone(),
     );
-    task_reg.register(run_response_task(state, hs_rx)).await;
+    task_reg
+        .register(run_response_task::<TYPES, Version01>(state, hs_rx))
+        .await;
 }
 /// Add the network task to handle messages and publish events.
 pub async fn add_network_message_task<
@@ -130,6 +130,7 @@ pub async fn add_network_event_task<
     let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
+        version: VERSION_0_1,
         membership,
         filter,
         storage,
@@ -150,6 +151,18 @@ pub async fn inject_consensus_polls<
     consensus_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Poll (forever) for upgrade proposals
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeProposal(0))
+        .await;
+
+    // Poll (forever) for upgrade votes
+    consensus_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForUpgradeVotes(0))
         .await;
 
     // See if we're in the DA committee
@@ -196,6 +209,34 @@ pub async fn inject_consensus_polls<
     }
 }
 
+/// Setup polls for the given `quorum_proposal`.
+pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    quorum_proposal_task_state: &QuorumProposalTaskState<TYPES, I>,
+) {
+    // Poll (forever) for the latest quorum proposal
+    quorum_proposal_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Poll (forever) for the latest view sync certificate
+    quorum_proposal_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
+        .await;
+
+    // Start polling for proposals for the first view
+    quorum_proposal_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
+        .await;
+
+    quorum_proposal_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
+        .await;
+}
+
 /// add the consensus task
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
@@ -210,6 +251,20 @@ pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let task = Task::new(tx, rx, task_reg.clone(), consensus_state);
     task_reg.run_task(task).await;
 }
+
+// TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
+// <https://github.com/EspressoSystems/HotShot/issues/2712>
+// /// Add the quorum vote task.
+// pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+//     task_reg: Arc<TaskRegistry>,
+//     tx: Sender<Arc<HotShotEvent<TYPES>>>,
+//     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+//     handle: &SystemContextHandle<TYPES, I>,
+// ) {
+//     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
+//     let task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
+//     task_reg.run_task(task).await;
+// }
 
 /// add the VID task
 pub async fn add_vid_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -256,7 +311,7 @@ pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let transactions_state = TransactionTaskState::create_from(handle).await;
+    let transactions_state = TransactionTaskState::<_, _, _, Version01>::create_from(handle).await;
 
     let task = Task::new(tx, rx, task_reg.clone(), transactions_state);
     task_reg.run_task(task).await;
@@ -272,5 +327,18 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let view_sync_state = ViewSyncTaskState::create_from(handle).await;
 
     let task = Task::new(tx, rx, task_reg.clone(), view_sync_state);
+    task_reg.run_task(task).await;
+}
+
+/// add the quorum proposal task
+pub async fn add_quorum_proposal_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let quorum_proposal_task_state = QuorumProposalTaskState::create_from(handle).await;
+    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
+    let task = Task::new(tx, rx, task_reg.clone(), quorum_proposal_task_state);
     task_reg.run_task(task).await;
 }

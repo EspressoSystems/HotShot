@@ -1,10 +1,5 @@
 //! Types and structs for the hotshot signature keys
 
-use crate::{
-    qc::{BitVectorQC, QCParams},
-    stake_table::StakeTableEntry,
-    traits::{qc::QuorumCertificateScheme, signature_key::SignatureKey},
-};
 use bitvec::{slice::BitSlice, vec::BitVec};
 use ethereum_types::U256;
 use generic_array::GenericArray;
@@ -18,6 +13,15 @@ use jf_primitives::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use tracing::instrument;
+
+use crate::{
+    qc::{BitVectorQC, QCParams},
+    stake_table::StakeTableEntry,
+    traits::{
+        qc::QuorumCertificateScheme,
+        signature_key::{BuilderSignatureKey, SignatureKey},
+    },
+};
 
 /// BLS private key used to sign a message
 pub type BLSPrivKey = SignKey;
@@ -123,5 +127,41 @@ impl SignatureKey for BLSPubKey {
     fn genesis_proposer_pk() -> Self {
         let kp = KeyPair::generate(&mut ChaCha20Rng::from_seed([0u8; 32]));
         kp.ver_key()
+    }
+}
+
+// Currently implement builder signature key for BLS
+// So copy pasta here, but actually Sequencer will implement the same trait for ethereum types
+/// Builder signature key
+pub type BuilderKey = BLSPubKey;
+
+impl BuilderSignatureKey for BuilderKey {
+    type BuilderPrivateKey = BLSPrivKey;
+    type BuilderSignature = <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature;
+    type SignError = PrimitivesError;
+
+    fn sign_builder_message(
+        private_key: &Self::BuilderPrivateKey,
+        data: &[u8],
+    ) -> Result<Self::BuilderSignature, Self::SignError> {
+        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+            &(),
+            private_key,
+            data,
+            &mut rand::thread_rng(),
+        )
+    }
+
+    fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool {
+        BLSOverBN254CurveSignatureScheme::verify(&(), self, data, signature).is_ok()
+    }
+
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::BuilderPrivateKey) {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let kp = KeyPair::generate(&mut ChaCha20Rng::from_seed(new_seed));
+        (kp.ver_key(), kp.sign_key_ref().clone())
     }
 }

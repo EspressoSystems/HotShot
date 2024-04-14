@@ -1,13 +1,8 @@
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-use either::Either;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -22,8 +17,13 @@ use hotshot_types::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
-use tracing::{error, info, warn};
-use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
+use tracing::{debug, error, info, instrument, warn};
+use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -56,6 +56,8 @@ pub struct NetworkRequestState<
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Version discrimination
     pub _phantom: PhantomData<fn(&Ver)>,
+    /// The node's id
+    pub id: u64,
 }
 
 /// Alias for a signature
@@ -74,7 +76,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         task: &mut hotshot_task::task::Task<Self>,
     ) -> Option<Self::Output> {
         match event.as_ref() {
-            HotShotEvent::QuorumProposalValidated(proposal) => {
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let state = task.state();
                 let prop_view = proposal.get_view_number();
                 if prop_view >= state.view {
@@ -104,7 +106,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(_)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::ViewChange(_)
         )
     }
@@ -129,7 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             .for_each(|r| self.run_delay(r, sender.clone(), view, bind_version));
     }
 
-    /// Creats the srequest structures for all types that are needed.
+    /// Creates the srequest structures for all types that are needed.
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares.contains_key(&view) {
@@ -140,7 +142,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 
     /// run a delayed request task for a request.  The first response
-    /// recieved will be sent over `sender`
+    /// received will be sent over `sender`
+    #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
         &self,
         request: RequestKind<TYPES>,
@@ -172,11 +175,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             error!("Failed to sign Data Request");
             return;
         };
+        debug!("Requesting data: {:?}", request);
         async_spawn(requester.run::<Ver>(request, signature));
     }
 }
 
-/// A short lived task that waits a delay and starts trying peers until it complets
+/// A short lived task that waits a delay and starts trying peers until it completes
 /// a request.  If at any point the requested info is seen in the data stores or
 /// the view has moved beyond the view we are requesting, the task will completed.
 struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -265,13 +269,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
 
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
-        let event = match message.0 {
-            Either::Right(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
-                Arc::new(HotShotEvent::VidDisperseRecv(prop))
+        let event = match message {
+            SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
+                HotShotEvent::VIDShareRecv(prop)
             }
             _ => return,
         };
-        broadcast_event(event, &self.sender).await;
+        broadcast_event(Arc::new(event), &self.sender).await;
     }
 }
 

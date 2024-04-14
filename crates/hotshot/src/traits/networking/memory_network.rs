@@ -3,29 +3,7 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
-use async_compatibility_layer::{
-    art::async_spawn,
-    channel::{bounded, BoundedStream, Receiver, SendError, Sender},
-};
-use async_lock::{Mutex, RwLock};
-use async_trait::async_trait;
 use core::time::Duration;
-use dashmap::DashMap;
-use futures::StreamExt;
-use hotshot_types::{
-    boxed_sync,
-    constants::Version01,
-    message::Message,
-    traits::{
-        network::{ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-    },
-    BoxSyncFuture,
-};
-use rand::Rng;
-use snafu::ResultExt;
 use std::{
     collections::BTreeSet,
     fmt::Debug,
@@ -34,8 +12,32 @@ use std::{
         Arc,
     },
 };
+
+use async_compatibility_layer::{
+    art::async_spawn,
+    channel::{bounded, BoundedStream, Receiver, SendError, Sender},
+};
+use async_lock::{Mutex, RwLock};
+use async_trait::async_trait;
+use dashmap::DashMap;
+use futures::StreamExt;
+use hotshot_types::{
+    boxed_sync,
+    constants::Version01,
+    message::Message,
+    traits::{
+        network::{AsyncGenerator, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
+        node_implementation::NodeType,
+        signature_key::SignatureKey,
+    },
+    BoxSyncFuture,
+};
+use rand::Rng;
+use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
+use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
 
 /// Shared state for in-memory mock networking.
 ///
@@ -189,10 +191,10 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         _is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
-    ) -> Box<dyn Fn(u64) -> (Arc<Self>, Arc<Self>) + 'static> {
+    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
         let master: Arc<_> = MasterMap::new();
         // We assign known_nodes' public key and stake value rather than read from config file since it's a test
-        Box::new(move |node_id| {
+        Box::pin(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             let net = MemoryNetwork::new(
@@ -201,7 +203,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 master.clone(),
                 reliability_config.clone(),
             );
-            (net.clone().into(), net.into())
+            Box::pin(async move { (net.clone().into(), net.into()) })
         })
     }
 
@@ -222,11 +224,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
 
     fn resume(&self) {
         unimplemented!("Resuming not implemented for the Memory network");
-    }
-
-    #[instrument(name = "MemoryNetwork::ready_nonblocking")]
-    async fn is_ready(&self) -> bool {
-        true
     }
 
     #[instrument(name = "MemoryNetwork::shut_down")]

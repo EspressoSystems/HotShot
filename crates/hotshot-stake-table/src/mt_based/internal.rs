@@ -1,7 +1,5 @@
 //! Utilities and internals for maintaining a local stake table
 
-use super::config::{Digest, FieldType, TREE_BRANCH};
-use crate::utils::{u256_to_field, ToFields};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{hash::Hash, sync::Arc, vec, vec::Vec};
 use ethereum_types::U256;
@@ -10,6 +8,9 @@ use jf_primitives::crhf::CRHF;
 use jf_utils::canonical;
 use serde::{Deserialize, Serialize};
 use tagged_base64::tagged;
+
+use super::config::{Digest, FieldType, TREE_BRANCH};
+use crate::utils::{u256_to_field, ToFields};
 
 /// Common trait bounds for generic key type `K` for [`PersistentMerkleNode`]
 pub trait Key:
@@ -170,7 +171,7 @@ impl<K: Key> MerkleProof<K> {
 
 #[tagged("MERKLE_COMM")]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, CanonicalSerialize, CanonicalDeserialize)]
-/// A succint commitment for Merkle tree
+/// A succinct commitment for Merkle tree
 pub struct MerkleCommitment {
     /// Merkle tree digest
     comm: FieldType,
@@ -203,7 +204,7 @@ impl MerkleCommitment {
 }
 
 impl<K: Key> PersistentMerkleNode<K> {
-    /// Returns the succint commitment of this subtree
+    /// Returns the succinct commitment of this subtree
     pub fn commitment(&self) -> FieldType {
         match self {
             PersistentMerkleNode::Empty => FieldType::from(0),
@@ -618,7 +619,6 @@ pub fn from_merkle_path(path: &[usize]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::config, to_merkle_path, PersistentMerkleNode};
     use ark_std::{
         rand::{Rng, RngCore},
         sync::Arc,
@@ -627,6 +627,8 @@ mod tests {
     };
     use ethereum_types::U256;
     use jf_utils::test_rng;
+
+    use super::{super::config, to_merkle_path, PersistentMerkleNode};
 
     type Key = ark_bn254::Fq;
 

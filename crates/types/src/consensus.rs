@@ -1,13 +1,20 @@
 //! Provides the core consensus types
 
-pub use crate::utils::{View, ViewInner};
-use displaydoc::Display;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::{Arc, Mutex},
+};
 
+use committable::Commitment;
+use displaydoc::Display;
+use tracing::error;
+
+pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{DACertificate, QuorumCertificate},
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
@@ -15,19 +22,12 @@ use crate::{
     },
     utils::{StateAndDelta, Terminator},
 };
-use commit::Commitment;
-
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex},
-};
-use tracing::error;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
-type VidShares<TYPES> = BTreeMap<
+pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
@@ -49,10 +49,6 @@ pub struct Consensus<TYPES: NodeType> {
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
-
-    /// All the upgrade certs we've received for current and future views.
-    /// view -> upgrade cert
-    pub saved_upgrade_certs: HashMap<TYPES::Time, UpgradeCertificate<TYPES>>,
 
     /// View number that is currently on.
     pub cur_view: TYPES::Time,
@@ -335,8 +331,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
         // perform gc
         self.saved_da_certs
-            .retain(|view_number, _| *view_number >= old_anchor_view);
-        self.saved_upgrade_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)

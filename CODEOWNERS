@@ -1,4 +1,4 @@
-# Default owners and repository maintainers: 
+# Default owners and repository maintainers:
 * @elliedavidson @bfish713
 
 # Owner of `constants` crate
@@ -17,16 +17,16 @@
 /hotshot-state-prover/ @dailinsubjam
 
 # Owner of `libp2p-networking` crate
-/libp2p-networking/ @rob-maron @DieracDelta 
+/libp2p-networking/ @rob-maron @DieracDelta
 
 # Owner of `orchestrator` crate
-/orchestrator/ @rob-maron @elliedavidson 
+/orchestrator/ @rob-maron @elliedavidson
 
 # Owner of `task` crate
-/task/ @rob-maron @DieracDelta 
+/task/ @rob-maron @DieracDelta
 
 # Owner of `task-impls` crate
-/task-impls/ @elliedavidson @bfish713
+/task-impls/ @elliedavidson @bfish713 @jparr721 @shenkeyao
 
 # Owner of `testing` crate
 /testing/ @DieracDelta @bfish713
@@ -42,7 +42,7 @@
 
 # Owner of updating dependencies
 # This owner is updated on a monthly basis
-*.lock @lukaszrzasik
-**/Cargo.toml @lukaszrzasik
-Cargo.toml @lukaszrzasik
-flake.nix @lukaszrzasik
+*.lock @ss-es
+**/Cargo.toml @ss-es
+Cargo.toml @ss-es
+flake.nix @ss-es
