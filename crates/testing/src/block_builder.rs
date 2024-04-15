@@ -31,7 +31,6 @@ use hotshot_types::{
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
-    vid::VidCommitment,
 };
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
@@ -227,7 +226,7 @@ impl<TYPES: NodeType> ReadState for RandomBuilderSource<TYPES> {
 impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
-        _for_parent: &VidCommitment,
+        _for_parent: &BuilderCommitment,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
@@ -331,7 +330,7 @@ impl<TYPES: NodeType> ReadState for SimpleBuilderSource<TYPES> {
 impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
-        _for_parent: &VidCommitment,
+        _for_parent: &BuilderCommitment,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
