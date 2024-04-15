@@ -116,11 +116,11 @@ pub trait TestableBlock: BlockPayload + Debug {
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
+#[allow(clippy::panic)]
 pub fn vid_commitment(
     encoded_transactions: &Vec<u8>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
-    #[allow(clippy::panic)]
     vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
 
@@ -128,6 +128,7 @@ pub fn vid_commitment(
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
+#[allow(clippy::panic)]
 pub fn precompute_vid_commitment(
     encoded_transactions: &Vec<u8>,
     num_storage_nodes: usize,
@@ -135,8 +136,7 @@ pub fn precompute_vid_commitment(
     <VidSchemeType as VidScheme>::Commit,
     <VidSchemeType as Precomputable>::PrecomputeData,
 ) {
-    #[allow(clippy::panic)]
-     vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.
