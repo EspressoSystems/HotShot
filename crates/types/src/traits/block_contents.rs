@@ -48,11 +48,6 @@ pub trait BlockPayload:
     /// Data created during block building which feeds into the block header
     type Metadata: Clone + Debug + DeserializeOwned + Eq + Hash + Send + Sync + Serialize;
 
-    /// Encoded payload.
-    type Encode<'a>: 'a + Iterator<Item = u8> + Send
-    where
-        Self: 'a;
-
     /// Build a payload and associated metadata with the transactions.
     ///
     /// # Errors
@@ -76,7 +71,7 @@ pub trait BlockPayload:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<Self::Encode<'_>, Self::Error>;
+    fn encode(&self) -> Result<impl AsRef<[u8]> + Send, Self::Error>;
 
     /// List of transaction commitments.
     fn transaction_commitments(
@@ -119,10 +114,10 @@ pub trait TestableBlock: BlockPayload + Debug {
 #[must_use]
 #[allow(clippy::panic)]
 pub fn vid_commitment(
-    encoded_transactions: &Vec<u8>,
+    encoded_transactions: impl AsRef<[u8]>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes)=({num_storage_nodes}\n\t{err}"))
 }
 
 /// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
@@ -137,7 +132,7 @@ pub fn precompute_vid_commitment(
     <VidSchemeType as VidScheme>::Commit,
     <VidSchemeType as Precomputable>::PrecomputeData,
 ) {
-    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes)=({num_storage_nodes}\n\t{err}"))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.

@@ -530,9 +530,8 @@ async fn build_block<TYPES: NodeType>(
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let encoded_payload = block_payload.encode().unwrap().collect();
     let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&encoded_payload, num_storage_nodes);
+        precompute_vid_commitment(&block_payload.encode().unwrap(), num_storage_nodes);
 
     // Get block size from the encoded payload
     let block_size = block_payload

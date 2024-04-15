@@ -440,10 +440,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let (payload, metadata) = TYPES::BlockPayload::genesis();
         let builder_commitment = payload.builder_commitment(&metadata);
-        let payload_bytes = payload
-            .encode()
-            .expect("unable to encode genesis payload")
-            .collect();
+        let payload_bytes = payload.encode().expect("unable to encode genesis payload");
+
         let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -451,13 +449,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             builder_commitment,
             metadata,
         );
+
         Self {
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::<TYPES>::genesis(),
             parent_commitment: fake_commitment(),
             upgrade_certificate: None,
             block_header: block_header.clone(),
-            block_payload: Some(payload),
+            block_payload: Some(payload.clone()),
         }
     }
 
@@ -508,16 +507,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
         let encoded_txns = match block_payload.encode() {
-            // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-            // <https://github.com/EspressoSystems/HotShot/issues/2115>
-            Ok(encoded) => encoded.into_iter().collect(),
+            Ok(encoded) => encoded,
             Err(_) => return Err(BlockError::InvalidTransactionLength),
         };
         let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
-        self.block_payload = Some(block_payload);
+        self.block_payload = Some(block_payload.clone());
         Ok(())
     }
 

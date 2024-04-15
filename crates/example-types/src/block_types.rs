@@ -107,7 +107,6 @@ impl BlockPayload for TestBlockPayload {
     type Error = BlockError;
     type Transaction = TestTransaction;
     type Metadata = ();
-    type Encode<'a> = <Vec<u8> as IntoIterator>::IntoIter;
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
@@ -150,7 +149,7 @@ impl BlockPayload for TestBlockPayload {
         (Self::genesis(), ())
     }
 
-    fn encode(&self) -> Result<Self::Encode<'_>, Self::Error> {
+    fn encode(&self) -> Result<impl AsRef<[u8]> + Send, Self::Error> {
         Ok(TestTransaction::encode(self.transactions.clone())?.into_iter())
     }
 
