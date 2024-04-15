@@ -297,6 +297,8 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -506,8 +508,10 @@
         request: RequestKind&lt;TYPES&gt;,
         signature: Signature&lt;TYPES&gt;,
     ) {
-        <span class="comment">// Do the delay then start sending
-        </span>async_sleep(<span class="self">self</span>.delay).<span class="kw">await</span>;
+        <span class="comment">// Do the delay only if primary is up and then start sending
+        </span><span class="kw">if </span>!<span class="self">self</span>.network.is_primary_down() {
+            async_sleep(<span class="self">self</span>.delay).<span class="kw">await</span>;
+        }
         <span class="kw">match </span>request {
             RequestKind::VID(view, key) =&gt; {
                 <span class="self">self</span>.do_vid::&lt;Ver&gt;(VidRequest(view, key), signature).<span class="kw">await</span>;

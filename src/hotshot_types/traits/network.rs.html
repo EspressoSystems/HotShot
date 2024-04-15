@@ -735,6 +735,11 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -1164,6 +1169,11 @@
 
     <span class="doccomment">/// handles view update
     </span><span class="kw">fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: u64) {}
+
+    <span class="doccomment">/// Is primary network down? Makes sense only for combined network
+    </span><span class="kw">fn </span>is_primary_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 }
 
 <span class="doccomment">/// A channel generator for types that need asynchronous execution
