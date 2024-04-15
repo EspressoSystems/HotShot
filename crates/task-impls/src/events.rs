@@ -11,6 +11,7 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::{node_implementation::NodeType, BlockPayload},
+    utils::BuilderCommitment,
     vid::VidCommitment,
 };
 use vbs::version::Version;
@@ -104,6 +105,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
+        BuilderCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
     ),

@@ -141,6 +141,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> impl Future<Output = Self> + Send;
 
@@ -148,6 +149,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn genesis(
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self;
 
@@ -161,8 +163,5 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
 
     /// Get the builder commitment
-    fn builder_commitment(
-        &self,
-        metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
-    ) -> BuilderCommitment;
+    fn builder_commitment(&self) -> BuilderCommitment;
 }

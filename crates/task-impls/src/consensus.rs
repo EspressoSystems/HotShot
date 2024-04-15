@@ -34,7 +34,7 @@ use hotshot_types::{
         storage::Storage,
         BlockPayload,
     },
-    utils::{Terminator, ViewInner},
+    utils::{BuilderCommitment, Terminator, ViewInner},
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
@@ -54,6 +54,8 @@ use crate::{
 pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
     /// Vid Commitment
     pub commitment: VidCommitment,
+    /// Builder Commitment
+    pub builder_commitment: BuilderCommitment,
     /// Metadata for the block payload
     pub metadata: <PAYLOAD as BlockPayload>::Metadata,
 }
@@ -213,6 +215,7 @@ async fn create_and_send_proposal<TYPES: NodeType>(
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     view: TYPES::Time,
     commitment: VidCommitment,
+    builder_commitment: BuilderCommitment,
     metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     parent_leaf: Leaf<TYPES>,
     state: Arc<TYPES::ValidatedState>,
@@ -225,6 +228,7 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         &consensus.read().await.instance_state,
         &parent_leaf,
         commitment,
+        builder_commitment,
         metadata,
     )
     .await;
@@ -1385,11 +1389,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                metadata,
+                view,
+            ) => {
                 let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
+                    builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
@@ -1533,13 +1543,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         if let Some(upgrade_cert) = &self.decided_upgrade_cert {
             if upgrade_cert.in_interim(self.cur_view) {
-                let Ok((_payload, metadata)) =
+                let Ok((payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
                 else {
                     error!("Failed to build null block payload and metadata");
                     return;
                 };
 
+                let builder_commitment = payload.builder_commitment(&metadata);
                 let Some(null_block_commitment) =
                     null_block::commitment(self.quorum_membership.total_nodes())
                 else {
@@ -1567,6 +1578,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             sender,
                             view,
                             null_block_commitment,
+                            builder_commitment,
                             metadata,
                             parent,
                             state,
@@ -1611,6 +1623,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let consensus = self.consensus.clone();
             let sender = event_stream.clone();
             let commit = commit_and_metadata.commitment;
+            let builder_commitment = commit_and_metadata.builder_commitment.clone();
             let metadata = commit_and_metadata.metadata.clone();
             let state = state.clone();
             let delay = self.round_start_delay;
@@ -1625,6 +1638,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         sender,
                         view,
                         commit,
+                        builder_commitment,
                         metadata,
                         parent_leaf.clone(),
                         state,

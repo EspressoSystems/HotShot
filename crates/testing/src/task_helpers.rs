@@ -243,6 +243,7 @@ async fn build_quorum_proposal_and_signature(
 
     // every event input is seen on the event stream in the output.
     let block = <TestBlockPayload as TestableBlock>::genesis();
+    let builder_commitment = block.builder_commitment(&());
     let payload_commitment = vid_commitment(
         &block.encode().unwrap().collect(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
@@ -257,6 +258,7 @@ async fn build_quorum_proposal_and_signature(
         &TestInstanceState {},
         &parent_leaf,
         payload_commitment,
+        builder_commitment,
         (),
     )
     .await;

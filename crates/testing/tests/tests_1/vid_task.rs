@@ -1,10 +1,11 @@
 use hotshot::types::SignatureKey;
-use hotshot_example_types::{block_types::TestTransaction, node_types::TestTypes};
+use hotshot_example_types::{block_types::{TestBlockPayload, TestTransaction}, node_types::TestTypes};
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
     data::{DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
     traits::{
+        BlockPayload,
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
     },
@@ -31,6 +32,8 @@ async fn test_vid_task() {
 
     let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction(vec![0])];
+    let (payload, metadata) = TestBlockPayload::from_transactions(transactions.clone()).unwrap();
+    let builder_commitment = payload.builder_commitment(&metadata);
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
@@ -98,7 +101,7 @@ async fn test_vid_task() {
     );
 
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, builder_commitment, (), ViewNumber::new(2)),
         1,
     );
     output.insert(

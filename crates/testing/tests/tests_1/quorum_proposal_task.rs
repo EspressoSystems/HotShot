@@ -15,10 +15,11 @@ use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
     simple_vote::ViewSyncFinalizeData,
     traits::node_implementation::{ConsensusTime, NodeType},
-    utils::{View, ViewInner},
+    utils::{BuilderCommitment, View, ViewInner},
     vid::VidSchemeType,
 };
 use jf_primitives::vid::VidScheme;
+use sha2::Digest;
 
 fn make_payload_commitment(
     membership: &<TestTypes as NodeType>::Membership,
@@ -83,13 +84,14 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     // Release the write lock before proceeding with the test
     drop(consensus);
     let cert = proposals[1].data.justify_qc.clone();
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
             QCFormed(either::Left(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(payload_commitment, builder_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
@@ -114,6 +116,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -142,7 +145,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let view_2 = TestScriptStage {
         inputs: vec![
             QCFormed(either::Right(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(payload_commitment, builder_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
@@ -168,6 +171,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -198,7 +202,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let view_2 = TestScriptStage {
         inputs: vec![
             ViewSyncFinalizeCertificate2Recv(cert.clone()),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(payload_commitment, builder_commitment, (), ViewNumber::new(2)),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
