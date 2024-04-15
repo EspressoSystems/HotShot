@@ -497,100 +497,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         false
     }
 
-    /// Must only update the view and GC if the view actually changes
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus update view", level = "error")]
-    async fn update_view(
-        &mut self,
-        new_view: TYPES::Time,
-        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> bool {
-        if *self.cur_view < *new_view {
-            debug!(
-                "Updating view from {} to {} in consensus task",
-                *self.cur_view, *new_view
-            );
-
-            if *self.cur_view / 100 != *new_view / 100 {
-                // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
-                // switch to info! when INFO logs become less cluttered
-                error!("Progress: entered view {:>6}", *new_view);
-            }
-
-            // cancel the old timeout task
-            if let Some(timeout_task) = self.timeout_task.take() {
-                cancel_task(timeout_task).await;
-            }
-            self.cur_view = new_view;
-
-            // Poll the future leader for lookahead
-            let lookahead_view = new_view + LOOK_AHEAD;
-            if self.quorum_membership.get_leader(lookahead_view) != self.public_key {
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                        *lookahead_view,
-                        self.quorum_membership.get_leader(lookahead_view),
-                    ))
-                    .await;
-            }
-
-            // Start polling for proposals for the new view
-            self.quorum_network
-                .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view + 1))
-                .await;
-
-            self.quorum_network
-                .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view + 1))
-                .await;
-
-            if self.quorum_membership.get_leader(self.cur_view + 1) == self.public_key {
-                debug!("Polling for quorum votes for view {}", *self.cur_view);
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view))
-                    .await;
-            }
-
-            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
-
-            // Spawn a timeout task if we did actually update view
-            let timeout = self.timeout;
-            self.timeout_task = Some(async_spawn({
-                let stream = event_stream.clone();
-                // Nuance: We timeout on the view + 1 here because that means that we have
-                // not seen evidence to transition to this new view
-                let view_number = self.cur_view + 1;
-                async move {
-                    async_sleep(Duration::from_millis(timeout)).await;
-                    broadcast_event(
-                        Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
-                        &stream,
-                    )
-                    .await;
-                }
-            }));
-            let consensus = self.consensus.upgradable_read().await;
-            consensus
-                .metrics
-                .current_view
-                .set(usize::try_from(self.cur_view.get_u64()).unwrap());
-            // Do the comparison before the subtraction to avoid potential overflow, since
-            // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-            if usize::try_from(self.cur_view.get_u64()).unwrap()
-                > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
-            {
-                consensus.metrics.number_of_views_since_last_decide.set(
-                    usize::try_from(self.cur_view.get_u64()).unwrap()
-                        - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
-                );
-            }
-            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            consensus.update_view(new_view);
-            drop(consensus);
-
-            return true;
-        }
-        false
-    }
-
     /// Validates whether the VID Dispersal Proposal is correctly signed
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.get_view_number();
@@ -715,7 +621,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-                self.update_view(view, &event_stream).await;
+                if let Err(e) = update_view::<TYPES, I>(
+                    self.public_key.clone(),
+                    view,
+                    &event_stream,
+                    self.quorum_membership.clone(),
+                    self.quorum_network.clone(),
+                    self.timeout,
+                    self.consensus.clone(),
+                    &mut self.cur_view,
+                    &mut self.timeout_task,
+                )
+                .await
+                {
+                    // This isn't typically a serious end-it-all failure.
+                    warn!("Failed to update view; error = {:?}", e);
+                }
 
                 let consensus = self.consensus.upgradable_read().await;
 
@@ -1310,8 +1231,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
-                if !self.update_view(new_view, &event_stream).await {
-                    debug!("view not updated");
+                if let Err(e) = update_view::<TYPES, I>(
+                    self.public_key.clone(),
+                    new_view,
+                    &event_stream,
+                    self.quorum_membership.clone(),
+                    self.quorum_network.clone(),
+                    self.timeout,
+                    self.consensus.clone(),
+                    &mut self.cur_view,
+                    &mut self.timeout_task,
+                )
+                .await
+                {
+                    // This isn't typically a serious end-it-all failure.
+                    warn!("Failed to update view; error = {:?}", e);
                     return;
                 }
 
@@ -1640,6 +1574,108 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
         debug!("Cannot propose because we don't have the VID payload commitment and metadata");
     }
+}
+
+/// Update the view if it actually changed. Returns the spawned timeout task join handle.
+pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    public_key: TYPES::SignatureKey,
+    new_view: TYPES::Time,
+    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    quorum_membership: Arc<TYPES::Membership>,
+    quorum_network: Arc<I::QuorumNetwork>,
+    timeout: u64,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    cur_view: &mut TYPES::Time,
+    timeout_task: &mut Option<JoinHandle<()>>,
+) -> Result<()> {
+    // Is this >= correct? Or should it just be >?
+    ensure!(
+        new_view >= *cur_view,
+        "New view is not greater than our current view"
+    );
+
+    debug!("Updating view from {} to {}", **cur_view, *new_view);
+
+    if **cur_view / 100 != *new_view / 100 {
+        // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
+        // switch to info! when INFO logs become less cluttered
+        error!("Progress: entered view {:>6}", *new_view);
+    }
+
+    // cancel the old timeout task
+    if let Some(timeout_task) = timeout_task.take() {
+        cancel_task(timeout_task).await;
+    }
+
+    *cur_view = new_view;
+
+    // Poll the future leader for lookahead
+    let lookahead_view = new_view + LOOK_AHEAD;
+    if quorum_membership.get_leader(lookahead_view) != public_key {
+        quorum_network
+            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
+                *lookahead_view,
+                quorum_membership.get_leader(lookahead_view),
+            ))
+            .await;
+    }
+
+    // The next view is just the current view + 1
+    let next_view = *cur_view + 1;
+
+    // Start polling for proposals for the new view
+    quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*next_view))
+        .await;
+
+    quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*next_view))
+        .await;
+
+    if quorum_membership.get_leader(next_view) == public_key {
+        debug!("Polling for quorum votes for view {}", **cur_view);
+        quorum_network
+            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(**cur_view))
+            .await;
+    }
+
+    broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+
+    // Spawn a timeout task if we did actually update view
+    *timeout_task = Some(async_spawn({
+        let stream = event_stream.clone();
+        // Nuance: We timeout on the view + 1 here because that means that we have
+        // not seen evidence to transition to this new view
+        let view_number = next_view;
+        async move {
+            async_sleep(Duration::from_millis(timeout)).await;
+            broadcast_event(
+                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
+                &stream,
+            )
+            .await;
+        }
+    }));
+    let consensus = consensus.upgradable_read().await;
+    consensus
+        .metrics
+        .current_view
+        .set(usize::try_from(cur_view.get_u64()).unwrap());
+
+    // Do the comparison before the subtraction to avoid potential overflow, since
+    // `last_decided_view` may be greater than `cur_view` if the node is catching up.
+    if usize::try_from(cur_view.get_u64()).unwrap()
+        > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
+    {
+        consensus.metrics.number_of_views_since_last_decide.set(
+            usize::try_from(cur_view.get_u64()).unwrap()
+                - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+        );
+    }
+    let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+    consensus.update_view(new_view);
+
+    Ok(())
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
