@@ -4,7 +4,6 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use bitvec::view;
 use committable::Committable;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency},
@@ -270,16 +269,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         // If we have an event provided to us
         if let Some(event) = event {
             // Match on the type of event
-            if let HotShotEvent::VoteNow(_, proposal, leaf, disperse, da_cert) = event.as_ref() {
+            if let HotShotEvent::VoteNow(_, vote_dependency_data) = event.as_ref() {
                 // Then, mark all the dependencies as completed. Here, we short-circuit the entire dependency chain by marking
                 // *all* of the events as completed so that way this starts and ends immediately (thus voting).
                 quorum_proposal_dependency.mark_as_completed(
-                    HotShotEvent::QuorumProposalValidated(proposal.clone(), leaf.clone()).into(),
+                    HotShotEvent::QuorumProposalValidated(
+                        vote_dependency_data.quorum_proposal.clone(),
+                        vote_dependency_data.leaf.clone(),
+                    )
+                    .into(),
                 );
-                vid_dependency
-                    .mark_as_completed(HotShotEvent::VIDShareValidated(disperse.clone()).into());
+                vid_dependency.mark_as_completed(
+                    HotShotEvent::VIDShareValidated(vote_dependency_data.disperse_proposal.clone())
+                        .into(),
+                );
                 dac_dependency.mark_as_completed(
-                    HotShotEvent::DACertificateValidated(da_cert.clone()).into(),
+                    HotShotEvent::DACertificateValidated(vote_dependency_data.da_cert.clone())
+                        .into(),
                 );
             };
         }

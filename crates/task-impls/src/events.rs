@@ -1,5 +1,6 @@
 use either::Either;
 use hotshot_types::{
+    consensus::ProposalDependencyData,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -12,6 +13,7 @@ use hotshot_types::{
     },
     traits::{node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
+    vote::VoteDependencyData,
 };
 use vbs::version::Version;
 
@@ -140,20 +142,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
     /// Initiate a proposal right now for a provided view.
-    ProposeNow(
-        TYPES::Time,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
-        Option<QuorumProposal<TYPES>>,
-        Option<QuorumCertificate<TYPES>>,
-        Option<TimeoutCertificate<TYPES>>,
-        Option<ViewSyncFinalizeCertificate2<TYPES>>,
-    ),
-    /// Initiate a vote right now.
-    VoteNow(
-        TYPES::Time,
-        QuorumProposal<TYPES>,
-        Leaf<TYPES>,
-        Proposal<TYPES, VidDisperseShare<TYPES>>,
-        DACertificate<TYPES>,
-    ),
+    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
+    /// Initiate a vote right now for the designated view.
+    VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 }

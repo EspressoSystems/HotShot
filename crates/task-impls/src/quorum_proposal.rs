@@ -13,7 +13,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{CommitmentAndMetadata, Consensus},
     constants::LOOK_AHEAD,
     data::{Leaf, QuorumProposal},
     event::Event,
@@ -31,7 +31,6 @@ use hotshot_types::{
 };
 
 use crate::{
-    consensus::CommitmentAndMetadata,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
@@ -462,6 +461,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
+            HotShotEvent::ProposeNow(view, proposal_dependency_data) => {
+                payload_commitment_dependency.mark_as_completed(
+                    HotShotEvent::SendPayloadCommitmentAndMetadata(
+                        proposal_dependency_data
+                            .commitment_and_metadata
+                            .commitment
+                            .clone(),
+                        proposal_dependency_data
+                            .commitment_and_metadata
+                            .metadata
+                            .clone(),
+                        *view,
+                    )
+                    .into(),
+                );
+
+                match &proposal_dependency_data.secondary_proposal_information {
+                    hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, leaf, qc) => {
+                        proposal_dependency.mark_as_completed(HotShotEvent::QuorumProposalValidated(quorum_proposal.clone(), leaf.clone()).into());
+                        qc_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Left(qc.clone())).into());
+                    } ,
+                    hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => timeout_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Right(tc.clone())).into()),
+                    hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vs) => view_sync_dependency.mark_as_completed(HotShotEvent::ViewSyncFinalizeCertificate2Recv(vs.clone()).into()),
+                };
+            }
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
                 info!(
