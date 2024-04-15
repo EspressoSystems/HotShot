@@ -411,25 +411,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         )
     }
 
-    /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
-    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
-    /// dependency as already completed. This allows for the task to receive a proposable event
-    /// without losing the data that it received, as the dependency task would otherwise have no
-    /// ability to receive the event and, thus, would never propose.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Quorum proposal create dependency task", level = "error")]
-    fn create_dependency_task_if_new(
-        &mut self,
+    /// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
+    fn create_and_complete_dependencies(
+        &self,
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-        event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
-    ) {
-        info!("Attempting to make dependency task for event {:?}", event);
-        if self.propose_dependencies.get(&view_number).is_some() {
-            debug!("Task already exists");
-            return;
-        }
-
+    ) -> AndDependency<Vec<Arc<HotShotEvent<TYPES>>>> {
         let mut proposal_dependency = self.create_event_dependency(
             ProposalDependency::Proposal,
             view_number,
@@ -460,6 +448,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             event_receiver,
         );
 
+        info!(
+            "Node {} Dependency {:?} is complete for view {}!",
+            self.id, event, *view_number
+        );
+
         match event.as_ref() {
             HotShotEvent::ProposeNow(view, proposal_dependency_data) => {
                 payload_commitment_dependency.mark_as_completed(
@@ -479,86 +472,87 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         proposal_dependency.mark_as_completed(HotShotEvent::QuorumProposalValidated(quorum_proposal.clone(), leaf.clone()).into());
                         qc_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Left(qc.clone())).into());
                     } ,
-                    hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => timeout_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Right(tc.clone())).into()),
-                    hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vs) => view_sync_dependency.mark_as_completed(HotShotEvent::ViewSyncFinalizeCertificate2Recv(vs.clone()).into()),
+                    hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
+                        timeout_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Right(tc.clone())).into());
+                    },
+                    hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vs) => {
+                        view_sync_dependency.mark_as_completed(HotShotEvent::ViewSyncFinalizeCertificate2Recv(vs.clone()).into());
+                    },
                 };
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
-                info!(
-                    "Node {} Dependency PayloadAndMetadata is complete for view  {}!",
-                    self.id, *view_number
-                );
             }
             HotShotEvent::QuorumProposalValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
-                info!(
-                    "Node {} Dependency Proposal is complete for view {}!",
-                    self.id, *view_number
-                );
             }
             HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     timeout_dependency.mark_as_completed(event);
-                    info!(
-                        "Node {} Dependency TimeoutCert is complete for view {}!",
-                        self.id, *view_number
-                    );
                 }
                 Either::Left(_) => {
                     qc_dependency.mark_as_completed(event);
-                    info!(
-                        "Node {} Dependency QC is complete for view {}!",
-                        self.id, *view_number
-                    );
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
-                info!(
-                    "Node {} Dependency ViewSyncCert is complete for view {}!",
-                    self.id, *view_number
-                );
             }
             _ => {}
         };
 
         // We have three cases to consider:
-        let combined = if *view_number > 1 {
-            AndDependency::from_deps(vec![
-                OrDependency::from_deps(vec![AndDependency::from_deps(vec![
-                    payload_commitment_dependency,
-                ])]),
-                OrDependency::from_deps(vec![
-                    // 1. A QCFormed event and QuorumProposalValidated event
-                    AndDependency::from_deps(vec![qc_dependency, proposal_dependency]),
-                    // 2. A timeout cert was received
-                    AndDependency::from_deps(vec![timeout_dependency]),
-                    // 3. A view sync cert was received.
-                    AndDependency::from_deps(vec![view_sync_dependency]),
-                ]),
-            ])
+        let mut secondary_deps = vec![
+            // 2. A timeout cert was received
+            AndDependency::from_deps(vec![timeout_dependency]),
+            // 3. A view sync cert was received.
+            AndDependency::from_deps(vec![view_sync_dependency]),
+        ];
+
+        // 1. A QCFormed event and QuorumProposalValidated event
+        if *view_number > 1 {
+            secondary_deps.push(AndDependency::from_deps(vec![
+                qc_dependency,
+                proposal_dependency,
+            ]));
         } else {
-            AndDependency::from_deps(vec![
-                OrDependency::from_deps(vec![AndDependency::from_deps(vec![
-                    payload_commitment_dependency,
-                ])]),
-                OrDependency::from_deps(vec![
-                    // 1. A QCFormed event and QuorumProposalValidated event
-                    AndDependency::from_deps(vec![qc_dependency]),
-                    // 2. A timeout cert was received
-                    AndDependency::from_deps(vec![timeout_dependency]),
-                    // 3. A view sync cert was received.
-                    AndDependency::from_deps(vec![view_sync_dependency]),
-                ]),
-            ])
-        };
+            secondary_deps.push(AndDependency::from_deps(vec![qc_dependency]));
+        }
+
+        AndDependency::from_deps(vec![
+            OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                payload_commitment_dependency,
+            ])]),
+            OrDependency::from_deps(secondary_deps),
+        ])
+    }
+
+    /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
+    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
+    /// dependency as already completed. This allows for the task to receive a proposable event
+    /// without losing the data that it received, as the dependency task would otherwise have no
+    /// ability to receive the event and, thus, would never propose.
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Quorum proposal create dependency task", level = "error")]
+    fn create_dependency_task_if_new(
+        &mut self,
+        view_number: TYPES::Time,
+        event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+        event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+        event: Arc<HotShotEvent<TYPES>>,
+    ) {
+        info!("Attempting to make dependency task for event {:?}", event);
+        if self.propose_dependencies.get(&view_number).is_some() {
+            debug!("Task already exists");
+            return;
+        }
+
+        let dependency_chain =
+            self.create_and_complete_dependencies(view_number, event_receiver, event);
 
         let dependency_task = DependencyTask::new(
-            combined,
+            dependency_chain,
             ProposalDependencyHandle {
                 view_number,
-                sender: event_sender.clone(),
+                sender: event_sender,
                 consensus: self.consensus.clone(),
                 output_event_stream: self.output_event_stream.clone(),
                 timeout_membership: self.timeout_membership.clone(),
