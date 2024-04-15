@@ -10,7 +10,7 @@ use hotshot_types::{
 };
 use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 #[cfg(async_executor_impl = "tokio")]
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::JoinHandle;
 
 /// Cancel a task
 pub async fn cancel_task<T>(task: JoinHandle<T>) {
