@@ -405,6 +405,7 @@ pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
 
 /// Helper type to hold the optional secondary information required to propose.
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum SecondaryProposalInformation<TYPES: NodeType> {
     /// The quorum proposal and certificate needed to propose.
     QuorumProposalAndCertificate(QuorumProposal<TYPES>, Leaf<TYPES>, QuorumCertificate<TYPES>),
