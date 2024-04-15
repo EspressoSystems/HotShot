@@ -50,7 +50,7 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
 ) -> VidDisperse<TYPES> {
     let num_nodes = membership.total_nodes();
     let vid_disperse = spawn_blocking(move || {
-        vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err| panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+        vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
     })
     .await;
     #[cfg(async_executor_impl = "tokio")]
@@ -73,7 +73,7 @@ pub async fn calculate_vid_disperse_using_precompute_data<TYPES: NodeType>(
 ) -> VidDisperse<TYPES> {
     let num_nodes = membership.total_nodes();
     let vid_disperse = spawn_blocking(move || {
-        vid_scheme(num_nodes).disperse_precompute(&txns, &pre_compute_data).unwrap_or_else(|err| panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+        vid_scheme(num_nodes).disperse_precompute(&txns, &pre_compute_data).unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
     })
     .await;
     #[cfg(async_executor_impl = "tokio")]
