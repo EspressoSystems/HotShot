@@ -15,7 +15,7 @@ use hotshot_types::{
 };
 use vbs::version::Version;
 
-use crate::view_sync::ViewSyncPhase;
+use crate::{consensus::CommitmentAndMetadata, view_sync::ViewSyncPhase};
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -139,4 +139,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
+    /// Initiate a proposal right now
+    ProposeNow(
+        CommitmentAndMetadata<TYPES>,
+        Option<QuorumProposal<TYPES>>,
+        Option<QuorumCertificate<TYPES>>,
+        Option<TimeoutCertificate<TYPES>>,
+        Option<ViewSyncFinalizeCertificate2<TYPES>>,
+    ),
+    // /// Initiate a vote right now
+    // VoteNow(),
 }
