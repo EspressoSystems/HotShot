@@ -42,6 +42,7 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
 ///
 /// # Panics
 /// Panics if the VID calculation fails, this should not happen.
+#[allow(clippy::panic)]
 pub async fn calculate_vid_disperse<TYPES: NodeType>(
     txns: Vec<u8>,
     membership: Arc<TYPES::Membership>,
@@ -49,8 +50,7 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
 ) -> VidDisperse<TYPES> {
     let num_nodes = membership.total_nodes();
     let vid_disperse = spawn_blocking(move || {
-        #[allow(clippy::panic)]
-        vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+        vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err| panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
     })
     .await;
     #[cfg(async_executor_impl = "tokio")]
@@ -64,6 +64,7 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
 ///
 /// # Panics
 /// Panics if the VID calculation fails, this should not happen.
+#[allow(clippy::panic)]
 pub async fn calculate_vid_disperse_using_precompute_data<TYPES: NodeType>(
     txns: Vec<u8>,
     membership: Arc<TYPES::Membership>,
@@ -72,8 +73,7 @@ pub async fn calculate_vid_disperse_using_precompute_data<TYPES: NodeType>(
 ) -> VidDisperse<TYPES> {
     let num_nodes = membership.total_nodes();
     let vid_disperse = spawn_blocking(move || {
-        #[allow(clippy::panic)]
-        vid_scheme(num_nodes).disperse_precompute(&txns, &pre_compute_data).unwrap_or_else(|err|panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
+        vid_scheme(num_nodes).disperse_precompute(&txns, &pre_compute_data).unwrap_or_else(|err| panic!("VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}", txns.len()))
     })
     .await;
     #[cfg(async_executor_impl = "tokio")]

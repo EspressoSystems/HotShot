@@ -31,6 +31,18 @@ use crate::{
     helpers::broadcast_event,
 };
 
+/// Builder Provided Responses
+pub struct BuilderResponses<TYPES: NodeType> {
+    /// Initial API response
+    /// It contains information about the available blocks
+    pub blocks_initial_info: AvailableBlockInfo<TYPES>,
+    /// Second API response
+    /// It contains information about the chosen blocks
+    pub block_data: AvailableBlockData<TYPES>,
+    /// Third API response
+    /// It contains the final block information
+    pub block_header: AvailableBlockHeaderInput<TYPES>,
+}
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<
     TYPES: NodeType,
@@ -110,8 +122,7 @@ impl<
                     return None;
                 }
 
-                if let Some((_block_info, block_data, _header_input)) = self.wait_for_block().await
-                {
+                if let Some(BuilderResponses { block_data, .. }) = self.wait_for_block().await {
                     // send the sequenced transactions to VID and DA tasks
                     let block_view = if make_block { view } else { view + 1 };
                     let encoded_transactions = match block_data.block_payload.encode() {
@@ -145,24 +156,18 @@ impl<
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
-    async fn wait_for_block(
-        &self,
-    ) -> Option<(
-        AvailableBlockInfo<TYPES>,
-        AvailableBlockData<TYPES>,
-        AvailableBlockHeaderInput<TYPES>,
-    )> {
+    async fn wait_for_block(&self) -> Option<BuilderResponses<TYPES>> {
         let task_start_time = Instant::now();
 
         let last_leaf = self.consensus.read().await.get_decided_leaf();
-        let mut latest_block: Option<(
-            AvailableBlockInfo<TYPES>,
-            AvailableBlockData<TYPES>,
-            AvailableBlockHeaderInput<TYPES>,
-        )> = None;
+        let mut latest_block: Option<BuilderResponses<TYPES>> = None;
         while task_start_time.elapsed() < self.api.propose_max_round_time()
-            && latest_block.as_ref().map_or(true, |(_, data, _)| {
-                data.block_payload.num_transactions(&data.metadata) < self.api.min_transactions()
+            && latest_block.as_ref().map_or(true, |builder_response| {
+                builder_response
+                    .block_data
+                    .block_payload
+                    .num_transactions(&builder_response.block_data.metadata)
+                    < self.api.min_transactions()
             })
         {
             let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
@@ -214,8 +219,12 @@ impl<
             }
 
             // Don't try to re-claim the same block if builder advertises it again
-            if latest_block.as_ref().map_or(false, |block| {
-                block.1.block_payload.builder_commitment(&block.1.metadata) == block_info.block_hash
+            if latest_block.as_ref().map_or(false, |builder_response| {
+                builder_response
+                    .block_data
+                    .block_payload
+                    .builder_commitment(&builder_response.block_data.metadata)
+                    == block_info.block_hash
             }) {
                 continue;
             }
@@ -298,7 +307,11 @@ impl<
                 .block_payload
                 .num_transactions(&block_data.metadata);
 
-            latest_block = Some((block_info, block_data, header_input));
+            latest_block = Some(BuilderResponses {
+                blocks_initial_info: block_info,
+                block_data,
+                block_header: header_input,
+            });
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }
