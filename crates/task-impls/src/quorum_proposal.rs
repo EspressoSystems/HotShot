@@ -464,10 +464,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::ProposeNow(view, proposal_dependency_data) => {
                 payload_commitment_dependency.mark_as_completed(
                     HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        proposal_dependency_data
-                            .commitment_and_metadata
-                            .commitment
-                            .clone(),
+                        proposal_dependency_data.commitment_and_metadata.commitment,
                         proposal_dependency_data
                             .commitment_and_metadata
                             .metadata
