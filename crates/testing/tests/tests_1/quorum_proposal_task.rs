@@ -84,7 +84,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     drop(consensus);
     let cert = proposals[1].data.justify_qc.clone();
 
-    // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
+    // Run at view 2, the quorum proposal task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
@@ -256,6 +256,7 @@ async fn test_quorum_proposal_task_propose_now() {
             ),
     };
 
+    // proposal dependency data - timeout cert
     let pdd_timeout = ProposalDependencyData {
         commitment_and_metadata: CommitmentAndMetadata {
             commitment: payload_commitment,
@@ -278,6 +279,7 @@ async fn test_quorum_proposal_task_propose_now() {
             )),
     };
 
+    // proposal dependency data - view sync cert
     let pdd_view_sync = ProposalDependencyData {
         commitment_and_metadata: CommitmentAndMetadata {
             commitment: payload_commitment,
@@ -301,7 +303,6 @@ async fn test_quorum_proposal_task_propose_now() {
             )),
     };
 
-    // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_qp = TestScriptStage {
         inputs: vec![ProposeNow(ViewNumber::new(2), pdd_qp)],
         outputs: vec![quorum_proposal_send()],

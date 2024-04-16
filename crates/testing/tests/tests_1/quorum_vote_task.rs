@@ -83,9 +83,8 @@ async fn test_quorum_vote_task_vote_now() {
         da_cert: view.da_certificate.clone(),
     };
 
-    // Send the quorum proposal, DAC, and VID disperse data, in which case a dummy vote can be
-    // formed and the view number will be updated.
-    let view_success = TestScriptStage {
+    // Submit an event with just the `VoteNow` event which should successfully send a vote.
+    let view_vote_now = TestScriptStage {
         inputs: vec![VoteNow(view.view_number, vote_dependency_data)],
         outputs: vec![
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
@@ -97,7 +96,7 @@ async fn test_quorum_vote_task_vote_now() {
     let quorum_vote_state =
         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    run_test_script(vec![view_success], quorum_vote_state).await;
+    run_test_script(vec![view_vote_now], quorum_vote_state).await;
 }
 
 #[cfg(test)]
