@@ -178,7 +178,6 @@
             cargo-audit
             nixpkgs-fmt
             git-chglog
-            gh
             protobuf
             capnproto
             python3

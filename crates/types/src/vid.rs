@@ -30,6 +30,8 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
+use crate::constants::SRS_DEGREE;
+
 /// VID scheme constructor.
 ///
 /// Returns an opaque type that impls jellyfish traits:
@@ -115,16 +117,12 @@ pub struct SmallRangeProofType(
 
 #[cfg(feature = "test-srs")]
 lazy_static! {
-    /// SRS comment
-    ///
-    /// TODO use a proper SRS
-    /// https://github.com/EspressoSystems/HotShot/issues/1686
+    /// SRS for testing only
     static ref KZG_SRS: UnivariateUniversalParams<E> = {
         let mut rng = jf_utils::test_rng();
         UnivariateKzgPCS::<E>::gen_srs_for_testing(
             &mut rng,
-            // TODO what's the maximum possible SRS size?
-            jf_primitives::pcs::checked_fft_size(200).unwrap(),
+            SRS_DEGREE,
         )
         .unwrap()
     };
@@ -135,8 +133,8 @@ lazy_static! {
 lazy_static! {
     /// SRS comment
     static ref KZG_SRS: UnivariateUniversalParams<E> = {
-        let srs = ark_srs::kzg10::aztec20::setup(2u64.pow(20) as usize + 2)
-            .expect("Aztec SRS fail to load");
+        let srs = ark_srs::kzg10::aztec20::setup(SRS_DEGREE)
+            .expect("Aztec SRS failed to load");
         UnivariateUniversalParams {
             powers_of_g: srs.powers_of_g,
             h: srs.h,
