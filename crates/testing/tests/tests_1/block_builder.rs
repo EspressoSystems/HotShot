@@ -9,10 +9,7 @@ use hotshot_task_impls::builder::{BuilderClient, BuilderClientError};
 use hotshot_testing::block_builder::run_random_builder;
 use hotshot_types::{
     constants::Version01,
-    traits::{
-        block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
-        BlockPayload,
-    },
+    traits::{node_implementation::NodeType, signature_key::SignatureKey, BlockPayload},
 };
 use tide_disco::Url;
 
@@ -27,6 +24,7 @@ async fn test_random_block_builder() {
 
     use hotshot_builder_api::block_info::AvailableBlockData;
     use hotshot_orchestrator::config::RandomBuilderConfig;
+    use hotshot_types::utils::BuilderCommitment;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
@@ -45,7 +43,7 @@ async fn test_random_block_builder() {
     let mut blocks = loop {
         // Test getting blocks
         let blocks = client
-            .get_available_blocks(vid_commitment(&vec![], 1), pub_key, &signature)
+            .get_available_blocks(BuilderCommitment::from_bytes(&vec![]), pub_key, &signature)
             .await
             .expect("Failed to get available blocks");
 
