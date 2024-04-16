@@ -12,18 +12,6 @@ pub mod types;
 
 pub mod tasks;
 
-#[cfg(feature = "proposal-task")]
-use crate::tasks::add_quorum_proposal_task;
-
-use crate::{
-    tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_upgrade_task, add_view_sync_task,
-    },
-    traits::NodeImplementation,
-    types::{Event, SystemContextHandle},
-};
-
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -47,7 +35,7 @@ use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
-    event::EventType,
+    event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
@@ -61,7 +49,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -69,6 +56,17 @@ pub use rand;
 use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
+
+#[cfg(feature = "proposal-task")]
+use crate::tasks::add_quorum_proposal_task;
+use crate::{
+    tasks::{
+        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
+    },
+    traits::NodeImplementation,
+    types::{Event, SystemContextHandle},
+};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -183,6 +181,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
 
+        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
+
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
         let validated_state = match initializer.validated_state {
@@ -192,6 +193,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             )),
         };
 
+        let state_delta = initializer.state_delta.as_ref();
+
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -199,8 +202,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state,
-                    delta: initializer.state_delta,
+                    state: validated_state.clone(),
+                    delta: initializer.state_delta.clone(),
                 },
             },
         );
@@ -211,6 +214,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+
+        broadcast_event(
+            Event {
+                view_number: anchored_leaf.get_view_number(),
+                event: EventType::Decide {
+                    leaf_chain: Arc::new(vec![LeafInfo::new(
+                        anchored_leaf.clone(),
+                        validated_state.clone(),
+                        state_delta.cloned(),
+                        None,
+                    )]),
+                    qc: Arc::new(QuorumCertificate::genesis(&instance_state)),
+                    block_size: None,
+                },
+            },
+            &external_tx,
+        )
+        .await;
+
         for leaf in initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
@@ -246,9 +268,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
-
-        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
 
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
