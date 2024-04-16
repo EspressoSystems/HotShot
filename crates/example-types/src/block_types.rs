@@ -178,7 +178,7 @@ pub struct TestBlockHeader {
     /// VID commitment to the payload.
     pub payload_commitment: VidCommitment,
     /// Fast commitment for builder verification
-    pub builder_payload_commitment: BuilderCommitment,
+    pub builder_commitment: BuilderCommitment,
     /// Timestamp when this header was created.
     pub timestamp: u64,
 }
@@ -205,7 +205,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         Self {
             block_number: parent.block_number + 1,
             payload_commitment,
-            builder_payload_commitment: builder_commitment,
+            builder_commitment,
             timestamp,
         }
     }
@@ -219,7 +219,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         Self {
             block_number: 0,
             payload_commitment,
-            builder_payload_commitment: builder_commitment,
+            builder_commitment,
             timestamp: 0,
         }
     }
@@ -237,7 +237,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     }
 
     fn builder_commitment(&self) -> BuilderCommitment {
-        self.builder_payload_commitment.clone()
+        self.builder_commitment.clone()
     }
 }
 

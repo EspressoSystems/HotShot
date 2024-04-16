@@ -85,7 +85,7 @@ impl TestView {
             block_number: 1,
             timestamp: 1,
             payload_commitment,
-            builder_payload_commitment: builder_commitment,
+            builder_commitment,
         };
 
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
@@ -273,7 +273,7 @@ impl TestView {
             block_number: *next_view,
             timestamp: *next_view,
             payload_commitment,
-            builder_payload_commitment: builder_commitment,
+            builder_commitment,
         };
 
         let proposal = QuorumProposal::<TestTypes> {
