@@ -3,11 +3,11 @@ name: Build and Test
 on:
   push:
     branches:
-      - 'develop'
-      - 'main'
+      - "develop"
+      - "main"
   pull_request:
   schedule:
-    - cron: '0 0 * * 1'
+    - cron: "0 0 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -52,11 +52,13 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
+          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
+          ./scripts/download_srs_aztec.sh
           just ${{ matrix.just_variants }} ${{ matrix.test_suites }}
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
-      
+
   test-examples:
     strategy:
       matrix:
@@ -86,7 +88,10 @@ jobs:
           sudo cp just /usr/bin/just
 
       - name: Test examples
-        run: just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
+        run: |
+          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
+          ./scripts/download_srs_aztec.sh
+          just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
 
   build-release:
     strategy:
