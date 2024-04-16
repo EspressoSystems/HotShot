@@ -141,7 +141,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+    pub output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
@@ -284,7 +284,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, external_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
         });
 
