@@ -702,7 +702,7 @@ pub mod null_block {
     /// Builder fee data for a null block payload
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
-        // Arbitrary fee amount, this block doesn't actually come from a builder
+        /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
         let (_, priv_key) =
