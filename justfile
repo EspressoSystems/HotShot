@@ -42,7 +42,7 @@ example *ARGS:
   RUST_LOG=error,hotshot_orchestrator::config="info" cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
 
 example_fixed_leader *ARGS:
-  RUST_LOG=error,hotshot_orchestrator::config="info" cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
+  RUST_LOG=info cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
 
 example_gpuvid_leader *ARGS:
   RUST_LOG=info cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}

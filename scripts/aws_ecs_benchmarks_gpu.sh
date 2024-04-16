@@ -1,16 +1,16 @@
 #!/bin/bash
 
-source "$HOME/.cargo/env"
+# build
+# REMEMBER to RUN
+# source "$HOME/.cargo/env"
+# just async_std example_fixed_leader validator-webserver -- http://127.0.0.1:4444
+# in prior
 
 # assign local ip
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 webserver_url=http://"$ip":9000
 da_webserver_url=http://"$ip":9001
 orchestrator_url=http://"$ip":4444
-
-# build
-just async_std build
-sleep 30s
 
 # docker build and push
 docker build . -f ./docker/validator-webserver-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -27,15 +27,15 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # see `aws_ecs_nginx_benchmarks.sh` for an example
 for total_nodes in 10 #50 100
 do
-    for da_committee_size in 10 #50 100
+    for da_committee_size in 5 #10 50 100
     do
         if [ $da_committee_size -le $total_nodes ]
         then
             for transactions_per_round in 1 #10 50 100
             do
-                for transaction_size in 512 #4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
+                for transaction_size in 4096 #512 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
-                    for fixed_leader_for_gpuvid in 1
+                    for fixed_leader_for_gpuvid in 1 #5 10
                     do
                         rounds=10 #100
                         # start webserver
@@ -44,7 +44,7 @@ do
                         sleep 1m
 
                         # start orchestrator
-                        # just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.7.196:9000 --da_webserver_url http://172.31.7.196:9001 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 1000000 --rounds 20 --fixed_leader_for_gpuvid 1 --commit_sha with_gpu
+                        # just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.7.196:9000 --da_webserver_url http://172.31.7.196:9001 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 4096 --rounds 20 --fixed_leader_for_gpuvid 1 --commit_sha with_gpu
                         just async_std example_fixed_leader orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
                                                                         --orchestrator_url http://0.0.0.0:4444 \
                                                                         --webserver_url ${webserver_url} \
@@ -54,7 +54,7 @@ do
                                                                         --transactions_per_round ${transactions_per_round} \
                                                                         --transaction_size ${transaction_size} \
                                                                         --rounds ${rounds} \
-                                                                        --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \ 
+                                                                        --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                         --commit_sha with_gpu &
                         sleep 30
                         
@@ -62,7 +62,7 @@ do
                         # this step need to be done manually
 
                         # start validators
-                        ecs scale --region us-east-2 hotshot hotshot_centralized $(($total_nodes - 1)) --timeout -1
+                        ecs scale --region us-east-2 hotshot hotshot_centralized $(($total_nodes - $fixed_leader_for_gpuvid)) --timeout -1
                         sleep $(($rounds + $total_nodes))
 
                         # kill them
