@@ -274,7 +274,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
                     _view_sync_finalize_cert = Some(cert.clone());
                 }
-                HotShotEvent::ProposeIfAble(_, pdd) => {
+                HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
                     match &pdd.secondary_proposal_information {
                         hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
@@ -420,7 +420,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::ProposeNow => {
-                        if let HotShotEvent::ProposeIfAble(view, _) = event {
+                        if let HotShotEvent::ProposeNow(view, _) = event {
                             *view
                         } else {
                             return false;
@@ -485,9 +485,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::ProposeIfAble(..) => {
-                propose_now_dependency.mark_as_completed(event.clone())
-            }
+            HotShotEvent::ProposeNow(..) => propose_now_dependency.mark_as_completed(event.clone()),
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
             }
@@ -612,7 +610,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::ProposeIfAble(view, _) => {
+            HotShotEvent::ProposeNow(view, _) => {
                 self.create_dependency_task_if_new(
                     *view,
                     event_receiver,
@@ -964,7 +962,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ProposeIfAble(..)
+                | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::Shutdown,
         )
     }

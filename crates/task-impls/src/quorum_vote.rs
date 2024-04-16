@@ -111,7 +111,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                         payload_commitment = Some(vid_payload_commitment);
                     }
                 }
-                HotShotEvent::VoteIfAble(_, vote_dependency_data) => {
+                HotShotEvent::VoteNow(_, vote_dependency_data) => {
                     payload_commitment = Some(
                         vote_dependency_data
                             .quorum_proposal
@@ -245,7 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         }
                     }
                     VoteDependency::VoteNow => {
-                        if let HotShotEvent::VoteIfAble(view, _) = event {
+                        if let HotShotEvent::VoteNow(view, _) = event {
                             *view
                         } else {
                             return false;
@@ -293,7 +293,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         // If we have an event provided to us
         if let Some(event) = event {
             // Match on the type of event
-            if let HotShotEvent::VoteIfAble(..) = event.as_ref() {
+            if let HotShotEvent::VoteNow(..) = event.as_ref() {
                 tracing::info!("Completing all events");
                 vote_now_dependency.mark_as_completed(event);
             };
@@ -354,7 +354,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::VoteIfAble(view, ..) => {
+            HotShotEvent::VoteNow(view, ..) => {
                 self.create_dependency_task_if_new(
                     *view,
                     event_receiver,
@@ -739,7 +739,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
-                | HotShotEvent::VoteIfAble(..)
+                | HotShotEvent::VoteNow(..)
                 | HotShotEvent::Shutdown,
         )
     }

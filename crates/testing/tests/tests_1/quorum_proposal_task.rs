@@ -303,19 +303,19 @@ async fn test_quorum_proposal_task_propose_now() {
 
     // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
     let view_qp = TestScriptStage {
-        inputs: vec![ProposeIfAble(ViewNumber::new(2), pdd_qp)],
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_qp)],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };
 
     let view_timeout = TestScriptStage {
-        inputs: vec![ProposeIfAble(ViewNumber::new(2), pdd_timeout)],
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_timeout)],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };
 
     let view_view_sync = TestScriptStage {
-        inputs: vec![ProposeIfAble(ViewNumber::new(2), pdd_view_sync)],
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_view_sync)],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
     };

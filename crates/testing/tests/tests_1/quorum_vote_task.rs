@@ -86,7 +86,7 @@ async fn test_quorum_vote_task_vote_now() {
     // Send the quorum proposal, DAC, and VID disperse data, in which case a dummy vote can be
     // formed and the view number will be updated.
     let view_success = TestScriptStage {
-        inputs: vec![VoteIfAble(view.view_number, vote_dependency_data)],
+        inputs: vec![VoteNow(view.view_number, vote_dependency_data)],
         outputs: vec![
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
             quorum_vote_send(),

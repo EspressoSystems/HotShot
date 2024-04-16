@@ -142,7 +142,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
     /// Initiate a proposal right now for a provided view.
-    ProposeIfAble(TYPES::Time, ProposalDependencyData<TYPES>),
+    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
     /// Initiate a vote right now for the designated view.
-    VoteIfAble(TYPES::Time, VoteDependencyData<TYPES>),
+    VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 }
