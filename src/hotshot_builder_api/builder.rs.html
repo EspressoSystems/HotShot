@@ -217,23 +217,27 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, path::PathBuf};
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>clap::Args;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derive_more::From;
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_types::{
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
-    utils::BuilderCommitment,
-};
+<span class="kw">use </span>hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitment};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 <span class="kw">use </span>tide_disco::{
     api::ApiError,
     method::{ReadState, WriteState},
-    Api, RequestError, StatusCode,
+    Api, RequestError, RequestParams, StatusCode,
 };
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
@@ -335,6 +339,20 @@
     }
 }
 
+<span class="kw">fn </span>try_extract_param&lt;T: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;(
+    params: <span class="kw-2">&amp;</span>RequestParams,
+    param_name: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt; {
+    params
+        .param(param_name)<span class="question-mark">?
+        </span>.as_tagged_base64()<span class="question-mark">?
+        </span>.try_into()
+        .map_err(|<span class="kw">_</span>| Error::Custom {
+            message: <span class="macro">format!</span>(<span class="string">"Invalid {param_name}"</span>),
+            status: StatusCode::UnprocessableEntity,
+        })
+}
+
 <span class="kw">pub fn </span>define_api&lt;State, Types: NodeType, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;(
     options: <span class="kw-2">&amp;</span>Options,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error, Ver&gt;, ApiError&gt;
@@ -342,10 +360,6 @@
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + BuilderDataSource&lt;Types&gt;,
     Types: NodeType,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;Types::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;Types::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
-    &gt;&gt;::Error: Display,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = load_api::&lt;State, Error, Ver&gt;(
         options.api_path.as_ref(),
@@ -356,8 +370,8 @@
         .get(<span class="string">"available_blocks"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash = req.blob_param(<span class="string">"parent_hash"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>signature = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"sender"</span>)<span class="question-mark">?</span>;
                 state
                     .get_available_blocks(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await
@@ -370,8 +384,8 @@
         </span>.get(<span class="string">"claim_block"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash: BuilderCommitment = req.blob_param(<span class="string">"block_hash"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>signature = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"sender"</span>)<span class="question-mark">?</span>;
                 state
                     .claim_block(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await
@@ -384,8 +398,8 @@
         </span>.get(<span class="string">"claim_header_input"</span>, |req, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>hash: BuilderCommitment = req.blob_param(<span class="string">"block_hash"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>sender = req.blob_param(<span class="string">"sender"</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>signature = req.blob_param(<span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>signature = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"signature"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>sender = try_extract_param(<span class="kw-2">&amp;</span>req, <span class="string">"sender"</span>)<span class="question-mark">?</span>;
                 state
                     .claim_block_header_input(<span class="kw-2">&amp;</span>hash, sender, <span class="kw-2">&amp;</span>signature)
                     .<span class="kw">await

@@ -547,8 +547,9 @@
     <span class="comment">/* handler::KademliaHandlerIn, */ </span>store::MemoryStore, BootstrapOk, GetClosestPeersOk,
     GetRecordOk, GetRecordResult, ProgressStep, PutRecordResult, QueryId, QueryResult, Record,
 };
-<span class="kw">use </span>libp2p::kad::{store::RecordStore, Behaviour <span class="kw">as </span>KademliaBehaviour};
-<span class="kw">use </span>libp2p::kad::{BootstrapError, Event <span class="kw">as </span>KademliaEvent};
+<span class="kw">use </span>libp2p::kad::{
+    store::RecordStore, Behaviour <span class="kw">as </span>KademliaBehaviour, BootstrapError, Event <span class="kw">as </span>KademliaEvent,
+};
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>tracing::{error, info, warn};
 
@@ -561,9 +562,8 @@
     </span><span class="kw">static </span><span class="kw-2">ref </span>MAX_DHT_QUERY_SIZE: NonZeroUsize = NonZeroUsize::new(<span class="number">50</span>).unwrap();
 }
 
-<span class="kw">use </span><span class="kw">crate</span>::network::{ClientRequest, NetworkEvent};
-
 <span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
+<span class="kw">use </span><span class="kw">crate</span>::network::{ClientRequest, NetworkEvent};
 
 <span class="doccomment">/// Behaviour wrapping libp2p's kademlia
 /// included:

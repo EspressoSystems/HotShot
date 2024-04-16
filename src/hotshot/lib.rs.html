@@ -735,8 +735,6 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -750,18 +748,6 @@
 </span><span class="kw">pub mod </span>types;
 
 <span class="kw">pub mod </span>tasks;
-
-<span class="attr">#[cfg(feature = <span class="string">"proposal-task"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::tasks::add_quorum_proposal_task;
-
-<span class="kw">use crate</span>::{
-    tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_upgrade_task, add_view_sync_task,
-    },
-    traits::NodeImplementation,
-    types::{Event, SystemContextHandle},
-};
 
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
@@ -800,7 +786,6 @@
     },
     HotShotConfig,
 };
-
 <span class="comment">// -- Rexports
 // External
 </span><span class="doccomment">/// Reexport rand crate
@@ -808,6 +793,17 @@
 <span class="kw">use </span>tasks::{add_request_network_task, add_response_task, add_vid_task};
 <span class="kw">use </span>tracing::{debug, instrument, trace};
 <span class="kw">use </span>vbs::version::Version;
+
+<span class="attr">#[cfg(feature = <span class="string">"proposal-task"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::tasks::add_quorum_proposal_task;
+<span class="kw">use crate</span>::{
+    tasks::{
+        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
+        add_transaction_task, add_upgrade_task, add_view_sync_task,
+    },
+    traits::NodeImplementation,
+    types::{Event, SystemContextHandle},
+};
 
 <span class="doccomment">/// Length, in bytes, of a 512 bit hash
 </span><span class="kw">pub const </span>H_512: usize = <span class="number">64</span>;

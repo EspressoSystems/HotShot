@@ -472,11 +472,6 @@
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
 <a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -821,12 +816,7 @@
             )
         });
         <span class="kw">let </span>(<span class="kw-2">mut </span>builder_task, builder_url) =
-            B::start(Arc::new(&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-                config.fixed_leader_for_gpuvid,
-            )))
-            .<span class="kw">await</span>;
+            B::start(config.num_nodes_with_stake.into(), B::Config::default()).<span class="kw">await</span>;
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
             <span class="kw">let </span><span class="kw-2">mut </span>config = config.clone();
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;

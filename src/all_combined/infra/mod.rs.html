@@ -1087,6 +1087,53 @@
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1104,7 +1151,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
 <span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>clap::{Arg, Command, Parser};
+<span class="kw">use </span>clap::{value_parser, Arg, Command, Parser};
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot::{
     traits::{
@@ -1127,9 +1174,12 @@
     <span class="self">self</span>,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{
-        CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
+        BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
         WebServerConfig,
     },
+};
+<span class="kw">use </span>hotshot_testing::block_builder::{
+    RandomBuilderImplementation, SimpleBuilderImplementation, TestBuilderImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -1279,6 +1329,15 @@
                 .help(<span class="string">"Sets the number of fixed leader for gpu vid, only be used when leaders running on gpu"</span>)
                 .required(<span class="bool-val">false</span>),
         )
+        .arg(
+            Arg::new(<span class="string">"builder"</span>)
+                .short(<span class="string">'b'</span>)
+                .long(<span class="string">"builder"</span>)
+                .value_name(<span class="string">"BUILDER_TYPE"</span>)
+                .value_parser(<span class="macro">value_parser!</span>(BuilderType))
+                .help(<span class="string">"Sets type of builder. `simple` or `random` to run corresponding integrated builder, `external` to use the one specified by `[config.builder_url]` in config"</span>)
+                .required(<span class="bool-val">false</span>),
+        )
         .get_matches();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(config_file_string) = matches.get_one::&lt;String&gt;(<span class="string">"config_file"</span>) {
@@ -1338,6 +1397,9 @@
             wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
         };
         config.da_web_server_config = <span class="prelude-val">Some</span>(updated_da_web_server_config);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(builder_type) = matches.get_one::&lt;BuilderType&gt;(<span class="string">"builder"</span>) {
+        config.builder = <span class="kw-2">*</span>builder_type;
     }
 
     (config, orchestrator_url)
@@ -2105,7 +2167,7 @@
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    </span><span class="kw">let </span>(run_config, source) =
+    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
         NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::get_complete_config(
             <span class="kw-2">&amp;</span>orchestrator_client,
             args.clone().network_config_file,
@@ -2116,9 +2178,41 @@
         .<span class="kw">await
         </span>.expect(<span class="string">"failed to get config"</span>);
 
+    <span class="kw">let </span>builder_task = <span class="kw">match </span>run_config.builder {
+        BuilderType::External =&gt; <span class="prelude-val">None</span>,
+        BuilderType::Random =&gt; {
+            <span class="kw">let </span>(builder_task, builder_url) =
+                &lt;RandomBuilderImplementation <span class="kw">as </span>TestBuilderImplementation&lt;TYPES&gt;&gt;::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    run_config.random_builder.clone().unwrap_or_default(),
+                )
+                .<span class="kw">await</span>;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+        BuilderType::Simple =&gt; {
+            <span class="kw">let </span>(builder_task, builder_url) =
+                &lt;SimpleBuilderImplementation <span class="kw">as </span>TestBuilderImplementation&lt;TYPES&gt;&gt;::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    (),
+                )
+                .<span class="kw">await</span>;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+    };
+
     <span class="macro">info!</span>(<span class="string">"Initializing networking"</span>);
     <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).<span class="kw">await</span>;
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task {
+        task.start(Box::new(hotshot.get_event_stream()));
+    }
 
     <span class="comment">// pre-generate transactions
     </span><span class="kw">let </span>NetworkConfig {

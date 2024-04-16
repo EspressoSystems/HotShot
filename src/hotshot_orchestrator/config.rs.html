@@ -687,15 +687,73 @@
 <a href="#685" id="685">685</a>
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
     num::NonZeroUsize,
+    ops::Range,
     path::{Path, PathBuf},
     time::Duration,
     vec,
 };
 
+<span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -807,6 +865,40 @@
     </span>FailedToCreatePath(std::io::Error),
 }
 
+<span class="attr">#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, Default, ValueEnum)]
+</span><span class="doccomment">/// configuration for builder type to use
+</span><span class="kw">pub enum </span>BuilderType {
+    <span class="doccomment">/// Use external builder, [config.builder_url] must be
+    /// set to correct builder address
+    </span>External,
+    <span class="attr">#[default]
+    </span><span class="doccomment">/// Simple integrated builder will be started and used by each hotshot node
+    </span>Simple,
+    <span class="doccomment">/// Random integrated builder will be started and used by each hotshot node
+    </span>Random,
+}
+
+<span class="doccomment">/// Options controlling how the random builder generates blocks
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+</span><span class="kw">pub struct </span>RandomBuilderConfig {
+    <span class="doccomment">/// How many transactions to include in a block
+    </span><span class="kw">pub </span>txn_in_block: u64,
+    <span class="doccomment">/// How many blocks to generate per second
+    </span><span class="kw">pub </span>blocks_per_second: u32,
+    <span class="doccomment">/// Range of how big a transaction can be (in bytes)
+    </span><span class="kw">pub </span>txn_size: Range&lt;u32&gt;,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>RandomBuilderConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            txn_in_block: <span class="number">100</span>,
+            blocks_per_second: <span class="number">1</span>,
+            txn_size: <span class="number">20</span>..<span class="number">100</span>,
+        }
+    }
+}
+
 <span class="doccomment">/// a network configuration
 </span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
@@ -853,6 +945,10 @@
     </span><span class="kw">pub </span>combined_network_config: <span class="prelude-ty">Option</span>&lt;CombinedNetworkConfig&gt;,
     <span class="doccomment">/// the commit this run is based on
     </span><span class="kw">pub </span>commit_sha: String,
+    <span class="doccomment">/// builder to use
+    </span><span class="kw">pub </span>builder: BuilderType,
+    <span class="doccomment">/// random builder config
+    </span><span class="kw">pub </span>random_builder: <span class="prelude-ty">Option</span>&lt;RandomBuilderConfig&gt;,
 }
 
 <span class="doccomment">/// the source of the network config
@@ -1097,6 +1193,8 @@
             propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
             data_request_delay: Duration::from_millis(<span class="number">2500</span>),
             commit_sha: String::new(),
+            builder: BuilderType::default(),
+            random_builder: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1142,6 +1240,12 @@
     <span class="doccomment">/// combined network config
     </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>combined_network_config: <span class="prelude-ty">Option</span>&lt;CombinedNetworkConfig&gt;,
+    <span class="doccomment">/// builder to use
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>builder: BuilderType,
+    <span class="doccomment">/// random builder configuration
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>random_builder: <span class="prelude-ty">Option</span>&lt;RandomBuilderConfig&gt;,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
@@ -1185,8 +1289,15 @@
             da_web_server_config: val.da_web_server_config,
             combined_network_config: val.combined_network_config,
             commit_sha: String::new(),
+            builder: val.builder,
+            random_builder: val.random_builder,
         }
     }
+}
+
+<span class="doccomment">/// Default builder URL, used as placeholder
+</span><span class="kw">fn </span>default_builder_url() -&gt; Url {
+    Url::parse(<span class="string">"http://localhost:3311"</span>).unwrap()
 }
 
 <span class="doccomment">/// Holds configuration for a `HotShot`
@@ -1235,6 +1346,7 @@
     <span class="doccomment">/// Time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Builder API base URL
+    </span><span class="attr">#[serde(default = <span class="string">"default_builder_url"</span>)]
     </span><span class="kw">pub </span>builder_url: Url,
 }
 
@@ -1370,7 +1482,7 @@
             propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
             propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
-            builder_url: Url::parse(<span class="string">"http://localhost:3311"</span>).unwrap(),
+            builder_url: default_builder_url(),
         }
     }
 }

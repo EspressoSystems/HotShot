@@ -590,13 +590,33 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
-    fmt::Display,
     num::NonZeroUsize,
-    ops::{Deref, Range},
+    ops::Deref,
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -614,11 +634,11 @@
     data_source::BuilderDataSource,
 };
 <span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
+<span class="kw">use </span>hotshot_orchestrator::config::RandomBuilderConfig;
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
         block_contents::{precompute_vid_commitment, BlockHeader},
-        election::Membership,
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
@@ -626,33 +646,34 @@
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
-<span class="kw">use </span>tagged_base64::TaggedBase64;
 <span class="kw">use </span>tide_disco::{method::ReadState, App, Url};
 
 <span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>TestBuilderImplementation&lt;TYPES: NodeType&gt; {
+    <span class="kw">type </span>Config: Default;
+
     <span class="kw">async fn </span>start(
-        membership: Arc&lt;&lt;TYPES&gt;::Membership&gt;,
+        num_storage_nodes: usize,
+        options: <span class="self">Self</span>::Config,
     ) -&gt; (<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;, Url);
 }
 
 <span class="kw">pub struct </span>RandomBuilderImplementation;
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>RandomBuilderImplementation
+</span><span class="kw">impl</span>&lt;TYPES&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>RandomBuilderImplementation
 <span class="kw">where
-    for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
-    &gt;&gt;::Error: Display,
-    TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
+    </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
 {
+    <span class="kw">type </span>Config = RandomBuilderConfig;
+
     <span class="kw">async fn </span>start(
-        _membership: Arc&lt;TYPES::Membership&gt;,
+        num_storage_nodes: usize,
+        config: RandomBuilderConfig,
     ) -&gt; (<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;, Url) {
         <span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">"No free ports"</span>);
         <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://localhost:{port}"</span>)).expect(<span class="string">"Valid URL"</span>);
-        run_random_builder::&lt;TYPES&gt;(url.clone());
+        run_random_builder::&lt;TYPES&gt;(url.clone(), num_storage_nodes, config);
         (<span class="prelude-val">None</span>, url)
     }
 }
@@ -660,19 +681,16 @@
 <span class="kw">pub struct </span>SimpleBuilderImplementation;
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderImplementation
-<span class="kw">where
-    for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
-    &gt;&gt;::Error: Display,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderImplementation {
+    <span class="kw">type </span>Config = ();
+
     <span class="kw">async fn </span>start(
-        membership: Arc&lt;TYPES::Membership&gt;,
+        num_storage_nodes: usize,
+        _config: <span class="self">Self</span>::Config,
     ) -&gt; (<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;, Url) {
         <span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">"No free ports"</span>);
         <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://localhost:{port}"</span>)).expect(<span class="string">"Valid URL"</span>);
-        <span class="kw">let </span>(source, task) = make_simple_builder(membership).<span class="kw">await</span>;
+        <span class="kw">let </span>(source, task) = make_simple_builder(num_storage_nodes).<span class="kw">await</span>;
 
         <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
             SimpleBuilderSource&lt;TYPES&gt;,
@@ -697,30 +715,6 @@
     header_input: <span class="prelude-ty">Option</span>&lt;AvailableBlockHeaderInput&lt;TYPES&gt;&gt;,
 }
 
-<span class="doccomment">/// Options controlling how the random builder generates blocks
-</span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>RandomBuilderOptions {
-    <span class="doccomment">/// How many transactions to include in a block
-    </span><span class="kw">pub </span>txn_in_block: u64,
-    <span class="doccomment">/// How many blocks to generate per second
-    </span><span class="kw">pub </span>blocks_per_second: u32,
-    <span class="doccomment">/// Range of how big a transaction can be (in bytes)
-    </span><span class="kw">pub </span>txn_size: Range&lt;u32&gt;,
-    <span class="doccomment">/// Number of storage nodes for VID commitment
-    </span><span class="kw">pub </span>num_storage_nodes: usize,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>RandomBuilderOptions {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            txn_in_block: <span class="number">100</span>,
-            blocks_per_second: <span class="number">1</span>,
-            txn_size: <span class="number">20</span>..<span class="number">100</span>,
-            num_storage_nodes: <span class="number">1</span>,
-        }
-    }
-}
-
 <span class="doccomment">/// A mock implementation of the builder data source.
 /// Builds random blocks, doesn't track HotShot state at all.
 /// Evicts old available blocks if HotShot doesn't keep up.
@@ -738,7 +732,7 @@
     priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RandomBuilderSource&lt;TYPES&gt;
+<span class="kw">impl</span>&lt;TYPES&gt; RandomBuilderSource&lt;TYPES&gt;
 <span class="kw">where
     </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
 {
@@ -758,7 +752,7 @@
 
     <span class="doccomment">/// Spawn a task building blocks, configured with given options
     </span><span class="attr">#[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics on 16-bit platforms
-    </span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, options: RandomBuilderOptions) {
+    </span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, num_storage_nodes: usize, options: RandomBuilderConfig) {
         <span class="kw">let </span>blocks = <span class="self">self</span>.blocks.clone();
         <span class="kw">let </span>(priv_key, pub_key) = (<span class="self">self</span>.priv_key.clone(), <span class="self">self</span>.pub_key.clone());
         async_spawn(<span class="kw">async move </span>{
@@ -781,7 +775,7 @@
 
                 <span class="kw">let </span>(metadata, payload, header_input) = build_block(
                     transactions,
-                    options.num_storage_nodes,
+                    num_storage_nodes,
                     pub_key.clone(),
                     priv_key.clone(),
                 );
@@ -873,17 +867,13 @@
 ///
 /// # Panics
 /// If constructing and launching the builder fails for any reason
-</span><span class="kw">pub fn </span>run_random_builder&lt;TYPES: NodeType&gt;(url: Url)
+</span><span class="kw">pub fn </span>run_random_builder&lt;TYPES&gt;(url: Url, num_storage_nodes: usize, options: RandomBuilderConfig)
 <span class="kw">where
-    for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
-    &gt;&gt;::Error: Display,
-    TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
+    </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
 {
     <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
     <span class="kw">let </span>source = RandomBuilderSource::new(pub_key, priv_key);
-    source.run(RandomBuilderOptions::default());
+    source.run(num_storage_nodes, options);
 
     <span class="kw">let </span>builder_api =
         hotshot_builder_api::builder::define_api::&lt;RandomBuilderSource&lt;TYPES&gt;, TYPES, Version01&gt;(
@@ -897,12 +887,18 @@
     async_spawn(app.serve(url, STATIC_VER_0_1));
 }
 
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">struct </span>SubmittedTransaction&lt;TYPES: NodeType&gt; {
+    claimed: <span class="prelude-ty">Option</span>&lt;Instant&gt;,
+    transaction: TYPES::Transaction,
+}
+
 <span class="kw">pub struct </span>SimpleBuilderSource&lt;TYPES: NodeType&gt; {
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
-    membership: Arc&lt;TYPES::Membership&gt;,
+    num_storage_nodes: usize,
     <span class="attr">#[allow(clippy::type_complexity)]
-    </span>transactions: Arc&lt;RwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
+    </span>transactions: Arc&lt;RwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, SubmittedTransaction&lt;TYPES&gt;&gt;&gt;&gt;,
     blocks: Arc&lt;RwLock&lt;HashMap&lt;BuilderCommitment, BlockEntry&lt;TYPES&gt;&gt;&gt;&gt;,
 }
 
@@ -929,12 +925,25 @@
         <span class="kw">let </span>transactions = <span class="self">self
             </span>.transactions
             .read(|txns| {
-                Box::pin(<span class="kw">async </span>{ txns.values().cloned().collect::&lt;Vec&lt;TYPES::Transaction&gt;&gt;() })
+                Box::pin(<span class="kw">async </span>{
+                    txns.values()
+                        .filter(|txn| {
+                            <span class="comment">// We want transactions that are either unclaimed, or claimed long ago
+                            // and thus probably not included, or they would've been decided on
+                            // already and removed from the queue
+                            </span>txn.claimed
+                                .map(|claim_time| claim_time.elapsed() &gt; Duration::from_secs(<span class="number">30</span>))
+                                .unwrap_or(<span class="bool-val">true</span>)
+                        })
+                        .cloned()
+                        .map(|txn| txn.transaction)
+                        .collect::&lt;Vec&lt;TYPES::Transaction&gt;&gt;()
+                })
             })
             .<span class="kw">await</span>;
         <span class="kw">let </span>(metadata, payload, header_input) = build_block(
             transactions,
-            <span class="self">self</span>.membership.total_nodes(),
+            <span class="self">self</span>.num_storage_nodes,
             <span class="self">self</span>.pub_key.clone(),
             <span class="self">self</span>.priv_key.clone(),
         );
@@ -957,9 +966,26 @@
         _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
-        <span class="kw">let </span>entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)<span class="question-mark">?</span>;
-        entry.payload.take().ok_or(BuildError::Missing)
+        <span class="kw">let </span>payload = {
+            <span class="kw">let </span><span class="kw-2">mut </span>blocks = <span class="self">self</span>.blocks.write().<span class="kw">await</span>;
+            <span class="kw">let </span>entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)<span class="question-mark">?</span>;
+            entry.payload.take().ok_or(BuildError::Missing)<span class="question-mark">?
+        </span>};
+
+        <span class="kw">let </span>now = Instant::now();
+
+        <span class="kw">let </span>claimed_transactions = payload
+            .block_payload
+            .transaction_commitments(<span class="kw-2">&amp;</span>payload.metadata);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>transactions = <span class="self">self</span>.transactions.write().<span class="kw">await</span>;
+        <span class="kw">for </span>txn_hash <span class="kw">in </span>claimed_transactions {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(txn) = transactions.get_mut(<span class="kw-2">&amp;</span>txn_hash) {
+                txn.claimed = <span class="prelude-val">Some</span>(now);
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(payload)
     }
 
     <span class="kw">async fn </span>claim_block_header_input(
@@ -978,13 +1004,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; SimpleBuilderSource&lt;TYPES&gt;
-<span class="kw">where
-    for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
-        <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
-    &gt;&gt;::Error: Display,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; SimpleBuilderSource&lt;TYPES&gt; {
     <span class="kw">pub async fn </span>run(<span class="self">self</span>, url: Url) {
         <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
             SimpleBuilderSource&lt;TYPES&gt;,
@@ -1003,7 +1023,7 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SimpleBuilderTask&lt;TYPES: NodeType&gt; {
     <span class="attr">#[allow(clippy::type_complexity)]
-    </span>transactions: Arc&lt;RwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
+    </span>transactions: Arc&lt;RwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, SubmittedTransaction&lt;TYPES&gt;&gt;&gt;&gt;,
     blocks: Arc&lt;RwLock&lt;HashMap&lt;BuilderCommitment, BlockEntry&lt;TYPES&gt;&gt;&gt;&gt;,
     decided_transactions: LruCache&lt;Commitment&lt;TYPES::Transaction&gt;, ()&gt;,
 }
@@ -1041,11 +1061,33 @@
                             }
                             <span class="self">self</span>.blocks.write().<span class="kw">await</span>.clear();
                         }
+                        EventType::DAProposal { proposal, .. } =&gt; {
+                            <span class="kw">let </span>payload = TYPES::BlockPayload::from_bytes(
+                                proposal.data.encoded_transactions.into_iter(),
+                                <span class="kw-2">&amp;</span>proposal.data.metadata,
+                            );
+                            <span class="kw">let </span>now = Instant::now();
+
+                            <span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="self">self</span>.transactions.write().<span class="kw">await</span>;
+                            <span class="kw">for </span>commitment <span class="kw">in
+                                </span>payload.transaction_commitments(<span class="kw-2">&amp;</span>proposal.data.metadata)
+                            {
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(txn) = queue.get_mut(<span class="kw-2">&amp;</span>commitment) {
+                                    txn.claimed = <span class="prelude-val">Some</span>(now);
+                                }
+                            }
+                        }
                         EventType::Transactions { transactions } =&gt; {
                             <span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="self">self</span>.transactions.write().<span class="kw">await</span>;
                             <span class="kw">for </span>transaction <span class="kw">in </span>transactions {
                                 <span class="kw">if </span>!<span class="self">self</span>.decided_transactions.contains(<span class="kw-2">&amp;</span>transaction.commit()) {
-                                    queue.insert(transaction.commit(), transaction.clone());
+                                    queue.insert(
+                                        transaction.commit(),
+                                        SubmittedTransaction {
+                                            claimed: <span class="prelude-val">None</span>,
+                                            transaction: transaction.clone(),
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -1058,7 +1100,7 @@
 }
 
 <span class="kw">pub async fn </span>make_simple_builder&lt;TYPES: NodeType&gt;(
-    membership: Arc&lt;TYPES::Membership&gt;,
+    num_storage_nodes: usize,
 ) -&gt; (SimpleBuilderSource&lt;TYPES&gt;, SimpleBuilderTask&lt;TYPES&gt;) {
     <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
 
@@ -1070,7 +1112,7 @@
         priv_key,
         transactions: transactions.clone(),
         blocks: blocks.clone(),
-        membership,
+        num_storage_nodes,
     };
 
     <span class="kw">let </span>task = SimpleBuilderTask {
