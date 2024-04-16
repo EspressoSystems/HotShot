@@ -274,6 +274,21 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
                     _view_sync_finalize_cert = Some(cert.clone());
                 }
+                HotShotEvent::ProposeIfAble(_, pdd) => {
+                    commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
+                    match &pdd.secondary_proposal_information {
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
+                            _quorum_certificate = Some(quorum_certificate.clone());
+                            payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
+                        },
+                        hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
+                            _timeout_certificate = Some(tc.clone());
+                        }
+                        hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) => {
+                            _view_sync_finalize_cert = Some(vsc.clone());
+                        },
+                    }
+                }
                 _ => {}
             }
         }
@@ -597,6 +612,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::ProposeIfAble(view, _) => {
+                self.create_dependency_task_if_new(
+                    *view,
+                    event_receiver,
+                    event_sender,
+                    event.clone(),
+                );
+            }
             HotShotEvent::QCFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {
