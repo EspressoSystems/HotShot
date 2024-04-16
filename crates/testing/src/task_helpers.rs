@@ -382,7 +382,7 @@ pub fn da_payload_commitment(
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
-    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+    vid_commitment(encoded_transactions, quorum_membership.total_nodes())
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
@@ -421,7 +421,7 @@ pub fn build_da_certificate(
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
 
     let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+        vid_commitment(encoded_transactions, quorum_membership.total_nodes());
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

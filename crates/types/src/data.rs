@@ -503,14 +503,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// or if the transactions are of invalid length
     pub fn fill_block_payload(
         &mut self,
-        block_payload: TYPES::BlockPayload,
+        block_payload: &TYPES::BlockPayload,
         num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
-        let encoded_txns = match block_payload.encode() {
-            Ok(encoded) => encoded,
-            Err(_) => return Err(BlockError::InvalidTransactionLength),
+        let Ok(encoded_txns) = block_payload.encode() else {
+            return Err(BlockError::InvalidTransactionLength);
         };
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment(encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }

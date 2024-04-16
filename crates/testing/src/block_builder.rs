@@ -537,7 +537,7 @@ async fn build_block<TYPES: NodeType>(
     let block_size = block_payload
         .encode()
         .expect("failed to encode block")
-        .collect::<Vec<u8>>()
+        .as_ref()
         .len() as u64;
 
     let signature_over_block_info =
