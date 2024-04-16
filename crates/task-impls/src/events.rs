@@ -10,7 +10,7 @@ use hotshot_types::{
         DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{node_implementation::NodeType, BlockPayload},
+    traits::{block_contents::FeeData, node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
 };
 use vbs::version::Version;
@@ -106,12 +106,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
         VidCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        FeeData<TYPES>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        FeeData<TYPES>,
     ),
     /// Event when the transactions task has a block formed
     BlockReady(VidDisperse<TYPES>, TYPES::Time),

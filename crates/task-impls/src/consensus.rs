@@ -24,7 +24,7 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
-        block_contents::BlockHeader,
+        block_contents::{BlockHeader, FeeData},
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -51,11 +51,13 @@ use crate::{
     },
 };
 /// Alias for the block payload commitment and the associated metadata.
-pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
+pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Vid Commitment
     pub commitment: VidCommitment,
     /// Metadata for the block payload
-    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    /// Fee data
+    pub fee_data: FeeData<TYPES>,
 }
 
 /// Alias for Optional type for Vote Collectors
@@ -219,6 +221,7 @@ async fn create_and_send_proposal<TYPES: NodeType>(
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     round_start_delay: u64,
+    fee_data: FeeData<TYPES>,
 ) {
     let block_header = TYPES::BlockHeader::new(
         state.as_ref(),
@@ -226,6 +229,7 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         &parent_leaf,
         commitment,
         metadata,
+        fee_data,
     )
     .await;
 
@@ -287,7 +291,7 @@ pub struct ConsensusTaskState<
     pub cur_view: TYPES::Time,
 
     /// The commitment to the current block payload and its metadata submitted to DA.
-    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>>,
+    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
 
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
@@ -1385,12 +1389,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                metadata,
+                view,
+                fee_data,
+            ) => {
                 let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
                     metadata: metadata.clone(),
+                    fee_data: fee_data.clone(),
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1548,6 +1558,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return;
                 };
 
+                let Some(null_block_fee) =
+                    null_block::fee_data::<TYPES>(self.quorum_membership.total_nodes())
+                else {
+                    // This should never happen.
+                    error!("Failed to calculate null block fee info");
+                    return;
+                };
+
                 let pub_key = self.public_key.clone();
                 let priv_key = self.private_key.clone();
                 let consensus = self.consensus.clone();
@@ -1573,6 +1591,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             upgrade_cert,
                             None,
                             delay,
+                            null_block_fee,
                         )
                         .await;
                     }));
@@ -1612,6 +1631,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let sender = event_stream.clone();
             let commit = commit_and_metadata.commitment;
             let metadata = commit_and_metadata.metadata.clone();
+            let fee_data = commit_and_metadata.fee_data.clone();
             let state = state.clone();
             let delay = self.round_start_delay;
             self.spawned_tasks
@@ -1631,6 +1651,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         proposal_upgrade_certificate,
                         proposal_certificate,
                         delay,
+                        fee_data,
                     )
                     .await;
                 }));

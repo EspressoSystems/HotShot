@@ -1,9 +1,10 @@
-use crate::{consensus::validate_proposal, helpers::AnyhowTracing};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use committable::Committable;
 use either::Either;
 use futures::future::FutureExt;
@@ -29,17 +30,15 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber},
 };
-
-use crate::{
-    consensus::CommitmentAndMetadata,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
+
+use crate::{
+    consensus::{validate_proposal, CommitmentAndMetadata},
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -107,7 +106,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         &self,
         view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-        commit_and_metadata: CommitmentAndMetadata<TYPES::BlockPayload>,
+        commit_and_metadata: CommitmentAndMetadata<TYPES>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
@@ -183,6 +182,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &parent_leaf,
             commit_and_metadata.commitment,
             commit_and_metadata.metadata.clone(),
+            commit_and_metadata.fee_data.clone(),
         )
         .await;
 
@@ -234,7 +234,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
-        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
+        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut _quorum_certificate = None;
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
@@ -254,11 +254,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     payload_commitment,
                     metadata,
                     _view,
+                    fee_data,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
                         metadata: metadata.clone(),
+                        fee_data: fee_data.clone(),
                     });
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
@@ -395,6 +397,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             _payload_commitment,
                             _metadata,
                             view,
+                            _fee,
                         ) = event
                         {
                             *view
@@ -637,7 +640,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                 }
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                _metadata,
+                view,
+                _fee,
+            ) => {
                 let view = *view;
                 debug!(
                     "Got payload commitment {:?} for view {view:?}",
