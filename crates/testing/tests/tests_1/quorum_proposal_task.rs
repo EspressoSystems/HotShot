@@ -215,6 +215,53 @@ async fn test_quorum_proposal_task_view_sync() {
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_proposal_task_propose_now() {
+    use hotshot_types::consensus::ProposalDependencyData;
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+    }
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+    }
+
+    // let proposal_dependency_data = ProoposalDependencyData {
+    //     commitment_and_metadata:
+    // };
+
+    // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
+    let view_2 = TestScriptStage {
+        inputs: vec![
+            QCFormed(either::Right(cert.clone())),
+            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+        ],
+        outputs: vec![quorum_proposal_send()],
+        asserts: vec![],
+    };
+
+    let quorum_proposal_task_state =
+        QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
+
+    let script = vec![view_2];
+    run_test_script(script, quorum_proposal_task_state).await;
+}
+
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_with_incomplete_events() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();

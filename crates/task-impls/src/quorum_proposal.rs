@@ -57,6 +57,9 @@ enum ProposalDependency {
 
     /// For the `QuroumProposalRecv` event.
     Proposal,
+
+    /// For the `ProposeNow` event.
+    ProposeNow,
 }
 
 /// Handler for the proposal dependency
@@ -228,7 +231,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
-    type Output = Vec<Vec<Arc<HotShotEvent<TYPES>>>>;
+    type Output = Vec<Vec<Vec<Arc<HotShotEvent<TYPES>>>>>;
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
@@ -237,7 +240,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut _quorum_certificate = None;
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
-        for event in res.iter().flatten() {
+        for event in res.iter().flatten().flatten() {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -401,6 +404,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             return false;
                         }
                     }
+                    ProposalDependency::ProposeNow => {
+                        if let HotShotEvent::ProposeIfAble(view, _) = event {
+                            *view
+                        } else {
+                            return false;
+                        }
+                    }
                 };
                 let valid = event_view == view_number;
                 if valid {
@@ -417,7 +427,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
-    ) -> AndDependency<Vec<Arc<HotShotEvent<TYPES>>>> {
+    ) -> AndDependency<Vec<Vec<Arc<HotShotEvent<TYPES>>>>> {
         let mut proposal_dependency = self.create_event_dependency(
             ProposalDependency::Proposal,
             view_number,
@@ -445,6 +455,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut payload_commitment_dependency = self.create_event_dependency(
             ProposalDependency::PayloadAndMetadata,
             view_number,
+            event_receiver.clone(),
+        );
+
+        let mut propose_now_dependency = self.create_event_dependency(
+            ProposalDependency::ProposeNow,
+            view_number,
             event_receiver,
         );
 
@@ -454,31 +470,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::ProposeNow(view, proposal_dependency_data) => {
-                payload_commitment_dependency.mark_as_completed(
-                    HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        proposal_dependency_data.commitment_and_metadata.commitment,
-                        proposal_dependency_data
-                            .commitment_and_metadata
-                            .metadata
-                            .clone(),
-                        *view,
-                    )
-                    .into(),
-                );
-
-                match &proposal_dependency_data.secondary_proposal_information {
-                    hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, leaf, qc) => {
-                        proposal_dependency.mark_as_completed(HotShotEvent::QuorumProposalValidated(quorum_proposal.clone(), leaf.clone()).into());
-                        qc_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Left(qc.clone())).into());
-                    } ,
-                    hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
-                        timeout_dependency.mark_as_completed(HotShotEvent::QCFormed(either::Right(tc.clone())).into());
-                    },
-                    hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vs) => {
-                        view_sync_dependency.mark_as_completed(HotShotEvent::ViewSyncFinalizeCertificate2Recv(vs.clone()).into());
-                    },
-                };
+            HotShotEvent::ProposeIfAble(..) => {
+                propose_now_dependency.mark_as_completed(event.clone())
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(event.clone());
@@ -518,12 +511,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             secondary_deps.push(AndDependency::from_deps(vec![qc_dependency]));
         }
 
-        AndDependency::from_deps(vec![
-            OrDependency::from_deps(vec![AndDependency::from_deps(vec![
-                payload_commitment_dependency,
-            ])]),
-            OrDependency::from_deps(secondary_deps),
-        ])
+        AndDependency::from_deps(vec![OrDependency::from_deps(vec![
+            AndDependency::from_deps(vec![AndDependency::from_deps(vec![propose_now_dependency])]),
+            AndDependency::from_deps(vec![
+                OrDependency::from_deps(vec![AndDependency::from_deps(vec![
+                    payload_commitment_dependency,
+                ])]),
+                OrDependency::from_deps(secondary_deps),
+            ]),
+        ])])
     }
 
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
@@ -945,6 +941,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+                | HotShotEvent::ProposeIfAble(..)
                 | HotShotEvent::Shutdown,
         )
     }

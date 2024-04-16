@@ -1,8 +1,8 @@
 #![allow(clippy::panic)]
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 use hotshot_testing::task_helpers::get_vid_share;
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -40,6 +40,54 @@ async fn test_quorum_vote_task_success() {
             quorum_proposal_validated(),
             exact(DACertificateValidated(view.da_certificate.clone())),
             exact(VIDShareValidated(view.vid_proposal.0[0].clone())),
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
+            quorum_vote_send(),
+        ],
+        asserts: vec![],
+    };
+
+    let quorum_vote_state =
+        QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+
+    run_test_script(vec![view_success], quorum_vote_state).await;
+}
+
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_vote_task_vote_now() {
+    use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
+    use hotshot_testing::{
+        predicates::event::{exact, quorum_vote_send},
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+        view_generator::TestViewGenerator,
+    };
+    use hotshot_types::vote::VoteDependencyData;
+
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+
+    generator.next();
+    let view = generator.current_view.clone().unwrap();
+
+    let vote_dependency_data = VoteDependencyData {
+        quorum_proposal: view.quorum_proposal.data.clone(),
+        leaf: view.leaf.clone(),
+        disperse_share: view.vid_proposal.0[0].clone(),
+        da_cert: view.da_certificate.clone(),
+    };
+
+    // Send the quorum proposal, DAC, and VID disperse data, in which case a dummy vote can be
+    // formed and the view number will be updated.
+    let view_success = TestScriptStage {
+        inputs: vec![VoteIfAble(view.view_number, vote_dependency_data)],
+        outputs: vec![
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
             quorum_vote_send(),
         ],
