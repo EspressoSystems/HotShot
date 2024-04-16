@@ -58,4 +58,5 @@ pub const WEB_SERVER_VERSION: WebServerVersion = StaticVersion {};
 /// would need to generate proof for a circuit of slightly below 2^20 gates.
 /// Thus we need to support this upperbounded degree in our Structured Reference String (SRS),
 /// the `+2` is just an artifact from the jellyfish's Plonk proof system.
+#[allow(clippy::cast_possible_truncation)]
 pub const SRS_DEGREE: usize = 2u64.pow(20) as usize + 2;
