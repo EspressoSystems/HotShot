@@ -336,8 +336,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                                 "Attempting to publish proposal after voting; now in view: {}",
                                 *new_view
                             );
-                            self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
-                                .await;
+                            let pdd = {
+
+                            }
+                            broadcast_event(
+                                Arc::new(HotShotEvent::ProposeNow(
+                                    qc.view_number + 1,
+
+                                ))
+                            )
+                            // self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
+                            //     .await;
                         }
                         if self.vote_if_able(&event_stream).await {
                             self.current_proposal = None;
