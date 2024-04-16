@@ -225,7 +225,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                         state_delta.cloned(),
                         None,
                     )]),
-                    qc: Arc::new(QuorumCertificate::genesis(&instance_state)),
+                    qc: Arc::new(anchored_leaf.get_justify_qc()),
                     block_size: None,
                 },
             },
