@@ -16,7 +16,7 @@ use committable::Committable;
 use futures::future::{join_all, FutureExt};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{CommitmentAndMetadata, Consensus, View},
     constants::LOOK_AHEAD,
     data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
@@ -50,13 +50,6 @@ use crate::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-/// Alias for the block payload commitment and the associated metadata.
-pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
-    /// Vid Commitment
-    pub commitment: VidCommitment,
-    /// Metadata for the block payload
-    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
-}
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
