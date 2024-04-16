@@ -15,7 +15,8 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
+        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     traits::{
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
