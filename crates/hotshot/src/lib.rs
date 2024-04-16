@@ -215,23 +215,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        broadcast_event(
-            Event {
-                view_number: anchored_leaf.get_view_number(),
-                event: EventType::Decide {
-                    leaf_chain: Arc::new(vec![LeafInfo::new(
-                        anchored_leaf.clone(),
-                        validated_state.clone(),
-                        state_delta.cloned(),
-                        None,
-                    )]),
-                    qc: Arc::new(anchored_leaf.get_justify_qc()),
-                    block_size: None,
+        // Some applications seem to expect a leaf decide event for the genesis leaf,
+        // which contains only that leaf and nothing else.
+        if anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            broadcast_event(
+                Event {
+                    view_number: anchored_leaf.get_view_number(),
+                    event: EventType::Decide {
+                        leaf_chain: Arc::new(vec![LeafInfo::new(
+                            anchored_leaf.clone(),
+                            validated_state.clone(),
+                            state_delta.cloned(),
+                            None,
+                        )]),
+                        qc: Arc::new(QuorumCertificate::genesis(&instance_state)),
+                        block_size: None,
+                    },
                 },
-            },
-            &external_tx,
-        )
-        .await;
+                &external_tx,
+            )
+            .await;
+        }
 
         for leaf in initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
