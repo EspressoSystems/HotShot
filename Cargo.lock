@@ -3202,6 +3202,7 @@ dependencies = [
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
+ "hotshot-testing",
  "hotshot-types",
  "hotshot-web-server",
  "libp2p-identity",
