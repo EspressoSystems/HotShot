@@ -25,7 +25,7 @@ use crate::{traits::NodeImplementation, types::Event, SystemContext};
 /// the underlying storage.
 #[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// The [sender](Sender) and [receiver](Receiver), 
+    /// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
     pub(crate) output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
 
