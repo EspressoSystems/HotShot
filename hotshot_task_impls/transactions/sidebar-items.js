@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TransactionTaskState"]};
+window.SIDEBAR_ITEMS = {"struct":["BuilderResponses","TransactionTaskState"]};

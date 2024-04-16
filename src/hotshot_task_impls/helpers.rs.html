@@ -73,19 +73,30 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{SendError, Sender};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::{spawn_blocking, JoinHandle};
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>hotshot_types::{
     data::VidDisperse,
     traits::{election::Membership, node_implementation::NodeType},
-    vid::vid_scheme,
+    vid::{vid_scheme, VidPrecomputeData},
 };
-<span class="kw">use </span>jf_primitives::vid::VidScheme;
+<span class="kw">use </span>jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::{spawn_blocking, JoinHandle};
+</span><span class="kw">use </span>tokio::task::JoinHandle;
 
 <span class="doccomment">/// Cancel a task
 </span><span class="kw">pub async fn </span>cancel_task&lt;T&gt;(task: JoinHandle&lt;T&gt;) {
@@ -117,20 +128,31 @@
 ///
 /// # Panics
 /// Panics if the VID calculation fails, this should not happen.
-</span><span class="kw">pub async fn </span>calculate_vid_disperse&lt;TYPES: NodeType&gt;(
-    txns: Vec&lt;u8&gt;,
-    membership: Arc&lt;TYPES::Membership&gt;,
+</span><span class="attr">#[allow(clippy::panic)]
+</span><span class="kw">pub fn </span>calculate_vid_disperse&lt;TYPES: NodeType&gt;(
+    txns: <span class="kw-2">&amp;</span>[u8],
+    membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
     view: TYPES::Time,
 ) -&gt; VidDisperse&lt;TYPES&gt; {
     <span class="kw">let </span>num_nodes = membership.total_nodes();
-    <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
-        <span class="attr">#[allow(clippy::panic)]
-        </span>vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns).unwrap_or_else(|err|<span class="macro">panic!</span>(<span class="string">"VID disperse failure:\n\t(num_storage nodes,payload_byte_len)=({num_nodes},{})\n\terror: : {err}"</span>, txns.len()))
-    })
-    .<span class="kw">await</span>;
-    <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-    </span><span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
-    </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
+    <span class="kw">let </span>vid_disperse = vid_scheme(num_nodes).disperse(txns).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()));
+
+    VidDisperse::from_membership(view, vid_disperse, membership.as_ref())
+}
+
+<span class="doccomment">/// Calculate the vid disperse information from the payload given a view and membership, and precompute data from builder
+///
+/// # Panics
+/// Panics if the VID calculation fails, this should not happen.
+</span><span class="attr">#[allow(clippy::panic)]
+</span><span class="kw">pub fn </span>calculate_vid_disperse_using_precompute_data&lt;TYPES: NodeType&gt;(
+    txns: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+    membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
+    view: TYPES::Time,
+    pre_compute_data: <span class="kw-2">&amp;</span>VidPrecomputeData,
+) -&gt; VidDisperse&lt;TYPES&gt; {
+    <span class="kw">let </span>num_nodes = membership.total_nodes();
+    <span class="kw">let </span>vid_disperse = vid_scheme(num_nodes).disperse_precompute(txns, pre_compute_data).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()));
 
     VidDisperse::from_membership(view, vid_disperse, membership.as_ref())
 }

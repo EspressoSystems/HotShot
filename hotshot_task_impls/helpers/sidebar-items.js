@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["broadcast_event","calculate_vid_disperse","cancel_task"],"trait":["AnyhowTracing"]};
+window.SIDEBAR_ITEMS = {"fn":["broadcast_event","calculate_vid_disperse","calculate_vid_disperse_using_precompute_data","cancel_task"],"trait":["AnyhowTracing"]};

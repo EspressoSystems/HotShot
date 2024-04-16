@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["stmt_conversion","vid_disperse_conversion","vid_scheme"],"struct":["KZG_SRS","LargeRangeProofType","SmallRangeProofType","VidSchemeType"],"type":["Advz","E","H","VidCommitment","VidCommon","VidShare"]};
+window.SIDEBAR_ITEMS = {"fn":["stmt_conversion","vid_disperse_conversion","vid_scheme"],"struct":["KZG_SRS","LargeRangeProofType","SmallRangeProofType","VidSchemeType"],"type":["Advz","E","H","VidCommitment","VidCommon","VidPrecomputeData","VidShare"]};

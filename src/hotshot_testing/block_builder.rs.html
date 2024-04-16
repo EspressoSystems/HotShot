@@ -575,6 +575,21 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Display,
@@ -602,13 +617,12 @@
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
-        block_contents::{vid_commitment, BlockHeader},
+        block_contents::{precompute_vid_commitment, BlockHeader},
         election::Membership,
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
-    vid::VidCommitment,
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
@@ -804,7 +818,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>RandomBuilderSource&lt;TYPES&gt; {
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
+        _for_parent: <span class="kw-2">&amp;</span>BuilderCommitment,
         _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
@@ -908,7 +922,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt; {
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
+        _for_parent: <span class="kw-2">&amp;</span>BuilderCommitment,
         _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
@@ -1084,7 +1098,7 @@
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 
-    <span class="kw">let </span>vid_commitment = vid_commitment(
+    <span class="kw">let </span>(vid_commitment, precompute_data) = precompute_vid_commitment(
         <span class="kw-2">&amp;</span>block_payload.encode().unwrap().collect(),
         num_storage_nodes,
     );
@@ -1101,6 +1115,7 @@
         block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
         block_info.extend_from_slice(<span class="number">123_u64</span>.to_be_bytes().as_ref());
         block_info.extend_from_slice(commitment.as_ref());
+
         <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_builder_message(<span class="kw-2">&amp;</span>priv_key, <span class="kw-2">&amp;</span>block_info) {
             <span class="prelude-val">Ok</span>(sig) =&gt; sig,
             <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1127,15 +1142,28 @@
         }
     };
 
+    <span class="kw">let </span>signature_over_fee_info = {
+        <span class="kw">let </span><span class="kw-2">mut </span>fee_info: Vec&lt;u8&gt; = Vec::new();
+        fee_info.extend_from_slice(<span class="number">123_u64</span>.to_be_bytes().as_ref());
+        fee_info.extend_from_slice(commitment.as_ref());
+        fee_info.extend_from_slice(vid_commitment.as_ref());
+        <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_builder_message(<span class="kw-2">&amp;</span>priv_key, <span class="kw-2">&amp;</span>fee_info) {
+            <span class="prelude-val">Ok</span>(sig) =&gt; sig,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">panic!</span>(<span class="string">"Failed to sign block: {}"</span>, e);
+            }
+        }
+    };
+
     <span class="kw">let </span>block = AvailableBlockData {
         block_payload,
         metadata,
         sender: pub_key.clone(),
-        signature: signature_over_block_info,
+        signature: signature_over_builder_commitment,
     };
     <span class="kw">let </span>metadata = AvailableBlockInfo {
         sender: pub_key.clone(),
-        signature: signature_over_builder_commitment,
+        signature: signature_over_block_info,
         block_hash: commitment,
         block_size,
         offered_fee: <span class="number">123</span>,
@@ -1143,7 +1171,9 @@
     };
     <span class="kw">let </span>header_input = AvailableBlockHeaderInput {
         vid_commitment,
-        signature: signature_over_vid_commitment,
+        vid_precompute_data: precompute_data,
+        message_signature: signature_over_vid_commitment.clone(),
+        fee_signature: signature_over_fee_info,
         sender: pub_key,
         _phantom: std::marker::PhantomData,
     };

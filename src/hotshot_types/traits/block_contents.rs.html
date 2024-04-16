@@ -168,6 +168,21 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -181,7 +196,7 @@
 };
 
 <span class="kw">use </span>committable::{Commitment, Committable};
-<span class="kw">use </span>jf_primitives::vid::VidScheme;
+<span class="kw">use </span>jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 
 <span class="kw">use crate</span>::{
@@ -286,12 +301,27 @@
 /// # Panics
 /// If the VID computation fails.
 </span><span class="attr">#[must_use]
+#[allow(clippy::panic)]
 </span><span class="kw">pub fn </span>vid_commitment(
     encoded_transactions: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
     num_storage_nodes: usize,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
-    <span class="attr">#[allow(clippy::panic)]
-    </span>vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}"</span>, encoded_transactions.len()))
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}"</span>, encoded_transactions.len()))
+}
+
+<span class="doccomment">/// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
+/// # Panics
+/// If the VID computation fails.
+</span><span class="attr">#[must_use]
+#[allow(clippy::panic)]
+</span><span class="kw">pub fn </span>precompute_vid_commitment(
+    encoded_transactions: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+    num_storage_nodes: usize,
+) -&gt; (
+    &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    &lt;VidSchemeType <span class="kw">as </span>Precomputable&gt;::PrecomputeData,
+) {
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}"</span>, encoded_transactions.len()))
 }
 
 <span class="doccomment">/// The number of storage nodes to use when computing the genesis VID commitment.

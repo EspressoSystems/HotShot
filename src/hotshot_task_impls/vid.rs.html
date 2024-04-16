@@ -178,7 +178,6 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -243,11 +242,10 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number) =&gt; {
                 <span class="kw">let </span>vid_disperse = calculate_vid_disperse(
-                    encoded_transactions.clone(),
-                    <span class="self">self</span>.membership.clone(),
+                    <span class="kw-2">&amp;</span>encoded_transactions.clone(),
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.membership.clone(),
                     <span class="kw-2">*</span>view_number,
-                )
-                .<span class="kw">await</span>;
+                );
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(

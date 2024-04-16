@@ -280,6 +280,8 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides:
 //! - an opaque constructor [`vid_scheme`] that returns a new instance of a
 //!   VID scheme.
@@ -354,6 +356,8 @@
 </span><span class="kw">pub type </span>VidCommon = &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Common;
 <span class="doccomment">/// VID share type
 </span><span class="kw">pub type </span>VidShare = &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Share;
+<span class="doccomment">/// VID PrecomputeData type
+</span><span class="kw">pub type </span>VidPrecomputeData = &lt;VidSchemeType <span class="kw">as </span>Precomputable&gt;::PrecomputeData;
 
 <span class="attr">#[cfg(not(feature = <span class="string">"gpu-vid"</span>))]
 </span><span class="doccomment">/// Internal Jellyfish VID scheme
