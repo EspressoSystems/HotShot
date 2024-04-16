@@ -83,7 +83,7 @@ async fn test_consensus_task() {
                 payload_commitment,
                 (),
                 ViewNumber::new(2),
-                null_block::fee_data(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
         ],
         outputs: vec![
@@ -364,7 +364,7 @@ async fn test_view_sync_finalize_propose() {
                 payload_commitment,
                 (),
                 ViewNumber::new(4),
-                null_block::fee_data(4).unwrap(),
+                null_block::builder_fee(4).unwrap(),
             ),
         ],
         outputs: vec![

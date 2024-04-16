@@ -7,7 +7,7 @@ use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, FeeData, TestableBlock, Transaction},
+        block_contents::{BlockHeader, BuilderFee, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -190,7 +190,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
-        _fee_data: FeeData<TYPES>,
+        _builder_fee: BuilderFee<TYPES>,
     ) -> Self {
         let parent = parent_leaf.get_block_header();
 

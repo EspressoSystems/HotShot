@@ -14,7 +14,7 @@ use hotshot_types::{
     consensus::Consensus,
     event::{Event, EventType},
     traits::{
-        block_contents::{BlockHeader, FeeData},
+        block_contents::{BlockHeader, BuilderFee},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
@@ -142,7 +142,7 @@ impl<
                             encoded_transactions,
                             block_data.metadata,
                             block_view,
-                            FeeData {
+                            BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
                                 fee_signature: block_header.fee_signature,
                             },

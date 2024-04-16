@@ -181,8 +181,8 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &consensus.instance_state,
             &parent_leaf,
             commit_and_metadata.commitment,
-            commit_and_metadata.metadata.clone(),
-            commit_and_metadata.fee_data.clone(),
+            commit_and_metadata.metadata,
+            commit_and_metadata.fee,
         )
         .await;
 
@@ -254,13 +254,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     payload_commitment,
                     metadata,
                     _view,
-                    fee_data,
+                    fee,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
                         metadata: metadata.clone(),
-                        fee_data: fee_data.clone(),
+                        fee: fee.clone(),
                     });
                 }
                 HotShotEvent::QCFormed(cert) => match cert {

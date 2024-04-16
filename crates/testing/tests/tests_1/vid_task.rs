@@ -80,7 +80,7 @@ async fn test_vid_task() {
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
-        null_block::fee_data(quorum_membership.total_nodes()).unwrap(),
+        null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),
@@ -101,7 +101,7 @@ async fn test_vid_task() {
             payload_commitment,
             (),
             ViewNumber::new(2),
-            null_block::fee_data(quorum_membership.total_nodes()).unwrap(),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),
         1,
     );

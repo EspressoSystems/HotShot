@@ -676,7 +676,7 @@ pub mod null_block {
 
     use crate::{
         traits::{
-            block_contents::FeeData, node_implementation::NodeType,
+            block_contents::BuilderFee, node_implementation::NodeType,
             signature_key::BuilderSignatureKey, BlockPayload,
         },
         vid::{vid_scheme, VidCommitment},
@@ -701,7 +701,10 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn fee_data<TYPES: NodeType>(num_storage_nodes: usize) -> Option<FeeData<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
+        // Arbitrary fee amount, this block doesn't actually come from a builder
+        const FEE_AMOUNT: u64 = 0;
+
         let (_, priv_key) =
             <TYPES::BuilderSignatureKey as BuilderSignatureKey>::generated_from_seed_indexed(
                 [0_u8; 32], 0,
@@ -712,12 +715,12 @@ pub mod null_block {
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,
-            0,
+            FEE_AMOUNT,
             &null_block.builder_commitment(&null_block_metadata),
             &commitment(num_storage_nodes)?,
         ) {
-            Ok(sig) => Some(FeeData {
-                fee_amount: 0,
+            Ok(sig) => Some(BuilderFee {
+                fee_amount: FEE_AMOUNT,
                 fee_signature: sig,
             }),
             Err(_) => None,

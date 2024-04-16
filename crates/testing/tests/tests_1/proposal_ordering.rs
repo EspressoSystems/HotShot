@@ -76,7 +76,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
             payload_commitment,
             (),
             ViewNumber::new(node_id),
-            null_block::fee_data(quorum_membership.total_nodes()).unwrap(),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),
     ];
 
