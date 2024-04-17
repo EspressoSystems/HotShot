@@ -190,6 +190,7 @@ impl<
             if latest_block.as_ref().map_or(false, |block| {
                 block.0.block_payload.builder_commitment(&block.0.metadata) == block_info.block_hash
             }) {
+                async_sleep(Duration::from_millis(100)).await;
                 continue;
             }
 
