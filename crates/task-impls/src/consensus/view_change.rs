@@ -25,7 +25,11 @@ use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
-/// Update the view if it actually changed. Returns the spawned timeout task join handle.
+/// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
+/// `timeout_task` which are updated during the operation of the function.
+///
+/// # Errors
+/// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     public_key: TYPES::SignatureKey,
