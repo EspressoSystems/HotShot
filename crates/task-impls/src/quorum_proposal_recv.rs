@@ -322,38 +322,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     drop(consensus);
 
                     if liveness_check {
-                        self.current_proposal = Some(proposal.data.clone());
+                        let current_proposal = proposal.data.clone();
+                        self.current_proposal = Some(current_proposal.clone());
                         let new_view = proposal.data.view_number + 1;
 
                         // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                         let should_propose = self.quorum_membership.get_leader(new_view)
                             == self.public_key
-                            && high_qc.view_number
-                                == self.current_proposal.clone().unwrap().view_number;
+                            && high_qc.view_number == current_proposal.clone().view_number;
                         let qc = high_qc.clone();
                         if should_propose {
                             debug!(
                                 "Attempting to publish proposal after voting; now in view: {}",
                                 *new_view
                             );
-                            let pdd = {
-
-                            }
-                            broadcast_event(
-                                Arc::new(HotShotEvent::ProposeNow(
-                                    qc.view_number + 1,
-
-                                ))
-                            )
+                            let pdd = {};
+                            broadcast_event(Arc::new(HotShotEvent::ProposeNow(qc.view_number + 1)))
                             // self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
                             //     .await;
                         }
-                        if self.vote_if_able(&event_stream).await {
-                            self.current_proposal = None;
-                        }
+                    } else {
+                        warn!("Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", high_qc, proposal.data.clone(), locked_view);
                     }
-                    warn!("Failed liveneess check; cannot find parent either\n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", high_qc, proposal.data.clone(), locked_view);
-
                     return;
                 };
 
@@ -388,10 +378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(..) | HotShotEvent::QuorumProposalValidated(..),
-        )
+        !matches!(event.as_ref(), HotShotEvent::QuorumProposalRecv(..),)
     }
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>

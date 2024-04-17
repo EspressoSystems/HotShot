@@ -1581,9 +1581,8 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     cur_view: &mut TYPES::Time,
     timeout_task: &mut Option<JoinHandle<()>>,
 ) -> Result<()> {
-    // Is this >= correct? Or should it just be >?
     ensure!(
-        new_view >= *cur_view,
+        new_view > *cur_view,
         "New view is not greater than our current view"
     );
 
