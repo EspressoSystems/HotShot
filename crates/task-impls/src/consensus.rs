@@ -1,7 +1,6 @@
 use core::time::Duration;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
 };
 
@@ -13,16 +12,16 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::Committable;
-use futures::future::{join_all, FutureExt};
+use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, View},
     constants::LOOK_AHEAD,
-    data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::{BlockHeader, BuilderFee},
         consensus_api::ConsensusApi,
@@ -42,14 +41,26 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
+#[cfg(not(feature = "dependency-tasks"))]
+use {
+    crate::helpers::AnyhowTracing,
+    futures::FutureExt,
+    hotshot_types::{
+        data::{null_block, VidDisperseShare},
+        message::GeneralConsensusMessage,
+        simple_vote::QuorumData,
+    },
+    std::marker::PhantomData,
+};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
+
 /// Alias for the block payload commitment, associated metadata and signed builder fee
 #[derive(Debug, Clone)]
 pub struct CommitmentAndMetadata<TYPES: NodeType> {
@@ -209,6 +220,7 @@ pub(crate) async fn validate_proposal<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "dependency-tasks"))]
 async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -371,7 +383,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         self.spawned_tasks = keep;
         join_all(cancel).await;
     }
+
+    /// Ignores old vote behavior and lets `QuorumVoteTask` take over.
+    #[cfg(feature = "dependency-tasks")]
+    async fn vote_if_able(&mut self, _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
+        false
+    }
+
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
+    #[cfg(not(feature = "dependency-tasks"))]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
     async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
@@ -595,6 +615,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 
     /// Validates whether the VID Dispersal Proposal is correctly signed
+    #[cfg(not(feature = "dependency-tasks"))]
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.get_view_number();
         let payload_commitment = disperse.data.payload_commitment;
@@ -630,7 +651,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            #[cfg(not(feature = "proposal-task"))]
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
                 debug!(
@@ -1212,6 +1233,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::DACertificateRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
@@ -1234,6 +1256,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.current_proposal = None;
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
@@ -1459,7 +1482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 
     /// Ignores old propose behavior and lets QuorumProposalTask take over.
-    #[cfg(feature = "proposal-task")]
+    #[cfg(feature = "dependency-tasks")]
     pub async fn publish_proposal_if_able(
         &mut self,
         _view: TYPES::Time,
@@ -1469,7 +1492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
-    #[cfg(not(feature = "proposal-task"))]
+    #[cfg(not(feature = "dependency-tasks"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,
