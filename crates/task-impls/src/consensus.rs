@@ -15,7 +15,7 @@ use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{CommitmentAndMetadata, Consensus, View},
     constants::LOOK_AHEAD,
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
