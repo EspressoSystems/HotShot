@@ -29,7 +29,6 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber},
 };
-
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -109,7 +108,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         &self,
         view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-        commit_and_metadata: CommitmentAndMetadata<TYPES::BlockPayload>,
+        commit_and_metadata: CommitmentAndMetadata<TYPES>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
@@ -184,7 +183,8 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &consensus.instance_state,
             &parent_leaf,
             commit_and_metadata.commitment,
-            commit_and_metadata.metadata.clone(),
+            commit_and_metadata.metadata,
+            commit_and_metadata.fee,
         )
         .await;
 
@@ -236,7 +236,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
-        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>> = None;
+        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut _quorum_certificate = None;
         let mut _timeout_certificate = None;
         let mut _view_sync_finalize_cert = None;
@@ -256,11 +256,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     payload_commitment,
                     metadata,
                     _view,
+                    fee,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
                         metadata: metadata.clone(),
+                        fee: fee.clone(),
                     });
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
@@ -412,6 +414,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             _payload_commitment,
                             _metadata,
                             view,
+                            _fee,
                         ) = event
                         {
                             *view
@@ -669,7 +672,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                 }
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                _metadata,
+                view,
+                _fee,
+            ) => {
                 let view = *view;
                 debug!(
                     "Got payload commitment {:?} for view {view:?}",
