@@ -149,6 +149,8 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
     consensus::ProposalDependencyData,
@@ -162,7 +164,7 @@
         DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{node_implementation::NodeType, BlockPayload},
+    traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
     vid::VidCommitment,
     vote::VoteDependencyData,
 };
@@ -260,12 +262,14 @@
         VidCommitment,
         &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         TYPES::Time,
+        BuilderFee&lt;TYPES&gt;,
     ),
     <span class="doccomment">/// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     </span>BlockRecv(
         Vec&lt;u8&gt;,
         &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         TYPES::Time,
+        BuilderFee&lt;TYPES&gt;,
     ),
     <span class="doccomment">/// Event when the transactions task has a block formed
     </span>BlockReady(VidDisperse&lt;TYPES&gt;, TYPES::Time),

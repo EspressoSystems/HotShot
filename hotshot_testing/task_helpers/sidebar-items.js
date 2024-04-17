@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_assembled_sig","build_cert","build_da_certificate","build_quorum_proposal","build_quorum_proposal_and_signature","build_system_handle","build_vid_proposal","build_vote","da_payload_commitment","get_vid_share","key_pair_for_id","vid_payload_commitment","vid_scheme_from_view_number"]};
+window.SIDEBAR_ITEMS = {"fn":["build_assembled_sig","build_cert","build_da_certificate","build_system_handle","build_vid_proposal","build_vote","da_payload_commitment","get_vid_share","key_pair_for_id","vid_payload_commitment","vid_scheme_from_view_number"]};

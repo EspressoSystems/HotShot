@@ -424,6 +424,9 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -444,6 +447,7 @@
         DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
     },
     traits::{
+        block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
@@ -822,11 +826,13 @@
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata. The primary data
 /// needed in order to submit a proposal.
 </span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-</span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {
+</span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Vid Commitment
     </span><span class="kw">pub </span>commitment: VidCommitment,
     <span class="doccomment">/// Metadata for the block payload
-    </span><span class="kw">pub </span>metadata: &lt;PAYLOAD <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    <span class="doccomment">/// Builder fee data
+    </span><span class="kw">pub </span>fee: BuilderFee&lt;TYPES&gt;,
 }
 
 <span class="doccomment">/// Helper type to hold the optional secondary information required to propose.
@@ -844,7 +850,7 @@
 </span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 </span><span class="kw">pub struct </span>ProposalDependencyData&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The primary data in a proposal.
-    </span><span class="kw">pub </span>commitment_and_metadata: CommitmentAndMetadata&lt;TYPES::BlockPayload&gt;,
+    </span><span class="kw">pub </span>commitment_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
     <span class="doccomment">/// The secondary data in a proposal
     </span><span class="kw">pub </span>secondary_proposal_information: SecondaryProposalInformation&lt;TYPES&gt;,
 }

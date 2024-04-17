@@ -362,6 +362,15 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -378,7 +387,7 @@
     consensus::Consensus,
     event::{Event, EventType},
     traits::{
-        block_contents::BlockHeader,
+        block_contents::{BlockHeader, BuilderFee},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
@@ -486,7 +495,12 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(BuilderResponses { block_data, .. }) = <span class="self">self</span>.wait_for_block().<span class="kw">await </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(BuilderResponses {
+                    block_data,
+                    blocks_initial_info,
+                    block_header,
+                }) = <span class="self">self</span>.wait_for_block().<span class="kw">await
+                </span>{
                     <span class="comment">// send the sequenced transactions to VID and DA tasks
                     </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
                     <span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block_data.block_payload.encode() {
@@ -501,6 +515,10 @@
                             encoded_transactions,
                             block_data.metadata,
                             block_view,
+                            BuilderFee {
+                                fee_amount: blocks_initial_info.offered_fee,
+                                fee_signature: block_header.fee_signature,
+                            },
                         )),
                         <span class="kw-2">&amp;</span>event_stream,
                     )

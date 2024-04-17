@@ -262,6 +262,7 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -271,7 +272,7 @@
 <span class="kw">use </span>hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, BuilderFee, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -454,6 +455,7 @@
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        _builder_fee: BuilderFee&lt;TYPES&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>parent = parent_leaf.get_block_header();
 

@@ -1696,25 +1696,33 @@
 <a href="#1694" id="1694">1694</a>
 <a href="#1695" id="1695">1695</a>
 <a href="#1696" id="1696">1696</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
@@ -1737,17 +1745,12 @@
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>vbs::version::Version;
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>vbs::version::Version;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>{
     <span class="kw">crate</span>::helpers::AnyhowTracing,
@@ -1758,6 +1761,14 @@
         simple_vote::QuorumData,
     },
     std::marker::PhantomData,
+};
+
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
 };
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
@@ -1915,8 +1926,7 @@
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     view: TYPES::Time,
-    commitment: VidCommitment,
-    metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    commitment_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     state: Arc&lt;TYPES::ValidatedState&gt;,
     upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
@@ -1927,8 +1937,9 @@
         state.as_ref(),
         <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
         <span class="kw-2">&amp;</span>parent_leaf,
-        commitment,
-        metadata,
+        commitment_and_metadata.commitment,
+        commitment_and_metadata.metadata,
+        commitment_and_metadata.fee,
     )
     .<span class="kw">await</span>;
 
@@ -1990,7 +2001,7 @@
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
     <span class="doccomment">/// The commitment to the current block payload and its metadata submitted to DA.
-    </span><span class="kw">pub </span>payload_commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES::BlockPayload&gt;&gt;,
+    </span><span class="kw">pub </span>payload_commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
@@ -3099,12 +3110,18 @@
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) =&gt; {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                metadata,
+                view,
+                fee,
+            ) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="macro">debug!</span>(<span class="string">"got commit and meta {:?}"</span>, payload_commitment);
                 <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                     commitment: <span class="kw-2">*</span>payload_commitment,
                     metadata: metadata.clone(),
+                    fee: fee.clone(),
                 });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
@@ -3262,6 +3279,14 @@
                     <span class="kw">return</span>;
                 };
 
+                <span class="kw">let </span><span class="prelude-val">Some</span>(null_block_fee) =
+                    null_block::builder_fee::&lt;TYPES&gt;(<span class="self">self</span>.quorum_membership.total_nodes())
+                <span class="kw">else </span>{
+                    <span class="comment">// This should never happen.
+                    </span><span class="macro">error!</span>(<span class="string">"Failed to calculate null block fee info"</span>);
+                    <span class="kw">return</span>;
+                };
+
                 <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
                 <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.clone();
@@ -3280,8 +3305,11 @@
                             consensus,
                             sender,
                             view,
-                            null_block_commitment,
-                            metadata,
+                            CommitmentAndMetadata {
+                                commitment: null_block_commitment,
+                                metadata,
+                                fee: null_block_fee,
+                            },
                             parent,
                             state,
                             upgrade_cert,
@@ -3324,10 +3352,9 @@
             <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
             <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.clone();
             <span class="kw">let </span>sender = event_stream.clone();
-            <span class="kw">let </span>commit = commit_and_metadata.commitment;
-            <span class="kw">let </span>metadata = commit_and_metadata.metadata.clone();
             <span class="kw">let </span>state = state.clone();
             <span class="kw">let </span>delay = <span class="self">self</span>.round_start_delay;
+            <span class="kw">let </span>commitment_and_metadata = commit_and_metadata.clone();
             <span class="self">self</span>.spawned_tasks
                 .entry(view)
                 .or_default()
@@ -3338,8 +3365,7 @@
                         consensus,
                         sender,
                         view,
-                        commit,
-                        metadata,
+                        commitment_and_metadata,
                         parent_leaf.clone(),
                         state,
                         proposal_upgrade_certificate,

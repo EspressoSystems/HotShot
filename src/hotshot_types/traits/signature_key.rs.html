@@ -199,6 +199,40 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
 </span><span class="kw">use </span>std::{
     fmt::{Debug, Display},
@@ -207,9 +241,11 @@
 
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
+<span class="kw">use </span>jf_primitives::{errors::PrimitivesError, vid::VidScheme};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
+
+<span class="kw">use crate</span>::{utils::BuilderCommitment, vid::VidSchemeType};
 
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`
 </span><span class="kw">pub trait </span>StakeTableEntryType {
@@ -394,6 +430,38 @@
         private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderPrivateKey,
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt;;
+
+    <span class="doccomment">/// sign fee offer for proposed payload
+    /// # Errors
+    /// If unable to sign the data with the key
+    </span><span class="kw">fn </span>sign_fee(
+        private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderPrivateKey,
+        fee_amount: u64,
+        payload_commitment: <span class="kw-2">&amp;</span>BuilderCommitment,
+        vid_commitment: <span class="kw-2">&amp;</span>&lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>fee_info: Vec&lt;u8&gt; = Vec::new();
+        fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
+        fee_info.extend_from_slice(payload_commitment.as_ref());
+        fee_info.extend_from_slice(vid_commitment.as_ref());
+        <span class="self">Self</span>::sign_builder_message(private_key, <span class="kw-2">&amp;</span>fee_info)
+    }
+
+    <span class="doccomment">/// sign information about offered block
+    /// # Errors
+    /// If unable to sign the data with the key
+    </span><span class="kw">fn </span>sign_block_info(
+        private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderPrivateKey,
+        block_size: u64,
+        fee_amount: u64,
+        payload_commitment: <span class="kw-2">&amp;</span>BuilderCommitment,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>block_info: Vec&lt;u8&gt; = Vec::new();
+        block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
+        block_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
+        block_info.extend_from_slice(payload_commitment.as_ref());
+        <span class="self">Self</span>::sign_builder_message(private_key, <span class="kw-2">&amp;</span>block_info)
+    }
 
     <span class="doccomment">/// Generate a new key pair
     </span><span class="kw">fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::BuilderPrivateKey);

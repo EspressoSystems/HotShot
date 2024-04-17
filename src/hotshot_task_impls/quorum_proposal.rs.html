@@ -983,6 +983,14 @@
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
 <a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1015,7 +1023,6 @@
     },
     vote::{Certificate, HasViewNumber},
 };
-
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
@@ -1095,7 +1102,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::Time,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        commit_and_metadata: CommitmentAndMetadata&lt;TYPES::BlockPayload&gt;,
+        commit_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
             <span class="comment">// This is expected for view 1, so skipping the logging.
@@ -1170,7 +1177,8 @@
             <span class="kw-2">&amp;</span>consensus.instance_state,
             <span class="kw-2">&amp;</span>parent_leaf,
             commit_and_metadata.commitment,
-            commit_and_metadata.metadata.clone(),
+            commit_and_metadata.metadata,
+            commit_and_metadata.fee,
         )
         .<span class="kw">await</span>;
 
@@ -1222,7 +1230,7 @@
     <span class="attr">#[allow(clippy::no_effect_underscore_binding)]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
         <span class="kw">let </span><span class="kw-2">mut </span>payload_commitment = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>commit_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES::BlockPayload&gt;&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>commit_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>_quorum_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>_timeout_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>_view_sync_finalize_cert = <span class="prelude-val">None</span>;
@@ -1242,11 +1250,13 @@
                     payload_commitment,
                     metadata,
                     _view,
+                    fee,
                 ) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">"Got commit and meta {:?}"</span>, payload_commitment);
                     commit_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                         commitment: <span class="kw-2">*</span>payload_commitment,
                         metadata: metadata.clone(),
+                        fee: fee.clone(),
                     });
                 }
                 HotShotEvent::QCFormed(cert) =&gt; <span class="kw">match </span>cert {
@@ -1398,6 +1408,7 @@
                             _payload_commitment,
                             _metadata,
                             view,
+                            _fee,
                         ) = event
                         {
                             <span class="kw-2">*</span>view
@@ -1655,7 +1666,12 @@
                     }
                 }
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, _metadata, view) =&gt; {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                _metadata,
+                view,
+                _fee,
+            ) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="macro">debug!</span>(
                     <span class="string">"Got payload commitment {:?} for view {view:?}"</span>,

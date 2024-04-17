@@ -695,6 +695,40 @@
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1371,7 +1405,13 @@
     </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
 
-    <span class="kw">use </span><span class="kw">crate</span>::vid::{vid_scheme, VidCommitment};
+    <span class="kw">use crate</span>::{
+        traits::{
+            block_contents::BuilderFee, node_implementation::NodeType,
+            signature_key::BuilderSignatureKey, BlockPayload,
+        },
+        vid::{vid_scheme, VidCommitment},
+    };
 
     <span class="doccomment">/// The commitment for a null block payload.
     ///
@@ -1386,6 +1426,34 @@
 
         <span class="kw">match </span>vid_result {
             <span class="prelude-val">Ok</span>(r) =&gt; <span class="prelude-val">Some</span>(r),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Builder fee data for a null block payload
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
+        <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
+        </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
+
+        <span class="kw">let </span>(<span class="kw">_</span>, priv_key) =
+            &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed(
+                [<span class="number">0_u8</span>; <span class="number">32</span>], <span class="number">0</span>,
+            );
+
+        <span class="kw">let </span>(null_block, null_block_metadata) =
+            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions([]).ok()<span class="question-mark">?</span>;
+
+        <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_fee(
+            <span class="kw-2">&amp;</span>priv_key,
+            FEE_AMOUNT,
+            <span class="kw-2">&amp;</span>null_block.builder_commitment(<span class="kw-2">&amp;</span>null_block_metadata),
+            <span class="kw-2">&amp;</span>commitment(num_storage_nodes)<span class="question-mark">?</span>,
+        ) {
+            <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
+                fee_amount: FEE_AMOUNT,
+                fee_signature: sig,
+            }),
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
         }
     }

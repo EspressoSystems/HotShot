@@ -178,6 +178,7 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -240,7 +241,7 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number) =&gt; {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) =&gt; {
                 <span class="kw">let </span>vid_disperse = calculate_vid_disperse(
                     <span class="kw-2">&amp;</span>encoded_transactions.clone(),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.membership.clone(),
@@ -252,6 +253,7 @@
                         vid_disperse.payload_commitment,
                         metadata.clone(),
                         <span class="kw-2">*</span>view_number,
+                        fee.clone(),
                     )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
@@ -347,7 +349,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::BlockReady(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )

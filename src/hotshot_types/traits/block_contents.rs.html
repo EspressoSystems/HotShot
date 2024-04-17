@@ -183,6 +183,17 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -199,6 +210,7 @@
 <span class="kw">use </span>jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 
+<span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
 <span class="kw">use crate</span>::{
     data::Leaf,
     traits::{node_implementation::NodeType, ValidatedState},
@@ -330,6 +342,15 @@
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 </span><span class="kw">pub const </span>GENESIS_VID_NUM_STORAGE_NODES: usize = <span class="number">1</span>;
 
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+</span><span class="doccomment">/// Information about builder fee for proposed block
+</span><span class="kw">pub struct </span>BuilderFee&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Proposed fee amount
+    </span><span class="kw">pub </span>fee_amount: u64,
+    <span class="doccomment">/// Signature over fee amount
+    </span><span class="kw">pub </span>fee_signature: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
+}
+
 <span class="doccomment">/// Header of a block, which commits to a [`BlockPayload`].
 </span><span class="kw">pub trait </span>BlockHeader&lt;TYPES: NodeType&gt;:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
@@ -342,6 +363,7 @@
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        builder_fee: BuilderFee&lt;TYPES&gt;,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="self">Self</span>&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
