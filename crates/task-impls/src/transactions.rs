@@ -170,6 +170,7 @@ impl<
 
         let last_leaf = self.consensus.read().await.get_decided_leaf();
         let mut latest_block: Option<BuilderResponses<TYPES>> = None;
+        let mut first_iteration = true;
         while task_start_time.elapsed() < self.api.propose_max_round_time()
             && latest_block.as_ref().map_or(true, |builder_response| {
                 builder_response
@@ -180,7 +181,9 @@ impl<
             })
         {
             // Sleep if this isn't the first iteration
-            if latest_block.is_some() {
+            if first_iteration {
+                first_iteration = false;
+            } else {
                 async_sleep(Duration::from_millis(100)).await;
             }
 
