@@ -240,6 +240,7 @@ async fn test_quorum_proposal_task_propose_now() {
     use hotshot_testing::task_helpers::{build_cert, key_pair_for_id};
     use hotshot_types::{
         consensus::{CommitmentAndMetadata, ProposalDependencyData},
+        data::null_block,
         simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
         simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeVote},
     };
@@ -269,6 +270,7 @@ async fn test_quorum_proposal_task_propose_now() {
         commitment_and_metadata: CommitmentAndMetadata {
             commitment: payload_commitment,
             metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         },
         secondary_proposal_information:
             hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(
@@ -282,6 +284,7 @@ async fn test_quorum_proposal_task_propose_now() {
         commitment_and_metadata: CommitmentAndMetadata {
             commitment: payload_commitment,
             metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         },
         secondary_proposal_information:
             hotshot_types::consensus::SecondaryProposalInformation::Timeout(build_cert::<
@@ -305,6 +308,7 @@ async fn test_quorum_proposal_task_propose_now() {
         commitment_and_metadata: CommitmentAndMetadata {
             commitment: payload_commitment,
             metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         },
         secondary_proposal_information:
             hotshot_types::consensus::SecondaryProposalInformation::ViewSync(build_cert::<

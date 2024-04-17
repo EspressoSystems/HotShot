@@ -23,7 +23,7 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
-        block_contents::{BlockHeader, BuilderFee},
+        block_contents::BlockHeader,
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
@@ -34,7 +34,6 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -60,17 +59,6 @@ use crate::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-
-/// Alias for the block payload commitment, associated metadata and signed builder fee
-#[derive(Debug, Clone)]
-pub struct CommitmentAndMetadata<TYPES: NodeType> {
-    /// Vid Commitment
-    pub commitment: VidCommitment,
-    /// Metadata for the block payload
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
-    /// Builder fee data
-    pub fee: BuilderFee<TYPES>,
-}
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
