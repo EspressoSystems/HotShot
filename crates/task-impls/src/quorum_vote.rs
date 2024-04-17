@@ -112,12 +112,6 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     }
                 }
                 HotShotEvent::VoteNow(_, vote_dependency_data) => {
-                    payload_commitment = Some(
-                        vote_dependency_data
-                            .quorum_proposal
-                            .block_header
-                            .payload_commitment(),
-                    );
                     leaf = Some(vote_dependency_data.leaf.clone());
                     disperse_share = Some(vote_dependency_data.disperse_share.clone());
                 }
