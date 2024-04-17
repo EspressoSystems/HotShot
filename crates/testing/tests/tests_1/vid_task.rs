@@ -1,18 +1,22 @@
+use std::{collections::HashMap, marker::PhantomData};
+
 use hotshot::types::SignatureKey;
-use hotshot_example_types::{block_types::{TestBlockPayload, TestTransaction}, node_types::TestTypes};
+use hotshot_example_types::{
+    block_types::{TestBlockPayload, TestTransaction},
+    node_types::TestTypes,
+};
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
-    data::{DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    data::{null_block, DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
     traits::{
-        BlockPayload,
         consensus_api::ConsensusApi,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
+        BlockPayload,
     },
 };
 use jf_primitives::vid::VidScheme;
-use std::collections::HashMap;
-use std::marker::PhantomData;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -54,11 +58,8 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
 
-    let vid_disperse = VidDisperse::from_membership(
-        message.data.view_number,
-        vid_disperse,
-        &quorum_membership,
-    );
+    let vid_disperse =
+        VidDisperse::from_membership(message.data.view_number, vid_disperse, &quorum_membership);
 
     let vid_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -85,6 +86,7 @@ async fn test_vid_task() {
         encoded_transactions.clone(),
         (),
         ViewNumber::new(2),
+        null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),
@@ -101,7 +103,13 @@ async fn test_vid_task() {
     );
 
     output.insert(
-        HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, builder_commitment, (), ViewNumber::new(2)),
+        HotShotEvent::SendPayloadCommitmentAndMetadata(
+            payload_commitment,
+            builder_commitment,
+            (),
+            ViewNumber::new(2),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+        ),
         1,
     );
     output.insert(

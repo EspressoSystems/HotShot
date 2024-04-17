@@ -1,5 +1,6 @@
 use either::Either;
 use hotshot_types::{
+    consensus::ProposalDependencyData,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -10,9 +11,10 @@ use hotshot_types::{
         DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{node_implementation::NodeType, BlockPayload},
+    traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
     utils::BuilderCommitment,
     vid::VidCommitment,
+    vote::VoteDependencyData,
 };
 use vbs::version::Version;
 
@@ -24,6 +26,7 @@ pub struct HotShotTaskCompleted;
 
 /// All of the possible events that can be passed between Sequecning `HotShot` tasks
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
     Shutdown,
@@ -108,12 +111,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
         BuilderCommitment,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        BuilderFee<TYPES>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
         Vec<u8>,
         <TYPES::BlockPayload as BlockPayload>::Metadata,
         TYPES::Time,
+        BuilderFee<TYPES>,
     ),
     /// Event when the transactions task has a block formed
     BlockReady(VidDisperse<TYPES>, TYPES::Time),
@@ -141,4 +146,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
+    /// Initiate a proposal right now for a provided view.
+    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
+    /// Initiate a vote right now for the designated view.
+    VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 }

@@ -61,7 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
                 let payload = <TYPES as NodeType>::BlockPayload::from_bytes(
                     encoded_transactions.clone().into_iter(),
                     metadata,
@@ -79,6 +79,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         builder_commitment,
                         metadata.clone(),
                         *view_number,
+                        fee.clone(),
                     )),
                     &event_stream,
                 )
@@ -174,7 +175,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _)
+                | HotShotEvent::BlockRecv(_, _, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )
