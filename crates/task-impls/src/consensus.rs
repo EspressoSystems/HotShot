@@ -630,7 +630,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             #[cfg(not(feature = "proposal-task"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
-                debug!(
+                error!(
                     "Received Quorum Proposal for view {}",
                     *proposal.data.view_number
                 );
