@@ -1,5 +1,9 @@
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-use hotshot::types::SystemContextHandle;
+use std::time::Duration;
+
+use hotshot::{
+    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    types::SystemContextHandle,
+};
 use hotshot_example_types::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
@@ -9,26 +13,26 @@ use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
-    predicates::event::*,
-    predicates::upgrade::*,
+    predicates::{event::*, upgrade::*},
     script::{Expectations, TaskScript},
+    task_helpers::get_vid_share,
     view_generator::TestViewGenerator,
 };
-use hotshot_testing::task_helpers::get_vid_share;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{null_block, ViewNumber},
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
 };
-use std::time::Duration;
 use vbs::version::Version;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
 async fn test_consensus_task_upgrade() {
-    use hotshot_testing::script::{run_test_script, TestScriptStage};
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::{
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -249,8 +253,10 @@ async fn test_upgrade_and_consensus_task() {
             DACertificateRecv(dacs[1].clone()),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
+                proposals[2].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
         ],
@@ -437,8 +443,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             DACertificateRecv(dacs[1].clone()),
             SendPayloadCommitmentAndMetadata(
                 vids[1].0[0].data.payload_commitment,
+                proposals[1].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
         ],
         vec![
@@ -446,8 +454,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
+                proposals[2].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(3),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
@@ -456,8 +466,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             VIDShareRecv(get_vid_share(&vids[3].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[3].0[0].data.payload_commitment,
+                proposals[3].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(4),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
@@ -466,8 +478,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             VIDShareRecv(get_vid_share(&vids[4].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[4].0[0].data.payload_commitment,
+                proposals[4].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(5),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
@@ -475,8 +489,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             DACertificateRecv(dacs[5].clone()),
             SendPayloadCommitmentAndMetadata(
                 vids[5].0[0].data.payload_commitment,
+                proposals[5].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(6),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
@@ -485,8 +501,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             VIDShareRecv(get_vid_share(&vids[6].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[6].0[0].data.payload_commitment,
+                proposals[6].data.block_header.builder_commitment.clone(),
                 (),
                 ViewNumber::new(7),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],

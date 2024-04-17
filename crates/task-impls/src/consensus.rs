@@ -1,7 +1,6 @@
 use core::time::Duration;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
 };
 
@@ -13,16 +12,16 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::Committable;
-use futures::future::{join_all, FutureExt};
+use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{CommitmentAndMetadata, Consensus, View},
     constants::LOOK_AHEAD,
-    data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         consensus_api::ConsensusApi,
@@ -35,28 +34,31 @@ use hotshot_types::{
         BlockPayload,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
+#[cfg(not(feature = "dependency-tasks"))]
+use {
+    crate::helpers::AnyhowTracing,
+    futures::FutureExt,
+    hotshot_types::{
+        data::{null_block, VidDisperseShare},
+        message::GeneralConsensusMessage,
+        simple_vote::QuorumData,
+    },
+    std::marker::PhantomData,
+};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-/// Alias for the block payload commitment and the associated metadata.
-pub struct CommitmentAndMetadata<PAYLOAD: BlockPayload> {
-    /// Vid Commitment
-    pub commitment: VidCommitment,
-    /// Metadata for the block payload
-    pub metadata: <PAYLOAD as BlockPayload>::Metadata,
-}
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -206,14 +208,14 @@ pub(crate) async fn validate_proposal<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "dependency-tasks"))]
 async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     view: TYPES::Time,
-    commitment: VidCommitment,
-    metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    commitment_and_metadata: CommitmentAndMetadata<TYPES>,
     parent_leaf: Leaf<TYPES>,
     state: Arc<TYPES::ValidatedState>,
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -224,8 +226,10 @@ async fn create_and_send_proposal<TYPES: NodeType>(
         state.as_ref(),
         &consensus.read().await.instance_state,
         &parent_leaf,
-        commitment,
-        metadata,
+        commitment_and_metadata.commitment,
+        commitment_and_metadata.builder_commitment,
+        commitment_and_metadata.metadata,
+        commitment_and_metadata.fee,
     )
     .await;
 
@@ -287,7 +291,7 @@ pub struct ConsensusTaskState<
     pub cur_view: TYPES::Time,
 
     /// The commitment to the current block payload and its metadata submitted to DA.
-    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES::BlockPayload>>,
+    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
 
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
@@ -368,7 +372,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         self.spawned_tasks = keep;
         join_all(cancel).await;
     }
+
+    /// Ignores old vote behavior and lets `QuorumVoteTask` take over.
+    #[cfg(feature = "dependency-tasks")]
+    async fn vote_if_able(&mut self, _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
+        false
+    }
+
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
+    #[cfg(not(feature = "dependency-tasks"))]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
     async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
@@ -592,6 +604,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 
     /// Validates whether the VID Dispersal Proposal is correctly signed
+    #[cfg(not(feature = "dependency-tasks"))]
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.get_view_number();
         let payload_commitment = disperse.data.payload_commitment;
@@ -627,7 +640,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            #[cfg(not(feature = "proposal-task"))]
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
                 debug!(
@@ -1209,6 +1222,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::DACertificateRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
@@ -1231,6 +1245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.current_proposal = None;
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
@@ -1385,12 +1400,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
-            HotShotEvent::SendPayloadCommitmentAndMetadata(payload_commitment, metadata, view) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                metadata,
+                view,
+                fee,
+            ) => {
                 let view = *view;
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
+                    builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
+                    fee: fee.clone(),
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1450,7 +1473,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 
     /// Ignores old propose behavior and lets QuorumProposalTask take over.
-    #[cfg(feature = "proposal-task")]
+    #[cfg(feature = "dependency-tasks")]
     pub async fn publish_proposal_if_able(
         &mut self,
         _view: TYPES::Time,
@@ -1460,7 +1483,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
-    #[cfg(not(feature = "proposal-task"))]
+    #[cfg(not(feature = "dependency-tasks"))]
     pub async fn publish_proposal_if_able(
         &mut self,
         view: TYPES::Time,
@@ -1533,18 +1556,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         if let Some(upgrade_cert) = &self.decided_upgrade_cert {
             if upgrade_cert.in_interim(self.cur_view) {
-                let Ok((_payload, metadata)) =
+                let Ok((payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
                 else {
                     error!("Failed to build null block payload and metadata");
                     return;
                 };
 
+                let builder_commitment = payload.builder_commitment(&metadata);
                 let Some(null_block_commitment) =
                     null_block::commitment(self.quorum_membership.total_nodes())
                 else {
                     // This should never happen.
                     error!("Failed to calculate null block commitment");
+                    return;
+                };
+
+                let Some(null_block_fee) =
+                    null_block::builder_fee::<TYPES>(self.quorum_membership.total_nodes())
+                else {
+                    // This should never happen.
+                    error!("Failed to calculate null block fee info");
                     return;
                 };
 
@@ -1566,8 +1598,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             consensus,
                             sender,
                             view,
-                            null_block_commitment,
-                            metadata,
+                            CommitmentAndMetadata {
+                                commitment: null_block_commitment,
+                                builder_commitment,
+                                metadata,
+                                fee: null_block_fee,
+                            },
                             parent,
                             state,
                             upgrade_cert,
@@ -1610,10 +1646,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             let priv_key = self.private_key.clone();
             let consensus = self.consensus.clone();
             let sender = event_stream.clone();
-            let commit = commit_and_metadata.commitment;
-            let metadata = commit_and_metadata.metadata.clone();
             let state = state.clone();
             let delay = self.round_start_delay;
+            let commitment_and_metadata = commit_and_metadata.clone();
             self.spawned_tasks
                 .entry(view)
                 .or_default()
@@ -1624,8 +1659,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         consensus,
                         sender,
                         view,
-                        commit,
-                        metadata,
+                        commitment_and_metadata,
                         parent_leaf.clone(),
                         state,
                         proposal_upgrade_certificate,

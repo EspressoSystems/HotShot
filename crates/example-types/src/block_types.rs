@@ -7,7 +7,7 @@ use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, BuilderFee, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -177,6 +177,8 @@ pub struct TestBlockHeader {
     pub block_number: u64,
     /// VID commitment to the payload.
     pub payload_commitment: VidCommitment,
+    /// Fast commitment for builder verification
+    pub builder_commitment: BuilderCommitment,
     /// Timestamp when this header was created.
     pub timestamp: u64,
 }
@@ -189,7 +191,9 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _builder_fee: BuilderFee<TYPES>,
     ) -> Self {
         let parent = parent_leaf.get_block_header();
 
@@ -202,6 +206,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         Self {
             block_number: parent.block_number + 1,
             payload_commitment,
+            builder_commitment,
             timestamp,
         }
     }
@@ -209,11 +214,13 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     fn genesis(
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
             payload_commitment,
+            builder_commitment,
             timestamp: 0,
         }
     }
@@ -230,13 +237,8 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         &()
     }
 
-    fn builder_commitment(
-        &self,
-        _metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
-    ) -> BuilderCommitment {
-        let mut digest = sha2::Sha256::new();
-        digest.update(self.payload_commitment.as_ref());
-        BuilderCommitment::from_raw_digest(digest.finalize())
+    fn builder_commitment(&self) -> BuilderCommitment {
+        self.builder_commitment.clone()
     }
 }
 

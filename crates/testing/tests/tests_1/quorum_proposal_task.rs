@@ -1,24 +1,27 @@
-use hotshot::tasks::inject_quorum_proposal_polls;
-use hotshot::tasks::task_state::CreateTaskState;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_example_types::state_types::TestValidatedState;
-use hotshot_task_impls::events::HotShotEvent::*;
-use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
-use hotshot_testing::predicates::event::quorum_proposal_send;
-use hotshot_testing::task_helpers::vid_scheme_from_view_number;
+use hotshot::tasks::{inject_quorum_proposal_polls, task_state::CreateTaskState};
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes},
+    state_types::TestValidatedState,
+};
+use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
+    predicates::event::quorum_proposal_send,
     script::{run_test_script, TestScriptStage},
-    task_helpers::build_system_handle,
+    task_helpers::{build_system_handle, vid_scheme_from_view_number},
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
     simple_vote::ViewSyncFinalizeData,
-    traits::node_implementation::{ConsensusTime, NodeType},
-    utils::{View, ViewInner},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
+    },
+    utils::{BuilderCommitment, View, ViewInner},
     vid::VidSchemeType,
 };
 use jf_primitives::vid::VidScheme;
+use sha2::Digest;
 
 fn make_payload_commitment(
     membership: &<TestTypes as NodeType>::Membership,
@@ -35,6 +38,8 @@ fn make_payload_commitment(
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal() {
+    use hotshot_types::data::null_block;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -83,13 +88,20 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     // Release the write lock before proceeding with the test
     drop(consensus);
     let cert = proposals[1].data.justify_qc.clone();
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
+    // Run at view 2, the quorum proposal task shouldn't care as long as the bookkeeping is correct
     let view_2 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
             QCFormed(either::Left(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                (),
+                ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            ),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
@@ -107,13 +119,14 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_qc_timeout() {
-    use hotshot_types::simple_vote::TimeoutData;
+    use hotshot_types::{data::null_block, simple_vote::TimeoutData};
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -142,7 +155,13 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let view_2 = TestScriptStage {
         inputs: vec![
             QCFormed(either::Right(cert.clone())),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                (),
+                ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            ),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
@@ -160,6 +179,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_view_sync() {
+    use hotshot_types::data::null_block;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -168,6 +189,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
@@ -198,7 +220,13 @@ async fn test_quorum_proposal_task_view_sync() {
     let view_2 = TestScriptStage {
         inputs: vec![
             ViewSyncFinalizeCertificate2Recv(cert.clone()),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                (),
+                ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            ),
         ],
         outputs: vec![quorum_proposal_send()],
         asserts: vec![],
@@ -210,6 +238,132 @@ async fn test_quorum_proposal_task_view_sync() {
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
+}
+
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_proposal_task_propose_now() {
+    use hotshot_testing::task_helpers::{build_cert, key_pair_for_id};
+    use hotshot_types::{
+        consensus::{CommitmentAndMetadata, ProposalDependencyData},
+        data::null_block,
+        simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
+        simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeVote},
+    };
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+
+    let handle = build_system_handle(2).await.0;
+    let (private_key, public_key) = key_pair_for_id(2);
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
+
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+    }
+    for view in (&mut generator).take(1) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+    }
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    // proposal dependency data - quorum proposal and cert
+    let pdd_qp = ProposalDependencyData {
+        commitment_and_metadata: CommitmentAndMetadata {
+            commitment: payload_commitment,
+            builder_commitment: builder_commitment.clone(),
+            metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+        },
+        secondary_proposal_information:
+            hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(
+                proposals[1].data.clone(),
+                proposals[1].data.justify_qc.clone(),
+            ),
+    };
+
+    // proposal dependency data - timeout cert
+    let pdd_timeout = ProposalDependencyData {
+        commitment_and_metadata: CommitmentAndMetadata {
+            commitment: payload_commitment,
+            builder_commitment: builder_commitment.clone(),
+            metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+        },
+        secondary_proposal_information:
+            hotshot_types::consensus::SecondaryProposalInformation::Timeout(build_cert::<
+                TestTypes,
+                TimeoutData<TestTypes>,
+                TimeoutVote<TestTypes>,
+                TimeoutCertificate<TestTypes>,
+            >(
+                TimeoutData {
+                    view: ViewNumber::new(1),
+                },
+                &quorum_membership,
+                ViewNumber::new(2),
+                &public_key,
+                &private_key,
+            )),
+    };
+
+    // proposal dependency data - view sync cert
+    let pdd_view_sync = ProposalDependencyData {
+        commitment_and_metadata: CommitmentAndMetadata {
+            commitment: payload_commitment,
+            builder_commitment,
+            metadata: (),
+            fee: null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+        },
+        secondary_proposal_information:
+            hotshot_types::consensus::SecondaryProposalInformation::ViewSync(build_cert::<
+                TestTypes,
+                ViewSyncFinalizeData<TestTypes>,
+                ViewSyncFinalizeVote<TestTypes>,
+                ViewSyncFinalizeCertificate2<TestTypes>,
+            >(
+                ViewSyncFinalizeData {
+                    relay: 1,
+                    round: ViewNumber::new(1),
+                },
+                &quorum_membership,
+                ViewNumber::new(2),
+                &public_key,
+                &private_key,
+            )),
+    };
+
+    let view_qp = TestScriptStage {
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_qp)],
+        outputs: vec![quorum_proposal_send()],
+        asserts: vec![],
+    };
+
+    let view_timeout = TestScriptStage {
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_timeout)],
+        outputs: vec![quorum_proposal_send()],
+        asserts: vec![],
+    };
+
+    let view_view_sync = TestScriptStage {
+        inputs: vec![ProposeNow(ViewNumber::new(2), pdd_view_sync)],
+        outputs: vec![quorum_proposal_send()],
+        asserts: vec![],
+    };
+
+    for stage in vec![view_qp, view_timeout, view_view_sync] {
+        let quorum_proposal_task_state =
+            QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+        inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
+
+        let script = vec![stage];
+        run_test_script(script, quorum_proposal_task_state).await;
+    }
 }
 
 #[cfg(test)]

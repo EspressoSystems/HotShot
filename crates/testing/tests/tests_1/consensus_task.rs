@@ -1,29 +1,35 @@
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-use hotshot::types::SystemContextHandle;
+use hotshot::{
+    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    types::SystemContextHandle,
+};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
-use hotshot_testing::task_helpers::key_pair_for_id;
-use hotshot_testing::task_helpers::get_vid_share;
-use hotshot_testing::test_helpers::permute_input_with_index_order;
 use hotshot_testing::{
     predicates::event::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{build_system_handle, vid_scheme_from_view_number},
+    task_helpers::{
+        build_system_handle, get_vid_share, key_pair_for_id, vid_scheme_from_view_number,
+    },
+    test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData};
 use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
-    traits::node_implementation::ConsensusTime,
+    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
+    traits::{election::Membership, node_implementation::ConsensusTime},
+    utils::BuilderCommitment,
 };
 use jf_primitives::vid::VidScheme;
+use sha2::Digest;
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
+    use hotshot_types::data::null_block;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -68,6 +74,7 @@ async fn test_consensus_task() {
     };
 
     let cert = proposals[1].data.justify_qc.clone();
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     // Run view 2 and propose.
     let view_2 = TestScriptStage {
@@ -75,7 +82,13 @@ async fn test_consensus_task() {
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QCFormed(either::Left(cert)),
             // We must have a payload commitment and metadata to propose.
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(2)),
+            SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                (),
+                ViewNumber::new(2),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            ),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -246,6 +259,8 @@ async fn test_consensus_vote_with_permuted_dac() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
+    use hotshot_types::data::null_block;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -343,13 +358,20 @@ async fn test_view_sync_finalize_propose() {
     )
     .unwrap();
 
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let view_4 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             TimeoutVoteRecv(timeout_vote_view_2),
             TimeoutVoteRecv(timeout_vote_view_3),
             ViewSyncFinalizeCertificate2Recv(cert),
-            SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(4)),
+            SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                (),
+                ViewNumber::new(4),
+                null_block::builder_fee(4).unwrap(),
+            ),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),

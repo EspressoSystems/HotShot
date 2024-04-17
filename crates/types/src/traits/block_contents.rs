@@ -11,9 +11,10 @@ use std::{
 };
 
 use committable::{Commitment, Committable};
-use jf_primitives::vid::VidScheme;
+use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Serialize};
 
+use super::signature_key::BuilderSignatureKey;
 use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, ValidatedState},
@@ -116,12 +117,27 @@ pub trait TestableBlock: BlockPayload + Debug {
 /// # Panics
 /// If the VID computation fails.
 #[must_use]
+#[allow(clippy::panic)]
 pub fn vid_commitment(
     encoded_transactions: &Vec<u8>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
-    #[allow(clippy::panic)]
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:\n\t(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}\n\t{err}", encoded_transactions.len()))
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
+}
+
+/// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
+/// # Panics
+/// If the VID computation fails.
+#[must_use]
+#[allow(clippy::panic)]
+pub fn precompute_vid_commitment(
+    encoded_transactions: &Vec<u8>,
+    num_storage_nodes: usize,
+) -> (
+    <VidSchemeType as VidScheme>::Commit,
+    <VidSchemeType as Precomputable>::PrecomputeData,
+) {
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.
@@ -129,6 +145,15 @@ pub fn vid_commitment(
 /// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Information about builder fee for proposed block
+pub struct BuilderFee<TYPES: NodeType> {
+    /// Proposed fee amount
+    pub fee_amount: u64,
+    /// Signature over fee amount
+    pub fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
+}
 
 /// Header of a block, which commits to a [`BlockPayload`].
 pub trait BlockHeader<TYPES: NodeType>:
@@ -141,13 +166,16 @@ pub trait BlockHeader<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        builder_fee: BuilderFee<TYPES>,
     ) -> impl Future<Output = Self> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self;
 
@@ -161,8 +189,5 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
 
     /// Get the builder commitment
-    fn builder_commitment(
-        &self,
-        metadata: &<TYPES::BlockPayload as BlockPayload>::Metadata,
-    ) -> BuilderCommitment;
+    fn builder_commitment(&self) -> BuilderCommitment;
 }
