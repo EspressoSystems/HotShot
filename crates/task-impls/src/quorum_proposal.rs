@@ -1,6 +1,5 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
-use anyhow::{ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -16,7 +15,6 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    constants::LOOK_AHEAD,
     data::{Leaf, QuorumProposal},
     event::Event,
     message::Proposal,

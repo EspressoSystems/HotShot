@@ -6,7 +6,7 @@ use crate::{
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
