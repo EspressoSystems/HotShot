@@ -30,7 +30,7 @@ use std::marker::PhantomData;
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-pub(crate) async fn validate_proposal<TYPES: NodeType>(
+pub async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -172,7 +172,7 @@ pub(crate) async fn validate_proposal<TYPES: NodeType>(
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
-pub(crate) async fn create_and_send_proposal<TYPES: NodeType>(
+pub async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,

@@ -12,16 +12,14 @@ use crate::{
     },
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use chrono::Utc;
 use committable::Committable;
-use core::time::Duration;
 use futures::{future::join_all, FutureExt};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
-    constants::LOOK_AHEAD,
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
@@ -59,7 +57,10 @@ use {
     },
 };
 
+/// Handles proposal-related functionality.
 pub(crate) mod proposal;
+
+/// Handles view-change related functionality.
 pub(crate) mod view_change;
 
 /// Alias for Optional type for Vote Collectors
