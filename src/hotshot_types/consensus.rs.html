@@ -427,6 +427,8 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -452,7 +454,7 @@
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
-    utils::{StateAndDelta, Terminator},
+    utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
 };
 
@@ -829,6 +831,8 @@
 </span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Vid Commitment
     </span><span class="kw">pub </span>commitment: VidCommitment,
+    <span class="doccomment">/// Builder Commitment
+    </span><span class="kw">pub </span>builder_commitment: BuilderCommitment,
     <span class="doccomment">/// Metadata for the block payload
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     <span class="doccomment">/// Builder fee data

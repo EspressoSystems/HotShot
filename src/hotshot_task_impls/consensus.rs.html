@@ -1709,6 +1709,11 @@
 <a href="#1707" id="1707">1707</a>
 <a href="#1708" id="1708">1708</a>
 <a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -1938,6 +1943,7 @@
         <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
         <span class="kw-2">&amp;</span>parent_leaf,
         commitment_and_metadata.commitment,
+        commitment_and_metadata.builder_commitment,
         commitment_and_metadata.metadata,
         commitment_and_metadata.fee,
     )
@@ -3112,6 +3118,7 @@
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
+                builder_commitment,
                 metadata,
                 view,
                 fee,
@@ -3120,6 +3127,7 @@
                 <span class="macro">debug!</span>(<span class="string">"got commit and meta {:?}"</span>, payload_commitment);
                 <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                     commitment: <span class="kw-2">*</span>payload_commitment,
+                    builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                     fee: fee.clone(),
                 });
@@ -3264,13 +3272,14 @@
         <span class="comment">// Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_cert {
             <span class="kw">if </span>upgrade_cert.in_interim(<span class="self">self</span>.cur_view) {
-                <span class="kw">let </span><span class="prelude-val">Ok</span>((_payload, metadata)) =
+                <span class="kw">let </span><span class="prelude-val">Ok</span>((payload, metadata)) =
                     &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(Vec::new())
                 <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to build null block payload and metadata"</span>);
                     <span class="kw">return</span>;
                 };
 
+                <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
                 <span class="kw">let </span><span class="prelude-val">Some</span>(null_block_commitment) =
                     null_block::commitment(<span class="self">self</span>.quorum_membership.total_nodes())
                 <span class="kw">else </span>{
@@ -3307,6 +3316,7 @@
                             view,
                             CommitmentAndMetadata {
                                 commitment: null_block_commitment,
+                                builder_commitment,
                                 metadata,
                                 fee: null_block_fee,
                             },

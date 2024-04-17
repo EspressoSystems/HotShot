@@ -729,6 +729,11 @@
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1170,13 +1175,18 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(payload, metadata) = TYPES::BlockPayload::genesis();
+        <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
         <span class="kw">let </span>payload_bytes = payload
             .encode()
             .expect(<span class="string">"unable to encode genesis payload"</span>)
             .collect();
         <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
-        <span class="kw">let </span>block_header =
-            TYPES::BlockHeader::genesis(instance_state, payload_commitment, metadata);
+        <span class="kw">let </span>block_header = TYPES::BlockHeader::genesis(
+            instance_state,
+            payload_commitment,
+            builder_commitment,
+            metadata,
+        );
         <span class="self">Self </span>{
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::&lt;TYPES&gt;::genesis(),

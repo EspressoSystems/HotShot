@@ -366,11 +366,6 @@
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -554,10 +549,7 @@
         {
             <span class="kw">let </span><span class="prelude-val">Ok</span>(request_signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                last_leaf
-                    .get_block_header()
-                    .builder_commitment(last_leaf.get_block_header().metadata())
-                    .as_ref(),
+                last_leaf.get_block_header().builder_commitment().as_ref(),
             ) <span class="kw">else </span>{
                 <span class="macro">error!</span>(<span class="string">"Failed to sign block hash"</span>);
                 <span class="kw">continue</span>;
@@ -566,9 +558,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span><span class="self">self
                 </span>.builder_client
                 .get_available_blocks(
-                    last_leaf
-                        .get_block_header()
-                        .builder_commitment(last_leaf.get_block_header().metadata()),
+                    last_leaf.get_block_header().builder_commitment(),
                     <span class="self">self</span>.public_key.clone(),
                     <span class="kw-2">&amp;</span>request_signature,
                 )

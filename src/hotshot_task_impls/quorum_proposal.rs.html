@@ -991,6 +991,11 @@
 <a href="#989" id="989">989</a>
 <a href="#990" id="990">990</a>
 <a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1177,6 +1182,7 @@
             <span class="kw-2">&amp;</span>consensus.instance_state,
             <span class="kw-2">&amp;</span>parent_leaf,
             commit_and_metadata.commitment,
+            commit_and_metadata.builder_commitment,
             commit_and_metadata.metadata,
             commit_and_metadata.fee,
         )
@@ -1248,6 +1254,7 @@
                 }
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
                     payload_commitment,
+                    builder_commitment,
                     metadata,
                     _view,
                     fee,
@@ -1255,6 +1262,7 @@
                     <span class="macro">debug!</span>(<span class="string">"Got commit and meta {:?}"</span>, payload_commitment);
                     commit_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                         commitment: <span class="kw-2">*</span>payload_commitment,
+                        builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
                         fee: fee.clone(),
                     });
@@ -1406,6 +1414,7 @@
                     ProposalDependency::PayloadAndMetadata =&gt; {
                         <span class="kw">if let </span>HotShotEvent::SendPayloadCommitmentAndMetadata(
                             _payload_commitment,
+                            _builder_commitment,
                             _metadata,
                             view,
                             _fee,
@@ -1668,6 +1677,7 @@
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
+                _builder_commitment,
                 _metadata,
                 view,
                 _fee,

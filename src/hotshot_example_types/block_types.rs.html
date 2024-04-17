@@ -263,6 +263,7 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -442,6 +443,8 @@
     </span><span class="kw">pub </span>block_number: u64,
     <span class="doccomment">/// VID commitment to the payload.
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
+    <span class="doccomment">/// Fast commitment for builder verification
+    </span><span class="kw">pub </span>builder_commitment: BuilderCommitment,
     <span class="doccomment">/// Timestamp when this header was created.
     </span><span class="kw">pub </span>timestamp: u64,
 }
@@ -454,6 +457,7 @@
         _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         _builder_fee: BuilderFee&lt;TYPES&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -468,6 +472,7 @@
         <span class="self">Self </span>{
             block_number: parent.block_number + <span class="number">1</span>,
             payload_commitment,
+            builder_commitment,
             timestamp,
         }
     }
@@ -475,11 +480,13 @@
     <span class="kw">fn </span>genesis(
         _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             block_number: <span class="number">0</span>,
             payload_commitment,
+            builder_commitment,
             timestamp: <span class="number">0</span>,
         }
     }
@@ -496,13 +503,8 @@
         <span class="kw-2">&amp;</span>()
     }
 
-    <span class="kw">fn </span>builder_commitment(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _metadata: <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
-    ) -&gt; BuilderCommitment {
-        <span class="kw">let </span><span class="kw-2">mut </span>digest = sha2::Sha256::new();
-        digest.update(<span class="self">self</span>.payload_commitment.as_ref());
-        BuilderCommitment::from_raw_digest(digest.finalize())
+    <span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BuilderCommitment {
+        <span class="self">self</span>.builder_commitment.clone()
     }
 }
 
