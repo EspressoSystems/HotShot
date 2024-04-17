@@ -62,10 +62,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event.as_ref() {
             HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
                 let vid_disperse = calculate_vid_disperse(
-                    &encoded_transactions.clone(),
+                    encoded_transactions.clone(),
                     &self.membership.clone(),
                     *view_number,
-                );
+                )
+                .await;
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
