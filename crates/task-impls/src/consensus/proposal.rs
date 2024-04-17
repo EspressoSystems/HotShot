@@ -8,17 +8,16 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
 use core::time::Duration;
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{CommitmentAndMetadata, Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
-        states::ValidatedState, storage::Storage, BlockPayload,
+        states::ValidatedState, storage::Storage,
     },
     utils::{Terminator, ViewInner},
-    vid::VidCommitment,
     vote::HasViewNumber,
 };
 use tracing::{debug, error, warn};
@@ -172,14 +171,13 @@ pub async fn validate_proposal<TYPES: NodeType>(
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
-pub async fn create_and_send_proposal<TYPES: NodeType>(
+pub(crate) async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     view: TYPES::Time,
-    commitment: VidCommitment,
-    metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    commitment_and_metadata: CommitmentAndMetadata<TYPES>,
     parent_leaf: Leaf<TYPES>,
     state: Arc<TYPES::ValidatedState>,
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -190,8 +188,9 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         state.as_ref(),
         &consensus.read().await.instance_state,
         &parent_leaf,
-        commitment,
-        metadata,
+        commitment_and_metadata.commitment,
+        commitment_and_metadata.metadata,
+        commitment_and_metadata.fee,
     )
     .await;
 
