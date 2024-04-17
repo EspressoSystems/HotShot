@@ -122,7 +122,7 @@ test_consensus_task:
 
 test_quorum_vote_task:
   echo Testing the quorum vote task
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_vote_task -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_vote_task -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task
