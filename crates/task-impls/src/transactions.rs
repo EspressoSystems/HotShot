@@ -179,6 +179,11 @@ impl<
                     < self.api.min_transactions()
             })
         {
+            // Sleep if this isn't the first iteration
+            if latest_block.is_some() {
+                async_sleep(Duration::from_millis(100)).await;
+            }
+
             let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
                 &self.private_key,
                 last_leaf.get_block_header().builder_commitment().as_ref(),
@@ -236,7 +241,6 @@ impl<
                     .builder_commitment(&builder_response.block_data.metadata)
                     == block_info.block_hash
             }) {
-                async_sleep(Duration::from_millis(100)).await;
                 continue;
             }
 
@@ -326,7 +330,6 @@ impl<
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }
-            async_sleep(Duration::from_millis(100)).await;
         }
         latest_block
     }
