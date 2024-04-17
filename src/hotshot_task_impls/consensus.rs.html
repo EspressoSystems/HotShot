@@ -1680,31 +1680,59 @@
 <a href="#1678" id="1678">1678</a>
 <a href="#1679" id="1679">1679</a>
 <a href="#1680" id="1680">1680</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
-<span class="kw">use </span>std::{
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
     sync::Arc,
 };
 
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>futures::future::{join_all, FutureExt};
+<span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
     constants::LOOK_AHEAD,
-    data::{null_block, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         consensus_api::ConsensusApi,
@@ -1720,18 +1748,26 @@
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
+
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>{
+    <span class="kw">crate</span>::helpers::AnyhowTracing,
+    futures::FutureExt,
+    hotshot_types::{
+        data::{null_block, VidDisperseShare},
+        message::GeneralConsensusMessage,
+        simple_vote::QuorumData,
     },
+    std::marker::PhantomData,
 };
+
 <span class="doccomment">/// Alias for the block payload commitment and the associated metadata.
 </span><span class="kw">pub struct </span>CommitmentAndMetadata&lt;PAYLOAD: BlockPayload&gt; {
     <span class="doccomment">/// Vid Commitment
@@ -1888,6 +1924,7 @@
 <span class="doccomment">/// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">async fn </span>create_and_send_proposal&lt;TYPES: NodeType&gt;(
     pub_key: TYPES::SignatureKey,
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -2050,7 +2087,15 @@
         <span class="self">self</span>.spawned_tasks = keep;
         join_all(cancel).<span class="kw">await</span>;
     }
+
+    <span class="doccomment">/// Ignores old vote behavior and lets `QuorumVoteTask` take over.
+    </span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus vote if able"</span>, level = <span class="string">"error"</span>)]
+    #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
     </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) -&gt; bool {
@@ -2274,6 +2319,7 @@
     </span>}
 
     <span class="doccomment">/// Validates whether the VID Dispersal Proposal is correctly signed
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">fn </span>validate_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; bool {
         <span class="kw">let </span>view = disperse.data.get_view_number();
         <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
@@ -2309,7 +2355,7 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
-            <span class="attr">#[cfg(not(feature = <span class="string">"proposal-task"</span>))]
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>sender = sender.clone();
                 <span class="macro">debug!</span>(
@@ -2891,7 +2937,8 @@
                     <span class="self">self</span>.formed_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
-            HotShotEvent::DACertificateRecv(cert) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>HotShotEvent::DACertificateRecv(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
 
@@ -2913,7 +2960,8 @@
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }
             }
-            HotShotEvent::VIDShareRecv(disperse) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>HotShotEvent::VIDShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.get_view_number();
 
                 <span class="macro">debug!</span>(
@@ -3132,7 +3180,7 @@
     }
 
     <span class="doccomment">/// Ignores old propose behavior and lets QuorumProposalTask take over.
-    </span><span class="attr">#[cfg(feature = <span class="string">"proposal-task"</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _view: TYPES::Time,
@@ -3142,7 +3190,7 @@
 
     <span class="doccomment">/// Sends a proposal if possible from the high qc we have
     </span><span class="attr">#[allow(clippy::too_many_lines)]
-    #[cfg(not(feature = <span class="string">"proposal-task"</span>))]
+    #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">pub async fn </span>publish_proposal_if_able(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,

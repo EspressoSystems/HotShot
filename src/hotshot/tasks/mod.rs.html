@@ -342,8 +342,6 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -351,6 +349,7 @@
 
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
+<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
@@ -361,6 +360,7 @@
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     quorum_proposal::QuorumProposalTaskState,
+    quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
@@ -379,8 +379,6 @@
     },
 };
 <span class="kw">use </span>tracing::error;
-
-<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -598,21 +596,7 @@
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
-<span class="comment">// TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
-// &lt;https://github.com/EspressoSystems/HotShot/issues/2712&gt;
-// /// Add the quorum vote task.
-// pub async fn add_quorum_vote_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-//     task_reg: Arc&lt;TaskRegistry&gt;,
-//     tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-//     rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-//     handle: &amp;SystemContextHandle&lt;TYPES, I&gt;,
-// ) {
-//     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
-//     let task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
-//     task_reg.run_task(task).await;
-// }
-
-</span><span class="doccomment">/// add the VID task
+<span class="doccomment">/// add the VID task
 </span><span class="kw">pub async fn </span>add_vid_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     task_reg: Arc&lt;TaskRegistry&gt;,
     tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -686,6 +670,18 @@
     <span class="kw">let </span>quorum_proposal_task_state = QuorumProposalTaskState::create_from(handle).<span class="kw">await</span>;
     inject_quorum_proposal_polls(<span class="kw-2">&amp;</span>quorum_proposal_task_state).<span class="kw">await</span>;
     <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), quorum_proposal_task_state);
+    task_reg.run_task(task).<span class="kw">await</span>;
+}
+
+<span class="doccomment">/// Add the quorum vote task.
+</span><span class="kw">pub async fn </span>add_quorum_vote_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+    task_reg: Arc&lt;TaskRegistry&gt;,
+    tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+) {
+    <span class="kw">let </span>quorum_vote_state = QuorumVoteTaskState::create_from(handle).<span class="kw">await</span>;
+    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>
