@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    consensus::{update_view, validate_proposal},
+    consensus::{proposal::validate_proposal, view_change::update_view},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
