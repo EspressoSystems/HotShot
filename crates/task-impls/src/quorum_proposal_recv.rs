@@ -323,7 +323,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
 
                     if liveness_check {
                         let current_proposal = proposal.data.clone();
-                        self.current_proposal = Some(current_proposal.clone());
                         let new_view = proposal.data.view_number + 1;
 
                         // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
@@ -337,7 +336,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                                 *new_view
                             );
                             let pdd = {};
-                            broadcast_event(Arc::new(HotShotEvent::ProposeNow(qc.view_number + 1)))
+                            // broadcast_event(Arc::new(HotShotEvent::ProposeNow(qc.view_number + 1)))
                             // self.publish_proposal_if_able(qc.view_number + 1, &event_stream)
                             //     .await;
                         }
@@ -355,7 +354,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             proposal.clone(),
                             parent_leaf,
                             self.consensus.clone(),
-                            self.decided_upgrade_cert.clone(),
+                            // self.decided_upgrade_cert.clone(),
+                            None,
                             self.quorum_membership.clone(),
                             parent_state.clone(),
                             view_leader_key,
@@ -378,7 +378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(event.as_ref(), HotShotEvent::QuorumProposalRecv(..),)
+        !matches!(event.as_ref(), HotShotEvent::QuorumProposalRecv(..))
     }
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
