@@ -67,6 +67,18 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
     VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}")))
 }
 
+/// Similar to [`vid_scheme()`], but with `KZG_SRS_TEST` for testing purpose only.
+#[cfg(feature = "test-srs")]
+pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
+    let recovery_threshold = 1 << num_storage_nodes.ilog2();
+    #[allow(clippy::panic)]
+    let num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
+        panic!("num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}")
+    });
+    #[allow(clippy::panic)]
+    VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS_TEST).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}")))
+}
+
 /// VID commitment type
 pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
 /// VID common type
@@ -120,7 +132,7 @@ pub struct SmallRangeProofType(
 #[cfg(feature = "test-srs")]
 lazy_static! {
     /// SRS for testing only
-    static ref KZG_SRS: UnivariateUniversalParams<E> = {
+    static ref KZG_SRS_TEST: UnivariateUniversalParams<E> = {
         let mut rng = jf_utils::test_rng();
         UnivariateKzgPCS::<E>::gen_srs_for_testing(
             &mut rng,
@@ -131,7 +143,6 @@ lazy_static! {
 }
 
 // By default, use SRS from Aztec's ceremony
-#[cfg(not(feature = "test-srs"))]
 lazy_static! {
     /// SRS comment
     static ref KZG_SRS: UnivariateUniversalParams<E> = {
