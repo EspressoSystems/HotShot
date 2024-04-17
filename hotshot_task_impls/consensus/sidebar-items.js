@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","validate_proposal"],"struct":["CommitmentAndMetadata","ConsensusTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","validate_proposal"],"struct":["ConsensusTaskState"],"type":["VoteCollectorOption"]};

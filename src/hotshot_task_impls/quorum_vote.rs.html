@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_vote.rs`."><title>quorum_vote.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_vote.rs`."><title>quorum_vote.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -707,6 +707,52 @@
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -715,7 +761,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::{
-    dependency::{AndDependency, EventDependency},
+    dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
 };
@@ -755,6 +801,8 @@
     </span>Dac,
     <span class="doccomment">/// For the `VIDShareRecv` event.
     </span>Vid,
+    <span class="doccomment">/// For the `VoteNow` event.
+    </span>VoteNow,
 }
 
 <span class="doccomment">/// Handler for the vote dependency.
@@ -817,6 +865,10 @@
                     } <span class="kw">else </span>{
                         payload_commitment = <span class="prelude-val">Some</span>(vid_payload_commitment);
                     }
+                }
+                HotShotEvent::VoteNow(<span class="kw">_</span>, vote_dependency_data) =&gt; {
+                    leaf = <span class="prelude-val">Some</span>(vote_dependency_data.leaf.clone());
+                    disperse_share = <span class="prelude-val">Some</span>(vote_dependency_data.disperse_share.clone());
                 }
                 <span class="kw">_ </span>=&gt; {}
             }
@@ -941,6 +993,13 @@
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
+                    VoteDependency::VoteNow =&gt; {
+                        <span class="kw">if let </span>HotShotEvent::VoteNow(view, <span class="kw">_</span>) = event {
+                            <span class="kw-2">*</span>view
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                    }
                 };
                 <span class="kw">if </span>event_view == view_number {
                     <span class="macro">debug!</span>(<span class="string">"Vote dependency {:?} completed"</span>, dependency_type);
@@ -959,22 +1018,46 @@
         view_number: TYPES::Time,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event: <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">if </span><span class="self">self</span>.vote_dependencies.get(<span class="kw-2">&amp;</span>view_number).is_some() {
             <span class="kw">return</span>;
         }
-        <span class="kw">let </span>deps = <span class="macro">vec!</span>[
-            <span class="self">self</span>.create_event_dependency(
-                VoteDependency::QuorumProposal,
-                view_number,
-                event_receiver.clone(),
-            ),
-            <span class="self">self</span>.create_event_dependency(VoteDependency::Dac, view_number, event_receiver.clone()),
-            <span class="self">self</span>.create_event_dependency(VoteDependency::Vid, view_number, event_receiver),
-        ];
-        <span class="kw">let </span>vote_dependency = AndDependency::from_deps(deps);
+
+        <span class="kw">let </span>quorum_proposal_dependency = <span class="self">self</span>.create_event_dependency(
+            VoteDependency::QuorumProposal,
+            view_number,
+            event_receiver.clone(),
+        );
+        <span class="kw">let </span>dac_dependency =
+            <span class="self">self</span>.create_event_dependency(VoteDependency::Dac, view_number, event_receiver.clone());
+        <span class="kw">let </span>vid_dependency =
+            <span class="self">self</span>.create_event_dependency(VoteDependency::Vid, view_number, event_receiver.clone());
+        <span class="kw">let </span><span class="kw-2">mut </span>vote_now_dependency = <span class="self">self</span>.create_event_dependency(
+            VoteDependency::VoteNow,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        <span class="comment">// If we have an event provided to us
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
+            <span class="comment">// Match on the type of event
+            </span><span class="kw">if let </span>HotShotEvent::VoteNow(..) = event.as_ref() {
+                <span class="macro">tracing::info!</span>(<span class="string">"Completing all events"</span>);
+                vote_now_dependency.mark_as_completed(event);
+            };
+        }
+
+        <span class="kw">let </span>deps = <span class="macro">vec!</span>[quorum_proposal_dependency, dac_dependency, vid_dependency];
+        <span class="kw">let </span>dependency_chain = OrDependency::from_deps(<span class="macro">vec!</span>[
+            <span class="comment">// Either we fulfull the dependencies individiaully.
+            </span>AndDependency::from_deps(deps),
+            <span class="comment">// Or we fulfill the single dependency that contains all the info that we need.
+            </span>AndDependency::from_deps(<span class="macro">vec!</span>[vote_now_dependency]),
+        ]);
+
         <span class="kw">let </span>dependency_task = DependencyTask::new(
-            vote_dependency,
+            dependency_chain,
             VoteDependencyHandle {
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
@@ -1020,6 +1103,14 @@
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::VoteNow(view, ..) =&gt; {
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    <span class="kw-2">*</span>view,
+                    event_receiver,
+                    <span class="kw-2">&amp;</span>event_sender,
+                    <span class="prelude-val">Some</span>(event),
+                );
+            }
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>view = proposal.data.view_number;
                 <span class="macro">debug!</span>(<span class="string">"Received Quorum Proposal for view {}"</span>, <span class="kw-2">*</span>view);
@@ -1265,7 +1356,7 @@
                 }
                 drop(consensus);
 
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::DACertificateRecv(cert) =&gt; {
                 <span class="kw">let </span>view = cert.view_number;
@@ -1299,7 +1390,7 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::VIDShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.get_view_number();
@@ -1356,7 +1447,7 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender);
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view);
@@ -1397,6 +1488,7 @@
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(<span class="kw">_</span>)
+                | HotShotEvent::VoteNow(..)
                 | HotShotEvent::Shutdown,
         )
     }

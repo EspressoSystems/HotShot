@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_proposal.rs`."><title>quorum_proposal.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_proposal.rs`."><title>quorum_proposal.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -948,6 +948,41 @@
 <a href="#946" id="946">946</a>
 <a href="#947" id="947">947</a>
 <a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -964,7 +999,7 @@
     task::{Task, TaskState},
 };
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::{CommitmentAndMetadata, Consensus},
     constants::LOOK_AHEAD,
     data::{Leaf, QuorumProposal},
     event::Event,
@@ -980,12 +1015,13 @@
     },
     vote::{Certificate, HasViewNumber},
 };
+
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::{validate_proposal, CommitmentAndMetadata},
+    consensus::validate_proposal,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
@@ -1007,6 +1043,9 @@
 
     <span class="doccomment">/// For the `QuroumProposalRecv` event.
     </span>Proposal,
+
+    <span class="doccomment">/// For the `ProposeNow` event.
+    </span>ProposeNow,
 }
 
 <span class="doccomment">/// Handler for the proposal dependency
@@ -1178,7 +1217,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleDepOutput <span class="kw">for </span>ProposalDependencyHandle&lt;TYPES&gt; {
-    <span class="kw">type </span>Output = Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;;
+    <span class="kw">type </span>Output = Vec&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;;
 
     <span class="attr">#[allow(clippy::no_effect_underscore_binding)]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
@@ -1187,7 +1226,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>_quorum_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>_timeout_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>_view_sync_finalize_cert = <span class="prelude-val">None</span>;
-        <span class="kw">for </span>event <span class="kw">in </span>res.iter().flatten() {
+        <span class="kw">for </span>event <span class="kw">in </span>res.iter().flatten().flatten() {
             <span class="kw">match </span>event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                     <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -1220,6 +1259,21 @@
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) =&gt; {
                     _view_sync_finalize_cert = <span class="prelude-val">Some</span>(cert.clone());
+                }
+                HotShotEvent::ProposeNow(<span class="kw">_</span>, pdd) =&gt; {
+                    commit_and_metadata = <span class="prelude-val">Some</span>(pdd.commitment_and_metadata.clone());
+                    <span class="kw">match </span><span class="kw-2">&amp;</span>pdd.secondary_proposal_information {
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) =&gt; {
+                            _quorum_certificate = <span class="prelude-val">Some</span>(quorum_certificate.clone());
+                            payload_commitment = <span class="prelude-val">Some</span>(quorum_proposal.block_header.payload_commitment());
+                        },
+                        hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) =&gt; {
+                            _timeout_certificate = <span class="prelude-val">Some</span>(tc.clone());
+                        }
+                        hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) =&gt; {
+                            _view_sync_finalize_cert = <span class="prelude-val">Some</span>(vsc.clone());
+                        },
+                    }
                 }
                 <span class="kw">_ </span>=&gt; {}
             }
@@ -1351,6 +1405,13 @@
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
+                    ProposalDependency::ProposeNow =&gt; {
+                        <span class="kw">if let </span>HotShotEvent::ProposeNow(view, <span class="kw">_</span>) = event {
+                            <span class="kw-2">*</span>view
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                    }
                 };
                 <span class="kw">let </span>valid = event_view == view_number;
                 <span class="kw">if </span>valid {
@@ -1361,25 +1422,13 @@
         )
     }
 
-    <span class="doccomment">/// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
-    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
-    /// dependency as already completed. This allows for the task to receive a proposable event
-    /// without losing the data that it received, as the dependency task would otherwise have no
-    /// ability to receive the event and, thus, would never propose.
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Quorum proposal create dependency task"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">fn </span>create_dependency_task_if_new(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    <span class="doccomment">/// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
+    </span><span class="kw">fn </span>create_and_complete_dependencies(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    ) {
-        <span class="macro">info!</span>(<span class="string">"Attempting to make dependency task for event {:?}"</span>, event);
-        <span class="kw">if </span><span class="self">self</span>.propose_dependencies.get(<span class="kw-2">&amp;</span>view_number).is_some() {
-            <span class="macro">debug!</span>(<span class="string">"Task already exists"</span>);
-            <span class="kw">return</span>;
-        }
-
+    ) -&gt; AndDependency&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>proposal_dependency = <span class="self">self</span>.create_event_dependency(
             ProposalDependency::Proposal,
             view_number,
@@ -1407,86 +1456,98 @@
         <span class="kw">let </span><span class="kw-2">mut </span>payload_commitment_dependency = <span class="self">self</span>.create_event_dependency(
             ProposalDependency::PayloadAndMetadata,
             view_number,
+            event_receiver.clone(),
+        );
+
+        <span class="kw">let </span><span class="kw-2">mut </span>propose_now_dependency = <span class="self">self</span>.create_event_dependency(
+            ProposalDependency::ProposeNow,
+            view_number,
             event_receiver,
         );
 
+        <span class="macro">info!</span>(
+            <span class="string">"Node {} Dependency {:?} is complete for view {}!"</span>,
+            <span class="self">self</span>.id, event, <span class="kw-2">*</span>view_number
+        );
+
         <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::ProposeNow(..) =&gt; propose_now_dependency.mark_as_completed(event.clone()),
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) =&gt; {
                 payload_commitment_dependency.mark_as_completed(event.clone());
-                <span class="macro">info!</span>(
-                    <span class="string">"Node {} Dependency PayloadAndMetadata is complete for view  {}!"</span>,
-                    <span class="self">self</span>.id, <span class="kw-2">*</span>view_number
-                );
             }
             HotShotEvent::QuorumProposalValidated(..) =&gt; {
                 proposal_dependency.mark_as_completed(event);
-                <span class="macro">info!</span>(
-                    <span class="string">"Node {} Dependency Proposal is complete for view {}!"</span>,
-                    <span class="self">self</span>.id, <span class="kw-2">*</span>view_number
-                );
             }
             HotShotEvent::QCFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
                 Either::Right(<span class="kw">_</span>) =&gt; {
                     timeout_dependency.mark_as_completed(event);
-                    <span class="macro">info!</span>(
-                        <span class="string">"Node {} Dependency TimeoutCert is complete for view {}!"</span>,
-                        <span class="self">self</span>.id, <span class="kw-2">*</span>view_number
-                    );
                 }
                 Either::Left(<span class="kw">_</span>) =&gt; {
                     qc_dependency.mark_as_completed(event);
-                    <span class="macro">info!</span>(
-                        <span class="string">"Node {} Dependency QC is complete for view {}!"</span>,
-                        <span class="self">self</span>.id, <span class="kw-2">*</span>view_number
-                    );
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>) =&gt; {
                 view_sync_dependency.mark_as_completed(event);
-                <span class="macro">info!</span>(
-                    <span class="string">"Node {} Dependency ViewSyncCert is complete for view {}!"</span>,
-                    <span class="self">self</span>.id, <span class="kw-2">*</span>view_number
-                );
             }
             <span class="kw">_ </span>=&gt; {}
         };
 
         <span class="comment">// We have three cases to consider:
-        </span><span class="kw">let </span>combined = <span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
-            AndDependency::from_deps(<span class="macro">vec!</span>[
-                OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[
-                    payload_commitment_dependency,
-                ])]),
-                OrDependency::from_deps(<span class="macro">vec!</span>[
-                    <span class="comment">// 1. A QCFormed event and QuorumProposalValidated event
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency, proposal_dependency]),
-                    <span class="comment">// 2. A timeout cert was received
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[timeout_dependency]),
-                    <span class="comment">// 3. A view sync cert was received.
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[view_sync_dependency]),
-                ]),
-            ])
+        </span><span class="kw">let </span><span class="kw-2">mut </span>secondary_deps = <span class="macro">vec!</span>[
+            <span class="comment">// 2. A timeout cert was received
+            </span>AndDependency::from_deps(<span class="macro">vec!</span>[timeout_dependency]),
+            <span class="comment">// 3. A view sync cert was received.
+            </span>AndDependency::from_deps(<span class="macro">vec!</span>[view_sync_dependency]),
+        ];
+
+        <span class="comment">// 1. A QCFormed event and QuorumProposalValidated event
+        </span><span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
+            secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[
+                qc_dependency,
+                proposal_dependency,
+            ]));
         } <span class="kw">else </span>{
+            secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency]));
+        }
+
+        AndDependency::from_deps(<span class="macro">vec!</span>[OrDependency::from_deps(<span class="macro">vec!</span>[
+            AndDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[propose_now_dependency])]),
             AndDependency::from_deps(<span class="macro">vec!</span>[
                 OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[
                     payload_commitment_dependency,
                 ])]),
-                OrDependency::from_deps(<span class="macro">vec!</span>[
-                    <span class="comment">// 1. A QCFormed event and QuorumProposalValidated event
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency]),
-                    <span class="comment">// 2. A timeout cert was received
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[timeout_dependency]),
-                    <span class="comment">// 3. A view sync cert was received.
-                    </span>AndDependency::from_deps(<span class="macro">vec!</span>[view_sync_dependency]),
-                ]),
-            ])
-        };
+                OrDependency::from_deps(secondary_deps),
+            ]),
+        ])])
+    }
+
+    <span class="doccomment">/// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
+    /// given view number if it doesn't exist. Also takes in the received `event` to seed a
+    /// dependency as already completed. This allows for the task to receive a proposable event
+    /// without losing the data that it received, as the dependency task would otherwise have no
+    /// ability to receive the event and, thus, would never propose.
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Quorum proposal create dependency task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="kw">fn </span>create_dependency_task_if_new(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        view_number: TYPES::Time,
+        event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ) {
+        <span class="macro">info!</span>(<span class="string">"Attempting to make dependency task for event {:?}"</span>, event);
+        <span class="kw">if </span><span class="self">self</span>.propose_dependencies.get(<span class="kw-2">&amp;</span>view_number).is_some() {
+            <span class="macro">debug!</span>(<span class="string">"Task already exists"</span>);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">let </span>dependency_chain =
+            <span class="self">self</span>.create_and_complete_dependencies(view_number, event_receiver, event);
 
         <span class="kw">let </span>dependency_task = DependencyTask::new(
-            combined,
+            dependency_chain,
             ProposalDependencyHandle {
                 view_number,
-                sender: event_sender.clone(),
+                sender: event_sender,
                 consensus: <span class="self">self</span>.consensus.clone(),
                 output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
                 timeout_membership: <span class="self">self</span>.timeout_membership.clone(),
@@ -1535,6 +1596,14 @@
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::ProposeNow(view, <span class="kw">_</span>) =&gt; {
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    <span class="kw-2">*</span>view,
+                    event_receiver,
+                    event_sender,
+                    event.clone(),
+                );
+            }
             HotShotEvent::QCFormed(cert) =&gt; {
                 <span class="kw">match </span>cert.clone() {
                     either::Right(timeout_cert) =&gt; {
@@ -1879,6 +1948,7 @@
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
+                | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::Shutdown,
         )
     }
