@@ -23,11 +23,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error, warn};
 
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
-
 #[cfg(not(feature = "dependency-tasks"))]
 use std::marker::PhantomData;
 
