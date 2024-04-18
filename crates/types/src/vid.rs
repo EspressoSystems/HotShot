@@ -59,12 +59,20 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 
     #[allow(clippy::panic)]
     let num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
-        panic!("num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}")
+        panic!(
+            "num_storage_nodes {num_storage_nodes} should fit into u32; \
+                error: {err}"
+        )
     });
 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}")))
+    VidSchemeType(
+        Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS).unwrap_or_else(|err| {
+              panic!("advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold}); \
+                      error: {err}")
+        })
+    )
 }
 
 /// Similar to [`vid_scheme()`], but with `KZG_SRS_TEST` for testing purpose only.
@@ -73,10 +81,15 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     let recovery_threshold = 1 << num_storage_nodes.ilog2();
     #[allow(clippy::panic)]
     let num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
-        panic!("num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}")
+        panic!("num_storage_nodes {num_storage_nodes} should fit into u32; error: {err}")
     });
     #[allow(clippy::panic)]
-    VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS_TEST).unwrap_or_else(|err| panic!("advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}")))
+    VidSchemeType(
+        Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS_TEST).unwrap_or_else(|err| {
+           panic!("advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold});\
+                   error: {err}")
+        })
+    )
 }
 
 /// VID commitment type
