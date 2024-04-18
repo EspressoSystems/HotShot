@@ -462,10 +462,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 if let GeneralConsensusMessage::Vote(vote) = message {
-                    debug!(
-                        "Sending vote to next quorum leader {:?}",
-                        vote.get_view_number() + 1
-                    );
+            
                     // Add to the storage that we have received the VID disperse for a specific view
                     if let Some(vid_share) = vid_shares.get(&self.public_key) {
                         if let Err(e) = self.storage.write().await.append_vid(vid_share).await {
@@ -479,6 +476,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         error!("Did not get a VID share for our public key, aborting vote");
                         return false;
                     }
+                    debug!(
+                        "Sending vote to next quorum leader {:?}",
+                        vote.get_view_number() + 1
+                    );
                     broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), event_stream)
                         .await;
                     return true;
