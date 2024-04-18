@@ -1,12 +1,11 @@
+use core::time::Duration;
 use std::sync::Arc;
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
-use core::time::Duration;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},

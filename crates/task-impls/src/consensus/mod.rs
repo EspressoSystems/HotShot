@@ -61,6 +61,15 @@ use {
     },
 };
 
+use crate::{
+    consensus::{proposal::validate_proposal, view_change::update_view},
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
+
 /// Handles proposal-related functionality.
 pub(crate) mod proposal;
 
