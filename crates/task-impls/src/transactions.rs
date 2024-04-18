@@ -151,7 +151,7 @@ impl<
 
         let payload_commitment = 'pc: {
             let consensus = self.consensus.read().await;
-            let mut view = self.cur_view - 1_u64;
+            let mut view = TYPES::Time::new(self.cur_view.saturating_sub(1_u64));
             while view != TYPES::Time::genesis() {
                 match consensus
                     .validated_state_map
