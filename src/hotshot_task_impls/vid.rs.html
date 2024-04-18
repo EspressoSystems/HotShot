@@ -186,6 +186,7 @@
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -256,10 +257,11 @@
                 );
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
                 <span class="kw">let </span>vid_disperse = calculate_vid_disperse(
-                    <span class="kw-2">&amp;</span>encoded_transactions.clone(),
+                    encoded_transactions.clone(),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.membership.clone(),
                     <span class="kw-2">*</span>view_number,
-                );
+                )
+                .<span class="kw">await</span>;
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
