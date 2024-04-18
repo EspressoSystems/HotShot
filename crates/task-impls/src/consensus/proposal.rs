@@ -29,6 +29,8 @@ use tokio::task::JoinHandle;
 #[cfg(not(feature = "dependency-tasks"))]
 use std::marker::PhantomData;
 
+use crate::{events::HotShotEvent, helpers::broadcast_event};
+
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
