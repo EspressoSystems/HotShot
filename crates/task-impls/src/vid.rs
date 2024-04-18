@@ -63,7 +63,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event.as_ref() {
             HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
                 let payload = <TYPES as NodeType>::BlockPayload::from_bytes(
-                    encoded_transactions.clone().into_iter(),
+                    encoded_transactions.clone(),
                     metadata,
                 );
                 let builder_commitment = payload.builder_commitment(metadata);

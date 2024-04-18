@@ -143,7 +143,7 @@ impl<
 
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            encoded_transactions.as_ref().to_vec(),
+                            encoded_transactions.clone(),
                             block_data.metadata,
                             block_view,
                             BuilderFee {

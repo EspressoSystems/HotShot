@@ -223,10 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 }
             };
 
-            saved_payloads.insert(
-                anchored_leaf.get_view_number(),
-                encoded_txns.as_ref().to_vec(),
-            );
+            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns.clone());
         }
 
         let consensus = Consensus {

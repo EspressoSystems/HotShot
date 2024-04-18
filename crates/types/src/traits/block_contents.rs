@@ -8,6 +8,7 @@ use std::{
     fmt::{Debug, Display},
     future::Future,
     hash::Hash,
+    sync::Arc,
 };
 
 use committable::{Commitment, Committable};
@@ -58,11 +59,7 @@ pub trait BlockPayload:
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
-    ///
-    /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    fn from_bytes<I>(encoded_transactions: I, metadata: &Self::Metadata) -> Self
-    where
-        I: Iterator<Item = u8>;
+    fn from_bytes(encoded_transactions: Arc<[u8]>, metadata: &Self::Metadata) -> Self;
 
     /// Build the genesis payload and metadata.
     fn genesis() -> (Self, Self::Metadata);
@@ -71,7 +68,7 @@ pub trait BlockPayload:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<impl AsRef<[u8]> + Send, Self::Error>;
+    fn encode(&self) -> Result<Arc<[u8]>, Self::Error>;
 
     /// List of transaction commitments.
     fn transaction_commitments(
@@ -114,7 +111,7 @@ pub trait TestableBlock: BlockPayload + Debug {
 #[must_use]
 #[allow(clippy::panic)]
 pub fn vid_commitment(
-    encoded_transactions: impl AsRef<[u8]>,
+    encoded_transactions: Arc<[u8]>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
     let encoded_tx_len = encoded_transactions.as_ref().len();
@@ -127,7 +124,7 @@ pub fn vid_commitment(
 #[must_use]
 #[allow(clippy::panic)]
 pub fn precompute_vid_commitment(
-    encoded_transactions: impl AsRef<[u8]>,
+    encoded_transactions: Arc<[u8]>,
     num_storage_nodes: usize,
 ) -> (
     <VidSchemeType as VidScheme>::Commit,

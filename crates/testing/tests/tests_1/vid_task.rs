@@ -38,7 +38,7 @@ async fn test_vid_task() {
     let transactions = vec![TestTransaction(vec![0])];
     let (payload, metadata) = TestBlockPayload::from_transactions(transactions.clone()).unwrap();
     let builder_commitment = payload.builder_commitment(&metadata);
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 

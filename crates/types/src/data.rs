@@ -8,6 +8,7 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
+    sync::Arc,
 };
 
 use anyhow::{ensure, Result};
@@ -114,7 +115,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
-    pub encoded_transactions: Vec<u8>,
+    pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to
@@ -442,14 +443,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode().expect("unable to encode genesis payload");
 
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let payload_commitment = vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
             payload_commitment,
             builder_commitment,
             metadata,
         );
-
         Self {
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::<TYPES>::genesis(),

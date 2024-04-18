@@ -453,7 +453,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                         }
                         EventType::DAProposal { proposal, .. } => {
                             let payload = TYPES::BlockPayload::from_bytes(
-                                proposal.data.encoded_transactions.into_iter(),
+                                proposal.data.encoded_transactions,
                                 &proposal.data.metadata,
                             );
                             let now = Instant::now();
@@ -531,13 +531,12 @@ async fn build_block<TYPES: NodeType>(
     let commitment = block_payload.builder_commitment(&metadata);
 
     let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&block_payload.encode().unwrap(), num_storage_nodes);
+        precompute_vid_commitment(block_payload.encode().unwrap(), num_storage_nodes);
 
     // Get block size from the encoded payload
     let block_size = block_payload
         .encode()
         .expect("failed to encode block")
-        .as_ref()
         .len() as u64;
 
     let signature_over_block_info =

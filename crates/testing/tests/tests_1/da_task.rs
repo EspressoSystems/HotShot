@@ -30,9 +30,9 @@ async fn test_da_task() {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
     let payload_commit = vid_commitment(
-        &encoded_transactions,
+        encoded_transactions.clone(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
@@ -68,7 +68,7 @@ async fn test_da_task() {
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
             BlockRecv(
-                encoded_transactions.clone(),
+                encoded_transactions,
                 (),
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
@@ -109,9 +109,9 @@ async fn test_da_task_storage_failure() {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
     let payload_commit = vid_commitment(
-        &encoded_transactions,
+        encoded_transactions.clone(),
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
