@@ -1634,9 +1634,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     )
                     .await;
                 }));
-
+            
+            debug!("Successfully proposed for view {}", *view);
             self.proposal_cert = None;
             self.payload_commitment_and_metadata = None;
+            return
         }
         debug!("Cannot propose because we don't have the VID payload commitment and metadata");
     }
