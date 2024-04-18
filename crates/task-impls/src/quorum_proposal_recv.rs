@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    consensus::{proposal::validate_proposal, view_change::update_view},
+    consensus::{proposal::validate_proposal_safety_and_liveness, view_change::update_view},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
@@ -350,7 +350,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .entry(proposal.data.get_view_number())
                     .or_default()
                     .push(async_spawn(
-                        validate_proposal(
+                        validate_proposal_safety_and_liveness(
                             proposal.clone(),
                             parent_leaf,
                             self.consensus.clone(),

@@ -4,7 +4,10 @@ use std::{
 };
 
 use crate::{
-    consensus::{proposal::validate_proposal, view_change::update_view},
+    consensus::{
+        proposal::{validate_proposal_safety_and_liveness, validate_proposal_view_and_certs},
+        view_change::update_view,
+    },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{
@@ -355,75 +358,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
+                if let Err(e) = validate_proposal_view_and_certs(
+                    proposal,
+                    sender.clone(),
+                    self.cur_view,
+                    self.quorum_membership.clone(),
+                    self.timeout_membership.clone(),
+                ) {
+                    warn!("Failed to validate proposal view and attached certs; error = {e:?}");
+                    return;
+                }
+
                 let view = proposal.data.get_view_number();
-                if view < self.cur_view {
-                    debug!("Proposal is from an older view {:?}", proposal.data.clone());
-                    return;
-                }
-
                 let view_leader_key = self.quorum_membership.get_leader(view);
-                if view_leader_key != sender {
-                    warn!("Leader key does not match key in proposal");
-                    return;
-                }
-
-                // Verify a timeout certificate OR a view sync certificate exists and is valid.
-                if proposal.data.justify_qc.get_view_number() != view - 1 {
-                    if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone()
-                    {
-                        match received_proposal_cert {
-                            ViewChangeEvidence::Timeout(timeout_cert) => {
-                                if timeout_cert.get_data().view != view - 1 {
-                                    warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                                    return;
-                                }
-
-                                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                                    warn!("Timeout certificate for view {} was invalid", *view);
-                                    return;
-                                }
-                            }
-                            ViewChangeEvidence::ViewSync(view_sync_cert) => {
-                                if view_sync_cert.view_number != view {
-                                    debug!(
-                                        "Cert view number {:?} does not match proposal view number {:?}",
-                                        view_sync_cert.view_number, view
-                                    );
-                                    return;
-                                }
-
-                                // View sync certs must also be valid.
-                                if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                                    debug!("Invalid ViewSyncFinalize cert provided");
-                                    return;
-                                }
-                            }
-                        }
-                    } else {
-                        warn!(
-                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
-                            *view);
-                        return;
-                    };
-                }
-
                 let justify_qc = proposal.data.justify_qc.clone();
 
                 if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {
                     error!("Invalid justify_qc in proposal for view {}", *view);
                     let consensus = self.consensus.write().await;
                     consensus.metrics.invalid_qc.update(1);
-                    return;
-                }
-
-                // Validate the upgrade certificate -- this is just a signature validation.
-                // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-                if let Err(e) = UpgradeCertificate::validate(
-                    &proposal.data.upgrade_certificate,
-                    &self.quorum_membership,
-                ) {
-                    warn!("{:?}", e);
-
                     return;
                 }
 
@@ -568,6 +521,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             == self.public_key
                             && high_qc.view_number
                                 == self.current_proposal.clone().unwrap().view_number;
+
                         let qc = high_qc.clone();
                         if should_propose {
                             debug!(
@@ -590,7 +544,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .entry(proposal.data.get_view_number())
                     .or_default()
                     .push(async_spawn(
-                        validate_proposal(
+                        validate_proposal_safety_and_liveness(
                             proposal.clone(),
                             parent_leaf,
                             self.consensus.clone(),

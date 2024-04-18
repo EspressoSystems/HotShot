@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -12,13 +12,13 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
-        states::ValidatedState, storage::Storage,
+        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
+        signature_key::SignatureKey, states::ValidatedState, storage::Storage,
     },
     utils::{Terminator, ViewInner},
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 use tracing::{debug, error, warn};
 
@@ -29,7 +29,7 @@ use std::marker::PhantomData;
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-pub async fn validate_proposal<TYPES: NodeType>(
+pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -230,4 +230,80 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         &event_stream,
     )
     .await;
+}
+
+pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
+    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    sender: TYPES::SignatureKey,
+    cur_view: TYPES::Time,
+    quorum_membership: Arc<TYPES::Membership>,
+    timeout_membership: Arc<TYPES::Membership>,
+) -> Result<()> {
+    let view = proposal.data.get_view_number();
+    ensure!(
+        view > cur_view,
+        "Proposal is from an older view {:?}",
+        proposal.data.clone()
+    );
+
+    let view_leader_key = quorum_membership.get_leader(view);
+    ensure!(
+        view_leader_key == sender,
+        "Leader key does not match key in proposal"
+    );
+
+    // Verify a timeout certificate OR a view sync certificate exists and is valid.
+    if proposal.data.justify_qc.get_view_number() != view - 1 {
+        if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone() {
+            match received_proposal_cert {
+                ViewChangeEvidence::Timeout(timeout_cert) => {
+                    ensure!(timeout_cert.get_data().view == view - 1, "Timeout certificate for view {} was not for the immediately preceding view", *view);
+                    ensure!(
+                        timeout_cert.is_valid_cert(timeout_membership.as_ref()),
+                        "Timeout certificate for view {} was invalid",
+                        *view
+                    );
+                }
+                ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                    ensure!(
+                        view_sync_cert.view_number == view,
+                        "View sync cert view number {:?} does not match proposal view number {:?}",
+                        view_sync_cert.view_number,
+                        view
+                    );
+
+                    // View sync certs must also be valid.
+                    ensure!(
+                        view_sync_cert.is_valid_cert(quorum_membership.as_ref()),
+                        "Invalid view sync finalize cert provided"
+                    );
+                }
+            }
+        } else {
+            bail!(
+                "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                *view);
+        };
+    }
+
+    // Validate the upgrade certificate -- this is just a signature validation.
+    // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
+    UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
+
+    Ok(())
+}
+
+/// If we've determined that we need to perform the liveness check, we use this function to check if a proposal
+/// should also occur, then we vote regardless.
+pub async fn perform_liveness_check_and_vote<TYPES: NodeType>(
+    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    quorum_membership: Arc<TYPES::Membership>,
+    public_key: TYPES::SignatureKey,
+    high_qc: QuorumCertificate<TYPES>,
+) -> Result<bool> {
+    let new_view = proposal.data.view_number + 1;
+
+    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+    Ok(quorum_membership.get_leader(new_view) == public_key
+        && high_qc.view_number == proposal.data.get_view_number())
 }
