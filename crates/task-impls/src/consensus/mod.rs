@@ -1128,6 +1128,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
+                builder_commitment,
                 metadata,
                 view,
                 fee,
@@ -1136,6 +1137,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 debug!("got commit and meta {:?}", payload_commitment);
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
+                    builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                     fee: fee.clone(),
                 });
@@ -1282,13 +1284,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         if let Some(upgrade_cert) = &self.decided_upgrade_cert {
             if upgrade_cert.in_interim(self.cur_view) {
-                let Ok((_payload, metadata)) =
+                let Ok((payload, metadata)) =
                     <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
                 else {
                     error!("Failed to build null block payload and metadata");
                     return;
                 };
 
+                let builder_commitment = payload.builder_commitment(&metadata);
                 let Some(null_block_commitment) =
                     null_block::commitment(self.quorum_membership.total_nodes())
                 else {
@@ -1325,6 +1328,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             view,
                             CommitmentAndMetadata {
                                 commitment: null_block_commitment,
+                                builder_commitment,
                                 metadata,
                                 fee: null_block_fee,
                             },

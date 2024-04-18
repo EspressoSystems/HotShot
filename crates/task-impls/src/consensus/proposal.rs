@@ -171,7 +171,7 @@ pub async fn validate_proposal<TYPES: NodeType>(
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
-pub(crate) async fn create_and_send_proposal<TYPES: NodeType>(
+pub async fn create_and_send_proposal<TYPES: NodeType>(
     pub_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -189,6 +189,7 @@ pub(crate) async fn create_and_send_proposal<TYPES: NodeType>(
         &consensus.read().await.instance_state,
         &parent_leaf,
         commitment_and_metadata.commitment,
+        commitment_and_metadata.builder_commitment,
         commitment_and_metadata.metadata,
         commitment_and_metadata.fee,
     )

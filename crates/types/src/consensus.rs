@@ -24,7 +24,7 @@ use crate::{
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
-    utils::{StateAndDelta, Terminator},
+    utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
 };
 
@@ -412,6 +412,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Vid Commitment
     pub commitment: VidCommitment,
+    /// Builder Commitment
+    pub builder_commitment: BuilderCommitment,
     /// Metadata for the block payload
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// Builder fee data

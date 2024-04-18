@@ -170,6 +170,7 @@ impl<
 
         let last_leaf = self.consensus.read().await.get_decided_leaf();
         let mut latest_block: Option<BuilderResponses<TYPES>> = None;
+        let mut first_iteration = true;
         while task_start_time.elapsed() < self.api.propose_max_round_time()
             && latest_block.as_ref().map_or(true, |builder_response| {
                 builder_response
@@ -179,12 +180,16 @@ impl<
                     < self.api.min_transactions()
             })
         {
+            // Sleep if this isn't the first iteration
+            if first_iteration {
+                first_iteration = false;
+            } else {
+                async_sleep(Duration::from_millis(100)).await;
+            }
+
             let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
                 &self.private_key,
-                last_leaf
-                    .get_block_header()
-                    .builder_commitment(last_leaf.get_block_header().metadata())
-                    .as_ref(),
+                last_leaf.get_block_header().builder_commitment().as_ref(),
             ) else {
                 error!("Failed to sign block hash");
                 continue;
@@ -193,9 +198,7 @@ impl<
             let mut available_blocks = match self
                 .builder_client
                 .get_available_blocks(
-                    last_leaf
-                        .get_block_header()
-                        .builder_commitment(last_leaf.get_block_header().metadata()),
+                    last_leaf.get_block_header().builder_commitment(),
                     self.public_key.clone(),
                     &request_signature,
                 )
@@ -330,7 +333,6 @@ impl<
             if num_txns >= self.api.min_transactions() {
                 return latest_block;
             }
-            async_sleep(Duration::from_millis(100)).await;
         }
         latest_block
     }
