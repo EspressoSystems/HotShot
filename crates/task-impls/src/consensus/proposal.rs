@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -240,12 +240,15 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     .await;
 }
 
+/// Validates, from a given `proposal` that the view that it is being submitted for is valid when
+/// compared to `cur_view` which is the highest proposed view (so far) for the caller. If the proposal
+/// is for a view that's later than expected, that the proposal includes a timeout or view sync certificate.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    sender: TYPES::SignatureKey,
+    sender: &TYPES::SignatureKey,
     cur_view: TYPES::Time,
-    quorum_membership: Arc<TYPES::Membership>,
-    timeout_membership: Arc<TYPES::Membership>,
+    quorum_membership: &Arc<TYPES::Membership>,
+    timeout_membership: &Arc<TYPES::Membership>,
 ) -> Result<()> {
     let view = proposal.data.get_view_number();
     ensure!(
@@ -256,51 +259,56 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 
     let view_leader_key = quorum_membership.get_leader(view);
     ensure!(
-        view_leader_key == sender,
+        view_leader_key == *sender,
         "Leader key does not match key in proposal"
     );
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.get_view_number() != view - 1 {
-        if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone() {
-            match received_proposal_cert {
-                ViewChangeEvidence::Timeout(timeout_cert) => {
-                    ensure!(timeout_cert.get_data().view == view - 1, "Timeout certificate for view {} was not for the immediately preceding view", *view);
-                    ensure!(
-                        timeout_cert.is_valid_cert(timeout_membership.as_ref()),
-                        "Timeout certificate for view {} was invalid",
-                        *view
-                    );
-                }
-                ViewChangeEvidence::ViewSync(view_sync_cert) => {
-                    ensure!(
-                        view_sync_cert.view_number == view,
-                        "View sync cert view number {:?} does not match proposal view number {:?}",
-                        view_sync_cert.view_number,
-                        view
-                    );
+        let received_proposal_cert =
+            proposal.data.proposal_certificate.clone().context(format!(
+"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                *view
+        ))?;
 
-                    // View sync certs must also be valid.
-                    ensure!(
-                        view_sync_cert.is_valid_cert(quorum_membership.as_ref()),
-                        "Invalid view sync finalize cert provided"
-                    );
-                }
+        match received_proposal_cert {
+            ViewChangeEvidence::Timeout(timeout_cert) => {
+                ensure!(
+                    timeout_cert.get_data().view == view - 1,
+                    "Timeout certificate for view {} was not for the immediately preceding view",
+                    *view
+                );
+                ensure!(
+                    timeout_cert.is_valid_cert(timeout_membership.as_ref()),
+                    "Timeout certificate for view {} was invalid",
+                    *view
+                );
             }
-        } else {
-            bail!(
-                "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
-                *view);
-        };
+            ViewChangeEvidence::ViewSync(view_sync_cert) => {
+                ensure!(
+                    view_sync_cert.view_number == view,
+                    "View sync cert view number {:?} does not match proposal view number {:?}",
+                    view_sync_cert.view_number,
+                    view
+                );
+
+                // View sync certs must also be valid.
+                ensure!(
+                    view_sync_cert.is_valid_cert(quorum_membership.as_ref()),
+                    "Invalid view sync finalize cert provided"
+                );
+            }
+        }
     }
 
     // Validate the upgrade certificate -- this is just a signature validation.
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-    UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
+    UpgradeCertificate::validate(&proposal.data.upgrade_certificate, quorum_membership)?;
 
     Ok(())
 }
 
+/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -321,7 +329,7 @@ pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
 
     // Leaf hash in view inner does not match high qc hash - Why?
     let (leaf_commitment, state) = parent_view.get_leaf_and_state().context(
-        format!("Parent of high QC points to a view without a proposal; parent_view_number: {:?}, parent_view {:?}", parent_view_number, parent_view)
+        format!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
     )?;
 
     if leaf_commitment != consensus.high_qc.get_data().leaf_commit {
@@ -359,9 +367,11 @@ pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
     Ok((parent_leaf, state.clone()))
 }
 
-/// Send a proposal for the view `view` from the latest high_qc.
+/// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is a special
+/// case proposal scenario.
 #[allow(clippy::too_many_lines)]
-pub async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
+#[allow(clippy::too_many_arguments)]
+async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -415,8 +425,10 @@ pub async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     }))
 }
 
-#[allow(clippy::too_many_lines)]
-pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
+/// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
+/// standard case proposal scenario.
+#[allow(clippy::too_many_arguments)]
+async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -462,10 +474,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .as_ref()
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
-    // let consensus = consensus.clone();
-    // let sender = event_stream.clone();
-    // let state = state.clone();
-    // let commitment_and_metadata = commit_and_metadata.clone();
+
     Ok(async_spawn(async move {
         create_and_send_proposal(
             public_key,
@@ -484,7 +493,10 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     }))
 }
 
+/// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
+/// `commitment_and_metadata`, or a `decided_upgrade_cert`.
 #[cfg(feature = "dependency-tasks")]
+#[allow(clippy::too_many_arguments)]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     _cur_view: TYPES::Time,
     _view: TYPES::Time,
@@ -502,7 +514,10 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     Ok(())
 }
 
+/// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
+/// `commitment_and_metadata`, or a `decided_upgrade_cert`.
 #[cfg(not(feature = "dependency-tasks"))]
+#[allow(clippy::too_many_arguments)]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,

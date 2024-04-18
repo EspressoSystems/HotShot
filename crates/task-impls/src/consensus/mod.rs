@@ -363,10 +363,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 if let Err(e) = validate_proposal_view_and_certs(
                     proposal,
-                    sender.clone(),
+                    &sender,
                     self.cur_view,
-                    self.quorum_membership.clone(),
-                    self.timeout_membership.clone(),
+                    &self.quorum_membership,
+                    &self.timeout_membership,
                 ) {
                     warn!("Failed to validate proposal view and attached certs; error = {e:?}");
                     return;
