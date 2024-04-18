@@ -366,6 +366,13 @@
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -538,6 +545,7 @@
 
         <span class="kw">let </span>last_leaf = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_leaf();
         <span class="kw">let </span><span class="kw-2">mut </span>latest_block: <span class="prelude-ty">Option</span>&lt;BuilderResponses&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>first_iteration = <span class="bool-val">true</span>;
         <span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.api.propose_max_round_time()
             &amp;&amp; latest_block.as_ref().map_or(<span class="bool-val">true</span>, |builder_response| {
                 builder_response
@@ -547,6 +555,13 @@
                     &lt; <span class="self">self</span>.api.min_transactions()
             })
         {
+            <span class="comment">// Sleep if this isn't the first iteration
+            </span><span class="kw">if </span>first_iteration {
+                first_iteration = <span class="bool-val">false</span>;
+            } <span class="kw">else </span>{
+                async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
+            }
+
             <span class="kw">let </span><span class="prelude-val">Ok</span>(request_signature) = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 last_leaf.get_block_header().builder_commitment().as_ref(),
@@ -693,7 +708,6 @@
             <span class="kw">if </span>num_txns &gt;= <span class="self">self</span>.api.min_transactions() {
                 <span class="kw">return </span>latest_block;
             }
-            async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
         }
         latest_block
     }
