@@ -61,6 +61,7 @@ async fn test_network_task() {
             filter: network::quorum_filter,
             version: BASE_VERSION,
             storage,
+            id: 0u64,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let task_reg = Arc::new(TaskRegistry::default());
@@ -130,6 +131,7 @@ async fn test_network_storage_fail() {
             filter: network::quorum_filter,
             version: BASE_VERSION,
             storage,
+            id: 0u64
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let task_reg = Arc::new(TaskRegistry::default());

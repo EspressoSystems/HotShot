@@ -42,7 +42,7 @@ use hotshot_types::{
 use lru::LruCache;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{info, warn};
+use tracing::{error, info, instrument, warn};
 use vbs::version::StaticVersionType;
 
 use super::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -79,6 +79,7 @@ pub struct CombinedNetworks<TYPES: NodeType> {
 
     /// how long to delay
     delay_duration: Arc<RwLock<Duration>>,
+    id: u64,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -108,6 +109,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             primary_down: Arc::new(AtomicBool::new(false)),
             delayed_tasks: Arc::default(),
             delay_duration: Arc::new(RwLock::new(delay_duration)),
+            id: 0,
         }
     }
 
@@ -137,12 +139,14 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     }
 
     /// a helper function to send messages through both networks (possibly delayed)
+    #[instrument(skip_all, fields(id = self.id), name = "CombinedNetworks::send_both_networks", level = "error")]
     async fn send_both_networks(
         &self,
         message: Message<TYPES>,
         primary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
         secondary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
     ) -> Result<(), NetworkError> {
+        error!("lrzasik: id: {:?}, primary down: {:?}, fail counter: {:?}, message: {:?}", self.id, self.primary_down.load(Ordering::Relaxed), self.primary_fail_counter.load(Ordering::Relaxed), message);
         // Check if primary is down
         let mut primary_failed = false;
         if self.primary_down.load(Ordering::Relaxed) {
@@ -150,7 +154,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         } else if self.primary_fail_counter.load(Ordering::Relaxed)
             > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
-            warn!(
+            error!(
                 "Primary failed more than {} times and is considered down now",
                 COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             );
@@ -160,7 +164,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         // always send on the primary network
         if let Err(e) = primary_future.await {
-            warn!("Error on primary network: {}", e);
+            error!("Error on primary network: {}", e);
             self.primary_fail_counter.fetch_add(1, Ordering::Relaxed);
             primary_failed = true;
         };
@@ -168,19 +172,22 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
             let primary_fail_counter = self.primary_fail_counter.clone();
+            let id = self.id;
             self.delayed_tasks
                 .write()
                 .await
                 .entry(message.kind.get_view_number().get_u64())
                 .or_default()
                 .push(async_spawn(async move {
+                    error!("Will send after delay, id: {:?}", id);
                     async_sleep(duration).await;
-                    info!("Sending on secondary after delay, message possibly has not reached recipient on primary");
+                    error!("Sending on secondary after delay, message possibly has not reached recipient on primary, id: {:?}", id);
                     primary_fail_counter.fetch_add(1, Ordering::Relaxed);
                     secondary_future.await
                 }));
             Ok(())
         } else {
+            error!("Sending on secondary without delay");
             secondary_future.await
         }
     }
@@ -256,6 +263,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     primary_down: Arc::new(AtomicBool::new(false)),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    id: node_id,
                 };
                 let da_net = Self {
                     networks: Arc::new(da_networks),
@@ -266,6 +274,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     primary_down: Arc::new(AtomicBool::new(false)),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    id: node_id,
                 };
                 (quorum_net.into(), da_net.into())
             })
@@ -502,7 +511,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         });
         // View changed, let's start primary again
         self.primary_down.store(false, Ordering::Relaxed);
-        self.primary_fail_counter.store(0, Ordering::Relaxed);
+        // self.primary_fail_counter.store(0, Ordering::Relaxed);
     }
 
     fn is_primary_down(&self) -> bool {

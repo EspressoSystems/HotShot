@@ -95,7 +95,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event.as_ref() {
             HotShotEvent::DAProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
-                debug!(
+                error!(
                     "DA proposal received for view: {:?}",
                     proposal.data.get_view_number()
                 );
@@ -117,7 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 if self.cur_view != TYPES::Time::genesis() && view < self.cur_view - 1 {
-                    warn!("Throwing away DA proposal that is more than one view older");
+                    error!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
 
@@ -154,7 +154,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 if !self.da_membership.has_stake(&self.public_key) {
-                    debug!(
+                    error!(
                         "We were not chosen for consensus committee on {:?}",
                         self.cur_view
                     );

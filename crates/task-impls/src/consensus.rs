@@ -390,7 +390,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             // Only vote if you has seen the VID share for this view
             if let Some(_vid_share) = consensus.vid_shares.get(&proposal.view_number) {
             } else {
-                debug!(
+                error!(
                     "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
                     proposal.view_number
                 );
@@ -402,7 +402,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     && Some(proposal.block_header.payload_commitment())
                         != null_block::commitment(self.quorum_membership.total_nodes())
                 {
-                    info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(self.quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
+                    error!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(self.quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
                     return false;
                 }
             }
@@ -464,7 +464,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 if let GeneralConsensusMessage::Vote(vote) = message {
-                    debug!(
+                    error!(
                         "Sending vote to next quorum leader {:?}",
                         vote.get_view_number() + 1
                     );
@@ -473,13 +473,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return true;
                 }
             }
-            debug!(
+            error!(
                 "Received VID share, but couldn't find DAC cert for view {:?}",
                 *proposal.get_view_number(),
             );
             return false;
         }
-        debug!(
+        error!(
             "Could not vote because we don't have a proposal yet for view {}",
             *self.cur_view
         );
@@ -494,7 +494,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if *self.cur_view < *new_view {
-            debug!(
+            error!(
                 "Updating view from {} to {} in consensus task",
                 *self.cur_view, *new_view
             );
@@ -547,8 +547,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Nuance: We timeout on the view + 1 here because that means that we have
                 // not seen evidence to transition to this new view
                 let view_number = self.cur_view + 1;
+                let id = self.id;
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
+                    error!("lrzasik: timed out, consensus, id: {:?}, view: {:?}", id, view_number);
                     broadcast_event(
                         Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                         &stream,
@@ -1199,7 +1201,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
-                debug!(
+                error!(
                     "VID disperse received for view: {:?} in consensus task",
                     view
                 );

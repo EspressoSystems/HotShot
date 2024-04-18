@@ -66,13 +66,13 @@ async fn test_combined_network_cdn_crash() {
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 33,
-            num_successful_views: 35,
+            num_successful_views: 50,
             ..Default::default()
         },
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(120),
+                duration: Duration::from_secs(150),
             },
         ),
         ..TestMetadata::default_multiple_rounds()

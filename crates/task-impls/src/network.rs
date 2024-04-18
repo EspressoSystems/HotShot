@@ -210,6 +210,7 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
+    pub id: u64,
 }
 
 impl<
@@ -259,7 +260,7 @@ impl<
     ///
     /// Returns the completion status.
     #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
-    #[instrument(skip_all, fields(view = *self.view), name = "Network Task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.view, id = self.id), name = "Network Task", level = "error")]
     pub async fn handle_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -397,6 +398,7 @@ impl<
                     )
                 }
                 HotShotEvent::ViewChange(view) => {
+                    error!("lrzasik: update view: {:?}", view);
                     self.view = view;
                     self.channel.update_view(self.view.get_u64());
                     return None;

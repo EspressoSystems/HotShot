@@ -165,6 +165,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             sender,
             delay: self.delay,
             recipients,
+            id: self.id,
         };
         let Ok(data) = Serializer::<Ver>::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
@@ -194,6 +195,7 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     delay: Duration,
     /// The peers we will request in a random order
     recipients: Vec<TYPES::SignatureKey>,
+    id: u64,
 }
 
 /// Wrapper for the info in a VID request
@@ -202,6 +204,7 @@ struct VidRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
+    #[instrument(skip_all, fields(id = self.id), name = "DelayedRequester::run", level = "error")]
     async fn run<Ver: StaticVersionType + 'static>(
         mut self,
         request: RequestKind<TYPES>,
@@ -209,7 +212,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     ) {
         // Do the delay only if primary is up and then start sending
         if !self.network.is_primary_down() {
+            error!("lrzasik: delaying request");
             async_sleep(self.delay).await;
+        } else {
+            error!("lrzasik: NOT delaying request");
         }
         match request {
             RequestKind::VID(view, key) => {
@@ -228,7 +234,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         let message = make_vid(&req, signature);
 
         while !self.recipients.is_empty() && !self.cancel_vid(&req).await {
+            error!("lrzasik: requesting vid, view: {:?}, id: {:?}", req.0, self.id);
             match async_timeout(
+
                 REQUEST_TIMEOUT,
                 self.network.request_data::<TYPES, Ver>(
                     message.clone(),
@@ -246,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                             async_sleep(REQUEST_TIMEOUT).await;
                         }
                         ResponseMessage::NotFound => {
-                            info!("Peer Responded they did not have the data");
+                            error!("Peer Responded they did not have the data");
                         }
                         ResponseMessage::Denied => {
                             error!("Request for data was denied by the receiver");
@@ -254,10 +262,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                     }
                 }
                 Ok(Err(e)) => {
-                    warn!("Error Sending request.  Error: {:?}", e);
+                    error!("Error Sending request.  Error: {:?}", e);
                 }
                 Err(_) => {
-                    warn!("Request to other node timed out");
+                    error!("Request to other node timed out");
                 }
             }
         }
@@ -266,7 +274,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        state.vid_shares.contains_key(&view) && state.cur_view > view
+        let has_vid = state.vid_shares.contains_key(&view);
+        let old_view = state.cur_view > view;
+        error!("lrzasik: has vid for view {:?}: {:?}, old view {:?}: {:?}, id: {:?}", view, has_vid, state.cur_view, old_view, self.id);
+        has_vid && old_view
     }
 
     /// Transform a response into a `HotShotEvent`

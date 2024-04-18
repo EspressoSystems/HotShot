@@ -19,6 +19,7 @@ use hotshot_types::{
     },
 };
 use sha2::{Digest, Sha256};
+use tracing::instrument;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
@@ -45,6 +46,7 @@ pub struct NetworkResponseState<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    id: u64,
 }
 
 impl<TYPES: NodeType> NetworkResponseState<TYPES> {
@@ -55,6 +57,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         quorum: Arc<TYPES::Membership>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        id: u64,
     ) -> Self {
         Self {
             consensus,
@@ -62,6 +65,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             quorum,
             pub_key,
             private_key,
+            id,
         }
     }
 
@@ -119,6 +123,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Get the VID share from conensus storage, or calculate it from a the payload for
     /// the view, if we have the payload.  Stores all the shares calculated from the payload
     /// if the calculation was done
+    #[instrument(skip_all, fields(id = self.id), name = "NetworkResponseState get_or_calc_vid_share", level = "error")]
     async fn get_or_calc_vid_share(
         &self,
         view: TYPES::Time,
@@ -131,6 +136,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             let txns = consensus.saved_payloads.get(&view)?;
+            tracing::error!("lrzasik: txns available? view: {:?}", view);
             let vid = calculate_vid_disperse(txns.clone(), self.quorum.clone(), view).await;
             let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
@@ -151,17 +157,22 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Handle the request contained in the message. Returns the response we should send
     /// First parses the kind and passes to the appropriate handler for the specific type
     /// of the request.
+    #[instrument(skip_all, fields(id = self.id), name = "NetworkResponseState handle_request", level = "error")]
     async fn handle_request(&self, req: DataRequest<TYPES>) -> Message<TYPES> {
+        let view = req.view.clone();
         match req.request {
             RequestKind::VID(view, pub_key) => {
                 let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
+                    tracing::error!("lrzasik: couldn't calculate vid, view: {:?}", view);
                     return self.make_msg(ResponseMessage::NotFound);
                 };
                 let Some(prop) = share.to_proposal(&self.private_key) else {
+                    tracing::error!("lrzasik: couldn't sign vid, view: {:?}", view);
                     return self.make_msg(ResponseMessage::NotFound);
                 };
                 let seq_msg =
                     SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop));
+                tracing::error!("lrzasik: sending request response, view: {:?}", view);
                 self.make_msg(ResponseMessage::Found(seq_msg))
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651

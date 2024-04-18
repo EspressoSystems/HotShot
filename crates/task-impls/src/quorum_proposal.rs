@@ -824,15 +824,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     #[instrument(skip_all, fields(
         id = self.id,
         view = *self.cur_view
-    ), name = "Consensus update view", level = "error")]
+    ), name = "Quorum update view", level = "error")]
     async fn update_view(
         &mut self,
         new_view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> bool {
         if *self.cur_view < *new_view {
-            debug!(
-                "Updating view from {} to {} in consensus task",
+            error!(
+                "Updating view from {} to {} in quorum task",
                 *self.cur_view, *new_view
             );
 
@@ -884,8 +884,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 // Nuance: We timeout on the view + 1 here because that means that we have
                 // not seen evidence to transition to this new view
                 let view_number = self.cur_view + 1;
+                let id = self.id;
                 async move {
                     async_sleep(Duration::from_millis(timeout)).await;
+                    error!("lrzasik: timed out, quorum, id: {:?}, view: {:?}", id, view_number);
                     broadcast_event(
                         Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                         &stream,

@@ -71,6 +71,7 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
+        handle.hotshot.id,
     );
     task_reg
         .register(run_response_task::<TYPES, Version01>(state, hs_rx))
@@ -117,7 +118,8 @@ pub async fn add_network_message_task<
 pub async fn add_network_event_task<
     TYPES: NodeType,
     NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    S: Storage<TYPES> + 'static,
+    I: NodeImplementation<TYPES>,
+    // S: Storage<TYPES> + 'static,
 >(
     task_reg: Arc<TaskRegistry>,
     tx: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -125,7 +127,7 @@ pub async fn add_network_event_task<
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
-    storage: Arc<RwLock<S>>,
+    handle: &SystemContextHandle<TYPES, I>,
 ) {
     let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
@@ -133,7 +135,8 @@ pub async fn add_network_event_task<
         version: VERSION_0_1,
         membership,
         filter,
-        storage,
+        storage: handle.get_storage().clone(),
+        id: handle.hotshot.id,
     };
     let task = Task::new(tx, rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;
