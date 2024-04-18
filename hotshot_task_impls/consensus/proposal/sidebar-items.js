@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","validate_proposal"]};

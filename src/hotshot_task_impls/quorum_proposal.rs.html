@@ -996,13 +996,12 @@
 <a href="#994" id="994">994</a>
 <a href="#995" id="995">995</a>
 <a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::future::FutureExt;
@@ -1028,12 +1027,15 @@
     },
     vote::{Certificate, HasViewNumber},
 };
+
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::validate_proposal,
+    consensus::proposal::validate_proposal,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
