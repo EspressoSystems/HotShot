@@ -282,6 +282,44 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides:
 //! - an opaque constructor [`vid_scheme`] that returns a new instance of a
 //!   VID scheme.
@@ -297,7 +335,6 @@
 <span class="kw">use </span>ark_bn254::Bn254;
 <span class="kw">use </span>jf_primitives::{
     pcs::{
-        checked_fft_size,
         prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
         PolynomialCommitmentScheme,
     },
@@ -314,6 +351,8 @@
 <span class="kw">use </span>lazy_static::lazy_static;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha2::Sha256;
+
+<span class="kw">use </span><span class="kw">crate</span>::constants::SRS_DEGREE;
 
 <span class="doccomment">/// VID scheme constructor.
 ///
@@ -342,12 +381,37 @@
 
     <span class="attr">#[allow(clippy::panic)]
     </span><span class="kw">let </span>num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
-        <span class="macro">panic!</span>(<span class="string">"num_storage_nodes {num_storage_nodes} should fit into u32\n\terror: : {err}"</span>)
+        <span class="macro">panic!</span>(
+            <span class="string">"num_storage_nodes {num_storage_nodes} should fit into u32; \
+                error: {err}"
+        </span>)
     });
 
     <span class="comment">// TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     </span><span class="attr">#[allow(clippy::panic)]
-    </span>VidSchemeType(Advz::new(num_storage_nodes, recovery_threshold, <span class="kw-2">&amp;*</span>KZG_SRS).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"advz construction failure:\n\t(num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold})\n\terror: : {err}"</span>)))
+    </span>VidSchemeType(
+        Advz::new(num_storage_nodes, recovery_threshold, <span class="kw-2">&amp;*</span>KZG_SRS).unwrap_or_else(|err| {
+              <span class="macro">panic!</span>(<span class="string">"advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold}); \
+                      error: {err}"</span>)
+        })
+    )
+}
+
+<span class="doccomment">/// Similar to [`vid_scheme()`], but with `KZG_SRS_TEST` for testing purpose only.
+</span><span class="attr">#[cfg(feature = <span class="string">"test-srs"</span>)]
+</span><span class="kw">pub fn </span>vid_scheme_for_test(num_storage_nodes: usize) -&gt; VidSchemeType {
+    <span class="kw">let </span>recovery_threshold = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
+    <span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">let </span>num_storage_nodes = u32::try_from(num_storage_nodes).unwrap_or_else(|err| {
+        <span class="macro">panic!</span>(<span class="string">"num_storage_nodes {num_storage_nodes} should fit into u32; error: {err}"</span>)
+    });
+    <span class="attr">#[allow(clippy::panic)]
+    </span>VidSchemeType(
+        Advz::new(num_storage_nodes, recovery_threshold, <span class="kw-2">&amp;*</span>KZG_SRS_TEST).unwrap_or_else(|err| {
+           <span class="macro">panic!</span>(<span class="string">"advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold});\
+                   error: {err}"</span>)
+        })
+    )
 }
 
 <span class="doccomment">/// VID commitment type
@@ -400,19 +464,31 @@
     </span>SmallRangeProof&lt;&lt;UnivariateKzgPCS&lt;E&gt; <span class="kw">as </span>PolynomialCommitmentScheme&gt;::Proof&gt;,
 );
 
-<span class="macro">lazy_static! </span>{
-    <span class="doccomment">/// SRS comment
-    ///
-    /// TODO use a proper SRS
-    /// https://github.com/EspressoSystems/HotShot/issues/1686
-    </span><span class="kw">static </span><span class="kw-2">ref </span>KZG_SRS: UnivariateUniversalParams&lt;E&gt; = {
+<span class="attr">#[cfg(feature = <span class="string">"test-srs"</span>)]
+</span><span class="macro">lazy_static! </span>{
+    <span class="doccomment">/// SRS for testing only
+    </span><span class="kw">static </span><span class="kw-2">ref </span>KZG_SRS_TEST: UnivariateUniversalParams&lt;E&gt; = {
         <span class="kw">let </span><span class="kw-2">mut </span>rng = jf_utils::test_rng();
         UnivariateKzgPCS::&lt;E&gt;::gen_srs_for_testing(
             <span class="kw-2">&amp;mut </span>rng,
-            <span class="comment">// TODO what's the maximum possible SRS size?
-            </span>checked_fft_size(<span class="number">200</span>).unwrap(),
+            SRS_DEGREE,
         )
         .unwrap()
+    };
+}
+
+<span class="comment">// By default, use SRS from Aztec's ceremony
+</span><span class="macro">lazy_static! </span>{
+    <span class="doccomment">/// SRS comment
+    </span><span class="kw">static </span><span class="kw-2">ref </span>KZG_SRS: UnivariateUniversalParams&lt;E&gt; = {
+        <span class="kw">let </span>srs = ark_srs::kzg10::aztec20::setup(SRS_DEGREE)
+            .expect(<span class="string">"Aztec SRS failed to load"</span>);
+        UnivariateUniversalParams {
+            powers_of_g: srs.powers_of_g,
+            h: srs.h,
+            beta_h: srs.beta_h,
+            powers_of_h: <span class="macro">vec!</span>[srs.h, srs.beta_h],
+        }
     };
 }
 
