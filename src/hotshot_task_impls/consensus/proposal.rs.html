@@ -233,15 +233,16 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -257,8 +258,7 @@
 };
 <span class="kw">use </span>tracing::{debug, error, warn};
 
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.

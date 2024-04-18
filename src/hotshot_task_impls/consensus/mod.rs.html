@@ -1442,19 +1442,12 @@
 <a href="#1440" id="1440">1440</a>
 <a href="#1441" id="1441">1441</a>
 <a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
-<span class="kw">use crate</span>::{
-    consensus::{proposal::validate_proposal, view_change::update_view},
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -1496,6 +1489,15 @@
         data::{null_block, VidDisperseShare},
         message::GeneralConsensusMessage,
         simple_vote::QuorumData,
+    },
+};
+
+<span class="kw">use crate</span>::{
+    consensus::{proposal::validate_proposal, view_change::update_view},
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
 

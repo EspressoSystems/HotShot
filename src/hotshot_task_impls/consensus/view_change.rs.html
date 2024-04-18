@@ -132,17 +132,15 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
-<span class="kw">use </span>core::time::Duration;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     constants::LOOK_AHEAD,
@@ -152,12 +150,14 @@
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-<span class="kw">use </span>tracing::{debug, error};
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tracing::{debug, error};
+
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 <span class="doccomment">/// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
