@@ -1,12 +1,13 @@
+use core::time::Duration;
+#[cfg(not(feature = "dependency-tasks"))]
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
-use core::time::Duration;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -22,14 +23,13 @@ use hotshot_types::{
 };
 use tracing::{debug, error, warn};
 
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-pub async fn validate_proposal<TYPES: NodeType>(
+pub(crate) async fn validate_proposal<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -53,11 +53,13 @@ pub async fn validate_proposal<TYPES: NodeType>(
 
     let state = Arc::new(validated_state);
     let delta = Arc::new(state_delta);
-    let parent_commitment = parent_leaf.commit();
     let view = proposal.data.get_view_number();
 
-    let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-    proposed_leaf.set_parent_commitment(parent_commitment);
+    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+    ensure!(
+        proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
+        "Proposed leaf does not extend the parent leaf."
+    );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     //
@@ -203,8 +205,10 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         upgrade_certificate: upgrade_cert,
     };
 
-    let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal);
-    proposed_leaf.set_parent_commitment(parent_leaf.commit());
+    let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+    if proposed_leaf.get_parent_commitment() != parent_leaf.commit() {
+        return;
+    }
 
     let Ok(signature) = TYPES::SignatureKey::sign(&private_key, proposed_leaf.commit().as_ref())
     else {
