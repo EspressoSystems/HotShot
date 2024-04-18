@@ -57,8 +57,6 @@ use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
-#[cfg(feature = "proposal-task")]
-use crate::tasks::add_quorum_proposal_task;
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -67,6 +65,8 @@ use crate::{
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
+#[cfg(feature = "dependency-tasks")]
+use crate::tasks::{add_quorum_proposal_task, add_quorum_vote_task};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -586,15 +586,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
-        // TODO: [CX_CLEANUP] - Integrate QuorumVoteTask with other tasks.
-        // <https://github.com/EspressoSystems/HotShot/issues/2712>
-        // add_quorum_vote_task(
-        //     registry.clone(),
-        //     event_tx.clone(),
-        //     event_rx.activate_cloned(),
-        //     &handle,
-        // )
-        // .await;
         add_da_task(
             registry.clone(),
             event_tx.clone(),
@@ -630,8 +621,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
-        #[cfg(feature = "proposal-task")]
+        #[cfg(feature = "dependency-tasks")]
         add_quorum_proposal_task(
+            registry.clone(),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        #[cfg(feature = "dependency-tasks")]
+        add_quorum_vote_task(
             registry.clone(),
             event_tx.clone(),
             event_rx.activate_cloned(),
