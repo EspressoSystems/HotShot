@@ -25,15 +25,15 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_nginx_benchmarks.sh` for an example
-for total_nodes in 10 50 100
+for total_nodes in 10 #50 100
 do
-    for da_committee_size in 10 50 100
+    for da_committee_size in 5 #10 50 100
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10 50 100
+            for transactions_per_round in 1 #10 50 100
             do
-                for transaction_size in 512 4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
+                for transaction_size in 4096 #512 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
                     rounds=100
                     # start webserver
