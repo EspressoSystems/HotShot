@@ -12,11 +12,10 @@ use hotshot_types::{
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::Proposal,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::BlockHeader, election::Membership, node_implementation::ConsensusTime,
-        node_implementation::NodeType, signature_key::SignatureKey, states::ValidatedState,
-        storage::Storage, BlockPayload,
+        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
+        signature_key::SignatureKey, states::ValidatedState, storage::Storage, BlockPayload,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
@@ -302,21 +301,6 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     Ok(())
 }
 
-/// If we've determined that we need to perform the liveness check, we use this function to check if a proposal
-/// should also occur, then we vote regardless.
-pub fn perform_liveness_check_and_vote<TYPES: NodeType>(
-    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    quorum_membership: Arc<TYPES::Membership>,
-    public_key: TYPES::SignatureKey,
-    high_qc: QuorumCertificate<TYPES>,
-) -> Result<bool> {
-    let new_view = proposal.data.view_number + 1;
-
-    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-    Ok(quorum_membership.get_leader(new_view) == public_key
-        && high_qc.view_number == proposal.data.get_view_number())
-}
-
 pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -375,41 +359,8 @@ pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
     Ok((parent_leaf, state.clone()))
 }
 
-/// Ignores old propose behavior and lets QuorumProposalTask take over.
-#[cfg(feature = "dependency-tasks")]
-pub async fn publish_proposal_from_upgrade_cert(
-    _cur_view: TYPES::Time,
-    _view: TYPES::Time,
-    _sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    _quorum_membership: Arc<TYPES::Membership>,
-    _public_key: TYPES::SignatureKey,
-    _private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    _consensus: Arc<RwLock<Consensus<TYPES>>>,
-    _upgrade_cert: UpgradeCertificate<TYPES>,
-    _delay: u64,
-) -> Result<JoinHandle<()>> {
-}
-
-#[cfg(feature = "dependency-tasks")]
-pub async fn publish_proposal_from_commitment_and_metadata(
-    _cur_view: TYPES::Time,
-    _view: TYPES::Time,
-    _sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    _quorum_membership: Arc<TYPES::Membership>,
-    _public_key: TYPES::SignatureKey,
-    _private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    _consensus: Arc<RwLock<Consensus<TYPES>>>,
-    _commitment_and_metadata: CommitmentAndMetadata<TYPES>,
-    _delay: u64,
-    _formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    _decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    _proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-) -> Result<JoinHandle<()>> {
-}
-
 /// Send a proposal for the view `view` from the latest high_qc.
 #[allow(clippy::too_many_lines)]
-#[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -465,7 +416,6 @@ pub async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
 }
 
 #[allow(clippy::too_many_lines)]
-#[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -532,4 +482,72 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         )
         .await;
     }))
+}
+
+#[cfg(feature = "dependency-tasks")]
+pub async fn publish_proposal_if_able<TYPES: NodeType>(
+    _cur_view: TYPES::Time,
+    _view: TYPES::Time,
+    _sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    _quorum_membership: Arc<TYPES::Membership>,
+    _public_key: TYPES::SignatureKey,
+    _private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    _consensus: Arc<RwLock<Consensus<TYPES>>>,
+    _commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
+    _delay: u64,
+    _formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    _decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    _proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+) -> Result<JoinHandle<()>> {
+    Ok(())
+}
+
+#[cfg(not(feature = "dependency-tasks"))]
+pub async fn publish_proposal_if_able<TYPES: NodeType>(
+    cur_view: TYPES::Time,
+    view: TYPES::Time,
+    sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    quorum_membership: Arc<TYPES::Membership>,
+    public_key: TYPES::SignatureKey,
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
+    delay: u64,
+    formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+) -> Result<JoinHandle<()>> {
+    if let Some(upgrade_cert) = decided_upgrade_cert {
+        publish_proposal_from_upgrade_cert(
+            cur_view,
+            view,
+            sender,
+            quorum_membership,
+            public_key,
+            private_key,
+            consensus,
+            upgrade_cert,
+            delay,
+        )
+        .await
+    } else {
+        let commitment_and_metadata = commitment_and_metadata.context(
+            "Cannot propose because we don't have the VID payload commitment and metadata",
+        )?;
+        publish_proposal_from_commitment_and_metadata(
+            cur_view,
+            view,
+            sender,
+            quorum_membership,
+            public_key,
+            private_key,
+            consensus,
+            commitment_and_metadata,
+            delay,
+            formed_upgrade_certificate,
+            decided_upgrade_cert,
+            proposal_cert,
+        )
+        .await
+    }
 }
