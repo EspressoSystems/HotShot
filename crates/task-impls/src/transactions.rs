@@ -145,9 +145,40 @@ impl<
     async fn wait_for_block(
         &self,
     ) -> Option<(AvailableBlockData<TYPES>, AvailableBlockHeaderInput<TYPES>)> {
+        use hotshot_types::traits::node_implementation::ConsensusTime;
+
         let task_start_time = Instant::now();
 
-        let last_leaf = self.consensus.read().await.get_decided_leaf();
+        let payload_commitment = 'pc: {
+            let consensus = self.consensus.read().await;
+            let mut view = self.cur_view - 1_u64;
+            while view != TYPES::Time::genesis() {
+                match consensus
+                    .validated_state_map
+                    .get(&view)
+                    .map(|s| &s.view_inner)
+                {
+                    Some(hotshot_types::utils::ViewInner::DA { payload_commitment }) => {
+                        println!("Commitment from DA cv: {}, rv: {}", *self.cur_view, *view);
+                        break 'pc payload_commitment.clone();
+                    }
+                    Some(hotshot_types::utils::ViewInner::Leaf { leaf, .. }) => {
+                        println!("Commitment from Leaf cv: {}, rv: {}", *self.cur_view, *view);
+                        break 'pc consensus
+                            .saved_leaves
+                            .get(&leaf)
+                            .unwrap()
+                            .get_payload_commitment();
+                    }
+                    Some(hotshot_types::utils::ViewInner::Failed) => {}
+                    None => {}
+                }
+                view = view - 1_u64;
+            }
+            println!("Commitment from last decided leaf cv: {}", *self.cur_view);
+            consensus.get_decided_leaf().get_payload_commitment()
+        };
+
         let mut latest_block: Option<(
             AvailableBlockData<TYPES>,
             AvailableBlockHeaderInput<TYPES>,
@@ -159,7 +190,7 @@ impl<
         {
             let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
                 &self.private_key,
-                last_leaf.get_block_header().payload_commitment().as_ref(),
+                payload_commitment.as_ref(),
             ) else {
                 error!("Failed to sign block hash");
                 continue;
@@ -167,7 +198,7 @@ impl<
             let mut available_blocks = match self
                 .builder_client
                 .get_available_blocks(
-                    last_leaf.get_block_header().payload_commitment(),
+                    payload_commitment,
                     self.public_key.clone(),
                     &request_signature,
                 )
