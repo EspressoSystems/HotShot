@@ -17,3 +17,4 @@
 .github/workflows/preserve-build-and-test.yml
 config/ValidatorConfigOutput
 scripts/preserve_ci_ecs_benchmarks.sh
+**/*.bin
