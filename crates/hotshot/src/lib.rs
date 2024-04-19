@@ -278,7 +278,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         debug!("Starting Consensus");
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(0))))
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(1))))
             .await
             .expect("Genesis Broadcast failed");
         self.internal_event_stream
