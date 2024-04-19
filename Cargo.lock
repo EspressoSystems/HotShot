@@ -484,7 +484,8 @@ dependencies = [
 [[package]]
 name = "ark-srs"
 version = "0.3.1"
-source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "984122d5ed5520ed6175f2bf3f9250eb05be14f688b83329262d144e5d19b700"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -1331,14 +1332,13 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
  "dashmap",
  "derivative",
- "derive_builder",
  "jf-primitives 0.4.0-pre.0",
  "lazy_static",
  "local-ip-address",
@@ -1354,12 +1354,11 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "derive_builder",
  "jf-primitives 0.4.0-pre.0",
  "rand 0.8.5",
  "tokio",
@@ -1370,12 +1369,11 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "derive_builder",
  "jf-primitives 0.4.0-pre.0",
  "tokio",
  "tracing",
@@ -1385,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
 dependencies = [
  "anyhow",
  "ark-serialize",
