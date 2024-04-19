@@ -8,8 +8,6 @@ use std::{
 
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use futures::{future::BoxFuture, Stream, StreamExt};
@@ -36,8 +34,6 @@ use hotshot_types::{
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use tide_disco::{method::ReadState, App, Url};
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::spawn_blocking;
 
 #[async_trait]
 pub trait TestBuilderImplementation<TYPES: NodeType> {
@@ -534,13 +530,8 @@ async fn build_block<TYPES: NodeType>(
     let commitment = block_payload.builder_commitment(&metadata);
 
     let encoded_payload = block_payload.encode().unwrap().collect();
-    let vid_result =
-        spawn_blocking(move || precompute_vid_commitment(&encoded_payload, num_storage_nodes))
-            .await;
-    #[cfg(async_executor_impl = "tokio")]
-    let vid_result = vid_result.unwrap();
-
-    let (vid_commitment, precompute_data) = vid_result;
+    let (vid_commitment, precompute_data) =
+        precompute_vid_commitment(&encoded_payload, num_storage_nodes);
 
     // Get block size from the encoded payload
     let block_size = block_payload
