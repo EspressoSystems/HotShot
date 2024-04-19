@@ -402,71 +402,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                // if let Err(e) = validate_proposal_view_and_certs(
-                //     proposal,
-                //     &sender,
-                //     self.cur_view,
-                //     &self.quorum_membership,
-                //     &self.timeout_membership,
-                // ) {
-                //     warn!("Failed to validate proposal view and attached certs; error = {e:?}");
-                //     return;
-                // }
+                if let Err(e) = validate_proposal_view_and_certs(
+                    proposal,
+                    &sender,
+                    self.cur_view,
+                    &self.quorum_membership,
+                    &self.timeout_membership,
+                ) {
+                    warn!("Failed to validate proposal view and attached certs; error = {e:?}");
+                    return;
+                }
 
                 let view = proposal.data.get_view_number();
-                if view < self.cur_view {
-                    debug!("Proposal is from an older view {:?}", proposal.data.clone());
-                    return;
-                }
-
                 let view_leader_key = self.quorum_membership.get_leader(view);
-                if view_leader_key != sender {
-                    warn!("Leader key does not match key in proposal");
-                    return;
-                }
-
-                // Verify a timeout certificate OR a view sync certificate exists and is valid.
-                if proposal.data.justify_qc.get_view_number() != view - 1 {
-                    if let Some(received_proposal_cert) = proposal.data.proposal_certificate.clone()
-                    {
-                        match received_proposal_cert {
-                            ViewChangeEvidence::Timeout(timeout_cert) => {
-                                if timeout_cert.get_data().view != view - 1 {
-                                    warn!("Timeout certificate for view {} was not for the immediately preceding view", *view);
-                                    return;
-                                }
-
-                                if !timeout_cert.is_valid_cert(self.timeout_membership.as_ref()) {
-                                    warn!("Timeout certificate for view {} was invalid", *view);
-                                    return;
-                                }
-                            }
-                            ViewChangeEvidence::ViewSync(view_sync_cert) => {
-                                if view_sync_cert.view_number != view {
-                                    debug!(
-                                        "Cert view number {:?} does not match proposal view number {:?}",
-                                        view_sync_cert.view_number, view
-                                    );
-                                    return;
-                                }
-
-                                // View sync certs must also be valid.
-                                if !view_sync_cert.is_valid_cert(self.quorum_membership.as_ref()) {
-                                    debug!("Invalid ViewSyncFinalize cert provided");
-                                    return;
-                                }
-                            }
-                        }
-                    } else {
-                        warn!(
-                            "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
-                            *view);
-                        return;
-                    };
-                }
-
-                // let view = proposal.data.get_view_number();
-                // let view_leader_key = self.quorum_membership.get_leader(view);
                 let justify_qc = proposal.data.justify_qc.clone();
 
                 if !justify_qc.is_valid_cert(self.quorum_membership.as_ref()) {

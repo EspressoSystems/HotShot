@@ -250,7 +250,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 ) -> Result<()> {
     let view = proposal.data.get_view_number();
     ensure!(
-        view > cur_view,
+        view >= cur_view,
         "Proposal is from an older view {:?}",
         proposal.data.clone()
     );
