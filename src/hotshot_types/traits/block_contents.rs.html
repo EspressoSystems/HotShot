@@ -207,7 +207,7 @@
 
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>jf_primitives::vid::{precomputable::Precomputable, VidScheme};
-<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
 <span class="kw">use crate</span>::{
@@ -341,7 +341,7 @@
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 </span><span class="kw">pub const </span>GENESIS_VID_NUM_STORAGE_NODES: usize = <span class="number">1</span>;
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 </span><span class="doccomment">/// Information about builder fee for proposed block
 </span><span class="kw">pub struct </span>BuilderFee&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Proposed fee amount

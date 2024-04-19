@@ -581,6 +581,7 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -613,6 +614,7 @@
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
@@ -670,7 +672,7 @@
         .expect(<span class="string">"Failed to construct the builder API"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource&lt;TYPES&gt;, hotshot_builder_api::builder::Error&gt; =
             App::with_state(source);
-        app.register_module(<span class="string">"api"</span>, builder_api)
+        app.register_module(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
         async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
@@ -782,7 +784,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>RandomBuilderSource&lt;TYPES&gt; {
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _for_parent: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
         _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
@@ -888,7 +890,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt; {
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _for_parent: <span class="kw-2">&amp;</span>BuilderCommitment,
+        _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
         _sender: TYPES::SignatureKey,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
