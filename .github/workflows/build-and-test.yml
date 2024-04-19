@@ -52,8 +52,6 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-          ./scripts/download_srs_aztec.sh
           just ${{ matrix.just_variants }} ${{ matrix.test_suites }}
         timeout-minutes: 60
         env:
@@ -89,8 +87,6 @@ jobs:
 
       - name: Test examples
         run: |
-          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-          ./scripts/download_srs_aztec.sh
           just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
 
   build-release:
