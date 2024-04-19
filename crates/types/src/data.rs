@@ -456,7 +456,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             parent_commitment: fake_commitment(),
             upgrade_certificate: None,
             block_header: block_header.clone(),
-            block_payload: Some(payload.clone()),
+            block_payload: Some(payload),
         }
     }
 
@@ -503,7 +503,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// or if the transactions are of invalid length
     pub fn fill_block_payload(
         &mut self,
-        block_payload: &TYPES::BlockPayload,
+        block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
         let Ok(encoded_txns) = block_payload.encode() else {
@@ -513,7 +513,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
-        self.block_payload = Some(block_payload.clone());
+        self.block_payload = Some(block_payload);
         Ok(())
     }
 
