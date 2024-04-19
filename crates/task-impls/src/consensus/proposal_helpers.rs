@@ -581,6 +581,8 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 pub async fn handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: TYPES::SignatureKey,
