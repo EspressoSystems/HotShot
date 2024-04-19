@@ -115,7 +115,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
-    pub encoded_transactions: Arc<[u8]>,
+    pub encoded_transactions: Arc<Vec<u8>>,
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to
@@ -443,7 +443,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode().expect("unable to encode genesis payload");
 
-        let payload_commitment = vid_commitment(payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
             payload_commitment,
@@ -509,7 +509,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let Ok(encoded_txns) = block_payload.encode() else {
             return Err(BlockError::InvalidTransactionLength);
         };
-        let commitment = vid_commitment(encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }

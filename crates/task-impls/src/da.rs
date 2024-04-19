@@ -132,7 +132,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
+                let encoded_transactions_hash =
+                    Sha256::digest(proposal.data.encoded_transactions.as_ref());
 
                 // ED Is this the right leader?
                 let view_leader_key = self.da_membership.get_leader(view);
@@ -181,7 +182,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let txns = proposal.data.encoded_transactions.clone();
                 let num_nodes = self.quorum_membership.total_nodes();
                 let payload_commitment =
-                    spawn_blocking(move || vid_commitment(txns, num_nodes)).await;
+                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
                 #[cfg(async_executor_impl = "tokio")]
                 let payload_commitment = payload_commitment.unwrap();
 
@@ -309,7 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // quick hash the encoded txns with sha256
-                let encoded_transactions_hash = Sha256::digest(encoded_transactions);
+                let encoded_transactions_hash = Sha256::digest(encoded_transactions.as_ref());
 
                 // sign the encoded transactions as opposed to the VID commitment
                 let Ok(signature) =

@@ -39,7 +39,7 @@ async fn test_vid_task() {
     let (payload, metadata) = TestBlockPayload::from_transactions(transactions.clone()).unwrap();
     let builder_commitment = payload.builder_commitment(&metadata);
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let vid_disperse = vid.disperse(encoded_transactions.as_ref()).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(

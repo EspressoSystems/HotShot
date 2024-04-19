@@ -32,7 +32,7 @@ async fn test_da_task() {
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
     let payload_commit = vid_commitment(
-        encoded_transactions.clone(),
+        &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
@@ -111,7 +111,7 @@ async fn test_da_task_storage_failure() {
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
     let payload_commit = vid_commitment(
-        encoded_transactions.clone(),
+        &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 

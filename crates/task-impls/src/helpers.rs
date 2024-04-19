@@ -44,13 +44,13 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
 /// Panics if the VID calculation fails, this should not happen.
 #[allow(clippy::panic)]
 pub async fn calculate_vid_disperse<TYPES: NodeType>(
-    txns: Vec<u8>,
+    txns: Arc<Vec<u8>>,
     membership: &Arc<TYPES::Membership>,
     view: TYPES::Time,
 ) -> VidDisperse<TYPES> {
     let num_nodes = membership.total_nodes();
     let vid_disperse = spawn_blocking(move || {
-        vid_scheme(num_nodes).disperse(&txns).unwrap_or_else(|err| panic!("VID precompute disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
+        vid_scheme(num_nodes).disperse(txns.as_ref()).unwrap_or_else(|err| panic!("VID precompute disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
     })
     .await;
     #[cfg(async_executor_impl = "tokio")]

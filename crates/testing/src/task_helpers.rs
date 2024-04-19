@@ -236,7 +236,7 @@ pub fn vid_payload_commitment(
 ) -> VidCommitment {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
-    let vid_disperse = vid.disperse(encoded_transactions).unwrap();
+    let vid_disperse = vid.disperse(encoded_transactions.as_ref()).unwrap();
 
     vid_disperse.commit
 }
@@ -247,7 +247,7 @@ pub fn da_payload_commitment(
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
 
-    vid_commitment(encoded_transactions, quorum_membership.total_nodes())
+    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
@@ -262,7 +262,7 @@ pub fn build_vid_proposal(
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(encoded_transactions).unwrap(),
+        vid.disperse(encoded_transactions.as_ref()).unwrap(),
         quorum_membership,
     );
 
@@ -286,7 +286,7 @@ pub fn build_da_certificate(
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
 
     let da_payload_commitment =
-        vid_commitment(encoded_transactions, quorum_membership.total_nodes());
+        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
     let da_data = DAData {
         payload_commit: da_payload_commitment,

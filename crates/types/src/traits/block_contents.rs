@@ -59,7 +59,7 @@ pub trait BlockPayload:
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
-    fn from_bytes(encoded_transactions: Arc<[u8]>, metadata: &Self::Metadata) -> Self;
+    fn from_bytes(encoded_transactions: Arc<Vec<u8>>, metadata: &Self::Metadata) -> Self;
 
     /// Build the genesis payload and metadata.
     fn genesis() -> (Self, Self::Metadata);
@@ -68,7 +68,7 @@ pub trait BlockPayload:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<Arc<[u8]>, Self::Error>;
+    fn encode(&self) -> Result<Arc<Vec<u8>>, Self::Error>;
 
     /// List of transaction commitments.
     fn transaction_commitments(
@@ -111,11 +111,11 @@ pub trait TestableBlock: BlockPayload + Debug {
 #[must_use]
 #[allow(clippy::panic)]
 pub fn vid_commitment(
-    encoded_transactions: Arc<[u8]>,
+    encoded_transactions: &Arc<Vec<u8>>,
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
-    let encoded_tx_len = encoded_transactions.as_ref().len();
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
+    let encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions.as_ref()).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
@@ -124,14 +124,14 @@ pub fn vid_commitment(
 #[must_use]
 #[allow(clippy::panic)]
 pub fn precompute_vid_commitment(
-    encoded_transactions: Arc<[u8]>,
+    encoded_transactions: &Arc<Vec<u8>>,
     num_storage_nodes: usize,
 ) -> (
     <VidSchemeType as VidScheme>::Commit,
     <VidSchemeType as Precomputable>::PrecomputeData,
 ) {
-    let encoded_tx_len = encoded_transactions.as_ref().len();
-    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
+    let encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions.as_ref()).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.

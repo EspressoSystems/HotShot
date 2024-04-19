@@ -97,7 +97,7 @@ impl TestView {
         };
 
         let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
-        let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
+        let encoded_transactions_hash = Sha256::digest(encoded_transactions.as_ref());
         let block_payload_signature =
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");
@@ -299,7 +299,7 @@ impl TestView {
         };
 
         let encoded_transactions = TestTransaction::encode(transactions).unwrap();
-        let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
+        let encoded_transactions_hash = Sha256::digest(encoded_transactions.as_ref());
         let block_payload_signature =
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");

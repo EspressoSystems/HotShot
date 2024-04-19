@@ -30,7 +30,7 @@ impl TestTransaction {
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    pub fn encode(transactions: &Vec<Self>) -> Result<Arc<[u8]>, BlockError> {
+    pub fn encode(transactions: &Vec<Self>) -> Result<Arc<Vec<u8>>, BlockError> {
         let mut encoded = Vec::new();
 
         for txn in transactions {
@@ -121,7 +121,7 @@ impl BlockPayload for TestBlockPayload {
         ))
     }
 
-    fn from_bytes(encoded_transactions: Arc<[u8]>, _metadata: &Self::Metadata) -> Self {
+    fn from_bytes(encoded_transactions: Arc<Vec<u8>>, _metadata: &Self::Metadata) -> Self {
         let mut transactions = Vec::new();
         let mut current_index = 0;
         while current_index < encoded_transactions.len() {
@@ -146,7 +146,7 @@ impl BlockPayload for TestBlockPayload {
         (Self::genesis(), ())
     }
 
-    fn encode(&self) -> Result<Arc<[u8]>, Self::Error> {
+    fn encode(&self) -> Result<Arc<Vec<u8>>, Self::Error> {
         TestTransaction::encode(&self.transactions)
     }
 
