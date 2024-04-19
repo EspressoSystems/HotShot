@@ -483,9 +483,8 @@ dependencies = [
 
 [[package]]
 name = "ark-srs"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc9d2dbff870743404933d3ef8a3be3adc3d1926f205e5aec2e43d3ee6885431"
+version = "0.3.1"
+source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -494,8 +493,13 @@ dependencies = [
  "ark-poly-commit",
  "ark-serialize",
  "ark-std",
+ "directories",
  "hex-literal",
+ "rand 0.8.5",
  "sha2 0.10.8",
+ "tracing",
+ "tracing-subscriber 0.3.18",
+ "ureq",
 ]
 
 [[package]]
@@ -2202,6 +2206,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "directories"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3124,7 +3137,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3188,7 +3201,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3217,7 +3230,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3266,7 +3279,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3276,7 +3289,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3304,7 +3317,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3323,7 +3336,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3335,7 +3348,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3367,7 +3380,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3456,7 +3469,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -3941,7 +3954,7 @@ dependencies = [
  "socket2 0.5.6",
  "widestring",
  "windows-sys 0.48.0",
- "winreg",
+ "winreg 0.50.0",
 ]
 
 [[package]]
@@ -4587,7 +4600,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.37"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4854,7 +4867,7 @@ dependencies = [
  "rcgen 0.11.3",
  "ring 0.16.20",
  "rustls 0.21.10",
- "rustls-webpki",
+ "rustls-webpki 0.101.7",
  "thiserror",
  "x509-parser",
  "yasna",
@@ -6468,11 +6481,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d66674f2b6fb864665eea7a3c1ac4e3dfacd2fda83cf6f935a612e01b0e3338"
+checksum = "3e6cc1e89e689536eb5aeede61520e874df5a4707df811cd5da4aa5fbb2aae19"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.0",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -6492,7 +6505,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite 0.2.13",
- "rustls-pemfile",
+ "rustls-pemfile 2.1.2",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -6505,7 +6518,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "winreg",
+ "winreg 0.52.0",
 ]
 
 [[package]]
@@ -6754,8 +6767,22 @@ checksum = "f9d5a6813c0759e4609cd494e8e725babae6a2ca7b62a5536a13daaec6fcb7ba"
 dependencies = [
  "log",
  "ring 0.17.8",
- "rustls-webpki",
+ "rustls-webpki 0.101.7",
  "sct 0.7.1",
+]
+
+[[package]]
+name = "rustls"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99008d7ad0bbbea527ec27bddbc0e432c5b87d8175178cee68d2eec9c4a1813c"
+dependencies = [
+ "log",
+ "ring 0.17.8",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.2",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -6768,12 +6795,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
+dependencies = [
+ "base64 0.22.0",
+ "rustls-pki-types",
+]
+
+[[package]]
+name = "rustls-pki-types"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecd36cc4259e3e4514335c4a138c6b43171a8d61d8f5c9348f9fc7529416f247"
+
+[[package]]
 name = "rustls-webpki"
 version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
  "ring 0.17.8",
+ "untrusted 0.9.0",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faaa0a62740bedb9b2ef5afa303da42764c012f743917351dc9a237ea1663610"
+dependencies = [
+ "ring 0.17.8",
+ "rustls-pki-types",
  "untrusted 0.9.0",
 ]
 
@@ -8581,6 +8635,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "ureq"
+version = "2.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11f214ce18d8b2cbe84ed3aa6486ed3f5b285cf8d8fbdbce9f3f767a724adc35"
+dependencies = [
+ "base64 0.21.7",
+ "flate2",
+ "log",
+ "once_cell",
+ "rustls 0.22.3",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.2",
+ "url",
+ "webpki-roots 0.26.1",
+]
+
+[[package]]
 name = "url"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8721,7 +8792,7 @@ dependencies = [
  "mime_guess",
  "percent-encoding",
  "pin-project",
- "rustls-pemfile",
+ "rustls-pemfile 1.0.4",
  "scoped-tls",
  "serde",
  "serde_json",
@@ -8853,6 +8924,15 @@ name = "webpki-roots"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3de34ae270483955a94f4b21bdaaeb83d508bb84a01435f393818edb0012009"
+dependencies = [
+ "rustls-pki-types",
+]
 
 [[package]]
 name = "which"
@@ -9078,6 +9158,16 @@ name = "winreg"
 version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
+dependencies = [
+ "cfg-if",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "winreg"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
