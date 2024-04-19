@@ -148,6 +148,7 @@ impl<
                                 fee_amount: blocks_initial_info.offered_fee,
                                 fee_signature: block_header.fee_signature,
                             },
+                            block_header.vid_precompute_data,
                         )),
                         &event_stream,
                     )

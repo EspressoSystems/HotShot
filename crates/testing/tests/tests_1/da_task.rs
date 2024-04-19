@@ -14,7 +14,8 @@ use hotshot_types::{
     data::{null_block, ViewNumber},
     simple_vote::DAData,
     traits::{
-        block_contents::vid_commitment, election::Membership, node_implementation::ConsensusTime,
+        block_contents::precompute_vid_commitment, election::Membership,
+        node_implementation::ConsensusTime,
     },
 };
 
@@ -31,7 +32,7 @@ async fn test_da_task() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let payload_commit = vid_commitment(
+    let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -72,6 +73,7 @@ async fn test_da_task() {
                 (),
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                precompute,
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
@@ -110,7 +112,7 @@ async fn test_da_task_storage_failure() {
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
     let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
-    let payload_commit = vid_commitment(
+    let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
@@ -151,6 +153,7 @@ async fn test_da_task_storage_failure() {
                 (),
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                precompute,
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
