@@ -362,7 +362,7 @@ impl<
                     block_data
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block data");
                     continue;
                 }
             };
@@ -402,7 +402,7 @@ impl<
                     header_input
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block header input");
                     continue;
                 }
             };
