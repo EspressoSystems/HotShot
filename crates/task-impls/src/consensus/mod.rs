@@ -339,7 +339,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         false
     }
 
+    #[cfg(feature = "dependency-tasks")]
+    async fn publish_proposal(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     /// Publishes a proposal
+    #[cfg(not(feature = "dependency-tasks"))]
     async fn publish_proposal(
         &mut self,
         view: TYPES::Time,

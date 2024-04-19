@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use anyhow::{ensure, Context, Result};
@@ -25,9 +26,6 @@ use tracing::{debug, error, warn};
 use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -176,7 +174,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(feature = "dependency-tasks"))]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -507,28 +504,6 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 
 /// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
 /// `commitment_and_metadata`, or a `decided_upgrade_cert`.
-#[cfg(feature = "dependency-tasks")]
-#[allow(clippy::too_many_arguments)]
-pub async fn publish_proposal_if_able<TYPES: NodeType>(
-    _cur_view: TYPES::Time,
-    _view: TYPES::Time,
-    _sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    _quorum_membership: Arc<TYPES::Membership>,
-    _public_key: TYPES::SignatureKey,
-    _private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    _consensus: Arc<RwLock<Consensus<TYPES>>>,
-    _commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
-    _delay: u64,
-    _formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    _decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    _proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-) -> Result<JoinHandle<()>> {
-    Ok(())
-}
-
-/// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
-/// `commitment_and_metadata`, or a `decided_upgrade_cert`.
-#[cfg(not(feature = "dependency-tasks"))]
 #[allow(clippy::too_many_arguments)]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     cur_view: TYPES::Time,
