@@ -245,7 +245,7 @@ impl<
                 Ok(blocks) => {
                     tracing::debug!("Got available blocks: {:?}", blocks);
                     blocks
-                },
+                }
                 Err(err) => {
                     error!(%err, "Couldn't get available blocks");
                     // pause a bit
