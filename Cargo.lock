@@ -484,8 +484,7 @@ dependencies = [
 [[package]]
 name = "ark-srs"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "984122d5ed5520ed6175f2bf3f9250eb05be14f688b83329262d144e5d19b700"
+source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
 dependencies = [
  "anyhow",
  "ark-bn254",
