@@ -198,11 +198,6 @@
         devShell = pkgs.mkShell {
           inherit CARGO_TARGET_DIR;
           buildInputs = [ fenixStable ] ++ buildDeps;
-          shellHook = ''
-            export ROOT_DIR=$(dirname "$(realpath ./flake.nix)")
-            export AZTEC_SRS_PATH="$ROOT_DIR/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-            ./scripts/download_srs_aztec.sh
-          '';
         };
 
         devShells = {
