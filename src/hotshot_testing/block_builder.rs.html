@@ -582,6 +582,7 @@
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -750,7 +751,8 @@
                     num_storage_nodes,
                     pub_key.clone(),
                     priv_key.clone(),
-                );
+                )
+                .<span class="kw">await</span>;
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>((hash, <span class="kw">_</span>)) = blocks.write().<span class="kw">await</span>.push(
                     metadata.block_hash.clone(),
@@ -853,7 +855,7 @@
         )
         .expect(<span class="string">"Failed to construct the builder API"</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;RandomBuilderSource&lt;TYPES&gt;, Error&gt; = App::with_state(source);
-    app.register_module::&lt;Error, Version01&gt;(<span class="string">"api"</span>, builder_api)
+    app.register_module::&lt;Error, Version01&gt;(<span class="string">"block_info"</span>, builder_api)
         .expect(<span class="string">"Failed to register the builder API"</span>);
 
     async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -918,7 +920,8 @@
             <span class="self">self</span>.num_storage_nodes,
             <span class="self">self</span>.pub_key.clone(),
             <span class="self">self</span>.priv_key.clone(),
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="self">self</span>.blocks.write().<span class="kw">await</span>.insert(
             metadata.block_hash.clone(),
@@ -985,7 +988,7 @@
         &gt;(<span class="kw-2">&amp;</span>Options::default())
         .expect(<span class="string">"Failed to construct the builder API"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource&lt;TYPES&gt;, Error&gt; = App::with_state(<span class="self">self</span>);
-        app.register_module::&lt;Error, Version01&gt;(<span class="string">"api"</span>, builder_api)
+        app.register_module::&lt;Error, Version01&gt;(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
         async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -1097,7 +1100,7 @@
 }
 
 <span class="doccomment">/// Helper function to construct all builder data structures from a list of transactions
-</span><span class="kw">fn </span>build_block&lt;TYPES: NodeType&gt;(
+</span><span class="kw">async fn </span>build_block&lt;TYPES: NodeType&gt;(
     transactions: Vec&lt;TYPES::Transaction&gt;,
     num_storage_nodes: usize,
     pub_key: TYPES::BuilderSignatureKey,
@@ -1112,10 +1115,9 @@
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 
-    <span class="kw">let </span>(vid_commitment, precompute_data) = precompute_vid_commitment(
-        <span class="kw-2">&amp;</span>block_payload.encode().unwrap().collect(),
-        num_storage_nodes,
-    );
+    <span class="kw">let </span>encoded_payload = block_payload.encode().unwrap().collect();
+    <span class="kw">let </span>(vid_commitment, precompute_data) =
+        precompute_vid_commitment(<span class="kw-2">&amp;</span>encoded_payload, num_storage_nodes);
 
     <span class="comment">// Get block size from the encoded payload
     </span><span class="kw">let </span>block_size = block_payload
