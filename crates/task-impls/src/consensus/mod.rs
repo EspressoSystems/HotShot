@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     consensus::{
-        proposal::{
+        proposal_helpers::{
             publish_proposal_if_able, validate_proposal_safety_and_liveness,
             validate_proposal_view_and_certs,
         },
@@ -61,8 +61,8 @@ use {
     },
 };
 
-/// Handles proposal-related functionality.
-pub(crate) mod proposal;
+/// Helper functions to handler proposal-related functionality.
+pub(crate) mod proposal_helpers;
 
 /// Handles view-change related functionality.
 pub(crate) mod view_change;
