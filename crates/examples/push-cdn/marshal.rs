@@ -34,7 +34,7 @@ struct Args {
     /// The path to the CA key
     /// If not provided, a local, pinned CA is used
     #[arg(long)]
-    ca_cert_key: Option<String>,
+    ca_key_path: Option<String>,
 }
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::main)]
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
         bind_endpoint: format!("0.0.0.0:{}", args.bind_port),
         metrics_bind_endpoint: args.metrics_bind_endpoint,
         ca_cert_path: args.ca_cert_path,
-        ca_key_path: args.ca_cert_key,
+        ca_key_path: args.ca_key_path,
     };
 
     // Create new `Marshal` from the config
