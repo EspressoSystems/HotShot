@@ -307,7 +307,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         let marshal_endpoint = format!("127.0.0.1:{marshal_port}");
         let marshal_config = MarshalConfig {
             bind_endpoint: marshal_endpoint.clone(),
-            discovery_endpoint: discovery_endpoint,
+            discovery_endpoint,
             metrics_bind_endpoint: None,
             ca_cert_path: None,
             ca_key_path: None,
