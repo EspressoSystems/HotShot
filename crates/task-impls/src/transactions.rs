@@ -232,195 +232,339 @@ impl<
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
     async fn wait_for_block(&self) -> Option<BuilderResponses<TYPES>> {
-        let task_start_time = Instant::now();
+        // let task_start_time = Instant::now();
 
         // Find commitment to the block we want to build upon
         let parent_commitment = self.latest_known_vid_commitment().await;
 
-        let mut latest_block: Option<BuilderResponses<TYPES>> = None;
-        let mut first_iteration = true;
-        while task_start_time.elapsed() < self.api.propose_max_round_time()
-            && latest_block.as_ref().map_or(true, |builder_response| {
-                builder_response
-                    .block_data
-                    .block_payload
-                    .num_transactions(&builder_response.block_data.metadata)
-                    < self.api.min_transactions()
-            })
-        {
-            // Sleep if this isn't the first iteration
-            if first_iteration {
-                first_iteration = false;
-            } else {
-                async_sleep(Duration::from_millis(100)).await;
-            }
-
-            let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
-                &self.private_key,
-                parent_commitment.as_ref(),
-            ) else {
-                error!("Failed to sign block hash");
-                continue;
-            };
-
-            let mut available_blocks = match async_compatibility_layer::art::async_timeout(
-                self.api.propose_max_round_time(),
-                self.builder_client.get_available_blocks(
-                    parent_commitment,
-                    self.public_key.clone(),
-                    &request_signature,
-                ),
-            )
-            .await
-            {
-                // We got available blocks
-                Ok(Ok(blocks)) => {
-                    tracing::debug!("Got available blocks: {:?}", blocks);
-                    blocks
-                }
-
-                // We failed to get available blocks
-                Ok(Err(err)) => {
-                    error!(%err, "Couldn't get available blocks");
-                    // pause a bit
-                    async_sleep(Duration::from_millis(100)).await;
-                    continue;
-                }
-
-                // We timed out while getting available blocks
-                Err(err) => {
-                    error!(%err, "Timeout while getting available blocks");
-                    // pause a bit
-                    async_sleep(Duration::from_millis(100)).await;
-
-                    continue;
-                }
-            };
-
-            available_blocks.sort_by_key(|block_info| block_info.offered_fee);
-
-            let Some(block_info) = available_blocks.pop() else {
-                continue;
-            };
-
-            // Verify signature over chosen block instead of
-            // verifying the signature over all the blocks received from builder
-            let combined_message_bytes = {
-                let mut combined_response_bytes: Vec<u8> = Vec::new();
-                combined_response_bytes
-                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
-                combined_response_bytes
-                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
-                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
-                combined_response_bytes
-            };
-            if !block_info
-                .sender
-                .validate_builder_signature(&block_info.signature, &combined_message_bytes)
-            {
-                error!("Failed to verify available block info response message signature");
-                continue;
-            }
-
-            // Don't try to re-claim the same block if builder advertises it again
-            if latest_block.as_ref().map_or(false, |builder_response| {
-                builder_response
-                    .block_data
-                    .block_payload
-                    .builder_commitment(&builder_response.block_data.metadata)
-                    == block_info.block_hash
-            }) {
-                continue;
-            }
-
-            let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
-                &self.private_key,
-                block_info.block_hash.as_ref(),
-            ) else {
-                error!("Failed to sign block hash");
-                continue;
-            };
-
-            let (block, header_input) = futures::join! {
-                self.builder_client.claim_block(block_info.block_hash.clone(), self.public_key.clone(), &request_signature),
-                self.builder_client.claim_block_header_input(block_info.block_hash.clone(), self.public_key.clone(), &request_signature)
-            };
-
-            let block_data = match block {
-                Ok(block_data) => {
-                    // verify the signature over the message, construct the builder commitment
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    if !block_data.sender.validate_builder_signature(
-                        &block_data.signature,
-                        builder_commitment.as_ref(),
-                    ) {
-                        error!("Failed to verify available block data response message signature");
+        let Ok(available_blocks) = async_compatibility_layer::art::async_timeout(
+            self.api.propose_max_round_time(),
+            async {
+                loop {
+                    let Ok(request_signature) =
+                        <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+                            &self.private_key,
+                            parent_commitment.as_ref(),
+                        )
+                    else {
+                        error!("Failed to sign block hash");
                         continue;
-                    }
-                    block_data
-                }
-                Err(err) => {
-                    error!(%err, "Failed to claim block");
-                    continue;
-                }
-            };
-
-            let header_input = match header_input {
-                Ok(header_input) => {
-                    // first verify the message signature and later verify the fee_signature
-                    if !header_input.sender.validate_builder_signature(
-                        &header_input.message_signature,
-                        header_input.vid_commitment.as_ref(),
-                    ) {
-                        error!("Failed to verify available block header input data response message signature");
-                        continue;
-                    }
-
-                    let offered_fee = block_info.offered_fee;
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    let vid_commitment = header_input.vid_commitment;
-                    let combined_response_bytes = {
-                        let mut combined_response_bytes: Vec<u8> = Vec::new();
-                        combined_response_bytes
-                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
-                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
-                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
-                        combined_response_bytes
                     };
-                    // verify the signature over the message
-                    if !header_input.sender.validate_builder_signature(
-                        &header_input.fee_signature,
-                        combined_response_bytes.as_ref(),
-                    ) {
-                        error!("Failed to verify fee signature");
-                        continue;
+
+                    match self
+                        .builder_client
+                        .get_available_blocks(
+                            parent_commitment,
+                            self.public_key.clone(),
+                            &request_signature,
+                        )
+                        .await
+                    {
+                        Ok(blocks) if !blocks.is_empty() => break blocks,
+                        Ok(_) => {
+                            tracing::warn!("got empty blocks");
+                        }
+                        Err(err) => {
+                            error!(%err, "error getting empty blocks");
+                        }
                     }
-                    header_input
-                }
-                Err(err) => {
-                    error!(%err, "Failed to claim block");
-                    continue;
-                }
-            };
 
-            let num_txns = block_data
-                .block_payload
-                .num_transactions(&block_data.metadata);
+                    async_sleep(Duration::from_millis(100)).await;
+                }
+            },
+        )
+        .await
+        else {
+            error!("timed out waiting for blocks");
+            return None;
+        };
 
-            latest_block = Some(BuilderResponses {
-                blocks_initial_info: block_info,
-                block_data,
-                block_header: header_input,
-            });
-            if num_txns >= self.api.min_transactions() {
-                return latest_block;
-            }
+        let block_info = available_blocks
+            .into_iter()
+            .max_by_key(|block_info| block_info.offered_fee)
+            .unwrap();
+
+        // Verify signature over chosen block instead of
+        // verifying the signature over all the blocks received from builder
+        let combined_message_bytes = {
+            let mut combined_response_bytes: Vec<u8> = Vec::new();
+            combined_response_bytes.extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
+            combined_response_bytes
+                .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
+            combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
+            combined_response_bytes
+        };
+        if !block_info
+            .sender
+            .validate_builder_signature(&block_info.signature, &combined_message_bytes)
+        {
+            error!("Failed to verify available block info response message signature");
+            return None;
         }
-        latest_block
+
+        let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+            &self.private_key,
+            block_info.block_hash.as_ref(),
+        ) else {
+            error!("Failed to sign block hash");
+            return None;
+        };
+
+        let (block, header_input) = futures::join! {
+            self.builder_client.claim_block(block_info.block_hash.clone(), self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), self.public_key.clone(), &request_signature)
+        };
+
+        let block_data = match block {
+            Ok(block_data) => {
+                // verify the signature over the message, construct the builder commitment
+                let builder_commitment = block_data
+                    .block_payload
+                    .builder_commitment(&block_data.metadata);
+                if !block_data
+                    .sender
+                    .validate_builder_signature(&block_data.signature, builder_commitment.as_ref())
+                {
+                    error!("Failed to verify available block data response message signature");
+                    return None;
+                }
+                block_data
+            }
+            Err(err) => {
+                error!(%err, "Failed to claim block");
+                return None;
+            }
+        };
+
+        let header_input = match header_input {
+            Ok(header_input) => {
+                // first verify the message signature and later verify the fee_signature
+                if !header_input.sender.validate_builder_signature(
+                    &header_input.message_signature,
+                    header_input.vid_commitment.as_ref(),
+                ) {
+                    error!("Failed to verify available block header input data response message signature");
+                    return None;
+                }
+
+                let offered_fee = block_info.offered_fee;
+                let builder_commitment = block_data
+                    .block_payload
+                    .builder_commitment(&block_data.metadata);
+                let vid_commitment = header_input.vid_commitment;
+                let combined_response_bytes = {
+                    let mut combined_response_bytes: Vec<u8> = Vec::new();
+                    combined_response_bytes.extend_from_slice(offered_fee.to_be_bytes().as_ref());
+                    combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
+                    combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
+                    combined_response_bytes
+                };
+                // verify the signature over the message
+                if !header_input.sender.validate_builder_signature(
+                    &header_input.fee_signature,
+                    combined_response_bytes.as_ref(),
+                ) {
+                    error!("Failed to verify fee signature");
+                    return None;
+                }
+                header_input
+            }
+            Err(err) => {
+                error!(%err, "Failed to claim block");
+                return None;
+            }
+        };
+
+        return Some(BuilderResponses {
+            blocks_initial_info: block_info,
+            block_data,
+            block_header: header_input,
+        });
+
+        // let mut latest_block: Option<BuilderResponses<TYPES>> = None;
+        // let mut first_iteration = true;
+        // while task_start_time.elapsed() < self.api.propose_max_round_time()
+        //     && latest_block.as_ref().map_or(true, |builder_response| {
+        //         builder_response
+        //             .block_data
+        //             .block_payload
+        //             .num_transactions(&builder_response.block_data.metadata)
+        //             < self.api.min_transactions()
+        //     })
+        // {
+        //     // Sleep if this isn't the first iteration
+        //     if first_iteration {
+        //         first_iteration = false;
+        //     } else {
+        //         async_sleep(Duration::from_millis(100)).await;
+        //     }
+
+        //     let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+        //         &self.private_key,
+        //         parent_commitment.as_ref(),
+        //     ) else {
+        //         error!("Failed to sign block hash");
+        //         continue;
+        //     };
+
+        //     let mut available_blocks = match async_compatibility_layer::art::async_timeout(
+        //         self.api.propose_max_round_time(),
+        //         self.builder_client.get_available_blocks(
+        //             parent_commitment,
+        //             self.public_key.clone(),
+        //             &request_signature,
+        //         ),
+        //     )
+        //     .await
+        //     {
+        //         // We got available blocks
+        //         Ok(Ok(blocks)) => {
+        //             tracing::debug!("Got available blocks: {:?}", blocks);
+        //             blocks
+        //         }
+
+        //         // We failed to get available blocks
+        //         Ok(Err(err)) => {
+        //             error!(%err, "Couldn't get available blocks");
+        //             // pause a bit
+        //             async_sleep(Duration::from_millis(100)).await;
+        //             continue;
+        //         }
+
+        //         // We timed out while getting available blocks
+        //         Err(err) => {
+        //             error!(%err, "Timeout while getting available blocks");
+        //             // pause a bit
+        //             async_sleep(Duration::from_millis(100)).await;
+
+        //             continue;
+        //         }
+        //     };
+
+        //     available_blocks.sort_by_key(|block_info| block_info.offered_fee);
+
+        //     let Some(block_info) = available_blocks.pop() else {
+        //         continue;
+        //     };
+
+        //     // Verify signature over chosen block instead of
+        //     // verifying the signature over all the blocks received from builder
+        //     let combined_message_bytes = {
+        //         let mut combined_response_bytes: Vec<u8> = Vec::new();
+        //         combined_response_bytes
+        //             .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
+        //         combined_response_bytes
+        //             .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
+        //         combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
+        //         combined_response_bytes
+        //     };
+        //     if !block_info
+        //         .sender
+        //         .validate_builder_signature(&block_info.signature, &combined_message_bytes)
+        //     {
+        //         error!("Failed to verify available block info response message signature");
+        //         continue;
+        //     }
+
+        //     // Don't try to re-claim the same block if builder advertises it again
+        //     if latest_block.as_ref().map_or(false, |builder_response| {
+        //         builder_response
+        //             .block_data
+        //             .block_payload
+        //             .builder_commitment(&builder_response.block_data.metadata)
+        //             == block_info.block_hash
+        //     }) {
+        //         continue;
+        //     }
+
+        //     let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+        //         &self.private_key,
+        //         block_info.block_hash.as_ref(),
+        //     ) else {
+        //         error!("Failed to sign block hash");
+        //         continue;
+        //     };
+
+        //     let (block, header_input) = futures::join! {
+        //         self.builder_client.claim_block(block_info.block_hash.clone(), self.public_key.clone(), &request_signature),
+        //         self.builder_client.claim_block_header_input(block_info.block_hash.clone(), self.public_key.clone(), &request_signature)
+        //     };
+
+        //     let block_data = match block {
+        //         Ok(block_data) => {
+        //             // verify the signature over the message, construct the builder commitment
+        //             let builder_commitment = block_data
+        //                 .block_payload
+        //                 .builder_commitment(&block_data.metadata);
+        //             if !block_data.sender.validate_builder_signature(
+        //                 &block_data.signature,
+        //                 builder_commitment.as_ref(),
+        //             ) {
+        //                 error!("Failed to verify available block data response message signature");
+        //                 continue;
+        //             }
+        //             block_data
+        //         }
+        //         Err(err) => {
+        //             error!(%err, "Failed to claim block");
+        //             continue;
+        //         }
+        //     };
+
+        //     let header_input = match header_input {
+        //         Ok(header_input) => {
+        //             // first verify the message signature and later verify the fee_signature
+        //             if !header_input.sender.validate_builder_signature(
+        //                 &header_input.message_signature,
+        //                 header_input.vid_commitment.as_ref(),
+        //             ) {
+        //                 error!("Failed to verify available block header input data response message signature");
+        //                 continue;
+        //             }
+
+        //             let offered_fee = block_info.offered_fee;
+        //             let builder_commitment = block_data
+        //                 .block_payload
+        //                 .builder_commitment(&block_data.metadata);
+        //             let vid_commitment = header_input.vid_commitment;
+        //             let combined_response_bytes = {
+        //                 let mut combined_response_bytes: Vec<u8> = Vec::new();
+        //                 combined_response_bytes
+        //                     .extend_from_slice(offered_fee.to_be_bytes().as_ref());
+        //                 combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
+        //                 combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
+        //                 combined_response_bytes
+        //             };
+        //             // verify the signature over the message
+        //             if !header_input.sender.validate_builder_signature(
+        //                 &header_input.fee_signature,
+        //                 combined_response_bytes.as_ref(),
+        //             ) {
+        //                 error!("Failed to verify fee signature");
+        //                 continue;
+        //             }
+        //             header_input
+        //         }
+        //         Err(err) => {
+        //             error!(%err, "Failed to claim block");
+        //             continue;
+        //         }
+        //     };
+
+        //     let num_txns = block_data
+        //         .block_payload
+        //         .num_transactions(&block_data.metadata);
+
+        //     latest_block = Some(BuilderResponses {
+        //         blocks_initial_info: block_info,
+        //         block_data,
+        //         block_header: header_input,
+        //     });
+        //     if num_txns >= self.api.min_transactions() {
+        //         return latest_block;
+        //     }
+        // }
+        // latest_block
     }
 }
 

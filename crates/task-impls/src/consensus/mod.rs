@@ -334,7 +334,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -442,7 +442,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    // warn!("Failed to update view; error = {e:?}");
                 }
 
                 let consensus = self.consensus.upgradable_read().await;
@@ -1053,7 +1053,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    // warn!("Failed to update view; error = {e:?}");
                     return;
                 }
 
