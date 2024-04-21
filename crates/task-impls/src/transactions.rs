@@ -161,8 +161,7 @@ impl<
                     );
 
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) =
-                        null_block::builder_fee(self.membership.total_nodes() as usize)
+                    let Some(builder_fee) = null_block::builder_fee(self.membership.total_nodes())
                     else {
                         error!("Failed to get builder fee");
                         return None;
