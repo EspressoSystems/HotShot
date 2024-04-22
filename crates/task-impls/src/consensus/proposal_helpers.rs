@@ -563,13 +563,10 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 // TODO: Fix `clippy::too_many_lines`.
-// TODO: Remove `allow(dead_code)` once this function is called.
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-#[allow(dead_code)]
 pub async fn handle_quorum_proposal_recv<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
