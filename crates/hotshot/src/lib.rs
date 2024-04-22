@@ -33,7 +33,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
@@ -185,7 +185,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let instance_state = initializer.instance_state;
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        //
+        let (mut external_tx, external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
