@@ -1332,7 +1332,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1354,7 +1354,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1369,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1383,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.0#dd8cd09243df97bc4af3291ebc408c2a56136896"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3135,7 +3135,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3181,7 +3181,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-api"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "clap",
@@ -3199,7 +3199,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3228,7 +3228,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3277,7 +3277,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3287,7 +3287,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3334,7 +3334,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3346,7 +3346,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3378,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3467,7 +3467,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -4598,7 +4598,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
