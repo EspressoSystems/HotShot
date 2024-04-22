@@ -291,7 +291,7 @@ impl<
                 // We timed out while getting available blocks
                 Err(err) => {
                     error!(%err, "Timeout while getting available blocks");
-                    return None;
+                    break;
                 }
             };
 
