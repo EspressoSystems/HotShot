@@ -474,7 +474,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
     let cnm = commitment_and_metadata
-        .clone()
+        .take()
         .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
 
     let create_and_send_proposal_handle = async_spawn(async move {

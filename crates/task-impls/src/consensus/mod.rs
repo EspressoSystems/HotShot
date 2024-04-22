@@ -1051,6 +1051,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
 
+                // Clear the payload commitment and metadata
+                self.payload_commitment_and_metadata = None;
+
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
