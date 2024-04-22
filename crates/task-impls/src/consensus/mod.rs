@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -338,6 +339,46 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         false
     }
 
+    #[cfg(feature = "dependency-tasks")]
+    async fn publish_proposal(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// Publishes a proposal
+    #[cfg(not(feature = "dependency-tasks"))]
+    async fn publish_proposal(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        let create_and_send_proposal_handle = publish_proposal_if_able(
+            self.cur_view,
+            view,
+            event_stream,
+            self.quorum_membership.clone(),
+            self.public_key.clone(),
+            self.private_key.clone(),
+            self.consensus.clone(),
+            self.round_start_delay,
+            self.formed_upgrade_certificate.clone(),
+            self.decided_upgrade_cert.clone(),
+            &mut self.payload_commitment_and_metadata,
+            &mut self.proposal_cert,
+        )
+        .await?;
+
+        self.spawned_tasks
+            .entry(view)
+            .or_default()
+            .push(create_and_send_proposal_handle);
+
+        Ok(())
+    }
+
     /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
     pub async fn handle(
@@ -531,24 +572,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                 "Attempting to publish proposal after voting; now in view: {}",
                                 *new_view
                             );
-                            if let Err(e) = publish_proposal_if_able(
-                                self.cur_view,
-                                qc.view_number + 1,
-                                event_stream.clone(),
-                                self.quorum_membership.clone(),
-                                self.public_key.clone(),
-                                self.private_key.clone(),
-                                self.consensus.clone(),
-                                self.payload_commitment_and_metadata.take(),
-                                self.round_start_delay,
-                                self.formed_upgrade_certificate.take(),
-                                self.decided_upgrade_cert.take(),
-                                self.proposal_cert.take(),
-                            )
-                            .await
+                            if let Err(e) = self
+                                .publish_proposal(qc.view_number + 1, event_stream.clone())
+                                .await
                             {
                                 warn!("Failed to propose; error = {e:?}");
-                            }
+                            };
                         }
                         if self.vote_if_able(&event_stream).await {
                             self.current_proposal = None;
@@ -748,24 +777,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Attempting to publish proposal after voting; now in view: {}",
                         *new_view
                     );
-                    if let Err(e) = publish_proposal_if_able(
-                        self.cur_view,
-                        qc.view_number + 1,
-                        event_stream.clone(),
-                        self.quorum_membership.clone(),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        self.consensus.clone(),
-                        self.payload_commitment_and_metadata.take(),
-                        self.round_start_delay,
-                        self.formed_upgrade_certificate.take(),
-                        self.decided_upgrade_cert.take(),
-                        self.proposal_cert.take(),
-                    )
-                    .await
+                    if let Err(e) = self
+                        .publish_proposal(qc.view_number + 1, event_stream.clone())
+                        .await
                     {
                         warn!("Failed to propose; error = {e:?}");
-                    }
+                    };
                 }
 
                 if !self.vote_if_able(&event_stream).await {
@@ -867,79 +884,56 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             HotShotEvent::QCFormed(cert) => {
-                debug!("QC Formed event happened!");
+                match cert {
+                    either::Right(qc) => {
+                        self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
+                        // cancel poll for votes
+                        self.quorum_network
+                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                                *qc.view_number,
+                            ))
+                            .await;
 
-                if let either::Right(qc) = cert.clone() {
-                    self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
-                    // cancel poll for votes
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *qc.view_number,
-                        ))
-                        .await;
+                        debug!(
+                            "Attempting to publish proposal after forming a TC for view {}",
+                            *qc.view_number
+                        );
 
-                    debug!(
-                        "Attempting to publish proposal after forming a TC for view {}",
-                        *qc.view_number
-                    );
-
-                    if let Err(e) = publish_proposal_if_able(
-                        self.cur_view,
-                        qc.view_number + 1,
-                        event_stream.clone(),
-                        self.quorum_membership.clone(),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        self.consensus.clone(),
-                        self.payload_commitment_and_metadata.take(),
-                        self.round_start_delay,
-                        self.formed_upgrade_certificate.take(),
-                        self.decided_upgrade_cert.take(),
-                        self.proposal_cert.take(),
-                    )
-                    .await
-                    {
-                        warn!("Failed to propose; error = {e:?}");
+                        if let Err(e) = self
+                            .publish_proposal(qc.view_number + 1, event_stream)
+                            .await
+                        {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
                     }
-                }
-                if let either::Left(qc) = cert {
-                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
-                        warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
-                    }
+                    either::Left(qc) => {
+                        if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
+                        {
+                            warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                        }
 
-                    let mut consensus = self.consensus.write().await;
-                    consensus.high_qc = qc.clone();
+                        let mut consensus = self.consensus.write().await;
+                        consensus.high_qc = qc.clone();
 
-                    // cancel poll for votes
-                    self.quorum_network
-                        .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                            *qc.view_number,
-                        ))
-                        .await;
+                        // cancel poll for votes
+                        self.quorum_network
+                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
+                                *qc.view_number,
+                            ))
+                            .await;
 
-                    drop(consensus);
-                    debug!(
-                        "Attempting to publish proposal after forming a QC for view {}",
-                        *qc.view_number
-                    );
+                        drop(consensus);
+                        debug!(
+                            "Attempting to publish proposal after forming a QC for view {}",
+                            *qc.view_number
+                        );
 
-                    if let Err(e) = publish_proposal_if_able(
-                        self.cur_view,
-                        qc.view_number + 1,
-                        event_stream.clone(),
-                        self.quorum_membership.clone(),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        self.consensus.clone(),
-                        self.payload_commitment_and_metadata.take(),
-                        self.round_start_delay,
-                        self.formed_upgrade_certificate.take(),
-                        self.decided_upgrade_cert.take(),
-                        self.proposal_cert.take(),
-                    )
-                    .await
-                    {
-                        warn!("Failed to propose; error = {e:?}");
+                        if let Err(e) = self
+                            .publish_proposal(qc.view_number + 1, event_stream)
+                            .await
+                        {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
                     }
                 }
             }
@@ -1164,24 +1158,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
-                    if let Err(e) = publish_proposal_if_able(
-                        self.cur_view,
-                        view,
-                        event_stream.clone(),
-                        self.quorum_membership.clone(),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        self.consensus.clone(),
-                        self.payload_commitment_and_metadata.take(),
-                        self.round_start_delay,
-                        self.formed_upgrade_certificate.take(),
-                        self.decided_upgrade_cert.take(),
-                        self.proposal_cert.take(),
-                    )
-                    .await
-                    {
+                    if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         warn!("Failed to propose; error = {e:?}");
-                    }
+                    };
                 }
 
                 if let Some(cert) = &self.proposal_cert {
@@ -1190,48 +1169,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             if self.quorum_membership.get_leader(tc.get_view_number() + 1)
                                 == self.public_key
                             {
-                                if let Err(e) = publish_proposal_if_able(
-                                    self.cur_view,
-                                    view,
-                                    event_stream.clone(),
-                                    self.quorum_membership.clone(),
-                                    self.public_key.clone(),
-                                    self.private_key.clone(),
-                                    self.consensus.clone(),
-                                    self.payload_commitment_and_metadata.take(),
-                                    self.round_start_delay,
-                                    self.formed_upgrade_certificate.take(),
-                                    self.decided_upgrade_cert.take(),
-                                    self.proposal_cert.take(),
-                                )
-                                .await
-                                {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
                                     warn!("Failed to propose; error = {e:?}");
-                                }
+                                };
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) => {
                             if self.quorum_membership.get_leader(vsc.get_view_number())
                                 == self.public_key
                             {
-                                if let Err(e) = publish_proposal_if_able(
-                                    self.cur_view,
-                                    view,
-                                    event_stream.clone(),
-                                    self.quorum_membership.clone(),
-                                    self.public_key.clone(),
-                                    self.private_key.clone(),
-                                    self.consensus.clone(),
-                                    self.payload_commitment_and_metadata.take(),
-                                    self.round_start_delay,
-                                    self.formed_upgrade_certificate.take(),
-                                    self.decided_upgrade_cert.take(),
-                                    self.proposal_cert.take(),
-                                )
-                                .await
-                                {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
                                     warn!("Failed to propose; error = {e:?}");
-                                }
+                                };
                             }
                         }
                     }
@@ -1262,24 +1211,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
-                    if let Err(e) = publish_proposal_if_able(
-                        self.cur_view,
-                        view,
-                        event_stream.clone(),
-                        self.quorum_membership.clone(),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        self.consensus.clone(),
-                        self.payload_commitment_and_metadata.take(),
-                        self.round_start_delay,
-                        self.formed_upgrade_certificate.take(),
-                        self.decided_upgrade_cert.take(),
-                        self.proposal_cert.take(),
-                    )
-                    .await
-                    {
+                    if let Err(e) = self.publish_proposal(view, event_stream).await {
                         warn!("Failed to propose; error = {e:?}");
-                    }
+                    };
                 }
             }
             _ => {}

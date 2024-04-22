@@ -1,5 +1,6 @@
 use core::time::Duration;
 use std::collections::BTreeMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::{consensus::update_view, helpers::AnyhowTracing};
@@ -34,9 +35,6 @@ use tracing::{debug, error, warn};
 use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -185,7 +183,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
-#[cfg(not(feature = "dependency-tasks"))]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -262,7 +259,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 ) -> Result<()> {
     let view = proposal.data.get_view_number();
     ensure!(
-        view > cur_view,
+        view >= cur_view,
         "Proposal is from an older view {:?}",
         proposal.data.clone()
     );
@@ -446,11 +443,11 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
-    commitment_and_metadata: CommitmentAndMetadata<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+    commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
+    proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -474,7 +471,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 
     if !proposal_upgrade_certificate
         .clone()
-        .is_some_and(|cert| cert.is_relevant(view, decided_upgrade_cert.clone()).is_ok())
+        .is_some_and(|cert| cert.is_relevant(view, decided_upgrade_cert).is_ok())
     {
         proposal_upgrade_certificate = None;
     }
@@ -485,14 +482,20 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
 
-    Ok(async_spawn(async move {
+    // FIXME - This is not great, and will be fixed later.
+    // If it's > July, 2024 and this is still here, something has gone horribly wrong.
+    let cnm = commitment_and_metadata
+        .clone()
+        .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
+
+    let create_and_send_proposal_handle = async_spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
             consensus,
             sender,
             view,
-            commitment_and_metadata,
+            cnm,
             parent_leaf.clone(),
             state,
             proposal_upgrade_certificate,
@@ -500,33 +503,16 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             delay,
         )
         .await;
-    }))
+    });
+
+    *proposal_cert = None;
+    *commitment_and_metadata = None;
+
+    Ok(create_and_send_proposal_handle)
 }
 
 /// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
 /// `commitment_and_metadata`, or a `decided_upgrade_cert`.
-#[cfg(feature = "dependency-tasks")]
-#[allow(clippy::too_many_arguments)]
-pub async fn publish_proposal_if_able<TYPES: NodeType>(
-    _cur_view: TYPES::Time,
-    _view: TYPES::Time,
-    _sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    _quorum_membership: Arc<TYPES::Membership>,
-    _public_key: TYPES::SignatureKey,
-    _private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    _consensus: Arc<RwLock<Consensus<TYPES>>>,
-    _commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
-    _delay: u64,
-    _formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    _decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    _proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-) -> Result<JoinHandle<()>> {
-    Ok(())
-}
-
-/// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
-/// `commitment_and_metadata`, or a `decided_upgrade_cert`.
-#[cfg(not(feature = "dependency-tasks"))]
 #[allow(clippy::too_many_arguments)]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     cur_view: TYPES::Time,
@@ -536,11 +522,11 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
-    commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+    commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
+    proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
 ) -> Result<JoinHandle<()>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
@@ -556,9 +542,6 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         )
         .await
     } else {
-        let commitment_and_metadata = commitment_and_metadata.context(
-            "Cannot propose because we don't have the VID payload commitment and metadata",
-        )?;
         publish_proposal_from_commitment_and_metadata(
             cur_view,
             view,
@@ -567,10 +550,10 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             public_key,
             private_key,
             consensus,
-            commitment_and_metadata,
             delay,
             formed_upgrade_certificate,
             decided_upgrade_cert,
+            commitment_and_metadata,
             proposal_cert,
         )
         .await
