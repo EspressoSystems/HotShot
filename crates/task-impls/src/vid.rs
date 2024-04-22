@@ -69,7 +69,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let builder_commitment = payload.builder_commitment(metadata);
                 let vid_disperse = calculate_vid_disperse(
                     encoded_transactions.clone(),
-                    &self.membership.clone(),
+                    &Arc::clone(&self.membership),
                     *view_number,
                 )
                 .await;

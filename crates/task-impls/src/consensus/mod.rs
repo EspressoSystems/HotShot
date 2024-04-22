@@ -433,10 +433,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.public_key.clone(),
                     view,
                     &event_stream,
-                    self.quorum_membership.clone(),
-                    self.quorum_network.clone(),
+                    Arc::clone(&self.quorum_membership),
+                    Arc::clone(&self.quorum_network),
                     self.timeout,
-                    self.consensus.clone(),
+                    Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
                 )
@@ -460,7 +460,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             event: EventType::Decide {
                                 leaf_chain: Arc::new(vec![LeafInfo::new(
                                     leaf.clone(),
-                                    state.clone(),
+                                    Arc::clone(&state),
                                     Some(Arc::new(state_delta)),
                                     None,
                                 )]),
@@ -482,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             if let (Some(state), _) =
                                 consensus.get_state_and_delta(leaf.get_view_number())
                             {
-                                Some((leaf, state.clone()))
+                                Some((leaf, Arc::clone(&state)))
                             } else {
                                 error!("Parent state not found! Consensus internally inconsistent");
                                 return;
@@ -594,15 +594,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         validate_proposal(
                             proposal.clone(),
                             parent_leaf,
-                            self.consensus.clone(),
+                            Arc::clone(&self.consensus),
                             self.decided_upgrade_cert.clone(),
-                            self.quorum_membership.clone(),
-                            parent_state.clone(),
+                            Arc::clone(&self.quorum_membership),
+                            Arc::clone(&parent_state),
                             view_leader_key,
                             event_stream.clone(),
                             sender,
                             self.output_event_stream.clone(),
-                            self.storage.clone(),
+                            Arc::clone(&self.storage),
                         )
                         .map(AnyhowTracing::err_as_debug),
                     ));
@@ -688,7 +688,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                         .get(&self.public_key).cloned().map(|prop| prop.data);
 
                                 // Add our data into a new `LeafInfo`
-                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
+                                leaf_views.push(LeafInfo::new(leaf.clone(), Arc::clone(&state), delta.clone(), vid_share));
                                 leafs_decided.push(leaf.clone());
                                 if let Some(ref payload) = leaf.get_block_payload() {
                                     for txn in payload
@@ -808,7 +808,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
-                        membership: self.quorum_membership.clone(),
+                        membership: Arc::clone(&self.quorum_membership),
                         view: vote.get_view_number(),
                         id: self.id,
                     };
@@ -822,7 +822,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), &event_stream)
+                        .handle_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -854,7 +854,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
-                        membership: self.quorum_membership.clone(),
+                        membership: Arc::clone(&self.quorum_membership),
                         view: vote.get_view_number(),
                         id: self.id,
                     };
@@ -868,7 +868,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), &event_stream)
+                        .handle_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -1044,10 +1044,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     self.public_key.clone(),
                     new_view,
                     &event_stream,
-                    self.quorum_membership.clone(),
-                    self.quorum_network.clone(),
+                    Arc::clone(&self.quorum_membership),
+                    Arc::clone(&self.quorum_network),
                     self.timeout,
-                    self.consensus.clone(),
+                    Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
                 )
@@ -1311,11 +1311,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let pub_key = self.public_key.clone();
                 let priv_key = self.private_key.clone();
-                let consensus = self.consensus.clone();
+                let consensus = Arc::clone(&self.consensus);
                 let sender = event_stream.clone();
                 let delay = self.round_start_delay;
                 let parent = parent_leaf.clone();
-                let state = state.clone();
+                let state = Arc::clone(state);
                 let upgrade_cert = self.decided_upgrade_cert.clone();
                 self.spawned_tasks
                     .entry(view)
@@ -1373,9 +1373,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .cloned();
             let pub_key = self.public_key.clone();
             let priv_key = self.private_key.clone();
-            let consensus = self.consensus.clone();
+            let consensus = Arc::clone(&self.consensus);
             let sender = event_stream.clone();
-            let state = state.clone();
+            let state = Arc::clone(state);
             let delay = self.round_start_delay;
             let commitment_and_metadata = commit_and_metadata.clone();
             self.spawned_tasks

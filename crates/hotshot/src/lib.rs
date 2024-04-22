@@ -240,7 +240,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
-            metrics: consensus_metrics.clone(),
+            metrics: Arc::clone(&consensus_metrics),
         };
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
@@ -261,7 +261,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             version,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            _metrics: consensus_metrics.clone(),
+            _metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx.deactivate()),
             storage: Arc::new(RwLock::new(storage)),
@@ -352,7 +352,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        self.consensus.clone()
+        Arc::clone(&self.consensus)
     }
 
     /// Returns a copy of the last decided leaf
@@ -484,8 +484,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage: Arc::clone(&self.storage),
         };
 
-        add_network_message_task(Arc::clone(&registry), event_tx.clone(), Arc::clone(&quorum_network)).await;
-        add_network_message_task(Arc::clone(&registry), event_tx.clone(), Arc::clone(&da_network)).await;
+        add_network_message_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            Arc::clone(&quorum_network),
+        )
+        .await;
+        add_network_message_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            Arc::clone(&da_network),
+        )
+        .await;
 
         if let Some(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await {
             add_response_task(

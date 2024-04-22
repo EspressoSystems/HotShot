@@ -143,8 +143,8 @@ pub async fn validate_proposal<TYPES: NodeType>(
         View {
             view_inner: ViewInner::Leaf {
                 leaf: proposed_leaf.commit(),
-                state: state.clone(),
-                delta: Some(delta.clone()),
+                state: Arc::clone(&state),
+                delta: Some(Arc::clone(&delta)),
             },
         },
     );
