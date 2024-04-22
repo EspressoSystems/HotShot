@@ -185,8 +185,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let instance_state = initializer.instance_state;
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        //
-        let (mut external_tx, external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+        let (mut external_tx, mut external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        external_rx.set_overflow(true);
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
