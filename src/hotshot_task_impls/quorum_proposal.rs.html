@@ -1033,7 +1033,7 @@
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::proposal::validate_proposal,
+    consensus::proposal::validate_proposal_safety_and_liveness,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
@@ -1820,7 +1820,7 @@
                     <span class="kw">return</span>;
                 };
                 async_spawn(
-                    validate_proposal(
+                    validate_proposal_safety_and_liveness(
                         proposal.clone(),
                         parent_leaf,
                         <span class="self">self</span>.consensus.clone(),
