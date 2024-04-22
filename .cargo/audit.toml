@@ -5,6 +5,10 @@ ignore = [
     "RUSTSEC-2023-0065",
     # DoS in WebPKI that comes with tide_disco
     "RUSTSEC-2023-0052",
+    # DoS in WebPKI that comes with tide_disco
+    "RUSTSEC-2023-0052",
+    # rustls vulnerability that could cause an infinite loop based on network input, coming from tide_disco
+    "RUSTSEC-2024-0336",
     # Unfixed "Marvin" vulnerability in `RSA`, unused in sqlite dependency
     "RUSTSEC-2023-0071",
 ]

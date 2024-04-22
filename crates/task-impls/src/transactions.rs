@@ -12,15 +12,18 @@ use hotshot_builder_api::block_info::{
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
+    data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::{BlockHeader, BuilderFee},
+        block_contents::BuilderFee,
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
         BlockPayload,
     },
+    utils::ViewInner,
+    vid::VidCommitment,
 };
 use tracing::{debug, error, instrument};
 use vbs::version::StaticVersionType;
@@ -121,6 +124,7 @@ impl<
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
+                let block_view = if make_block { view } else { view + 1 };
 
                 if let Some(BuilderResponses {
                     block_data,
@@ -129,7 +133,6 @@ impl<
                 }) = self.wait_for_block().await
                 {
                     // send the sequenced transactions to VID and DA tasks
-                    let block_view = if make_block { view } else { view + 1 };
                     let encoded_transactions = match block_data.block_payload.encode() {
                         Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
                         Err(e) => {
@@ -151,7 +154,38 @@ impl<
                     )
                     .await;
                 } else {
-                    error!("Failed to get a block from the builder");
+                    // If we couldn't get a block, send an empty block
+                    error!(
+                        "Failed to get a block for view {:?} proposing empty block",
+                        view
+                    );
+
+                    // Calculate the builder fee for the empty block
+                    let Some(builder_fee) = null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get builder fee");
+                        return None;
+                    };
+
+                    // Create an empty block payload and metadata
+                    let Ok((_, metadata)) =
+                        <TYPES as NodeType>::BlockPayload::from_transactions(vec![])
+                    else {
+                        error!("Failed to create empty block payload");
+                        return None;
+                    };
+
+                    // Broadcast the empty block
+                    broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            vec![],
+                            metadata,
+                            block_view,
+                            builder_fee,
+                        )),
+                        &event_stream,
+                    )
+                    .await;
                 };
 
                 return None;
@@ -164,11 +198,44 @@ impl<
         None
     }
 
+    /// Get last known builder commitment from consensus.
+    async fn latest_known_vid_commitment(&self) -> VidCommitment {
+        let consensus = self.consensus.read().await;
+
+        let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
+
+        // Search through all previous views...
+        while prev_view != TYPES::Time::genesis() {
+            if let Some(commitment) =
+                consensus
+                    .validated_state_map
+                    .get(&prev_view)
+                    .and_then(|view| match view.view_inner {
+                        // For a view for which we have a Leaf stored
+                        ViewInner::DA { payload_commitment } => Some(payload_commitment),
+                        ViewInner::Leaf { leaf, .. } => consensus
+                            .saved_leaves
+                            .get(&leaf)
+                            .map(Leaf::get_payload_commitment),
+                        ViewInner::Failed => None,
+                    })
+            {
+                return commitment;
+            }
+            prev_view = prev_view - 1;
+        }
+
+        // If not found, return commitment for last decided block
+        consensus.get_decided_leaf().get_payload_commitment()
+    }
+
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
     async fn wait_for_block(&self) -> Option<BuilderResponses<TYPES>> {
         let task_start_time = Instant::now();
 
-        let last_leaf = self.consensus.read().await.get_decided_leaf();
+        // Find commitment to the block we want to build upon
+        let parent_commitment = self.latest_known_vid_commitment().await;
+
         let mut latest_block: Option<BuilderResponses<TYPES>> = None;
         let mut first_iteration = true;
         while task_start_time.elapsed() < self.api.propose_max_round_time()
@@ -189,25 +256,44 @@ impl<
 
             let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
                 &self.private_key,
-                last_leaf.get_block_header().builder_commitment().as_ref(),
+                parent_commitment.as_ref(),
             ) else {
                 error!("Failed to sign block hash");
                 continue;
             };
 
-            let mut available_blocks = match self
-                .builder_client
-                .get_available_blocks(
-                    last_leaf.get_block_header().builder_commitment(),
+            let mut available_blocks = match async_compatibility_layer::art::async_timeout(
+                self.api
+                    .propose_max_round_time()
+                    .saturating_sub(task_start_time.elapsed()),
+                self.builder_client.get_available_blocks(
+                    parent_commitment,
                     self.public_key.clone(),
                     &request_signature,
-                )
-                .await
+                ),
+            )
+            .await
             {
-                Ok(blocks) => blocks,
-                Err(err) => {
+                // We got available blocks
+                Ok(Ok(blocks)) => {
+                    tracing::debug!("Got available blocks: {:?}", blocks);
+                    blocks
+                }
+
+                // We failed to get available blocks
+                Ok(Err(err)) => {
                     error!(%err, "Couldn't get available blocks");
+                    // pause a bit
+                    async_sleep(Duration::from_millis(100)).await;
                     continue;
+                }
+
+                // We timed out while getting available blocks
+                Err(err) => {
+                    if latest_block.is_none() {
+                        error!(%err, "Timeout while getting available blocks");
+                    }
+                    break;
                 }
             };
 
@@ -276,7 +362,7 @@ impl<
                     block_data
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block data");
                     continue;
                 }
             };
@@ -316,7 +402,7 @@ impl<
                     header_input
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block header input");
                     continue;
                 }
             };
