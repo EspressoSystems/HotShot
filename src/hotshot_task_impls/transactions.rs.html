@@ -414,6 +414,51 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -428,7 +473,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
         block_contents::BuilderFee,
@@ -540,6 +585,7 @@
                     <span class="macro">debug!</span>(<span class="string">"Not next leader for view {:?}"</span>, <span class="self">self</span>.cur_view);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
+                <span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(BuilderResponses {
                     block_data,
@@ -548,8 +594,7 @@
                 }) = <span class="self">self</span>.wait_for_block().<span class="kw">await
                 </span>{
                     <span class="comment">// send the sequenced transactions to VID and DA tasks
-                    </span><span class="kw">let </span>block_view = <span class="kw">if </span>make_block { view } <span class="kw">else </span>{ view + <span class="number">1 </span>};
-                    <span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block_data.block_payload.encode() {
+                    </span><span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block_data.block_payload.encode() {
                         <span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect::&lt;Vec&lt;u8&gt;&gt;(),
                         <span class="prelude-val">Err</span>(e) =&gt; {
                             <span class="macro">error!</span>(<span class="string">"Failed to encode the block payload: {:?}."</span>, e);
@@ -570,7 +615,38 @@
                     )
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to get a block from the builder"</span>);
+                    <span class="comment">// If we couldn't get a block, send an empty block
+                    </span><span class="macro">error!</span>(
+                        <span class="string">"Failed to get a block for view {:?} proposing empty block"</span>,
+                        view
+                    );
+
+                    <span class="comment">// Calculate the builder fee for the empty block
+                    </span><span class="kw">let </span><span class="prelude-val">Some</span>(builder_fee) = null_block::builder_fee(<span class="self">self</span>.membership.total_nodes())
+                    <span class="kw">else </span>{
+                        <span class="macro">error!</span>(<span class="string">"Failed to get builder fee"</span>);
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    };
+
+                    <span class="comment">// Create an empty block payload and metadata
+                    </span><span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, metadata)) =
+                        &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_transactions(<span class="macro">vec!</span>[])
+                    <span class="kw">else </span>{
+                        <span class="macro">error!</span>(<span class="string">"Failed to create empty block payload"</span>);
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    };
+
+                    <span class="comment">// Broadcast the empty block
+                    </span>broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            <span class="macro">vec!</span>[],
+                            metadata,
+                            block_view,
+                            builder_fee,
+                        )),
+                        <span class="kw-2">&amp;</span>event_stream,
+                    )
+                    .<span class="kw">await</span>;
                 };
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -647,24 +723,38 @@
                 <span class="kw">continue</span>;
             };
 
-            <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span><span class="self">self
-                </span>.builder_client
-                .get_available_blocks(
+            <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="kw">match </span>async_compatibility_layer::art::async_timeout(
+                <span class="self">self</span>.api
+                    .propose_max_round_time()
+                    .saturating_sub(task_start_time.elapsed()),
+                <span class="self">self</span>.builder_client.get_available_blocks(
                     parent_commitment,
                     <span class="self">self</span>.public_key.clone(),
                     <span class="kw-2">&amp;</span>request_signature,
-                )
-                .<span class="kw">await
+                ),
+            )
+            .<span class="kw">await
             </span>{
-                <span class="prelude-val">Ok</span>(blocks) =&gt; {
+                <span class="comment">// We got available blocks
+                </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(blocks)) =&gt; {
                     <span class="macro">tracing::debug!</span>(<span class="string">"Got available blocks: {:?}"</span>, blocks);
                     blocks
                 }
-                <span class="prelude-val">Err</span>(err) =&gt; {
+
+                <span class="comment">// We failed to get available blocks
+                </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
                     <span class="macro">error!</span>(%err, <span class="string">"Couldn't get available blocks"</span>);
                     <span class="comment">// pause a bit
                     </span>async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
+                }
+
+                <span class="comment">// We timed out while getting available blocks
+                </span><span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="kw">if </span>latest_block.is_none() {
+                        <span class="macro">error!</span>(%err, <span class="string">"Timeout while getting available blocks"</span>);
+                    }
+                    <span class="kw">break</span>;
                 }
             };
 
@@ -733,7 +823,7 @@
                     block_data
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block"</span>);
+                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block data"</span>);
                     <span class="kw">continue</span>;
                 }
             };
@@ -773,7 +863,7 @@
                     header_input
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block"</span>);
+                    <span class="macro">error!</span>(%err, <span class="string">"Failed to claim block header input"</span>);
                     <span class="kw">continue</span>;
                 }
             };
