@@ -1,23 +1,9 @@
-use anyhow::Result;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
-use crate::{
-    consensus::{
-        proposal::{
-            publish_proposal_if_able, validate_proposal_safety_and_liveness,
-            validate_proposal_view_and_certs,
-        },
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
+use anyhow::Result;
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -59,6 +45,21 @@ use {
         data::{null_block, VidDisperseShare},
         message::GeneralConsensusMessage,
         simple_vote::QuorumData,
+    },
+};
+
+use crate::{
+    consensus::{
+        proposal::{
+            publish_proposal_if_able, validate_proposal_safety_and_liveness,
+            validate_proposal_view_and_certs,
+        },
+        view_change::update_view,
+    },
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
 

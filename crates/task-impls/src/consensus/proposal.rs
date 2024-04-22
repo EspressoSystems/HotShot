@@ -1,11 +1,12 @@
 use core::time::Duration;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use committable::Committable;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
@@ -20,12 +21,9 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, warn};
-
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tracing::{debug, error, warn};
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
