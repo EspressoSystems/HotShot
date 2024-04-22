@@ -3325,7 +3325,7 @@ dependencies = [
  "ethereum-types",
  "hotshot-types",
  "jf-primitives 0.4.3",
- "jf-utils 0.4.3",
+ "jf-utils 0.4.4",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64 0.4.0",
@@ -3446,7 +3446,7 @@ dependencies = [
  "generic-array",
  "jf-plonk",
  "jf-primitives 0.4.3",
- "jf-utils 0.4.3",
+ "jf-utils 0.4.4",
  "lazy_static",
  "memoize",
  "rand 0.8.5",
@@ -4196,6 +4196,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "jf-utils"
+version = "0.4.4"
+source = "git+https://github.com/espressosystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "tagged-base64 0.4.0",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4271,7 +4287,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
