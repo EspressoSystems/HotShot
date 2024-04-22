@@ -561,11 +561,13 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 // TODO: Fix `clippy::too_many_lines`.
+// TODO: Remove `allow(dead_code)` once this function is called.
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
+#[allow(dead_code)]
 pub async fn handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: TYPES::SignatureKey,
@@ -778,11 +780,11 @@ pub async fn handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     public_key.clone(),
                     private_key.clone(),
                     consensus.clone(),
-                    payload_commitment_and_metadata.take(),
                     round_start_delay,
                     formed_upgrade_certificate.take(),
                     decided_upgrade_cert.take(),
-                    proposal_cert.take(),
+                    &mut payload_commitment_and_metadata.take(),
+                    &mut proposal_cert.take(),
                 )
                 .await
                 {
