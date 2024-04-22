@@ -8,6 +8,7 @@ use hotshot_builder_api::{
 use hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -72,7 +73,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     /// If the URL is malformed.
     pub fn new(base_url: impl Into<Url>) -> Self {
         Self {
-            inner: Client::new(base_url.into().join("api").unwrap()),
+            inner: Client::new(base_url.into().join("block_info").unwrap()),
             _marker: std::marker::PhantomData,
         }
     }
@@ -103,7 +104,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
     pub async fn get_available_blocks(
         &self,
-        parent: BuilderCommitment,
+        parent: VidCommitment,
         sender: TYPES::SignatureKey,
         signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuilderClientError> {
