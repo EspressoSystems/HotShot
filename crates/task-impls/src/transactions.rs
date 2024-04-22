@@ -263,7 +263,9 @@ impl<
             };
 
             let mut available_blocks = match async_compatibility_layer::art::async_timeout(
-                self.api.propose_max_round_time(),
+                self.api
+                    .propose_max_round_time()
+                    .saturating_sub(task_start_time.elapsed()),
                 self.builder_client.get_available_blocks(
                     parent_commitment,
                     self.public_key.clone(),
@@ -289,10 +291,7 @@ impl<
                 // We timed out while getting available blocks
                 Err(err) => {
                     error!(%err, "Timeout while getting available blocks");
-                    // pause a bit
-                    async_sleep(Duration::from_millis(100)).await;
-
-                    continue;
+                    return None;
                 }
             };
 
