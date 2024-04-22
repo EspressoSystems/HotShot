@@ -236,7 +236,7 @@ pub fn vid_payload_commitment(
 ) -> VidCommitment {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
-    let vid_disperse = vid.disperse(encoded_transactions.as_ref()).unwrap();
+    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
     vid_disperse.commit
 }
@@ -262,7 +262,7 @@ pub fn build_vid_proposal(
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
-        vid.disperse(encoded_transactions.as_ref()).unwrap(),
+        vid.disperse(&encoded_transactions).unwrap(),
         quorum_membership,
     );
 

@@ -115,7 +115,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
-    pub encoded_transactions: Arc<Vec<u8>>,
+    pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to

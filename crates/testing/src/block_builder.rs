@@ -453,7 +453,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                         }
                         EventType::DAProposal { proposal, .. } => {
                             let payload = TYPES::BlockPayload::from_bytes(
-                                proposal.data.encoded_transactions,
+                                &proposal.data.encoded_transactions,
                                 &proposal.data.metadata,
                             );
                             let now = Instant::now();

@@ -132,8 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 }
 
-                let encoded_transactions_hash =
-                    Sha256::digest(proposal.data.encoded_transactions.as_ref());
+                let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
                 let view_leader_key = self.da_membership.get_leader(view);
@@ -215,7 +214,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Record the payload we have promised to make available.
                 consensus
                     .saved_payloads
-                    .insert(view, proposal.data.encoded_transactions.clone());
+                    .insert(view, Arc::clone(&proposal.data.encoded_transactions));
             }
             HotShotEvent::DAVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number());
@@ -310,7 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
 
                 // quick hash the encoded txns with sha256
-                let encoded_transactions_hash = Sha256::digest(encoded_transactions.as_ref());
+                let encoded_transactions_hash = Sha256::digest(encoded_transactions);
 
                 // sign the encoded transactions as opposed to the VID commitment
                 let Ok(signature) =
