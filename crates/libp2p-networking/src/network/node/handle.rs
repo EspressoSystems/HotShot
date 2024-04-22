@@ -342,6 +342,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
+        tracing::error!("lrzasik: handle subscribe to: {:?}", topic);
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
         self.send_request(req).await?;

@@ -317,7 +317,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
         async_spawn(async move {
+            tracing::error!("lrzasik: publish transaction");
             let da_membership = &api.memberships.da_membership.clone();
+            // api
+            //     .networks
+            //     .da_network
+            //     .publish_transaction(
+            //         Message {
+            //             sender: api.public_key.clone(),
+            //             kind: MessageKind::from(message),
+            //         },
+            //         STATIC_VER_0_1,
+            //     )
+            //     .await;
             join! {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
@@ -326,15 +338,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 // version <0, 1> currently fixed; this is the same as VERSION_0_1,
                 // and will be updated to be part of SystemContext. I wanted to use associated
                 // constants in NodeType, but that seems to be unavailable in the current Rust.
+                // api
+                //     .networks
+                //     .da_network
+                //     .broadcast_message(
+                //         Message {
+                //             sender: api.public_key.clone(),
+                //             kind: MessageKind::from(message),
+                //         },
+                //         da_membership.get_whole_committee(view_number),
+                //         STATIC_VER_0_1,
+                //     ),
                 api
                     .networks
                     .da_network
-                    .broadcast_message(
+                    .publish_transaction(
                         Message {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_whole_committee(view_number),
                         STATIC_VER_0_1,
                     ),
                 api

@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
+use futures::TryFutureExt;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
@@ -244,6 +245,8 @@ impl<
                 event.as_ref(),
                 HotShotEvent::VersionUpgrade(_)
                     | HotShotEvent::ViewChange(_)
+                    | HotShotEvent::SubscribeTransactions
+                    | HotShotEvent::UnsubscribeTransactions
                     | HotShotEvent::Shutdown
             )
     }
@@ -404,6 +407,20 @@ impl<
                 HotShotEvent::VersionUpgrade(version) => {
                     debug!("Updating internal version in network task to {:?}", version);
                     self.version = version;
+                    return None;
+                }
+                HotShotEvent::SubscribeTransactions => {
+                    error!("lrzasik: received subscribe");
+                    if let Err(e) = self.channel.subscribe_transactions().await {
+                        error!("Could not subscribe to transactions: {:?}", e)
+                    };
+                    return None;
+                }
+                HotShotEvent::UnsubscribeTransactions => {
+                    error!("lrzasik: received unsubscribe");
+                    if let Err(e) = self.channel.unsubscribe_transactions().await {
+                        error!("Could not unsubscribe from transactions: {:?}", e)
+                    };
                     return None;
                 }
                 HotShotEvent::Shutdown => {

@@ -784,6 +784,66 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
             }
         });
     }
+
+    async fn publish<VER: StaticVersionType + 'static>(
+        &self,
+        message: M,
+        topic: String,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        self.wait_for_ready().await;
+
+        error!("Publishing to topic: {}", topic);
+
+        // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
+        #[cfg(feature = "hotshot-testing")]
+        {
+            let metrics = self.inner.metrics.clone();
+            if let Some(ref config) = &self.inner.reliability_config {
+                let handle = self.inner.handle.clone();
+
+                let serialized_msg =
+                    Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
+                let fut = config.clone().chaos_send_msg(
+                    serialized_msg,
+                    Arc::new(move |msg: Vec<u8>| {
+                        let topic_2 = topic.clone();
+                        let handle_2 = handle.clone();
+                        let metrics_2 = metrics.clone();
+                        boxed_sync(async move {
+                            match handle_2.gossip_no_serialize(topic_2, msg).await {
+                                Err(e) => {
+                                    metrics_2.message_failed_to_send.add(1);
+                                    warn!("Failed to broadcast to libp2p: {:?}", e);
+                                }
+                                Ok(()) => {
+                                    metrics_2.outgoing_direct_message_count.add(1);
+                                }
+                            }
+                        })
+                    }),
+                );
+                async_spawn(fut);
+                return Ok(());
+            }
+        }
+
+        match self
+            .inner
+            .handle
+            .gossip(topic, &message, bind_version)
+            .await
+        {
+            Ok(()) => {
+                self.inner.metrics.outgoing_broadcast_message_count.add(1);
+                Ok(())
+            }
+            Err(e) => {
+                self.inner.metrics.message_failed_to_send.add(1);
+                Err(e.into())
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -897,7 +957,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         recipients: BTreeSet<K>,
         bind_version: VER,
     ) -> Result<(), NetworkError> {
-        self.wait_for_ready().await;
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
             message,
@@ -913,6 +972,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .clone();
         info!("broadcasting to topic: {}", topic);
 
+
         // gossip doesn't broadcast from itself, so special case
         if recipients.contains(&self.inner.pk) {
             // send to self
@@ -923,54 +983,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 .map_err(|_| NetworkError::ShutDown)?;
         }
 
-        // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
-        #[cfg(feature = "hotshot-testing")]
-        {
-            let metrics = self.inner.metrics.clone();
-            if let Some(ref config) = &self.inner.reliability_config {
-                let handle = self.inner.handle.clone();
-
-                let serialized_msg =
-                    Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
-                let fut = config.clone().chaos_send_msg(
-                    serialized_msg,
-                    Arc::new(move |msg: Vec<u8>| {
-                        let topic_2 = topic.clone();
-                        let handle_2 = handle.clone();
-                        let metrics_2 = metrics.clone();
-                        boxed_sync(async move {
-                            match handle_2.gossip_no_serialize(topic_2, msg).await {
-                                Err(e) => {
-                                    metrics_2.message_failed_to_send.add(1);
-                                    warn!("Failed to broadcast to libp2p: {:?}", e);
-                                }
-                                Ok(()) => {
-                                    metrics_2.outgoing_direct_message_count.add(1);
-                                }
-                            }
-                        })
-                    }),
-                );
-                async_spawn(fut);
-                return Ok(());
-            }
-        }
-
-        match self
-            .inner
-            .handle
-            .gossip(topic, &message, bind_version)
-            .await
-        {
-            Ok(()) => {
-                self.inner.metrics.outgoing_broadcast_message_count.add(1);
-                Ok(())
-            }
-            Err(e) => {
-                self.inner.metrics.message_failed_to_send.add(1);
-                Err(e.into())
-            }
-        }
+        self.publish(message, topic, bind_version).await
     }
 
     #[instrument(name = "Libp2pNetwork::da_broadcast_message", skip_all)]
@@ -1081,6 +1094,23 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
+    async fn publish_transaction<VER: StaticVersionType + 'static>(
+        &self,
+        message: M,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        error!("lrzasik: publish transaction in libp2p");
+
+        // send to self
+        self.inner
+            .sender
+            .send(message.clone())
+            .await
+            .map_err(|_| NetworkError::ShutDown)?;
+
+        self.publish(message, "transactions".to_string(), bind_version).await
+    }
+
     /// Receive one or many messages from the underlying network.
     ///
     /// # Errors
@@ -1129,5 +1159,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
             _ => {}
         }
+    }
+
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
+        error!("lrzasik: subscribe transactions");
+        self.inner.handle.subscribe("transactions".to_string()).await.map_err(Into::<NetworkError>::into)
+    }
+
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
+        error!("lrzasik: unsubscribe transactions");
+        self.inner.handle.unsubscribe("transactions".to_string()).await.map_err(Into::<NetworkError>::into)
     }
 }

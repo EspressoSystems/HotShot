@@ -150,4 +150,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
+    /// Subscribe to transactions topic
+    SubscribeTransactions,
+    UnsubscribeTransactions,
 }

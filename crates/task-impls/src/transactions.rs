@@ -94,6 +94,7 @@ impl<
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
+                error!("lrzasik: received # of transactions: {:?}", transactions.len());
                 self.api
                     .send_event(Event {
                         view_number: self.cur_view,
@@ -106,7 +107,7 @@ impl<
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                debug!("view change in transactions to view {:?}", view);
+                error!("view change in transactions to view {:?}", view);
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }
@@ -121,8 +122,21 @@ impl<
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
                 if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
                     debug!("Not next leader for view {:?}", self.cur_view);
+                    // unsubscribe from transactions for the next view
+                    broadcast_event(
+                        Arc::new(HotShotEvent::UnsubscribeTransactions),
+                        &event_stream,
+                    )
+                    .await;
                     return None;
                 }
+
+                // subscribe to transactions for the next view
+                broadcast_event(
+                    Arc::new(HotShotEvent::SubscribeTransactions),
+                    &event_stream,
+                )
+                .await;
 
                 if let Some(BuilderResponses {
                     block_data,

@@ -381,6 +381,13 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         bind_version: VER,
     ) -> Result<(), NetworkError>;
 
+    /// Publish a transaction to the transaction topic
+    async fn publish_transaction<VER: StaticVersionType + 'static>(
+        &self,
+        _message: M,
+        _bind_version: VER,
+    ) -> Result<(), NetworkError> { Err(NetworkError::UnimplementedFeature) }
+
     /// Receive one or many messages from the underlying network.
     ///
     /// # Errors
@@ -431,6 +438,15 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// Is primary network down? Makes sense only for combined network
     fn is_primary_down(&self) -> bool {
         false
+    }
+
+    /// Subscribe to transactions topic
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
+    }
+
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
     }
 }
 
