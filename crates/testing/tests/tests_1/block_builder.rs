@@ -24,12 +24,21 @@ async fn test_random_block_builder() {
 
     use hotshot_builder_api::block_info::AvailableBlockData;
     use hotshot_orchestrator::config::RandomBuilderConfig;
-    use hotshot_types::utils::BuilderCommitment;
+    use hotshot_types::traits::block_contents::vid_commitment;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
 
-    run_random_builder::<TestTypes>(api_url.clone(), 1, RandomBuilderConfig::default());
+    run_random_builder::<TestTypes>(
+        api_url.clone(),
+        1,
+        RandomBuilderConfig {
+            // Essentially removes delays so that builder doesn't slow
+            // down the test
+            blocks_per_second: u32::MAX,
+            ..Default::default()
+        },
+    );
     let builder_started = Instant::now();
 
     let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);
@@ -43,7 +52,7 @@ async fn test_random_block_builder() {
     let mut blocks = loop {
         // Test getting blocks
         let blocks = client
-            .get_available_blocks(BuilderCommitment::from_bytes(&vec![]), pub_key, &signature)
+            .get_available_blocks(vid_commitment(&vec![], 1), pub_key, &signature)
             .await
             .expect("Failed to get available blocks");
 

@@ -139,6 +139,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The network version
     version: Arc<RwLock<Version>>,
 
+    /// The view to enter when first starting consensus
+    start_view: TYPES::Time,
+
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
     pub output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
@@ -253,13 +256,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
-        let start_view = initializer.start_view;
-
         let consensus = Consensus {
             instance_state,
             validated_state_map,
             vid_shares: BTreeMap::new(),
-            cur_view: start_view,
+            cur_view: anchored_leaf.get_view_number(),
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
@@ -284,6 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             private_key,
             config,
             version,
+            start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
@@ -301,15 +303,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
         debug!("Starting Consensus");
+        let consensus = self.consensus.read().await;
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(0))))
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
             .await
             .expect("Genesis Broadcast failed");
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                self.consensus.read().await.high_qc.clone(),
+                consensus.high_qc.clone(),
             ))))
             .await
             .expect("Genesis Broadcast failed");
