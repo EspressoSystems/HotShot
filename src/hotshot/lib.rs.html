@@ -734,6 +734,9 @@
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -875,6 +878,9 @@
     <span class="doccomment">/// The network version
     </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
 
+    <span class="doccomment">/// The view to enter when first starting consensus
+    </span>start_view: TYPES::Time,
+
     <span class="comment">// global_registry: GlobalRegistry,
     </span><span class="doccomment">/// Access to the output event stream.
     </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
@@ -961,13 +967,11 @@
             saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
         }
 
-        <span class="kw">let </span>start_view = initializer.start_view;
-
         <span class="kw">let </span>consensus = Consensus {
             instance_state,
             validated_state_map,
             vid_shares: BTreeMap::new(),
-            cur_view: start_view,
+            cur_view: anchored_leaf.get_view_number(),
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
@@ -995,6 +999,7 @@
             private_key,
             config,
             version,
+            start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
@@ -1012,15 +1017,16 @@
     /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
+        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
-            </span>.broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(<span class="number">0</span>))))
+            </span>.broadcast_direct(Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.start_view)))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                QuorumCertificate::genesis(),
+                consensus.high_qc.clone(),
             ))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
