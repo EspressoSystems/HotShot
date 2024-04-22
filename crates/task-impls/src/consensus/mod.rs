@@ -4,9 +4,11 @@ use std::{
     sync::Arc,
 };
 
-use self::proposal_helpers::handle_quorum_proposal_recv;
 use crate::{
-    consensus::{proposal_helpers::publish_proposal_if_able, view_change::update_view},
+    consensus::{
+        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
+        view_change::update_view,
+    },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{
