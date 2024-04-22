@@ -290,7 +290,9 @@ impl<
 
                 // We timed out while getting available blocks
                 Err(err) => {
-                    error!(%err, "Timeout while getting available blocks");
+                    if latest_block.is_none() {
+                        error!(%err, "Timeout while getting available blocks");
+                    }
                     break;
                 }
             };
