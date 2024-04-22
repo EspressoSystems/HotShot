@@ -95,15 +95,22 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
-
-</span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>cdn_broker::{Broker, Config, ConfigBuilder};
+</span><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>cdn_broker::{Broker, Config};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
-<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>sha2::Digest;
 
 <span class="attr">#[derive(Parser, Debug)]
@@ -116,74 +123,81 @@
     </span><span class="attr">#[arg(short, long)]
     </span>discovery_endpoint: String,
 
-    <span class="doccomment">/// Whether or not metric collection and serving is enabled
-    </span><span class="attr">#[arg(long, default_value_t = <span class="bool-val">false</span>)]
-    </span>metrics_enabled: bool,
-
-    <span class="doccomment">/// The IP to bind to for externalizing metrics
-    </span><span class="attr">#[arg(long, default_value = <span class="string">"127.0.0.1"</span>)]
-    </span>metrics_ip: String,
-
-    <span class="doccomment">/// The port to bind to for externalizing metrics
-    </span><span class="attr">#[arg(long, default_value_t = <span class="number">9090</span>)]
-    </span>metrics_port: u16,
-
-    <span class="doccomment">/// The user-facing address to bind to for connections from users
+    <span class="doccomment">/// The user-facing endpoint in `IP:port` form to bind to for connections from users
     </span><span class="attr">#[arg(long, default_value = <span class="string">"0.0.0.0:1738"</span>)]
-    </span>public_bind_address: String,
+    </span>public_bind_endpoint: String,
 
-    <span class="doccomment">/// The user-facing address to advertise
+    <span class="doccomment">/// The user-facing endpoint in `IP:port` form to advertise
     </span><span class="attr">#[arg(long, default_value = <span class="string">"local_ip:1738"</span>)]
-    </span>public_advertise_address: String,
+    </span>public_advertise_endpoint: String,
 
-    <span class="doccomment">/// The broker-facing address to bind to for connections from  
+    <span class="doccomment">/// The broker-facing endpoint in `IP:port` form to bind to for connections from  
     /// other brokers
     </span><span class="attr">#[arg(long, default_value = <span class="string">"0.0.0.0:1739"</span>)]
-    </span>private_bind_address: String,
+    </span>private_bind_endpoint: String,
 
-    <span class="doccomment">/// The broker-facing address to advertise
+    <span class="doccomment">/// The broker-facing endpoint in `IP:port` form to advertise
     </span><span class="attr">#[arg(long, default_value = <span class="string">"local_ip:1739"</span>)]
-    </span>private_advertise_address: String,
+    </span>private_advertise_endpoint: String,
+
+    <span class="doccomment">/// The endpoint to bind to for externalizing metrics (in `IP:port` form). If not provided,
+    /// metrics are not exposed.
+    </span><span class="attr">#[arg(short, long)]
+    </span>metrics_bind_endpoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// The path to the CA certificate
+    /// If not provided, a local, pinned CA is used
+    </span><span class="attr">#[arg(long)]
+    </span>ca_cert_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// The path to the CA key
+    /// If not provided, a local, pinned CA is used
+    </span><span class="attr">#[arg(long)]
+    </span>ca_key_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// The seed for broker key generation
-    </span><span class="attr">#[arg(long, default_value_t = <span class="number">0</span>)]
+    </span><span class="attr">#[arg(short, long, default_value_t = <span class="number">0</span>)]
     </span>key_seed: u64,
 }
-
-<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main(flavor = <span class="string">"multi_thread"</span>))]
+<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main)]
 #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
 </span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Parse command line arguments
     </span><span class="kw">let </span>args = Args::parse();
 
     <span class="comment">// Initialize tracing
-    </span>tracing_subscriber::fmt::init();
+    </span><span class="kw">if </span>std::env::var(<span class="string">"RUST_LOG_FORMAT"</span>) == <span class="prelude-val">Ok</span>(<span class="string">"json"</span>.to_string()) {
+        tracing_subscriber::fmt().json().init();
+    } <span class="kw">else </span>{
+        tracing_subscriber::fmt().init();
+    }
 
     <span class="comment">// Generate the broker key from the supplied seed
     </span><span class="kw">let </span>key_hash = sha2::Sha256::digest(args.key_seed.to_le_bytes());
     <span class="kw">let </span>(public_key, private_key) =
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed(key_hash.into(), <span class="number">1337</span>);
 
-    <span class="kw">let </span>broker_config: Config&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
-        ConfigBuilder::default()
-            .public_bind_address(args.public_bind_address)
-            .public_advertise_address(args.public_advertise_address)
-            .private_bind_address(args.private_bind_address)
-            .private_advertise_address(args.private_advertise_address)
-            .metrics_enabled(args.metrics_enabled)
-            .metrics_ip(args.metrics_ip)
-            .discovery_endpoint(args.discovery_endpoint)
-            .metrics_port(args.metrics_port)
-            .keypair(KeyPair {
-                public_key: WrappedSignatureKey(public_key),
-                private_key,
-            })
-            .build()
-            .with_context(|| <span class="string">"failed to build broker config"</span>)<span class="question-mark">?</span>;
+    <span class="comment">// Create config
+    </span><span class="kw">let </span>broker_config: Config&lt;ProductionDef&lt;TestTypes&gt;&gt; = Config {
+        ca_cert_path: args.ca_cert_path,
+        ca_key_path: args.ca_key_path,
+
+        discovery_endpoint: args.discovery_endpoint,
+        metrics_bind_endpoint: args.metrics_bind_endpoint,
+        keypair: KeyPair {
+            public_key: WrappedSignatureKey(public_key),
+            private_key,
+        },
+
+        public_bind_endpoint: args.public_bind_endpoint,
+        public_advertise_endpoint: args.public_advertise_endpoint,
+        private_bind_endpoint: args.private_bind_endpoint,
+        private_advertise_endpoint: args.private_advertise_endpoint,
+    };
 
     <span class="comment">// Create new `Broker`
     // Uses TCP from broker connections and Quic for user connections.
-    </span><span class="kw">let </span>broker = Broker::&lt;ProductionDef&lt;TestTypes&gt;&gt;::new(broker_config).<span class="kw">await</span><span class="question-mark">?</span>;
+    </span><span class="kw">let </span>broker = Broker::new(broker_config).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Start the main loop, consuming it
     </span>broker.start().<span class="kw">await</span><span class="question-mark">?</span>;

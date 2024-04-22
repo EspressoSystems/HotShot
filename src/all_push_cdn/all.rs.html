@@ -135,6 +135,9 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
@@ -201,20 +204,22 @@
         </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
         <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
 
-        <span class="kw">let </span>config: cdn_broker::Config&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
-            cdn_broker::ConfigBuilder::default()
-                .discovery_endpoint(discovery_endpoint.clone())
-                .keypair(KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key),
-                    private_key: broker_private_key.clone(),
-                })
-                .metrics_enabled(<span class="bool-val">false</span>)
-                .private_bind_address(private_address.clone())
-                .public_bind_address(public_address.clone())
-                .private_advertise_address(private_address)
-                .public_advertise_address(public_address)
-                .build()
-                .expect(<span class="string">"failed to build broker config"</span>);
+        <span class="kw">let </span>config: cdn_broker::Config&lt;TestingDef&lt;TestTypes&gt;&gt; = cdn_broker::Config {
+            discovery_endpoint: discovery_endpoint.clone(),
+            public_advertise_endpoint: public_address.clone(),
+            public_bind_endpoint: public_address,
+            private_advertise_endpoint: private_address.clone(),
+            private_bind_endpoint: private_address,
+
+            keypair: KeyPair {
+                public_key: WrappedSignatureKey(broker_public_key),
+                private_key: broker_private_key.clone(),
+            },
+
+            metrics_bind_endpoint: <span class="prelude-val">None</span>,
+            ca_cert_path: <span class="prelude-val">None</span>,
+            ca_key_path: <span class="prelude-val">None</span>,
+        };
 
         <span class="comment">// Create and spawn the broker
         </span>async_spawn(<span class="kw">async move </span>{
@@ -233,12 +238,13 @@
 
     <span class="comment">// Configure the marshal
     </span><span class="kw">let </span>marshal_endpoint = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{marshal_port}"</span>);
-    <span class="kw">let </span>marshal_config = cdn_marshal::ConfigBuilder::default()
-        .bind_address(marshal_endpoint.clone())
-        .discovery_endpoint(<span class="string">"test.sqlite"</span>.to_string())
-        .metrics_enabled(<span class="bool-val">false</span>)
-        .build()
-        .expect(<span class="string">"failed to build marshal config"</span>);
+    <span class="kw">let </span>marshal_config = cdn_marshal::Config {
+        bind_endpoint: marshal_endpoint.clone(),
+        discovery_endpoint,
+        metrics_bind_endpoint: <span class="prelude-val">None</span>,
+        ca_cert_path: <span class="prelude-val">None</span>,
+        ca_key_path: <span class="prelude-val">None</span>,
+    };
 
     <span class="comment">// Spawn the marshal
     </span>async_spawn(<span class="kw">async move </span>{

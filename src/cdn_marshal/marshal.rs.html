@@ -64,41 +64,48 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Marshal` binary, which just instantiates and runs
 //! a `Marshal` object.
 
-</span><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>cdn_marshal::{ConfigBuilder, Marshal};
+</span><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>cdn_marshal::{Config, Marshal};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::ProductionDef;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
 
-<span class="attr">#[derive(Parser, Debug)]
+<span class="comment">// TODO: forall, add logging where we need it
+
+</span><span class="attr">#[derive(Parser, Debug)]
 #[command(author, version, about, long_about = <span class="prelude-val">None</span>)]
 </span><span class="doccomment">/// The main component of the push CDN.
 </span><span class="kw">struct </span>Args {
     <span class="doccomment">/// The discovery client endpoint (including scheme) to connect to
-    /// With the local discovery feature, this is a file path.
-    /// With the remote (redis) discovery feature, this is a redis URL (e.g. `redis://127.0.0.1:6789`).
-
     </span><span class="attr">#[arg(short, long)]
     </span>discovery_endpoint: String,
-
-    <span class="doccomment">/// Whether or not metric collection and serving is enabled
-    </span><span class="attr">#[arg(long, default_value_t = <span class="bool-val">false</span>)]
-    </span>metrics_enabled: bool,
-
-    <span class="doccomment">/// The IP to bind to for externalizing metrics
-    </span><span class="attr">#[arg(long, default_value = <span class="string">"127.0.0.1"</span>)]
-    </span>metrics_ip: String,
-
-    <span class="doccomment">/// The port to bind to for externalizing metrics
-    </span><span class="attr">#[arg(long, default_value_t = <span class="number">9090</span>)]
-    </span>metrics_port: u16,
 
     <span class="doccomment">/// The port to bind to for connections (from users)
     </span><span class="attr">#[arg(short, long, default_value_t = <span class="number">1737</span>)]
     </span>bind_port: u16,
+
+    <span class="doccomment">/// The endpoint to bind to for externalizing metrics (in `IP:port` form). If not provided,
+    /// metrics are not exposed.
+    </span><span class="attr">#[arg(short, long)]
+    </span>metrics_bind_endpoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// The path to the CA certificate
+    /// If not provided, a local, pinned CA is used
+    </span><span class="attr">#[arg(long)]
+    </span>ca_cert_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// The path to the CA key
+    /// If not provided, a local, pinned CA is used
+    </span><span class="attr">#[arg(long)]
+    </span>ca_key_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main)]
@@ -108,17 +115,20 @@
     </span><span class="kw">let </span>args = Args::parse();
 
     <span class="comment">// Initialize tracing
-    </span>tracing_subscriber::fmt::init();
+    </span><span class="kw">if </span>std::env::var(<span class="string">"RUST_LOG_FORMAT"</span>) == <span class="prelude-val">Ok</span>(<span class="string">"json"</span>.to_string()) {
+        tracing_subscriber::fmt().json().init();
+    } <span class="kw">else </span>{
+        tracing_subscriber::fmt().init();
+    }
 
     <span class="comment">// Create a new `Config`
-    </span><span class="kw">let </span>config = ConfigBuilder::default()
-        .bind_address(<span class="macro">format!</span>(<span class="string">"0.0.0.0:{}"</span>, args.bind_port))
-        .metrics_enabled(args.metrics_enabled)
-        .metrics_ip(args.metrics_ip)
-        .metrics_port(args.metrics_port)
-        .discovery_endpoint(args.discovery_endpoint)
-        .build()
-        .with_context(|| <span class="string">"failed to build Marshal config"</span>)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>config = Config {
+        discovery_endpoint: args.discovery_endpoint,
+        bind_endpoint: <span class="macro">format!</span>(<span class="string">"0.0.0.0:{}"</span>, args.bind_port),
+        metrics_bind_endpoint: args.metrics_bind_endpoint,
+        ca_cert_path: args.ca_cert_path,
+        ca_key_path: args.ca_key_path,
+    };
 
     <span class="comment">// Create new `Marshal` from the config
     </span><span class="kw">let </span>marshal = Marshal::&lt;ProductionDef&lt;TestTypes&gt;&gt;::new(config).<span class="kw">await</span><span class="question-mark">?</span>;

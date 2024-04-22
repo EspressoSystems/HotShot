@@ -527,6 +527,22 @@
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
@@ -539,12 +555,12 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::reexports::{
-    connection::protocols::Tcp,
-    def::RunDef,
+    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    def::{ConnectionDef, RunDef},
     discovery::{Embedded, Redis},
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>cdn_broker::{Broker, Config, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder};
+</span><span class="kw">use </span>cdn_broker::{Broker, Config <span class="kw">as </span>BrokerConfig};
 <span class="kw">pub use </span>cdn_client::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>cdn_client::{
     reexports::{
@@ -552,10 +568,10 @@
         crypto::signature::{Serializable, SignatureScheme},
         message::{Broadcast, Direct, Message <span class="kw">as </span>PushCdnMessage, Topic},
     },
-    Client, ConfigBuilder <span class="kw">as </span>ClientConfigBuilder,
+    Client, Config <span class="kw">as </span>ClientConfig,
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
+</span><span class="kw">use </span>cdn_marshal::{Config <span class="kw">as </span>MarshalConfig, Marshal};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -623,38 +639,51 @@
     }
 }
 
-<span class="doccomment">/// The testing run definition for the Push CDN.
-/// Uses the real protocols, but with an embedded discovery client.
-</span><span class="kw">pub struct </span>TestingDef&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Phantom data to hold the type
-    </span>pd: PhantomData&lt;TYPES&gt;,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>TestingDef&lt;TYPES&gt; {
-    <span class="kw">type </span>BrokerScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
-    <span class="kw">type </span>BrokerProtocol = Tcp;
-
-    <span class="kw">type </span>UserScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
-    <span class="kw">type </span>UserProtocol = Quic;
-
-    <span class="kw">type </span>DiscoveryClientType = Embedded;
-}
-
 <span class="doccomment">/// The production run definition for the Push CDN.
 /// Uses the real protocols and a Redis discovery client.
-</span><span class="kw">pub struct </span>ProductionDef&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Phantom data to hold the type
-    </span>pd: PhantomData&lt;TYPES&gt;,
+</span><span class="kw">pub struct </span>ProductionDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>ProductionDef&lt;TYPES&gt; {
+    <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
+    <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
+    <span class="kw">type </span>DiscoveryClientType = Redis;
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>ProductionDef&lt;TYPES&gt; {
-    <span class="kw">type </span>BrokerScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
-    <span class="kw">type </span>BrokerProtocol = Tcp;
+<span class="doccomment">/// The user definition for the Push CDN.
+/// Uses the Quic protocol and untrusted middleware.
+</span><span class="kw">pub struct </span>UserDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>UserDef&lt;TYPES&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>Protocol = Quic;
+    <span class="kw">type </span>Middleware = UntrustedMiddleware;
+}
 
-    <span class="kw">type </span>UserScheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
-    <span class="kw">type </span>UserProtocol = Quic;
+<span class="doccomment">/// The broker definition for the Push CDN.
+/// Uses the TCP protocol and trusted middleware.
+</span><span class="kw">pub struct </span>BrokerDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>BrokerDef&lt;TYPES&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>Protocol = Tcp;
+    <span class="kw">type </span>Middleware = TrustedMiddleware;
+}
 
-    <span class="kw">type </span>DiscoveryClientType = Redis;
+<span class="doccomment">/// The client definition for the Push CDN. Uses the Quic
+/// protocol and no middleware. Differs from the user
+/// definition in that is on the client-side.
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>ClientDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>ClientDef&lt;TYPES&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+    <span class="kw">type </span>Protocol = Quic;
+    <span class="kw">type </span>Middleware = NoMiddleware;
+}
+
+<span class="doccomment">/// The testing run definition for the Push CDN.
+/// Uses the real protocols, but with an embedded discovery client.
+</span><span class="kw">pub struct </span>TestingDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>TestingDef&lt;TYPES&gt; {
+    <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
+    <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
+    <span class="kw">type </span>DiscoveryClientType = Embedded;
 }
 
 <span class="doccomment">/// A communication channel to the Push CDN, which is a collection of brokers and a marshal
@@ -663,7 +692,7 @@
 </span><span class="doccomment">/// Is generic over both the type of key and the network protocol.
 </span><span class="kw">pub struct </span>PushCdnNetwork&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying client
-    </span>client: Client&lt;WrappedSignatureKey&lt;TYPES::SignatureKey&gt;, Quic&gt;,
+    </span>client: Client&lt;ClientDef&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Whether or not the underlying network is supposed to be paused
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span>is_paused: Arc&lt;AtomicBool&gt;,
@@ -688,11 +717,12 @@
         }
 
         <span class="comment">// Build config
-        </span><span class="kw">let </span>config = ClientConfigBuilder::default()
-            .endpoint(marshal_endpoint)
-            .subscribed_topics(computed_topics)
-            .keypair(keypair)
-            .build()<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>config = ClientConfig {
+            endpoint: marshal_endpoint,
+            subscribed_topics: computed_topics,
+            keypair,
+            use_local_authority: <span class="bool-val">true</span>,
+        };
 
         <span class="comment">// Create the client from the config
         </span><span class="kw">let </span>client = Client::new(config);
@@ -787,20 +817,21 @@
             </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
             <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
 
-            <span class="kw">let </span>config: Config&lt;WrappedSignatureKey&lt;TYPES::SignatureKey&gt;&gt; =
-                BrokerConfigBuilder::default()
-                    .discovery_endpoint(discovery_endpoint.clone())
-                    .keypair(KeyPair {
-                        public_key: WrappedSignatureKey(broker_public_key.clone()),
-                        private_key: broker_private_key.clone(),
-                    })
-                    .metrics_enabled(<span class="bool-val">false</span>)
-                    .private_bind_address(private_address.clone())
-                    .public_bind_address(public_address.clone())
-                    .private_advertise_address(private_address)
-                    .public_advertise_address(public_address)
-                    .build()
-                    .expect(<span class="string">"failed to build broker config"</span>);
+            <span class="comment">// Configure the broker
+            </span><span class="kw">let </span>config: BrokerConfig&lt;TestingDef&lt;TYPES&gt;&gt; = BrokerConfig {
+                public_advertise_endpoint: public_address.clone(),
+                public_bind_endpoint: public_address,
+                private_advertise_endpoint: private_address.clone(),
+                private_bind_endpoint: private_address,
+                metrics_bind_endpoint: <span class="prelude-val">None</span>,
+                keypair: KeyPair {
+                    public_key: WrappedSignatureKey(broker_public_key.clone()),
+                    private_key: broker_private_key.clone(),
+                },
+                discovery_endpoint: discovery_endpoint.clone(),
+                ca_cert_path: <span class="prelude-val">None</span>,
+                ca_key_path: <span class="prelude-val">None</span>,
+            };
 
             <span class="comment">// Create and spawn the broker
             </span>async_spawn(<span class="kw">async move </span>{
@@ -819,12 +850,13 @@
 
         <span class="comment">// Configure the marshal
         </span><span class="kw">let </span>marshal_endpoint = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{marshal_port}"</span>);
-        <span class="kw">let </span>marshal_config = MarshalConfigBuilder::default()
-            .bind_address(marshal_endpoint.clone())
-            .metrics_enabled(<span class="bool-val">false</span>)
-            .discovery_endpoint(discovery_endpoint)
-            .build()
-            .expect(<span class="string">"failed to build marshal config"</span>);
+        <span class="kw">let </span>marshal_config = MarshalConfig {
+            bind_endpoint: marshal_endpoint.clone(),
+            discovery_endpoint,
+            metrics_bind_endpoint: <span class="prelude-val">None</span>,
+            ca_cert_path: <span class="prelude-val">None</span>,
+            ca_key_path: <span class="prelude-val">None</span>,
+        };
 
         <span class="comment">// Spawn the marshal
         </span>async_spawn(<span class="kw">async move </span>{
@@ -858,15 +890,15 @@
                     };
 
                     <span class="comment">// Configure our client
-                    </span><span class="kw">let </span>client_config = ClientConfigBuilder::default()
-                        .keypair(KeyPair {
+                    </span><span class="kw">let </span>client_config: ClientConfig&lt;ClientDef&lt;TYPES&gt;&gt; = ClientConfig {
+                        keypair: KeyPair {
                             public_key: WrappedSignatureKey(public_key),
                             private_key,
-                        })
-                        .subscribed_topics(topics)
-                        .endpoint(marshal_endpoint)
-                        .build()
-                        .expect(<span class="string">"failed to build client config"</span>);
+                        },
+                        subscribed_topics: topics,
+                        endpoint: marshal_endpoint,
+                        use_local_authority: <span class="bool-val">true</span>,
+                    };
 
                     <span class="comment">// Create our client
                     </span><span class="kw">let </span>client = Arc::new(PushCdnNetwork {

@@ -159,6 +159,9 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -172,8 +175,8 @@
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
-<span class="kw">use </span>cdn_broker::{Broker, Config <span class="kw">as </span>BrokerConfig, ConfigBuilder <span class="kw">as </span>BrokerConfigBuilder};
-<span class="kw">use </span>cdn_marshal::{ConfigBuilder <span class="kw">as </span>MarshalConfigBuilder, Marshal};
+<span class="kw">use </span>cdn_broker::Broker;
+<span class="kw">use </span>cdn_marshal::Marshal;
 <span class="kw">use </span>hotshot::{
     traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
@@ -229,20 +232,22 @@
         </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
         <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
 
-        <span class="kw">let </span>config: BrokerConfig&lt;WrappedSignatureKey&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
-            BrokerConfigBuilder::default()
-                .discovery_endpoint(discovery_endpoint.clone())
-                .keypair(KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key),
-                    private_key: broker_private_key.clone(),
-                })
-                .metrics_enabled(<span class="bool-val">false</span>)
-                .private_bind_address(private_address.clone())
-                .public_bind_address(public_address.clone())
-                .private_advertise_address(private_address)
-                .public_advertise_address(public_address)
-                .build()
-                .expect(<span class="string">"failed to build broker config"</span>);
+        <span class="kw">let </span>config: cdn_broker::Config&lt;TestingDef&lt;TestTypes&gt;&gt; = cdn_broker::Config {
+            discovery_endpoint: discovery_endpoint.clone(),
+            public_advertise_endpoint: public_address.clone(),
+            public_bind_endpoint: public_address,
+            private_advertise_endpoint: private_address.clone(),
+            private_bind_endpoint: private_address,
+
+            keypair: KeyPair {
+                public_key: WrappedSignatureKey(broker_public_key),
+                private_key: broker_private_key.clone(),
+            },
+
+            metrics_bind_endpoint: <span class="prelude-val">None</span>,
+            ca_cert_path: <span class="prelude-val">None</span>,
+            ca_key_path: <span class="prelude-val">None</span>,
+        };
 
         <span class="comment">// Create and spawn the broker
         </span>async_spawn(<span class="kw">async move </span>{
@@ -263,12 +268,13 @@
         .expect(<span class="string">"CDN marshal address must be specified"</span>);
 
     <span class="comment">// Configure the marshal
-    </span><span class="kw">let </span>marshal_config = MarshalConfigBuilder::default()
-        .bind_address(marshal_endpoint.clone())
-        .metrics_enabled(<span class="bool-val">false</span>)
-        .discovery_endpoint(discovery_endpoint)
-        .build()
-        .expect(<span class="string">"failed to build marshal config"</span>);
+    </span><span class="kw">let </span>marshal_config = cdn_marshal::Config {
+        bind_endpoint: marshal_endpoint.clone(),
+        discovery_endpoint,
+        metrics_bind_endpoint: <span class="prelude-val">None</span>,
+        ca_cert_path: <span class="prelude-val">None</span>,
+        ca_key_path: <span class="prelude-val">None</span>,
+    };
 
     <span class="comment">// Spawn the marshal
     </span>async_spawn(<span class="kw">async move </span>{
