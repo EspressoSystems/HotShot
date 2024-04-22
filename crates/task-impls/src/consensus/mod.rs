@@ -438,7 +438,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e:?}");
                 }
 
                 let consensus = self.consensus.upgradable_read().await;
@@ -1066,7 +1066,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e:?}");
                     return;
                 }
 
