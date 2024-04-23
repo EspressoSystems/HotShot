@@ -179,7 +179,7 @@ impl<
                     // Broadcast the empty block
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            vec![],
+                            vec![].into(),
                             metadata,
                             block_view,
                             builder_fee,
