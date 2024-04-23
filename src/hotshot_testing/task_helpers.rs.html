@@ -356,7 +356,7 @@
 <span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="kw">use </span>serde::Serialize;
 
-<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestMetadata;
+<span class="kw">use </span><span class="kw">crate</span>::test_builder::TestDescription;
 
 <span class="doccomment">/// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -368,7 +368,7 @@
     Sender&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
     Receiver&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span>builder = TestMetadata::default_multiple_rounds();
+    <span class="kw">let </span>builder = TestDescription::default_multiple_rounds();
 
     <span class="kw">let </span>launcher = builder.gen_launcher::&lt;TestTypes, MemoryImpl&gt;(node_id);
 

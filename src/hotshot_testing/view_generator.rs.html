@@ -486,7 +486,7 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
@@ -587,7 +587,7 @@
 
         <span class="kw">let </span>da_proposal_inner = DAProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: (),
+            metadata: TestMetadata,
             view_number: genesis_view,
         };
 
@@ -788,7 +788,7 @@
 
         <span class="kw">let </span>da_proposal_inner = DAProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: (),
+            metadata: TestMetadata,
             view_number: next_view,
         };
 

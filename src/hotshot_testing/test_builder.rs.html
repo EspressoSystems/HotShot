@@ -393,7 +393,7 @@
 
 <span class="doccomment">/// metadata describing a test
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>TestMetadata {
+</span><span class="kw">pub struct </span>TestDescription {
     <span class="doccomment">/// Total number of staked nodes in the test
     </span><span class="kw">pub </span>num_nodes_with_stake: usize,
     <span class="doccomment">/// Total number of non-staked nodes in the test
@@ -443,7 +443,7 @@
     }
 }
 
-<span class="kw">impl </span>TestMetadata {
+<span class="kw">impl </span>TestDescription {
     <span class="doccomment">/// the default metadata for a stress test
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -451,7 +451,7 @@
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">100</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
 
-        TestMetadata {
+        TestDescription {
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake: num_nodes_with_stake,
             num_nodes_without_stake: num_nodes_without_stake,
@@ -472,17 +472,17 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 
     <span class="doccomment">/// the default metadata for multiple rounds
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
-    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestMetadata {
+    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestDescription {
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
-        TestMetadata {
+        TestDescription {
             <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             </span>num_bootstrap_nodes: num_nodes_with_stake,
@@ -503,17 +503,17 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 
     <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
-    </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestMetadata {
+    </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestDescription {
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
-        TestMetadata {
+        TestDescription {
             num_nodes_with_stake: num_nodes_with_stake,
             num_nodes_without_stake: num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -538,12 +538,12 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>TestMetadata {
+<span class="kw">impl </span>Default <span class="kw">for </span>TestDescription {
     <span class="doccomment">/// by default, just a single round
     </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -577,8 +577,8 @@
     }
 }
 
-<span class="kw">impl </span>TestMetadata {
-    <span class="doccomment">/// turn a description of a test (e.g. a [`TestMetadata`]) into
+<span class="kw">impl </span>TestDescription {
+    <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
@@ -593,7 +593,7 @@
     <span class="kw">where
         </span>I: NodeImplementation&lt;TYPES&gt;,
     {
-        <span class="kw">let </span>TestMetadata {
+        <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
             min_transactions,

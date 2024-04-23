@@ -450,24 +450,6 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -784,19 +766,12 @@
 
             <span class="comment">// Verify signature over chosen block instead of
             // verifying the signature over all the blocks received from builder
-            </span><span class="kw">let </span>combined_message_bytes = {
-                <span class="kw">let </span><span class="kw-2">mut </span>combined_response_bytes: Vec&lt;u8&gt; = Vec::new();
-                combined_response_bytes
-                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
-                combined_response_bytes
-                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
-                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
-                combined_response_bytes
-            };
-            <span class="kw">if </span>!block_info
-                .sender
-                .validate_builder_signature(<span class="kw-2">&amp;</span>block_info.signature, <span class="kw-2">&amp;</span>combined_message_bytes)
-            {
+            </span><span class="kw">if </span>!block_info.sender.validate_block_info_signature(
+                <span class="kw-2">&amp;</span>block_info.signature,
+                block_info.block_size,
+                block_info.offered_fee,
+                <span class="kw-2">&amp;</span>block_info.block_hash,
+            ) {
                 <span class="macro">error!</span>(<span class="string">"Failed to verify available block info response message signature"</span>);
                 <span class="kw">continue</span>;
             }
@@ -857,23 +832,12 @@
                         <span class="kw">continue</span>;
                     }
 
-                    <span class="kw">let </span>offered_fee = block_info.offered_fee;
-                    <span class="kw">let </span>builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(<span class="kw-2">&amp;</span>block_data.metadata);
-                    <span class="kw">let </span>vid_commitment = header_input.vid_commitment;
-                    <span class="kw">let </span>combined_response_bytes = {
-                        <span class="kw">let </span><span class="kw-2">mut </span>combined_response_bytes: Vec&lt;u8&gt; = Vec::new();
-                        combined_response_bytes
-                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
-                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
-                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
-                        combined_response_bytes
-                    };
                     <span class="comment">// verify the signature over the message
-                    </span><span class="kw">if </span>!header_input.sender.validate_builder_signature(
+                    </span><span class="kw">if </span>!header_input.sender.validate_fee_signature(
                         <span class="kw-2">&amp;</span>header_input.fee_signature,
-                        combined_response_bytes.as_ref(),
+                        block_info.offered_fee,
+                        <span class="kw-2">&amp;</span>block_data.metadata,
+                        <span class="kw-2">&amp;</span>header_input.vid_commitment,
                     ) {
                         <span class="macro">error!</span>(<span class="string">"Failed to verify fee signature"</span>);
                         <span class="kw">continue</span>;

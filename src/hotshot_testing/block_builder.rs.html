@@ -1135,7 +1135,7 @@
             .expect(<span class="string">"Failed to sign block vid commitment"</span>);
 
     <span class="kw">let </span>signature_over_fee_info =
-        TYPES::BuilderSignatureKey::sign_fee(<span class="kw-2">&amp;</span>priv_key, <span class="number">123_u64</span>, <span class="kw-2">&amp;</span>commitment, <span class="kw-2">&amp;</span>vid_commitment)
+        TYPES::BuilderSignatureKey::sign_fee(<span class="kw-2">&amp;</span>priv_key, <span class="number">123_u64</span>, <span class="kw-2">&amp;</span>metadata, <span class="kw-2">&amp;</span>vid_commitment)
             .expect(<span class="string">"Failed to sign fee info"</span>);
 
     <span class="kw">let </span>block = AvailableBlockData {

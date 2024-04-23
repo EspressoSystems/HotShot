@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["BuilderSignatureKey","SignatureKey","StakeTableEntryType"]};
+window.SIDEBAR_ITEMS = {"fn":["aggregate_block_info_data","aggregate_fee_data"],"trait":["BuilderSignatureKey","SignatureKey","StakeTableEntryType"]};

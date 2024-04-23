@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TestMetadata","TimingData"]};
+window.SIDEBAR_ITEMS = {"struct":["TestDescription","TimingData"]};
