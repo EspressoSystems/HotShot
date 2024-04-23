@@ -147,8 +147,7 @@ impl BlockPayload for TestBlockPayload {
     }
 
     fn encode(&self) -> Result<Arc<[u8]>, Self::Error> {
-        let encoded = TestTransaction::encode(&self.transactions);
-        encoded.map(Arc::from)
+        TestTransaction::encode(&self.transactions).map(Arc::from)
     }
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
