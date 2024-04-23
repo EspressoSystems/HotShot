@@ -335,8 +335,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     #[cfg(feature = "dependency-tasks")]
     async fn publish_proposal(
         &mut self,
-        view: TYPES::Time,
-        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+        _view: TYPES::Time,
+        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
         Ok(())
     }
@@ -385,7 +385,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
                     .await
                 {
-                    Ok(Some(current_proposal)) => {
+                    Ok(Some((current_proposal, _ /* parent_leaf */))) => {
                         self.current_proposal = Some(current_proposal);
                         if self.vote_if_able(&event_stream).await {
                             self.current_proposal = None;

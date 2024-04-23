@@ -2,7 +2,11 @@ use core::time::Duration;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::{consensus::update_view, helpers::AnyhowTracing};
+use crate::{
+    consensus::update_view, helpers::AnyhowTracing,
+    quorum_proposal_recv::QuorumProposalRecvTaskState,
+};
+use alloc::task;
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -562,6 +566,12 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
+#[cfg(feature = "dependency-tasks")]
+type TempraryProposalCombinedType<TYPES, I, A> = QuorumProposalRecvTaskState<TYPES, I>;
+
+#[cfg(not(feature = "dependency-tasks"))]
+type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>;
+
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
@@ -575,7 +585,7 @@ pub async fn handle_quorum_proposal_recv<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I, A>,
+    task_state: &mut TempraryProposalCombinedType<TYPES, I, A>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
@@ -780,11 +790,6 @@ pub async fn handle_quorum_proposal_recv<
                     .or_default()
                     .push(create_and_send_proposal_handle);
             }
-            // TODO: Instead of calling `vote_if_able` here, we can call it in the original place
-            // in the consensus task, and set `current_proposal` accordingly.
-            // if self.vote_if_able(&event_stream).await {
-            //     current_proposal = None;
-            // }
         }
         warn!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
 

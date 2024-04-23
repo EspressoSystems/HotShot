@@ -83,10 +83,10 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     } else {
                         payload_commitment = Some(proposal_payload_comm);
                     }
-                    let parent_commitment = parent_leaf.commit();
-                    let mut proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    proposed_leaf.set_parent_commitment(parent_commitment);
-                    leaf = Some(proposed_leaf);
+                    leaf = Some(Leaf::from_quorum_proposal_and_parent_leaf(
+                        proposal,
+                        parent_leaf,
+                    ));
                 }
                 HotShotEvent::DACertificateValidated(cert) => {
                     let cert_payload_comm = cert.get_data().payload_commit;

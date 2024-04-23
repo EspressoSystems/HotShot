@@ -668,6 +668,17 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_payload: None,
         }
     }
+
+    /// Build a leaf from a quroum proposal and parent leaf.
+    pub fn from_quorum_proposal_and_parent_leaf(
+        quorum_proposal: &QuorumProposal<TYPES>,
+        parent_leaf: &Leaf<TYPES>,
+    ) -> Self {
+        let parent_commitment = parent_leaf.commit();
+        let mut proposed_leaf = Leaf::from_quorum_proposal(quorum_proposal);
+        proposed_leaf.set_parent_commitment(parent_commitment);
+        proposed_leaf
+    }
 }
 
 pub mod null_block {

@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     consensus::{
-        proposal_helpers::validate_proposal_safety_and_liveness, view_change::update_view,
+        proposal_helpers::{handle_quorum_proposal_recv, validate_proposal_safety_and_liveness},
+        view_change::update_view,
     },
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
@@ -29,7 +30,7 @@ use hotshot_types::{
         ValidatedState,
     },
     utils::{View, ViewInner},
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, VoteDependencyData},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -83,6 +84,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub id: u64,
 }
 
+#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
     /// Cancel all tasks that have been spawned before the provided view.
     async fn cancel_tasks(&mut self, view: TYPES::Time) {
@@ -105,13 +107,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
+                    .await
+                {
+                    Ok(Some(current_proposal)) => {
+                        self.current_proposal = Some(current_proposal);
 
+                        // Build the parent leaf since we didn't find it during the proposal check.
+                        let consensus = self.consensus.read().await;
+
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VoteNow(
+                                proposal.data.get_view_number() + 1,
+                                VoteDependencyData {
+                                    quorum_proposal: current_proposal,
+                                },
+                            )),
+                            &event_stream,
+                        )
+                        .await;
+                        // if self.vote_if_able(&event_stream).await {
+                        //     self.current_proposal = None;
+                        // }
+                    }
+                    Ok(None) => {}
+                    Err(e) => warn!(?e, "Failed to propose"),
+                }
             }
             _ => {}
         }
     }
 }
 
+#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     for QuorumProposalRecvTaskState<TYPES, I>
 {
