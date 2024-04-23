@@ -483,9 +483,8 @@ dependencies = [
 
 [[package]]
 name = "ark-srs"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f6e9a7036d369a637b2b9f871bc06cefe52a947c98e898dbafab26548f8aa22"
+version = "0.3.1"
+source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -2525,9 +2524,9 @@ checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 
 [[package]]
 name = "fiat-crypto"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c007b1ae3abe1cb6f85a16305acd418b7ca6343b953633fee2b76d8f108b830f"
+checksum = "38793c55593b33412e3ae40c2c9781ffaa6f438f6f8c10f24e71846fbd7ae01e"
 
 [[package]]
 name = "finl_unicode"
@@ -3134,7 +3133,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3161,7 +3160,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "hotshot-web-server",
- "jf-primitives 0.4.3",
+ "jf-primitives 0.4.4",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.3",
@@ -3180,7 +3179,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-api"
-version = "0.1.7"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "clap",
@@ -3198,7 +3197,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3227,7 +3226,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3276,7 +3275,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3286,7 +3285,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3314,7 +3313,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3324,8 +3323,8 @@ dependencies = [
  "digest 0.10.7",
  "ethereum-types",
  "hotshot-types",
- "jf-primitives 0.4.3",
- "jf-utils 0.4.3",
+ "jf-primitives 0.4.4",
+ "jf-utils 0.4.4",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64 0.4.0",
@@ -3333,7 +3332,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3345,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3362,7 +3361,7 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-primitives 0.4.3",
+ "jf-primitives 0.4.4",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3377,7 +3376,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3398,7 +3397,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-primitives 0.4.3",
+ "jf-primitives 0.4.4",
  "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
@@ -3445,8 +3444,8 @@ dependencies = [
  "futures",
  "generic-array",
  "jf-plonk",
- "jf-primitives 0.4.3",
- "jf-utils 0.4.3",
+ "jf-primitives 0.4.4",
+ "jf-utils 0.4.4",
  "lazy_static",
  "memoize",
  "rand 0.8.5",
@@ -3466,7 +3465,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -3707,8 +3706,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-bn254"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.0#e6035698b5e54632f2c44e600391352ccc11cad4"
+version = "1.5.1"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.1#3d1e43365c8508fed6dfc6ddc7cc0abeb0fc7b9a"
 dependencies = [
  "ark-bn254",
  "cmake",
@@ -3718,8 +3717,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-core"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.0#e6035698b5e54632f2c44e600391352ccc11cad4"
+version = "1.5.1"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.1#3d1e43365c8508fed6dfc6ddc7cc0abeb0fc7b9a"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3731,8 +3730,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-cuda-runtime"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.0#e6035698b5e54632f2c44e600391352ccc11cad4"
+version = "1.5.1"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.5.1#3d1e43365c8508fed6dfc6ddc7cc0abeb0fc7b9a"
 dependencies = [
  "bindgen",
  "bitflags 1.3.2",
@@ -3995,8 +3994,8 @@ checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
 name = "jf-plonk"
-version = "0.4.3"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4010,9 +4009,9 @@ dependencies = [
  "espresso-systems-common 0.4.0",
  "hashbrown 0.14.3",
  "itertools 0.12.1",
- "jf-primitives 0.4.3",
- "jf-relation 0.4.3",
- "jf-utils 0.4.3",
+ "jf-primitives 0.4.4",
+ "jf-relation 0.4.4",
+ "jf-utils 0.4.4",
  "merlin",
  "num-bigint",
  "rand_chacha 0.3.1",
@@ -4068,8 +4067,8 @@ dependencies = [
 
 [[package]]
 name = "jf-primitives"
-version = "0.4.3"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -4099,8 +4098,8 @@ dependencies = [
  "icicle-core",
  "icicle-cuda-runtime",
  "itertools 0.12.1",
- "jf-relation 0.4.3",
- "jf-utils 0.4.3",
+ "jf-relation 0.4.4",
+ "jf-utils 0.4.4",
  "merlin",
  "num-bigint",
  "num-traits",
@@ -4140,8 +4139,8 @@ dependencies = [
 
 [[package]]
 name = "jf-relation"
-version = "0.4.3"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -4158,7 +4157,7 @@ dependencies = [
  "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.3",
  "itertools 0.12.1",
- "jf-utils 0.4.3",
+ "jf-utils 0.4.4",
  "num-bigint",
  "rand_chacha 0.3.1",
  "rayon",
@@ -4181,8 +4180,8 @@ dependencies = [
 
 [[package]]
 name = "jf-utils"
-version = "0.4.3"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.3#4a2e7b7c3f8f10b352262869133a17e30ae94981"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4588,7 +4587,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.40"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
