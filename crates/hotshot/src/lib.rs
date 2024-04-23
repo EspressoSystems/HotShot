@@ -202,7 +202,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
-        let consensusmetrics = Arc::new(metrics);
+        let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
 
@@ -291,7 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
-            metrics: consensusmetrics.clone(),
+            metrics: consensus_metrics.clone(),
         };
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
@@ -311,7 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            metrics: consensusmetrics.clone(),
+            metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
