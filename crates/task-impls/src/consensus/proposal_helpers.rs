@@ -2,10 +2,7 @@ use core::time::Duration;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::{
-    consensus::update_view, helpers::AnyhowTracing,
-    quorum_proposal_recv::QuorumProposalRecvTaskState,
-};
+use crate::{consensus::update_view, helpers::AnyhowTracing};
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -565,39 +562,6 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
-/// A datatype which binds mutably to the underlying datatype that it is created from. This is
-/// a TEMPORARY data type to massage between `QuorumProposalRecvTaskState` and
-/// `ConsensusTaskState` for the purposes of ensuring that both types are capable of proposing
-/// without ballooning the parameter list.
-///
-/// This data structure is bound to the lifetime of whomever constructs it to ensure that the
-/// references can be safely used. It is able to mutate the constructing type's data.
-pub struct QuorumProposalTemporaryIntermediaryState<
-    'a,
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I>,
-> {
-    quorum_network: Arc<I::QuorumNetwork>,
-    cur_view: &'a mut TYPES::Time,
-    timeout_task: &'a mut Option<JoinHandle<()>>,
-    _pd: PhantomData<A>,
-}
-
-impl<'a, TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I>>
-    From<&'a mut ConsensusTaskState<TYPES, I, A>>
-    for QuorumProposalTemporaryIntermediaryState<'a, TYPES, I, A>
-{
-    fn from(value: &'a mut ConsensusTaskState<TYPES, I, A>) -> Self {
-        Self {
-            quorum_network: value.quorum_network.clone(),
-            cur_view: &mut value.cur_view,
-            timeout_task: &mut value.timeout_task,
-            _pd: PhantomData,
-        }
-    }
-}
-
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
@@ -611,7 +575,7 @@ pub async fn handle_quorum_proposal_recv<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalTemporaryIntermediaryState<'_, TYPES, I, A>,
+    task_state: &mut ConsensusTaskState<TYPES, I, A>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(

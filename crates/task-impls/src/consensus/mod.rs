@@ -55,8 +55,6 @@ use hotshot_types::{
     simple_vote::QuorumData,
 };
 
-use self::proposal_helpers::QuorumProposalTemporaryIntermediaryState;
-
 /// Helper functions to handler proposal-related functionality.
 pub(crate) mod proposal_helpers;
 
@@ -384,13 +382,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         match event.as_ref() {
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                match handle_quorum_proposal_recv(
-                    proposal,
-                    sender,
-                    event_stream.clone(),
-                    &mut QuorumProposalTemporaryIntermediaryState::from(self),
-                )
-                .await
+                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
+                    .await
                 {
                     Ok(Some(current_proposal)) => {
                         self.current_proposal = Some(current_proposal);
@@ -467,7 +460,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                                     consensus.saved_payloads.get(&leaf.get_view_number())
                                 {
                                     let payload = BlockPayload::from_bytes(
-                                        encoded_txns.clone().into_iter(),
+                                        encoded_txns,
                                         leaf.get_block_header().metadata(),
                                     );
 
