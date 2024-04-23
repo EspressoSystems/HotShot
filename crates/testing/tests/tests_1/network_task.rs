@@ -1,23 +1,23 @@
+use std::{sync::Arc, time::Duration};
+
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-use hotshot::tasks::add_network_message_task;
-use hotshot::traits::implementations::MemoryNetwork;
-use hotshot_example_types::node_types::MemoryImpl;
-use hotshot_example_types::node_types::TestTypes;
+use hotshot::{tasks::add_network_message_task, traits::implementations::MemoryNetwork};
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task::task::{Task, TaskRegistry};
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_task_impls::network::{self, NetworkEventTaskState};
-use hotshot_testing::test_builder::TestMetadata;
-use hotshot_testing::view_generator::TestViewGenerator;
+use hotshot_task_impls::{
+    events::HotShotEvent,
+    network::{self, NetworkEventTaskState},
+};
+use hotshot_testing::{test_builder::TestMetadata, view_generator::TestViewGenerator};
 use hotshot_types::{
     constants::BASE_VERSION,
     data::ViewNumber,
     traits::{
-        election::Membership, node_implementation::ConsensusTime, node_implementation::NodeType,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
     },
 };
-use std::sync::Arc;
-use std::time::Duration;
 
 // Test that the event task sends a message, and the message task receives it
 // and emits the proper event

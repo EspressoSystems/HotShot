@@ -1,17 +1,14 @@
-use hotshot_testing::block_builder::SimpleBuilderImplementation;
-use hotshot_testing::test_builder::TimingData;
-use hotshot_types::traits::network::AsynchronousNetwork;
-use hotshot_types::traits::network::ChaosNetwork;
-use hotshot_types::traits::network::PartiallySynchronousNetwork;
-use hotshot_types::traits::network::SynchronousNetwork;
-use std::time::Duration;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
 use hotshot_testing::{
+    block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::TestMetadata,
+    test_builder::{TestMetadata, TimingData},
+};
+use hotshot_types::traits::network::{
+    AsynchronousNetwork, ChaosNetwork, PartiallySynchronousNetwork, SynchronousNetwork,
 };
 use tracing::instrument;
 
@@ -49,12 +46,13 @@ async fn libp2p_network_sync() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_memory_network_sync() {
+    use std::time::Duration;
+
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestMetadata,
     };
-    use std::time::Duration;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -122,13 +120,13 @@ async fn libp2p_network_async() {
 #[ignore]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_memory_network_async() {
+    use std::time::Duration;
+
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestMetadata,
     };
-
-    use std::time::Duration;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -168,13 +166,13 @@ async fn test_memory_network_async() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_memory_network_partially_sync() {
+    use std::time::Duration;
+
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestMetadata,
     };
-
-    use std::time::Duration;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -261,12 +259,13 @@ async fn libp2p_network_partially_sync() {
 #[ignore]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_memory_network_chaos() {
+    use std::time::Duration;
+
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestMetadata,
     };
-    use std::time::Duration;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();

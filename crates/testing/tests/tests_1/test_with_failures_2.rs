@@ -1,11 +1,13 @@
-use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl};
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl},
+    state_types::TestTypes,
+};
 use hotshot_macros::cross_tests;
-use hotshot_testing::spinning_task::ChangeNode;
-use hotshot_testing::spinning_task::SpinningTaskDescription;
-use hotshot_testing::spinning_task::UpDown;
-use hotshot_testing::test_builder::TestMetadata;
-use hotshot_testing::block_builder::SimpleBuilderImplementation;
+use hotshot_testing::{
+    block_builder::SimpleBuilderImplementation,
+    spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
+    test_builder::TestMetadata,
+};
 // Test that a good leader can succeed in the view directly after view sync
 cross_tests!(
     TestName: test_with_failures_2,
