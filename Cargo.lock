@@ -483,8 +483,9 @@ dependencies = [
 
 [[package]]
 name = "ark-srs"
-version = "0.3.1"
-source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f6e9a7036d369a637b2b9f871bc06cefe52a947c98e898dbafab26548f8aa22"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3133,7 +3134,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3179,7 +3180,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-api"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "async-trait",
  "clap",
@@ -3197,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3226,7 +3227,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3275,7 +3276,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3285,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3313,7 +3314,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3332,7 +3333,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3344,7 +3345,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3376,7 +3377,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3465,7 +3466,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-web-server"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "async-compatibility-layer",
  "async-lock 2.8.0",
@@ -4587,7 +4588,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",

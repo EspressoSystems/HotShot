@@ -188,6 +188,34 @@ pub trait BuilderSignatureKey:
     /// validate the message with the builder's public key
     fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool;
 
+    /// validate signature over fee information with the builder's public key
+    fn validate_fee_signature(
+        &self,
+        signature: &Self::BuilderSignature,
+        fee_amount: u64,
+        payload_commitment: &BuilderCommitment,
+        vid_commitment: &<VidSchemeType as VidScheme>::Commit,
+    ) -> bool {
+        self.validate_builder_signature(
+            signature,
+            &aggregate_fee_data(fee_amount, payload_commitment, vid_commitment),
+        )
+    }
+
+    /// validate signature over block information with the builder's public key
+    fn validate_block_info_signature(
+        &self,
+        signature: &Self::BuilderSignature,
+        block_size: u64,
+        fee_amount: u64,
+        payload_commitment: &BuilderCommitment,
+    ) -> bool {
+        self.validate_builder_signature(
+            signature,
+            &aggregate_block_info_data(block_size, fee_amount, payload_commitment),
+        )
+    }
+
     /// sign the message with the builder's private key
     /// # Errors
     /// If unable to sign the data with the key
@@ -205,11 +233,10 @@ pub trait BuilderSignatureKey:
         payload_commitment: &BuilderCommitment,
         vid_commitment: &<VidSchemeType as VidScheme>::Commit,
     ) -> Result<Self::BuilderSignature, Self::SignError> {
-        let mut fee_info: Vec<u8> = Vec::new();
-        fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
-        fee_info.extend_from_slice(payload_commitment.as_ref());
-        fee_info.extend_from_slice(vid_commitment.as_ref());
-        Self::sign_builder_message(private_key, &fee_info)
+        Self::sign_builder_message(
+            private_key,
+            &aggregate_fee_data(fee_amount, payload_commitment, vid_commitment),
+        )
     }
 
     /// sign information about offered block
@@ -221,13 +248,38 @@ pub trait BuilderSignatureKey:
         fee_amount: u64,
         payload_commitment: &BuilderCommitment,
     ) -> Result<Self::BuilderSignature, Self::SignError> {
-        let mut block_info: Vec<u8> = Vec::new();
-        block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
-        block_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
-        block_info.extend_from_slice(payload_commitment.as_ref());
-        Self::sign_builder_message(private_key, &block_info)
+        Self::sign_builder_message(
+            private_key,
+            &aggregate_block_info_data(block_size, fee_amount, payload_commitment),
+        )
     }
 
     /// Generate a new key pair
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::BuilderPrivateKey);
+}
+
+/// Aggregate all inputs used for signature over fee data
+fn aggregate_fee_data(
+    fee_amount: u64,
+    payload_commitment: &BuilderCommitment,
+    vid_commitment: &<VidSchemeType as VidScheme>::Commit,
+) -> Vec<u8> {
+    let mut fee_info = Vec::new();
+    fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
+    fee_info.extend_from_slice(payload_commitment.as_ref());
+    fee_info.extend_from_slice(vid_commitment.as_ref());
+    fee_info
+}
+
+/// Aggregate all inputs used for signature over block info
+fn aggregate_block_info_data(
+    block_size: u64,
+    fee_amount: u64,
+    payload_commitment: &BuilderCommitment,
+) -> Vec<u8> {
+    let mut block_info = Vec::new();
+    block_info.extend_from_slice(block_size.to_be_bytes().as_ref());
+    block_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
+    block_info.extend_from_slice(payload_commitment.as_ref());
+    block_info
 }
