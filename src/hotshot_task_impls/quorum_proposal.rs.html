@@ -996,6 +996,20 @@
 <a href="#994" id="994">994</a>
 <a href="#995" id="995">995</a>
 <a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1071,6 +1085,9 @@
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
+    <span class="doccomment">/// Immutable instance state
+    </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
+
     <span class="doccomment">/// Output events to application
     </span><span class="attr">#[allow(dead_code)]
     </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -1108,6 +1125,7 @@
         view: TYPES::Time,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         commit_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
+        instance_state: Arc&lt;TYPES::InstanceState&gt;,
     ) -&gt; bool {
         <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) != <span class="self">self</span>.public_key {
             <span class="comment">// This is expected for view 1, so skipping the logging.
@@ -1179,7 +1197,7 @@
         <span class="comment">// Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         </span><span class="kw">let </span>block_header = TYPES::BlockHeader::new(
             state,
-            <span class="kw-2">&amp;</span>consensus.instance_state,
+            instance_state.as_ref(),
             <span class="kw-2">&amp;</span>parent_leaf,
             commit_and_metadata.commitment,
             commit_and_metadata.builder_commitment,
@@ -1304,8 +1322,13 @@
             <span class="kw">return</span>;
         }
 
-        <span class="self">self</span>.publish_proposal_if_able(<span class="self">self</span>.view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.sender, commit_and_metadata.unwrap())
-            .<span class="kw">await</span>;
+        <span class="self">self</span>.publish_proposal_if_able(
+            <span class="self">self</span>.view_number,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
+            commit_and_metadata.unwrap(),
+            <span class="self">self</span>.instance_state.clone(),
+        )
+        .<span class="kw">await</span>;
     }
 }
 
@@ -1328,6 +1351,9 @@
 
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Immutable instance state
+    </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// Membership for Timeout votes/certs
     </span><span class="kw">pub </span>timeout_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1577,6 +1603,7 @@
                 timeout: <span class="self">self</span>.timeout,
                 round_start_delay: <span class="self">self</span>.round_start_delay,
                 id: <span class="self">self</span>.id,
+                instance_state: <span class="self">self</span>.instance_state.clone(),
             },
         );
         <span class="self">self</span>.propose_dependencies
@@ -1832,6 +1859,7 @@
                         sender,
                         <span class="self">self</span>.output_event_stream.clone(),
                         <span class="self">self</span>.storage.clone(),
+                        <span class="self">self</span>.instance_state.clone(),
                     )
                     .map(AnyhowTracing::err_as_debug),
                 );

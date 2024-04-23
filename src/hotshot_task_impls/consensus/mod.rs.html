@@ -1042,6 +1042,9 @@
 <a href="#1040" id="1040">1040</a>
 <a href="#1041" id="1041">1041</a>
 <a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -1121,6 +1124,8 @@
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// Immutable instance state
+    </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
     <span class="doccomment">/// Round start delay from config, in milliseconds.
@@ -1401,6 +1406,7 @@
             <span class="self">self</span>.decided_upgrade_cert.clone(),
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.payload_commitment_and_metadata,
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.proposal_cert,
+            <span class="self">self</span>.instance_state.clone(),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 

@@ -792,6 +792,17 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
@@ -850,10 +861,11 @@
     sender: TYPES::SignatureKey,
     event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
     storage: Arc&lt;RwLock&lt;<span class="kw">impl </span>Storage&lt;TYPES&gt;&gt;&gt;,
+    instance_state: Arc&lt;TYPES::InstanceState&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>(validated_state, state_delta) = parent_state
         .validate_and_apply_header(
-            <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
+            instance_state.as_ref(),
             <span class="kw-2">&amp;</span>parent_leaf,
             <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
         )
@@ -993,10 +1005,11 @@
     upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     round_start_delay: u64,
+    instance_state: Arc&lt;TYPES::InstanceState&gt;,
 ) {
     <span class="kw">let </span>block_header = TYPES::BlockHeader::new(
         state.as_ref(),
-        <span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.instance_state,
+        instance_state.as_ref(),
         <span class="kw-2">&amp;</span>parent_leaf,
         commitment_and_metadata.commitment,
         commitment_and_metadata.builder_commitment,
@@ -1188,6 +1201,7 @@
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     upgrade_cert: UpgradeCertificate&lt;TYPES&gt;,
     delay: u64,
+    instance_state: Arc&lt;TYPES::InstanceState&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">let </span>(parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -1227,6 +1241,7 @@
             <span class="prelude-val">Some</span>(upgrade_cert),
             <span class="prelude-val">None</span>,
             delay,
+            instance_state.clone(),
         )
         .<span class="kw">await</span>;
     }))
@@ -1248,6 +1263,7 @@
     decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     commitment_and_metadata: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
+    instance_state: Arc&lt;TYPES::InstanceState&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">let </span>(parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -1301,6 +1317,7 @@
             proposal_upgrade_certificate,
             proposal_certificate,
             delay,
+            instance_state.clone(),
         )
         .<span class="kw">await</span>;
     });
@@ -1327,6 +1344,7 @@
     decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     commitment_and_metadata: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
+    instance_state: Arc&lt;TYPES::InstanceState&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
@@ -1339,6 +1357,7 @@
             consensus,
             upgrade_cert,
             delay,
+            instance_state,
         )
         .<span class="kw">await
     </span>} <span class="kw">else </span>{
@@ -1355,6 +1374,7 @@
             decided_upgrade_cert,
             commitment_and_metadata,
             proposal_cert,
+            instance_state,
         )
         .<span class="kw">await
     </span>}
@@ -1542,6 +1562,7 @@
                     task_state.decided_upgrade_cert.clone(),
                     <span class="kw-2">&amp;mut </span>task_state.payload_commitment_and_metadata,
                     <span class="kw-2">&amp;mut </span>task_state.proposal_cert,
+                    task_state.instance_state.clone(),
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1579,6 +1600,7 @@
                 sender,
                 task_state.output_event_stream.clone(),
                 task_state.storage.clone(),
+                task_state.instance_state.clone(),
             )
             .map(AnyhowTracing::err_as_debug),
         ));

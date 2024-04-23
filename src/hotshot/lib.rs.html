@@ -763,6 +763,33 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -878,7 +905,6 @@
 }
 
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus
-</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SystemContext&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The public key of this node
     </span>public_key: TYPES::SignatureKey,
@@ -896,10 +922,13 @@
     </span><span class="kw">pub </span>memberships: Arc&lt;Memberships&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// the metrics that the implementor is using.
-    </span>_metrics: Arc&lt;ConsensusMetricsValue&gt;,
+    </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
 
     <span class="doccomment">/// The hotstuff implementation
     </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Immutable instance state
+    </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// The network version
     </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
@@ -923,6 +952,26 @@
 
     <span class="doccomment">/// Reference to the internal storage for consensus datum.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
+}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Clone <span class="kw">for </span>SystemContext&lt;TYPES, I&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            public_key: <span class="self">self</span>.public_key.clone(),
+            private_key: <span class="self">self</span>.private_key.clone(),
+            config: <span class="self">self</span>.config.clone(),
+            networks: <span class="self">self</span>.networks.clone(),
+            memberships: <span class="self">self</span>.memberships.clone(),
+            metrics: <span class="self">self</span>.metrics.clone(),
+            consensus: <span class="self">self</span>.consensus.clone(),
+            instance_state: <span class="self">self</span>.instance_state.clone(),
+            version: <span class="self">self</span>.version.clone(),
+            start_view: <span class="self">self</span>.start_view,
+            output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
+            internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
+            id: <span class="self">self</span>.id,
+            storage: <span class="self">self</span>.storage.clone(),
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
@@ -1023,7 +1072,6 @@
         }
 
         <span class="kw">let </span>consensus = Consensus {
-            instance_state,
             validated_state_map,
             vid_shares: BTreeMap::new(),
             cur_view: anchored_leaf.get_view_number(),
@@ -1047,6 +1095,7 @@
         <span class="kw">let </span>inner: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; = Arc::new(SystemContext {
             id: nonce,
             consensus,
+            instance_state: Arc::new(instance_state),
             public_key,
             private_key,
             config,
@@ -1054,7 +1103,7 @@
             start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            _metrics: consensus_metrics.clone(),
+            metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
@@ -1147,6 +1196,11 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.consensus.clone()
+    }
+
+    <span class="doccomment">/// Returns a copy of the instance state
+    </span><span class="kw">pub fn </span>get_instance_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::InstanceState&gt; {
+        <span class="self">self</span>.instance_state.clone()
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf

@@ -267,6 +267,9 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -454,6 +457,7 @@
 
         ConsensusTaskState {
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
@@ -493,6 +497,7 @@
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             latest_voted_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_dependencies: HashMap::new(),
             quorum_network: handle.hotshot.networks.quorum_network.clone(),
@@ -521,6 +526,7 @@
             committee_network: handle.hotshot.networks.da_network.clone(),
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.get_cur_view().<span class="kw">await</span>,

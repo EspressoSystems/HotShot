@@ -733,6 +733,9 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -911,6 +914,9 @@
 
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Immutable instance state
+    </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// Latest view number that has been voted for.
     </span><span class="kw">pub </span>latest_voted_view: TYPES::Time,
@@ -1200,7 +1206,7 @@
                 <span class="comment">// Validate the state.
                 </span><span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
                     .validate_and_apply_header(
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.instance_state,
+                        <span class="self">self</span>.instance_state.as_ref(),
                         <span class="kw-2">&amp;</span>parent_leaf,
                         <span class="kw-2">&amp;</span>proposal.data.block_header.clone(),
                     )
