@@ -492,7 +492,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
 
     ensure!(
-        cnm.block_view == cur_view,
+        cnm.block_view == view,
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
