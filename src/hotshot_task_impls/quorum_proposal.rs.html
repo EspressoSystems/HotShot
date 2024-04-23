@@ -1033,7 +1033,7 @@
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::proposal::validate_proposal_safety_and_liveness,
+    consensus::proposal_helpers::validate_proposal_safety_and_liveness,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };

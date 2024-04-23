@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","get_parent_leaf_and_state","handle_quorum_proposal_recv","publish_proposal_from_commitment_and_metadata","publish_proposal_from_upgrade_cert","publish_proposal_if_able","validate_proposal_safety_and_liveness","validate_proposal_view_and_certs"]};
