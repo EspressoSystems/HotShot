@@ -429,6 +429,10 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -534,6 +538,8 @@
     </span><span class="kw">pub </span>outstanding_transactions_memory_size: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of views that timed out
     </span><span class="kw">pub </span>number_of_timeouts: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// The number of empty blocks that have been proposed
+    </span><span class="kw">pub </span>number_of_empty_blocks_proposed: Box&lt;<span class="kw">dyn </span>Counter&gt;,
 }
 
 <span class="doccomment">/// The wrapper with a string name for the networking metrics
@@ -670,6 +676,8 @@
             outstanding_transactions_memory_size: metrics
                 .create_gauge(String::from(<span class="string">"outstanding_transactions_memory_size"</span>), <span class="prelude-val">None</span>),
             number_of_timeouts: metrics.create_counter(String::from(<span class="string">"number_of_timeouts"</span>), <span class="prelude-val">None</span>),
+            number_of_empty_blocks_proposed: metrics
+                .create_counter(String::from(<span class="string">"number_of_empty_blocks_proposed"</span>), <span class="prelude-val">None</span>),
         }
     }
 }
