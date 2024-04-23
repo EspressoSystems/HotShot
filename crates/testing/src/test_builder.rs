@@ -229,7 +229,7 @@ impl Default for TestDescription {
 }
 
 impl TestDescription {
-    /// turn a description of a test (e.g. a [`TestMetadata`]) into
+    /// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
