@@ -4,17 +4,6 @@ use std::{
 };
 
 use anyhow::Result;
-use crate::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
 use async_broadcast::Sender;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
@@ -43,16 +32,27 @@ use hotshot_types::{
     utils::Terminator,
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
-use vbs::version::Version;
-
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{
     data::{null_block, VidDisperseShare},
     message::GeneralConsensusMessage,
     simple_vote::QuorumData,
+};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
+use tracing::{debug, error, info, instrument, warn};
+use vbs::version::Version;
+
+use crate::{
+    consensus::{
+        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
+        view_change::update_view,
+    },
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
 };
 
 /// Helper functions to handler proposal-related functionality.

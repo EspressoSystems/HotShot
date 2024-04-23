@@ -1,7 +1,6 @@
 use core::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::{consensus::update_view, helpers::AnyhowTracing};
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -34,9 +33,12 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
-
 use super::ConsensusTaskState;
+use crate::{
+    consensus::update_view,
+    events::HotShotEvent,
+    helpers::{broadcast_event, AnyhowTracing},
+};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
