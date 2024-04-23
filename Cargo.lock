@@ -483,8 +483,9 @@ dependencies = [
 
 [[package]]
 name = "ark-srs"
-version = "0.3.1"
-source = "git+https://github.com/EspressoSystems/ark-srs?branch=ma/sync-requests#57a1d3e529b61a8f410b9b0503d5607d8e75be3c"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f6e9a7036d369a637b2b9f871bc06cefe52a947c98e898dbafab26548f8aa22"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -1331,7 +1332,7 @@ checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=lr/publish-txn#0c43e0fdff866b3017035e99e8e7fc2fcb327778"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1354,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=lr/publish-txn#0c43e0fdff866b3017035e99e8e7fc2fcb327778"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1370,7 +1371,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=lr/publish-txn#0c43e0fdff866b3017035e99e8e7fc2fcb327778"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1385,7 +1386,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.1.25#a506712f553b4800ce3a36e62341c839153aeab3"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=lr/publish-txn#0c43e0fdff866b3017035e99e8e7fc2fcb327778"
 dependencies = [
  "anyhow",
  "ark-serialize",
