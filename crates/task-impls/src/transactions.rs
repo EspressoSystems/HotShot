@@ -124,8 +124,7 @@ impl<
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
-
-                let block_view = if make_block { view + 1 } else { view + 1 };
+                let block_view = if make_block { view } else { view + 1 };
 
                 if let Some(BuilderResponses {
                     block_data,

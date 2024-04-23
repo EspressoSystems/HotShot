@@ -838,7 +838,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 if let Some(commitment_and_metadata) = &self.payload_commitment_and_metadata {
-                    if commitment_and_metadata.block_view < new_view {
+                    if commitment_and_metadata.block_view < old_view_number {
                         self.payload_commitment_and_metadata = None;
                     }
                 }
