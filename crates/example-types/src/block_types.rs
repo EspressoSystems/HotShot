@@ -159,10 +159,6 @@ impl BlockPayload for TestBlockPayload {
         TestTransaction::encode(&self.transactions).map(Arc::from)
     }
 
-    //fn encode(&self) -> Result<Arc<[u8]>, Self::Error> {
-    //    TestTransaction::encode(&self.transactions).map(Arc::from)
-    //}
-
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
         for txn in &self.transactions {
