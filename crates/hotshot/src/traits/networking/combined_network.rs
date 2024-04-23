@@ -411,6 +411,31 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         .await
     }
 
+    async fn publish_transaction<VER: StaticVersionType + 'static>(
+        &self,
+        message: Message<TYPES>,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        let primary = self.primary().clone();
+        let secondary = self.secondary().clone();
+        let primary_message = message.clone();
+        let secondary_message = message.clone();
+        self.send_both_networks(
+            message,
+            async move {
+                primary
+                    .publish_transaction(primary_message, bind_version)
+                    .await
+            },
+            async move {
+                secondary
+                    .publish_transaction(secondary_message, bind_version)
+                    .await
+            },
+        )
+        .await
+    }
+
     async fn vid_broadcast_message<VER: StaticVersionType + 'static>(
         &self,
         messages: HashMap<TYPES::SignatureKey, Message<TYPES>>,
@@ -507,5 +532,27 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
 
     fn is_primary_down(&self) -> bool {
         self.primary_down.load(Ordering::Relaxed)
+    }
+
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
+        match join!(
+            self.networks.0.subscribe_transactions(),
+            self.networks.1.subscribe_transactions()
+        ) {
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+            (Ok(res), _) => Ok(res),
+        }
+    }
+
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
+        match join!(
+            self.networks.0.unsubscribe_transactions(),
+            self.networks.1.unsubscribe_transactions()
+        ) {
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+            (Ok(res), _) => Ok(res),
+        }
     }
 }
