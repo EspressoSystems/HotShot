@@ -258,7 +258,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     payload_commitment,
                     builder_commitment,
                     metadata,
-                    _view,
+                    view,
                     fee,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
@@ -267,6 +267,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
                         fee: fee.clone(),
+                        block_view: *view,
                     });
                 }
                 HotShotEvent::QCFormed(cert) => match cert {

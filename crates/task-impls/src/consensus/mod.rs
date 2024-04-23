@@ -1051,8 +1051,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
 
-                // Clear the payload commitment and metadata
-                self.payload_commitment_and_metadata = None;
+                if let Some(commitment_and_metadata) = &self.payload_commitment_and_metadata {
+                    if commitment_and_metadata.block_view < new_view {
+                        self.payload_commitment_and_metadata = None;
+                    }
+                }
 
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
@@ -1158,6 +1161,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                     fee: fee.clone(),
+                    block_view: view,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
