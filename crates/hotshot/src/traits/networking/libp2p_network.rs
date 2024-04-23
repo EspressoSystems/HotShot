@@ -1162,7 +1162,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
-        error!("lrzasik: subscribe transactions");
         self.inner
             .handle
             .subscribe("transactions".to_string())
@@ -1171,7 +1170,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
-        error!("lrzasik: unsubscribe transactions");
         self.inner
             .handle
             .unsubscribe("transactions".to_string())

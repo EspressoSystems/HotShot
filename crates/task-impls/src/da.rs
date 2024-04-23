@@ -303,7 +303,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return None;
             }
             HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee) => {
-                error!("lrzasik: BlockRecv in DATaskState");
                 let view = *view;
                 self.da_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
