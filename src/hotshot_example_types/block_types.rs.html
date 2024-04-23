@@ -260,13 +260,10 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
+    sync::Arc,
 };
 
 <span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
@@ -295,7 +292,7 @@
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    </span><span class="kw">pub fn </span>encode(transactions: Vec&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, BlockError&gt; {
+    </span><span class="kw">pub fn </span>encode(transactions: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, BlockError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>encoded = Vec::new();
 
         <span class="kw">for </span>txn <span class="kw">in </span>transactions {
@@ -310,7 +307,7 @@
 
             <span class="comment">// Concatenate the bytes of the transaction size and the transaction itself.
             </span>encoded.extend(txn_size);
-            encoded.extend(txn.<span class="number">0</span>);
+            encoded.extend(<span class="kw-2">&amp;</span>txn.<span class="number">0</span>);
         }
 
         <span class="prelude-val">Ok</span>(encoded)
@@ -373,7 +370,6 @@
     <span class="kw">type </span>Error = BlockError;
     <span class="kw">type </span>Transaction = TestTransaction;
     <span class="kw">type </span>Metadata = ();
-    <span class="kw">type </span>Encode&lt;<span class="lifetime">'a</span>&gt; = &lt;Vec&lt;u8&gt; <span class="kw">as </span>IntoIterator&gt;::IntoIter;
 
     <span class="kw">fn </span>from_transactions(
         transactions: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="self">Self</span>::Transaction&gt;,
@@ -387,24 +383,20 @@
         ))
     }
 
-    <span class="kw">fn </span>from_bytes&lt;E&gt;(encoded_transactions: E, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>E: Iterator&lt;Item = u8&gt;,
-    {
-        <span class="kw">let </span>encoded_vec: Vec&lt;u8&gt; = encoded_transactions.collect();
+    <span class="kw">fn </span>from_bytes(encoded_transactions: <span class="kw-2">&amp;</span>[u8], _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>transactions = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>current_index = <span class="number">0</span>;
-        <span class="kw">while </span>current_index &lt; encoded_vec.len() {
+        <span class="kw">while </span>current_index &lt; encoded_transactions.len() {
             <span class="comment">// Decode the transaction length.
             </span><span class="kw">let </span>txn_start_index = current_index + size_of::&lt;u32&gt;();
             <span class="kw">let </span><span class="kw-2">mut </span>txn_len_bytes = [<span class="number">0</span>; size_of::&lt;u32&gt;()];
-            txn_len_bytes.copy_from_slice(<span class="kw-2">&amp;</span>encoded_vec[current_index..txn_start_index]);
+            txn_len_bytes.copy_from_slice(<span class="kw-2">&amp;</span>encoded_transactions[current_index..txn_start_index]);
             <span class="kw">let </span>txn_len: usize = u32::from_le_bytes(txn_len_bytes) <span class="kw">as </span>usize;
 
             <span class="comment">// Get the transaction.
             </span><span class="kw">let </span>next_index = txn_start_index + txn_len;
             transactions.push(TestTransaction(
-                encoded_vec[txn_start_index..next_index].to_vec(),
+                encoded_transactions[txn_start_index..next_index].to_vec(),
             ));
             current_index = next_index;
         }
@@ -416,8 +408,8 @@
         (<span class="self">Self</span>::genesis(), ())
     }
 
-    <span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Encode&lt;<span class="lifetime">'_</span>&gt;, <span class="self">Self</span>::Error&gt; {
-        <span class="prelude-val">Ok</span>(TestTransaction::encode(<span class="self">self</span>.transactions.clone())<span class="question-mark">?</span>.into_iter())
+    <span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;[u8]&gt;, <span class="self">Self</span>::Error&gt; {
+        TestTransaction::encode(<span class="kw-2">&amp;</span><span class="self">self</span>.transactions).map(Arc::from)
     }
 
     <span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment {

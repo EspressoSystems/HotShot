@@ -581,8 +581,6 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -1038,7 +1036,7 @@
                         }
                         EventType::DAProposal { proposal, .. } =&gt; {
                             <span class="kw">let </span>payload = TYPES::BlockPayload::from_bytes(
-                                proposal.data.encoded_transactions.into_iter(),
+                                <span class="kw-2">&amp;</span>proposal.data.encoded_transactions,
                                 <span class="kw-2">&amp;</span>proposal.data.metadata,
                             );
                             <span class="kw">let </span>now = Instant::now();
@@ -1115,15 +1113,13 @@
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 
-    <span class="kw">let </span>encoded_payload = block_payload.encode().unwrap().collect();
     <span class="kw">let </span>(vid_commitment, precompute_data) =
-        precompute_vid_commitment(<span class="kw-2">&amp;</span>encoded_payload, num_storage_nodes);
+        precompute_vid_commitment(<span class="kw-2">&amp;</span>block_payload.encode().unwrap(), num_storage_nodes);
 
     <span class="comment">// Get block size from the encoded payload
     </span><span class="kw">let </span>block_size = block_payload
         .encode()
         .expect(<span class="string">"failed to encode block"</span>)
-        .collect::&lt;Vec&lt;u8&gt;&gt;()
         .len() <span class="kw">as </span>u64;
 
     <span class="kw">let </span>signature_over_block_info =

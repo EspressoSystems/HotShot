@@ -482,7 +482,7 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
@@ -580,7 +580,7 @@
             proposal_certificate: <span class="prelude-val">None</span>,
         };
 
-        <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap());
         <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
         <span class="kw">let </span>block_payload_signature =
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
@@ -782,7 +782,7 @@
             _pd: PhantomData,
         };
 
-        <span class="kw">let </span>encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(transactions).unwrap());
         <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
         <span class="kw">let </span>block_payload_signature =
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)

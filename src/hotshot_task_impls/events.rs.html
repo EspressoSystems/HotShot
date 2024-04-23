@@ -153,7 +153,11 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>either::Either;
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
     consensus::ProposalDependencyData,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
@@ -270,7 +274,7 @@
     ),
     <span class="doccomment">/// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     </span>BlockRecv(
-        Vec&lt;u8&gt;,
+        Arc&lt;[u8]&gt;,
         &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         TYPES::Time,
         BuilderFee&lt;TYPES&gt;,

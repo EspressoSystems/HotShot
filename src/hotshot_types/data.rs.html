@@ -730,10 +730,6 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -744,6 +740,7 @@
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
+    sync::Arc,
 };
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
@@ -850,7 +847,7 @@
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Encoded transactions in the block to be applied.
-    </span><span class="kw">pub </span>encoded_transactions: Vec&lt;u8&gt;,
+    </span><span class="kw">pub </span>encoded_transactions: Arc&lt;[u8]&gt;,
     <span class="doccomment">/// Metadata of the block to be applied.
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     <span class="doccomment">/// View this proposal applies to
@@ -1176,10 +1173,8 @@
     </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(payload, metadata) = TYPES::BlockPayload::genesis();
         <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
-        <span class="kw">let </span>payload_bytes = payload
-            .encode()
-            .expect(<span class="string">"unable to encode genesis payload"</span>)
-            .collect();
+        <span class="kw">let </span>payload_bytes = payload.encode().expect(<span class="string">"unable to encode genesis payload"</span>);
+
         <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
         <span class="kw">let </span>block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -1243,11 +1238,8 @@
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), BlockError&gt; {
-        <span class="kw">let </span>encoded_txns = <span class="kw">match </span>block_payload.encode() {
-            <span class="comment">// TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-            // &lt;https://github.com/EspressoSystems/HotShot/issues/2115&gt;
-            </span><span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect(),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidTransactionLength),
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(encoded_txns) = block_payload.encode() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InvalidTransactionLength);
         };
         <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes);
         <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {

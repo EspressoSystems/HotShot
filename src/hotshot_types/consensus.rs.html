@@ -499,7 +499,7 @@
     <span class="doccomment">/// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    </span><span class="kw">pub </span>saved_payloads: BTreeMap&lt;TYPES::Time, Vec&lt;u8&gt;&gt;,
+    </span><span class="kw">pub </span>saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
 
     <span class="doccomment">/// The `locked_qc` view number
     </span><span class="kw">pub </span>locked_view: TYPES::Time,

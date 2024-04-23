@@ -459,6 +459,7 @@
 <a href="#457" id="457">457</a>
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -595,12 +596,13 @@
                 </span>{
                     <span class="comment">// send the sequenced transactions to VID and DA tasks
                     </span><span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block_data.block_payload.encode() {
-                        <span class="prelude-val">Ok</span>(encoded) =&gt; encoded.into_iter().collect::&lt;Vec&lt;u8&gt;&gt;(),
+                        <span class="prelude-val">Ok</span>(encoded) =&gt; encoded,
                         <span class="prelude-val">Err</span>(e) =&gt; {
                             <span class="macro">error!</span>(<span class="string">"Failed to encode the block payload: {:?}."</span>, e);
                             <span class="kw">return </span><span class="prelude-val">None</span>;
                         }
                     };
+
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
                             encoded_transactions,
@@ -639,7 +641,7 @@
                     <span class="comment">// Broadcast the empty block
                     </span>broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            <span class="macro">vec!</span>[],
+                            <span class="macro">vec!</span>[].into(),
                             metadata,
                             block_view,
                             builder_fee,

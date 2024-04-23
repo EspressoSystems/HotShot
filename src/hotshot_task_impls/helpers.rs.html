@@ -142,7 +142,7 @@
 /// Panics if the VID calculation fails, this should not happen.
 </span><span class="attr">#[allow(clippy::panic)]
 </span><span class="kw">pub async fn </span>calculate_vid_disperse&lt;TYPES: NodeType&gt;(
-    txns: Vec&lt;u8&gt;,
+    txns: Arc&lt;[u8]&gt;,
     membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
     view: TYPES::Time,
 ) -&gt; VidDisperse&lt;TYPES&gt; {
@@ -164,7 +164,7 @@
 /// Panics if the VID calculation fails, this should not happen.
 </span><span class="attr">#[allow(clippy::panic)]
 </span><span class="kw">pub async fn </span>calculate_vid_disperse_using_precompute_data&lt;TYPES: NodeType&gt;(
-    txns: Vec&lt;u8&gt;,
+    txns: Arc&lt;[u8]&gt;,
     membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
     view: TYPES::Time,
     pre_compute_data: VidPrecomputeData,

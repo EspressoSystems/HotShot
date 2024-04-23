@@ -187,12 +187,6 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -203,6 +197,7 @@
     fmt::{Debug, Display},
     future::Future,
     hash::Hash,
+    sync::Arc,
 };
 
 <span class="kw">use </span>committable::{Commitment, Committable};
@@ -243,11 +238,6 @@
     <span class="doccomment">/// Data created during block building which feeds into the block header
     </span><span class="kw">type </span>Metadata: Clone + Debug + DeserializeOwned + Eq + Hash + Send + Sync + Serialize;
 
-    <span class="doccomment">/// Encoded payload.
-    </span><span class="kw">type </span>Encode&lt;<span class="lifetime">'a</span>&gt;: <span class="lifetime">'a </span>+ Iterator&lt;Item = u8&gt; + Send
-    <span class="kw">where
-        </span><span class="self">Self</span>: <span class="lifetime">'a</span>;
-
     <span class="doccomment">/// Build a payload and associated metadata with the transactions.
     ///
     /// # Errors
@@ -258,11 +248,7 @@
 
     <span class="doccomment">/// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
-    ///
-    /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    </span><span class="kw">fn </span>from_bytes&lt;I&gt;(encoded_transactions: I, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>I: Iterator&lt;Item = u8&gt;;
+    </span><span class="kw">fn </span>from_bytes(encoded_transactions: <span class="kw-2">&amp;</span>[u8], metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Build the genesis payload and metadata.
     </span><span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata);
@@ -271,7 +257,7 @@
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    </span><span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Encode&lt;<span class="lifetime">'_</span>&gt;, <span class="self">Self</span>::Error&gt;;
+    </span><span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;[u8]&gt;, <span class="self">Self</span>::Error&gt;;
 
     <span class="doccomment">/// List of transaction commitments.
     </span><span class="kw">fn </span>transaction_commitments(
@@ -314,10 +300,11 @@
 </span><span class="attr">#[must_use]
 #[allow(clippy::panic)]
 </span><span class="kw">pub fn </span>vid_commitment(
-    encoded_transactions: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+    encoded_transactions: <span class="kw-2">&amp;</span>[u8],
     num_storage_nodes: usize,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}"</span>, encoded_transactions.len()))
+    <span class="kw">let </span>encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"</span>))
 }
 
 <span class="doccomment">/// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
@@ -326,13 +313,14 @@
 </span><span class="attr">#[must_use]
 #[allow(clippy::panic)]
 </span><span class="kw">pub fn </span>precompute_vid_commitment(
-    encoded_transactions: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+    encoded_transactions: <span class="kw-2">&amp;</span>[u8],
     num_storage_nodes: usize,
 ) -&gt; (
     &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
     &lt;VidSchemeType <span class="kw">as </span>Precomputable&gt;::PrecomputeData,
 ) {
-    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}"</span>, encoded_transactions.len()))
+    <span class="kw">let </span>encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"</span>))
 }
 
 <span class="doccomment">/// The number of storage nodes to use when computing the genesis VID commitment.

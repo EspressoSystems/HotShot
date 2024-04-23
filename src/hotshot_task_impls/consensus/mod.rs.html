@@ -1934,7 +1934,7 @@
                                     consensus.saved_payloads.get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                                 {
                                     <span class="kw">let </span>payload = BlockPayload::from_bytes(
-                                        encoded_txns.clone().into_iter(),
+                                        encoded_txns,
                                         leaf.get_block_header().metadata(),
                                     );
 
