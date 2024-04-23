@@ -2,19 +2,26 @@ use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
-    predicates::{exact, is_at_view_number, quorum_proposal_send},
-    task_helpers::vid_scheme_from_view_number,
+    predicates::event::{exact, quorum_proposal_send, quorum_proposal_validated},
+    task_helpers::{get_vid_share, vid_scheme_from_view_number},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::{null_block, ViewNumber},
+    traits::{election::Membership, node_implementation::ConsensusTime},
+    utils::BuilderCommitment,
+};
 use jf_primitives::vid::VidScheme;
+use sha2::Digest;
 
 /// Runs a basic test where a qualified proposal occurs (i.e. not initiated by the genesis view or node 1).
 /// This proposal should happen no matter how the `input_permutation` is specified.
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
-    use hotshot_testing::script::{run_test_script, TestScriptStage};
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::{
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+    };
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -52,49 +59,43 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DACertificateRecv(dacs[0].clone()),
-            VidDisperseRecv(vids[0].0[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
-            exact(QuorumProposalValidated(proposals[0].data.clone())),
+            quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
-        asserts: vec![is_at_view_number(1)],
+        asserts: vec![],
     };
 
     // Node 2 is the leader up next, so we form the QC for it.
     let cert = proposals[1].data.justify_qc.clone();
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let inputs = vec![
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
         QCFormed(either::Left(cert)),
-        SendPayloadCommitmentAndMetadata(payload_commitment, (), ViewNumber::new(node_id)),
+        SendPayloadCommitmentAndMetadata(
+            payload_commitment,
+            builder_commitment,
+            (),
+            ViewNumber::new(node_id),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+        ),
     ];
-
-    // The consensus task does not like it when the proposal received is the last thing to happen,
-    // at least not while keeping an arbitrary ordering. The testing framework does not allow us to
-    // check events out of order, so we instead just give the test what it wants, but this should
-    // still be okay.
-    let view_2_outputs = if input_permutation[2] == 0 {
-        vec![
-            quorum_proposal_send(),
-            exact(ViewChange(ViewNumber::new(2))),
-        ]
-    } else {
-        vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            exact(QuorumProposalValidated(proposals[1].data.clone())),
-            quorum_proposal_send(),
-        ]
-    };
 
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
         inputs: view_2_inputs,
-        outputs: view_2_outputs,
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            quorum_proposal_validated(),
+            quorum_proposal_send(),
+        ],
         // We should end on view 2.
-        asserts: vec![is_at_view_number(2)],
+        asserts: vec![],
     };
 
     let script = vec![view_1, view_2];

@@ -1,7 +1,10 @@
-use async_compatibility_layer::art::async_sleep;
 use std::time::{Duration, Instant};
 
-use hotshot_builder_api::builder::{BuildError, Error as BuilderApiError};
+use async_compatibility_layer::art::async_sleep;
+use hotshot_builder_api::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    builder::{BuildError, Error as BuilderApiError},
+};
 use hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
@@ -11,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use surf_disco::{client::HealthStatus, Client, Url};
 use tagged_base64::TaggedBase64;
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 #[derive(Debug, Snafu, Serialize, Deserialize)]
 /// Represents errors than builder client may return
@@ -62,15 +65,15 @@ pub struct BuilderClient<TYPES: NodeType, Ver: StaticVersionType> {
     _marker: std::marker::PhantomData<TYPES>,
 }
 
-impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver>
-where
-    <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType:
-        for<'a> TryFrom<&'a TaggedBase64> + Into<TaggedBase64>,
-{
+impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     /// Construct a new client from base url
+    ///
+    /// # Panics
+    ///
+    /// If the URL is malformed.
     pub fn new(base_url: impl Into<Url>) -> Self {
         Self {
-            inner: Client::new(base_url.into()),
+            inner: Client::new(base_url.into().join("block_info").unwrap()),
             _marker: std::marker::PhantomData,
         }
     }
@@ -102,9 +105,14 @@ where
     pub async fn get_available_blocks(
         &self,
         parent: VidCommitment,
-    ) -> Result<Vec<BuilderCommitment>, BuilderClientError> {
+        sender: TYPES::SignatureKey,
+        signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuilderClientError> {
+        let encoded_signature: TaggedBase64 = signature.clone().into();
         self.inner
-            .get(&format!("availableblocks/{parent}"))
+            .get(&format!(
+                "availableblocks/{parent}/{sender}/{encoded_signature}"
+            ))
             .send()
             .await
             .map_err(Into::into)
@@ -118,11 +126,35 @@ where
     pub async fn claim_block(
         &self,
         block_hash: BuilderCommitment,
+        sender: TYPES::SignatureKey,
         signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<TYPES::BlockPayload, BuilderClientError> {
+    ) -> Result<AvailableBlockData<TYPES>, BuilderClientError> {
         let encoded_signature: TaggedBase64 = signature.clone().into();
         self.inner
-            .get(&format!("claimblock/{block_hash}/{encoded_signature}"))
+            .get(&format!(
+                "claimblock/{block_hash}/{sender}/{encoded_signature}"
+            ))
+            .send()
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Claim block header input
+    ///
+    /// # Errors
+    /// - [`BuilderClientError::NotFound`] if block isn't available
+    /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
+    pub async fn claim_block_header_input(
+        &self,
+        block_hash: BuilderCommitment,
+        sender: TYPES::SignatureKey,
+        signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<AvailableBlockHeaderInput<TYPES>, BuilderClientError> {
+        let encoded_signature: TaggedBase64 = signature.clone().into();
+        self.inner
+            .get(&format!(
+                "claimheaderinput/{block_hash}/{sender}/{encoded_signature}"
+            ))
             .send()
             .await
             .map_err(Into::into)

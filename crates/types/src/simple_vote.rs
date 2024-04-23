@@ -2,9 +2,9 @@
 
 use std::{fmt::Debug, hash::Hash};
 
-use commit::{Commitment, Committable};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use committable::{Commitment, Committable};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use vbs::version::Version;
 
 use crate::{
     data::Leaf,
@@ -12,7 +12,6 @@ use crate::{
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
-use versioned_binary_serialization::version::Version;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a yes vote.
@@ -70,12 +69,15 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     pub old_version: Version,
     /// The new version that we are upgrading to.
     pub new_version: Version,
+    /// The last view in which we are allowed to reach a decide on this upgrade.
+    /// If it is not decided by that view, we discard it.
+    pub decide_by: TYPES::Time,
     /// A unique identifier for the specific protocol being voted on.
     pub new_version_hash: Vec<u8>,
     /// The last block for which the old version will be in effect.
-    pub old_version_last_block: TYPES::Time,
+    pub old_version_last_view: TYPES::Time,
     /// The first block for which the new version will be in effect.
-    pub new_version_first_block: TYPES::Time,
+    pub new_version_first_view: TYPES::Time,
 }
 
 /// Marker trait for data or commitments that can be voted on.
@@ -90,7 +92,7 @@ pub trait Voteable:
 /// All simple voteable types should be implemented here.  This prevents us from
 /// creating/using improper types when using the vote types.
 mod sealed {
-    use commit::Committable;
+    use committable::Committable;
 
     /// Only structs in this file can impl `Sealed`
     pub trait Sealed {}
@@ -162,7 +164,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
 
 impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("Quorum data")
+        committable::RawCommitmentBuilder::new("Quorum data")
             .var_size_bytes(self.leaf_commit.as_ref())
             .finalize()
     }
@@ -170,7 +172,7 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("Timeout data")
+        committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
             .finalize()
     }
@@ -178,7 +180,7 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
 
 impl Committable for DAData {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("DA data")
+        committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
@@ -186,7 +188,7 @@ impl Committable for DAData {
 
 impl Committable for VIDData {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("VID data")
+        committable::RawCommitmentBuilder::new("VID data")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
@@ -194,10 +196,11 @@ impl Committable for VIDData {
 
 impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("Upgrade data");
+        let builder = committable::RawCommitmentBuilder::new("Upgrade data");
         builder
-            .u64(*self.new_version_first_block)
-            .u64(*self.old_version_last_block)
+            .u64(*self.decide_by)
+            .u64(*self.new_version_first_view)
+            .u64(*self.old_version_last_view)
             .var_size_bytes(self.new_version_hash.as_slice())
             .u16(self.new_version.minor)
             .u16(self.new_version.major)
@@ -213,7 +216,7 @@ fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     relay: u64,
     tag: &str,
 ) -> Commitment<T> {
-    let builder = commit::RawCommitmentBuilder::new(tag);
+    let builder = committable::RawCommitmentBuilder::new(tag);
     builder.u64(*view).u64(relay).finalize()
 }
 

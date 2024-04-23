@@ -1,22 +1,10 @@
-// Copyright (c) 2022 Espresso Systems (espressosys.com)
-// This file is part of the HotShot Query Service library.
-//
-// This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-// General Public License as published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-// even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-// General Public License for more details.
-// You should have received a copy of the GNU General Public License along with this program. If not,
-// see <https://www.gnu.org/licenses/>.
+use std::{fs, path::Path};
 
-use std::fs;
-use std::path::Path;
 use tide_disco::api::{Api, ApiError};
 use toml::{map::Entry, Value};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
-pub(crate) fn load_api<State, Error, Ver: StaticVersionType>(
+pub(crate) fn load_api<State: 'static, Error: 'static, Ver: StaticVersionType + 'static>(
     path: Option<impl AsRef<Path>>,
     default: &str,
     extensions: impl IntoIterator<Item = Value>,

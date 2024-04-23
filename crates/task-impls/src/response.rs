@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -11,7 +10,7 @@ use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
-    message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
@@ -22,7 +21,9 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use versioned_binary_serialization::{version::StaticVersionType, BinarySerializer, Serializer};
+use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+
+use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
 
 /// Type alias for consensus state wrapped in a lock.
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
@@ -122,7 +123,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         &self,
         view: TYPES::Time,
         key: &TYPES::SignatureKey,
-    ) -> Option<VidDisperseShare<TYPES>> {
+    ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
         let consensus = self.consensus.upgradable_read().await;
         let contained = consensus
             .vid_shares
@@ -130,17 +131,19 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             let txns = consensus.saved_payloads.get(&view)?;
-            let vid = calculate_vid_disperse(txns.clone(), self.quorum.clone(), view).await;
+            let vid = calculate_vid_disperse(txns.clone(), &self.quorum.clone(), view).await;
             let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
             for share in shares {
                 let s = share.clone();
                 let key: <TYPES as NodeType>::SignatureKey = s.recipient_key;
-                consensus
-                    .vid_shares
-                    .entry(view)
-                    .or_default()
-                    .insert(key, share);
+                if let Some(prop) = share.to_proposal(&self.private_key) {
+                    consensus
+                        .vid_shares
+                        .entry(view)
+                        .or_default()
+                        .insert(key, prop);
+                }
             }
             return consensus.vid_shares.get(&view)?.get(key).cloned();
         }
@@ -156,11 +159,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
-                let Some(prop) = share.to_proposal(&self.private_key) else {
-                    return self.make_msg(ResponseMessage::NotFound);
-                };
                 let seq_msg =
-                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop));
+                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(share));
                 self.make_msg(ResponseMessage::Found(seq_msg))
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651

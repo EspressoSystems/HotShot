@@ -1,26 +1,24 @@
-use std::{fmt::Display, path::PathBuf};
+use std::path::PathBuf;
 
-use crate::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
 use clap::Args;
-use commit::Committable;
+use committable::Committable;
 use derive_more::From;
 use futures::FutureExt;
-use hotshot_types::{
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
-    utils::BuilderCommitment,
-};
+use hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitment};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tagged_base64::TaggedBase64;
 use tide_disco::{
     api::ApiError,
     method::{ReadState, WriteState},
-    Api, RequestError, StatusCode,
+    Api, RequestError, RequestParams, StatusCode,
 };
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::{
+    api::load_api,
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+};
 
 #[derive(Args, Default)]
 pub struct Options {
@@ -115,6 +113,20 @@ impl tide_disco::error::Error for Error {
     }
 }
 
+fn try_extract_param<T: for<'a> TryFrom<&'a TaggedBase64>>(
+    params: &RequestParams,
+    param_name: &str,
+) -> Result<T, Error> {
+    params
+        .param(param_name)?
+        .as_tagged_base64()?
+        .try_into()
+        .map_err(|_| Error::Custom {
+            message: format!("Invalid {param_name}"),
+            status: StatusCode::UnprocessableEntity,
+        })
+}
+
 pub fn define_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
     options: &Options,
 ) -> Result<Api<State, Error, Ver>, ApiError>
@@ -122,11 +134,6 @@ where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
     Types: NodeType,
-    <<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType:
-        for<'a> TryFrom<&'a TaggedBase64> + Into<TaggedBase64> + Display,
-    for<'a> <<<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
-        &'a TaggedBase64,
-    >>::Error: Display,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
@@ -137,8 +144,10 @@ where
         .get("available_blocks", |req, state| {
             async move {
                 let hash = req.blob_param("parent_hash")?;
+                let signature = try_extract_param(&req, "signature")?;
+                let sender = try_extract_param(&req, "sender")?;
                 state
-                    .get_available_blocks(&hash)
+                    .get_available_blocks(&hash, sender, &signature)
                     .await
                     .context(BlockAvailableSnafu {
                         resource: hash.to_string(),
@@ -149,9 +158,10 @@ where
         .get("claim_block", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
+                let signature = try_extract_param(&req, "signature")?;
+                let sender = try_extract_param(&req, "sender")?;
                 state
-                    .claim_block(&hash, &signature)
+                    .claim_block(&hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
                         resource: hash.to_string(),
@@ -162,9 +172,10 @@ where
         .get("claim_header_input", |req, state| {
             async move {
                 let hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let signature = req.blob_param("signature")?;
+                let signature = try_extract_param(&req, "signature")?;
+                let sender = try_extract_param(&req, "sender")?;
                 state
-                    .claim_block_header_input(&hash, &signature)
+                    .claim_block_header_input(&hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
                         resource: hash.to_string(),

@@ -1,11 +1,20 @@
+use std::{
+    env, fs,
+    net::SocketAddr,
+    num::NonZeroUsize,
+    ops::Range,
+    path::{Path, PathBuf},
+    time::Duration,
+    vec,
+};
+
+use clap::ValueEnum;
 use hotshot_types::{
     traits::{election::ElectionConfig, signature_key::SignatureKey},
     ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
-use std::{env, net::SocketAddr, num::NonZeroUsize, path::PathBuf, time::Duration, vec};
-use std::{fs, path::Path};
 use surf_disco::Url;
 use thiserror::Error;
 use toml;
@@ -46,6 +55,8 @@ pub struct Libp2pConfig {
     pub online_time: u64,
     /// number of transactions per view
     pub num_txn_per_round: usize,
+    /// whether to start in libp2p::kad::Mode::Server mode
+    pub server_mode: bool,
 }
 
 /// configuration serialized into a file
@@ -69,6 +80,8 @@ pub struct Libp2pConfigFile {
     pub mesh_n: usize,
     /// time node has been running
     pub online_time: u64,
+    /// whether to start in libp2p::kad::Mode::Server mode
+    pub server_mode: bool,
 }
 
 /// configuration for a web server
@@ -105,6 +118,40 @@ pub enum NetworkConfigError {
     /// Failed to recursively create path to NetworkConfig
     #[error("Failed to recursively create path to NetworkConfig")]
     FailedToCreatePath(std::io::Error),
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, Default, ValueEnum)]
+/// configuration for builder type to use
+pub enum BuilderType {
+    /// Use external builder, [config.builder_url] must be
+    /// set to correct builder address
+    External,
+    #[default]
+    /// Simple integrated builder will be started and used by each hotshot node
+    Simple,
+    /// Random integrated builder will be started and used by each hotshot node
+    Random,
+}
+
+/// Options controlling how the random builder generates blocks
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct RandomBuilderConfig {
+    /// How many transactions to include in a block
+    pub txn_in_block: u64,
+    /// How many blocks to generate per second
+    pub blocks_per_second: u32,
+    /// Range of how big a transaction can be (in bytes)
+    pub txn_size: Range<u32>,
+}
+
+impl Default for RandomBuilderConfig {
+    fn default() -> Self {
+        Self {
+            txn_in_block: 100,
+            blocks_per_second: 1,
+            txn_size: 20..100,
+        }
+    }
 }
 
 /// a network configuration
@@ -153,6 +200,10 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub combined_network_config: Option<CombinedNetworkConfig>,
     /// the commit this run is based on
     pub commit_sha: String,
+    /// builder to use
+    pub builder: BuilderType,
+    /// random builder config
+    pub random_builder: Option<RandomBuilderConfig>,
 }
 
 /// the source of the network config
@@ -397,6 +448,8 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(2500),
             commit_sha: String::new(),
+            builder: BuilderType::default(),
+            random_builder: None,
         }
     }
 }
@@ -442,6 +495,12 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// combined network config
     #[serde(default)]
     pub combined_network_config: Option<CombinedNetworkConfig>,
+    /// builder to use
+    #[serde(default)]
+    pub builder: BuilderType,
+    /// random builder configuration
+    #[serde(default)]
+    pub random_builder: Option<RandomBuilderConfig>,
 }
 
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
@@ -474,6 +533,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
                 propose_max_round_time: val.config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
                 num_txn_per_round: val.transactions_per_round,
+                server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
@@ -484,8 +544,15 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             da_web_server_config: val.da_web_server_config,
             combined_network_config: val.combined_network_config,
             commit_sha: String::new(),
+            builder: val.builder,
+            random_builder: val.random_builder,
         }
     }
+}
+
+/// Default builder URL, used as placeholder
+fn default_builder_url() -> Url {
+    Url::parse("http://localhost:3311").unwrap()
 }
 
 /// Holds configuration for a `HotShot`
@@ -533,6 +600,9 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub propose_max_round_time: Duration,
     /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
+    /// Builder API base URL
+    #[serde(default = "default_builder_url")]
+    pub builder_url: Url,
 }
 
 /// Holds configuration for a validator node
@@ -611,6 +681,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             propose_max_round_time: val.propose_max_round_time,
             data_request_delay: val.data_request_delay,
             election_config: None,
+            builder_url: val.builder_url,
         }
     }
 }
@@ -666,6 +737,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             propose_min_round_time: Duration::from_secs(0),
             propose_max_round_time: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
+            builder_url: default_builder_url(),
         }
     }
 }

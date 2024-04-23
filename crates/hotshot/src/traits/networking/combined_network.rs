@@ -1,58 +1,52 @@
 //! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
-use super::{push_cdn_network::PushCdnNetwork, NetworkError};
-use crate::traits::implementations::Libp2pNetwork;
-use async_lock::RwLock;
-use hotshot_types::constants::{
-    COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-    COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
-};
-
-use lru::LruCache;
 use std::{
-    collections::BTreeSet,
-    hash::Hasher,
+    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, HashMap},
+    future::Future,
+    hash::{Hash, Hasher},
     num::NonZeroUsize,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
-use tracing::warn;
 
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn},
+    channel::UnboundedSendError,
+};
+use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
-
-use futures::{channel::mpsc, join, select, FutureExt};
-
-use async_compatibility_layer::channel::UnboundedSendError;
+use futures::{channel::mpsc, future::join_all, join, select, FutureExt};
+use hotshot_task_impls::helpers::cancel_task;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 use hotshot_types::{
     boxed_sync,
+    constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES},
     data::ViewNumber,
-    message::{Message, SequencingMessage},
+    message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage},
-        node_implementation::NodeType,
+        network::{
+            ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage, ViewMessage,
+        },
+        node_implementation::{ConsensusTime, NodeType},
     },
     BoxSyncFuture,
 };
-use std::collections::{BTreeMap, HashMap};
-use std::future::Future;
-use std::{collections::hash_map::DefaultHasher, sync::Arc};
-
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
-use futures::future::join_all;
-use hotshot_task_impls::helpers::cancel_task;
-use hotshot_types::message::{GeneralConsensusMessage, MessageKind};
-use hotshot_types::traits::network::ViewMessage;
-use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::hash::Hash;
-use std::time::Duration;
+use lru::LruCache;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use versioned_binary_serialization::version::StaticVersionType;
+use tracing::{info, warn};
+use vbs::version::StaticVersionType;
+
+use super::{push_cdn_network::PushCdnNetwork, NetworkError};
+use crate::traits::implementations::Libp2pNetwork;
 
 /// Helper function to calculate a hash of a type that implements Hash
 pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
@@ -74,8 +68,11 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     /// Last n seen messages to prevent processing duplicates
     message_cache: Arc<RwLock<LruCache<u64, ()>>>,
 
-    /// If the primary network is down (0) or not, and for how many messages
-    primary_down: Arc<AtomicU64>,
+    /// How many times primary failed to deliver
+    primary_fail_counter: Arc<AtomicU64>,
+
+    /// Whether primary is considered down
+    primary_down: Arc<AtomicBool>,
 
     /// delayed, cancelable tasks for secondary network
     delayed_tasks: DelayedTasksLockedMap,
@@ -107,7 +104,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             message_cache: Arc::new(RwLock::new(LruCache::new(
                 NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
             ))),
-            primary_down: Arc::new(AtomicU64::new(0)),
+            primary_fail_counter: Arc::new(AtomicU64::new(0)),
+            primary_down: Arc::new(AtomicBool::new(false)),
             delayed_tasks: Arc::default(),
             delay_duration: Arc::new(RwLock::new(delay_duration)),
         }
@@ -145,27 +143,31 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         primary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
         secondary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
     ) -> Result<(), NetworkError> {
-        // send optimistically on both networks, but if the primary network is down, skip it
-        let primary_down = self.primary_down.load(Ordering::Relaxed);
+        // Check if primary is down
         let mut primary_failed = false;
-        if primary_down < COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            || primary_down % COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL == 0
+        if self.primary_down.load(Ordering::Relaxed) {
+            primary_failed = true;
+        } else if self.primary_fail_counter.load(Ordering::Relaxed)
+            > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
-            // send on the primary network as it is not down, or we are checking if it is back up
-            match primary_future.await {
-                Ok(()) => {
-                    self.primary_down.store(0, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    warn!("Error on primary network: {}", e);
-                    self.primary_down.fetch_add(1, Ordering::Relaxed);
-                    primary_failed = true;
-                }
-            };
+            warn!(
+                "Primary failed more than {} times and is considered down now",
+                COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            );
+            self.primary_down.store(true, Ordering::Relaxed);
+            primary_failed = true;
         }
+
+        // always send on the primary network
+        if let Err(e) = primary_future.await {
+            warn!("Error on primary network: {}", e);
+            self.primary_fail_counter.fetch_add(1, Ordering::Relaxed);
+            primary_failed = true;
+        };
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
+            let primary_fail_counter = self.primary_fail_counter.clone();
             self.delayed_tasks
                 .write()
                 .await
@@ -173,6 +175,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 .or_default()
                 .push(async_spawn(async move {
                     async_sleep(duration).await;
+                    info!("Sending on secondary after delay, message possibly has not reached recipient on primary");
+                    primary_fail_counter.fetch_add(1, Ordering::Relaxed);
                     secondary_future.await
                 }));
             Ok(())
@@ -248,7 +252,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     message_cache: Arc::new(RwLock::new(LruCache::new(
                         NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                     ))),
-                    primary_down: Arc::new(AtomicU64::new(0)),
+                    primary_fail_counter: Arc::new(AtomicU64::new(0)),
+                    primary_down: Arc::new(AtomicBool::new(false)),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
                 };
@@ -257,7 +262,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     message_cache: Arc::new(RwLock::new(LruCache::new(
                         NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                     ))),
-                    primary_down: Arc::new(AtomicU64::new(0)),
+                    primary_fail_counter: Arc::new(AtomicU64::new(0)),
+                    primary_down: Arc::new(AtomicBool::new(false)),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
                 };
@@ -494,5 +500,12 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             }
             join_all(cancel_tasks).await;
         });
+        // View changed, let's start primary again
+        self.primary_down.store(false, Ordering::Relaxed);
+        self.primary_fail_counter.store(0, Ordering::Relaxed);
+    }
+
+    fn is_primary_down(&self) -> bool {
+        self.primary_down.load(Ordering::Relaxed)
     }
 }

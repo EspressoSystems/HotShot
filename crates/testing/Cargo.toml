@@ -10,6 +10,7 @@ default = []
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
 gpu-vid = ["hotshot-types/gpu-vid"]
+proposal-dependency-tasks = ["hotshot/dependency-tasks"]
 
 [dependencies]
 automod = "1.0.14"
@@ -18,16 +19,16 @@ async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { workspace = true }
-commit = { workspace = true }
+committable = { workspace = true }
 either = { workspace = true }
 ethereum-types = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
 hotshot-example-types = { path = "../example-types" }
 hotshot-macros = { path = "../macros" }
-hotshot-orchestrator = { version = "0.5.26", path = "../orchestrator", default-features = false }
+hotshot-orchestrator = { version = "0.5.36", path = "../orchestrator", default-features = false }
 hotshot-task = { path = "../task" }
-hotshot-task-impls = { path = "../task-impls", version = "0.5.26", default-features = false }
+hotshot-task-impls = { path = "../task-impls", version = "0.5.36", default-features = false }
 hotshot-types = { path = "../types" }
 hotshot-builder-api = { path = "../builder-api" }
 jf-primitives = { workspace = true }
@@ -39,8 +40,9 @@ sha3 = "^0.10"
 snafu = { workspace = true }
 tide-disco = { workspace = true }
 tracing = { workspace = true }
-versioned-binary-serialization = { workspace = true }
+vbs = { workspace = true }
 lru = { workspace = true }
+tagged-base64.workspace = true
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

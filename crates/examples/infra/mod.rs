@@ -1,36 +1,49 @@
 #![allow(clippy::panic)]
-use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-use async_trait::async_trait;
-use cdn_broker::reexports::crypto::signature::KeyPair;
-use cdn_broker::reexports::message::Topic;
-use chrono::Utc;
-use clap::Parser;
-use clap::{Arg, Command};
-use futures::StreamExt;
-use hotshot::traits::implementations::{
-    derive_libp2p_peer_id, CombinedNetworks, PushCdnNetwork, WrappedSignatureKey,
+use std::{
+    fmt::Debug,
+    fs,
+    marker::PhantomData,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    num::NonZeroUsize,
+    time::{Duration, Instant},
 };
-use hotshot::traits::BlockPayload;
+
+use async_compatibility_layer::{
+    art::async_sleep,
+    logging::{setup_backtrace, setup_logging},
+};
+use async_trait::async_trait;
+use cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+use chrono::Utc;
+use clap::{value_parser, Arg, Command, Parser};
+use futures::StreamExt;
 use hotshot::{
     traits::{
-        implementations::{Libp2pNetwork, WebServerNetwork},
-        NodeImplementation,
+        implementations::{
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
+            WebServerNetwork, WrappedSignatureKey,
+        },
+        BlockPayload, NodeImplementation,
     },
     types::SystemContextHandle,
     Memberships, Networks, SystemContext,
 };
-use hotshot_example_types::node_types::{Libp2pImpl, PushCdnImpl};
-use hotshot_example_types::storage_types::TestStorage;
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
+    storage_types::TestStorage,
 };
-use hotshot_orchestrator::config::NetworkConfigSource;
 use hotshot_orchestrator::{
     self,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, WebServerConfig},
+    config::{
+        BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
+        WebServerConfig,
+    },
+};
+use hotshot_testing::block_builder::{
+    RandomBuilderImplementation, SimpleBuilderImplementation, TestBuilderImplementation,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -46,18 +59,10 @@ use hotshot_types::{
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
-
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::num::NonZeroUsize;
-use std::time::Duration;
-use std::{fs, time::Instant};
+use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
 use tracing::{error, info, warn};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -188,6 +193,15 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
                 .help("Sets the number of fixed leader for gpu vid, only be used when leaders running on gpu")
                 .required(false),
         )
+        .arg(
+            Arg::new("builder")
+                .short('b')
+                .long("builder")
+                .value_name("BUILDER_TYPE")
+                .value_parser(value_parser!(BuilderType))
+                .help("Sets type of builder. `simple` or `random` to run corresponding integrated builder, `external` to use the one specified by `[config.builder_url]` in config")
+                .required(false),
+        )
         .get_matches();
 
     if let Some(config_file_string) = matches.get_one::<String>("config_file") {
@@ -247,6 +261,9 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
             wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
         };
         config.da_web_server_config = Some(updated_da_web_server_config);
+    }
+    if let Some(builder_type) = matches.get_one::<BuilderType>("builder") {
+        config.builder = *builder_type;
     }
 
     (config, orchestrator_url)
@@ -1018,7 +1035,7 @@ pub async fn main_entry_point<
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    let (run_config, source) =
+    let (mut run_config, source) =
         NetworkConfig::<TYPES::SignatureKey, TYPES::ElectionConfigType>::get_complete_config(
             &orchestrator_client,
             args.clone().network_config_file,
@@ -1029,9 +1046,41 @@ pub async fn main_entry_point<
         .await
         .expect("failed to get config");
 
+    let builder_task = match run_config.builder {
+        BuilderType::External => None,
+        BuilderType::Random => {
+            let (builder_task, builder_url) =
+                <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    run_config.random_builder.clone().unwrap_or_default(),
+                )
+                .await;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+        BuilderType::Simple => {
+            let (builder_task, builder_url) =
+                <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    (),
+                )
+                .await;
+
+            run_config.config.builder_url = builder_url;
+
+            builder_task
+        }
+    };
+
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
     let hotshot = run.initialize_state_and_hotshot().await;
+
+    if let Some(task) = builder_task {
+        task.start(Box::new(hotshot.get_event_stream()));
+    }
 
     // pre-generate transactions
     let NetworkConfig {

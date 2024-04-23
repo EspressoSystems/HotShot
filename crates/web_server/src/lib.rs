@@ -3,19 +3,18 @@
 /// Configuration for the webserver
 pub mod config;
 
-use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
-use async_compatibility_layer::channel::OneShotReceiver;
-use async_lock::RwLock;
-use clap::Args;
-use futures::FutureExt;
-
-use hotshot_types::traits::signature_key::SignatureKey;
-use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use std::{
     collections::{BTreeMap, HashMap},
     io,
     path::PathBuf,
 };
+
+use async_compatibility_layer::channel::OneShotReceiver;
+use async_lock::RwLock;
+use clap::Args;
+use futures::FutureExt;
+use hotshot_types::traits::signature_key::SignatureKey;
+use rand::{distributions::Alphanumeric, rngs::StdRng, thread_rng, Rng, SeedableRng};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
@@ -23,7 +22,9 @@ use tide_disco::{
     Api, App, StatusCode, Url,
 };
 use tracing::{debug, info};
-use versioned_binary_serialization::version::StaticVersionType;
+use vbs::version::StaticVersionType;
+
+use crate::config::{MAX_TXNS, MAX_VIEWS, TX_BATCH_SIZE};
 
 /// Convience alias for a lock over the state of the app
 /// TODO this is used in two places. It might be clearer to just inline
@@ -70,7 +71,7 @@ struct WebServerState<KEY> {
     /// view sync: view number of oldest votes in memory
     oldest_view_sync_vote: u64,
     /// view number -> (secret, string)
-    vid_disperses: HashMap<u64, (String, Vec<u8>)>,
+    vid_disperses: HashMap<u64, Vec<Vec<u8>>>,
     /// view for the oldest vid disperal
     oldest_vid_disperse: u64,
     /// view of most recent vid dispersal
@@ -343,13 +344,13 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn get_vid_disperse(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.vid_disperses.get(&view_number) {
             Some(disperse) => {
-                if disperse.1.is_empty() {
+                if disperse.is_empty() {
                     Err(ServerError {
                         status: StatusCode::NotImplemented,
                         message: format!("VID disperse not found for view {view_number}"),
                     })
                 } else {
-                    Ok(Some(vec![disperse.1.clone()]))
+                    Ok(Some(disperse.clone()))
                 }
             }
             None => Err(ServerError {
@@ -691,8 +692,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_vid_disperse(&mut self, view_number: u64, mut disperse: Vec<u8>) -> Result<(), Error> {
-        info!("Received VID disperse for view {}", view_number);
+    fn post_vid_disperse(&mut self, view_number: u64, disperse: Vec<u8>) -> Result<(), Error> {
         if view_number > self.recent_vid_disperse {
             self.recent_vid_disperse = view_number;
         }
@@ -706,8 +706,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
         self.vid_disperses
             .entry(view_number)
-            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut disperse))
-            .or_insert_with(|| (String::new(), disperse));
+            .or_default()
+            .push(disperse);
         Ok(())
     }
 
@@ -1110,9 +1110,10 @@ pub async fn run_web_server<
 
     let web_api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State<KEY>, Error, NetworkVersion>::with_state(state);
+    let mut app = App::<State<KEY>, Error>::with_state(state);
 
-    app.register_module("api", web_api).unwrap();
+    app.register_module::<Error, NetworkVersion>("api", web_api)
+        .unwrap();
 
     let app_future = app.serve(url, bind_version);
 

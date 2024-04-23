@@ -3,12 +3,11 @@ use std::{
     mem::size_of,
 };
 
-use crate::node_types::TestTypes;
-use commit::{Commitment, Committable, RawCommitmentBuilder};
+use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, TestableBlock, Transaction},
+        block_contents::{BlockHeader, BuilderFee, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -18,6 +17,8 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
+
+use crate::node_types::TestTypes;
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -52,7 +53,7 @@ impl TestTransaction {
 
 impl Committable for TestTransaction {
     fn commit(&self) -> Commitment<Self> {
-        let builder = commit::RawCommitmentBuilder::new("Txn Comm");
+        let builder = committable::RawCommitmentBuilder::new("Txn Comm");
         let mut hasher = Keccak256::new();
         hasher.update(&self.0);
         let generic_array = hasher.finalize();
@@ -153,16 +154,6 @@ impl BlockPayload for TestBlockPayload {
         Ok(TestTransaction::encode(self.transactions.clone())?.into_iter())
     }
 
-    fn transaction_commitments(
-        &self,
-        _metadata: &Self::Metadata,
-    ) -> Vec<Commitment<Self::Transaction>> {
-        self.transactions
-            .iter()
-            .map(commit::Committable::commit)
-            .collect()
-    }
-
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
         for txn in &self.transactions {
@@ -171,8 +162,11 @@ impl BlockPayload for TestBlockPayload {
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    fn get_transactions(&self, _metadata: &Self::Metadata) -> &Vec<Self::Transaction> {
-        &self.transactions
+    fn get_transactions<'a>(
+        &'a self,
+        _metadata: &'a Self::Metadata,
+    ) -> impl 'a + Iterator<Item = Self::Transaction> {
+        self.transactions.iter().cloned()
     }
 }
 
@@ -183,6 +177,8 @@ pub struct TestBlockHeader {
     pub block_number: u64,
     /// VID commitment to the payload.
     pub payload_commitment: VidCommitment,
+    /// Fast commitment for builder verification
+    pub builder_commitment: BuilderCommitment,
     /// Timestamp when this header was created.
     pub timestamp: u64,
 }
@@ -195,7 +191,9 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _builder_fee: BuilderFee<TYPES>,
     ) -> Self {
         let parent = parent_leaf.get_block_header();
 
@@ -208,6 +206,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         Self {
             block_number: parent.block_number + 1,
             payload_commitment,
+            builder_commitment,
             timestamp,
         }
     }
@@ -215,11 +214,13 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     fn genesis(
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
             payload_commitment,
+            builder_commitment,
             timestamp: 0,
         }
     }
@@ -234,6 +235,10 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
         &()
+    }
+
+    fn builder_commitment(&self) -> BuilderCommitment {
+        self.builder_commitment.clone()
     }
 }
 

@@ -3,30 +3,31 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::data::{QuorumProposal, UpgradeProposal, VidDisperseShare};
-use crate::simple_certificate::{
-    DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-    ViewSyncPreCommitCertificate2,
-};
-use crate::simple_vote::{
-    DAVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-    ViewSyncPreCommitVote,
-};
-use crate::traits::network::ResponseMessage;
-use crate::traits::signature_key::SignatureKey;
-use crate::vote::HasViewNumber;
-use crate::{
-    data::DAProposal,
-    simple_vote::QuorumVote,
-    traits::{
-        network::{DataRequest, NetworkMsg, ViewMessage},
-        node_implementation::{ConsensusTime, NodeType},
-    },
-};
-use derivative::Derivative;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
+
+use anyhow::{ensure, Result};
+use committable::Committable;
+use derivative::Derivative;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use crate::{
+    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    simple_certificate::{
+        DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+        ViewSyncPreCommitCertificate2,
+    },
+    simple_vote::{
+        DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        ViewSyncPreCommitVote,
+    },
+    traits::{
+        election::Membership,
+        network::{DataRequest, NetworkMsg, ResponseMessage, ViewMessage},
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
+    },
+    vote::HasViewNumber,
+};
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, Hash)]
@@ -318,4 +319,25 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     /// Phantom for TYPES
     pub _pd: PhantomData<TYPES>,
+}
+
+impl<TYPES> Proposal<TYPES, QuorumProposal<TYPES>>
+where
+    TYPES: NodeType,
+{
+    /// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    pub fn validate_signature(&self, quorum_membership: &TYPES::Membership) -> Result<()> {
+        let view_number = self.data.get_view_number();
+        let view_leader_key = quorum_membership.get_leader(view_number);
+        let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
+
+        ensure!(
+            view_leader_key.validate(&self.signature, proposed_leaf.commit().as_ref()),
+            "Proposal signature is invalid."
+        );
+
+        Ok(())
+    }
 }

@@ -1,12 +1,14 @@
 //! Types and Traits for the `HotShot` consensus module
-use crate::utils::bincode_opts;
+use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
+
 use bincode::Options;
 use displaydoc::Display;
 use light_client::StateVerKey;
-use std::fmt::Debug;
-use std::{future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 use tracing::error;
 use traits::{election::ElectionConfig, signature_key::SignatureKey};
+use url::Url;
+
+use crate::utils::bincode_opts;
 pub mod consensus;
 pub mod constants;
 pub mod data;
@@ -189,4 +191,6 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub data_request_delay: Duration,
     /// the election configuration
     pub election_config: Option<ELECTIONCONFIG>,
+    /// Builder API base URL
+    pub builder_url: Url,
 }

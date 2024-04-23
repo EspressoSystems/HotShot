@@ -2,27 +2,31 @@
 /// types used for this example
 pub mod types;
 
-use crate::infra::read_orchestrator_init_config;
-use crate::infra::OrchestratorArgs;
-use crate::types::ThisRun;
-use crate::{
-    infra::run_orchestrator,
-    types::{DANetwork, NodeImpl, QuorumNetwork},
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::Path,
 };
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-use cdn_broker::{Broker, Config as BrokerConfig, ConfigBuilder as BrokerConfigBuilder};
-use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
-use hotshot::traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey};
-use hotshot::types::SignatureKey;
+
+use async_compatibility_layer::{
+    art::async_spawn,
+    logging::{setup_backtrace, setup_logging},
+};
+use cdn_broker::Broker;
+use cdn_marshal::Marshal;
+use hotshot::{
+    traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
+    types::SignatureKey,
+};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
 use rand::{rngs::StdRng, RngCore, SeedableRng};
-use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
-use std::path::Path;
 use tracing::{error, instrument};
+
+use crate::{
+    infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
+    types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun},
+};
 
 /// general infra used for this example
 #[path = "../infra/mod.rs"]
@@ -64,20 +68,22 @@ async fn main() {
         let private_address = format!("127.0.0.1:{private_port}");
         let public_address = format!("127.0.0.1:{public_port}");
 
-        let config: BrokerConfig<WrappedSignatureKey<<TestTypes as NodeType>::SignatureKey>> =
-            BrokerConfigBuilder::default()
-                .discovery_endpoint(discovery_endpoint.clone())
-                .keypair(KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key),
-                    private_key: broker_private_key.clone(),
-                })
-                .metrics_enabled(false)
-                .private_bind_address(private_address.clone())
-                .public_bind_address(public_address.clone())
-                .private_advertise_address(private_address)
-                .public_advertise_address(public_address)
-                .build()
-                .expect("failed to build broker config");
+        let config: cdn_broker::Config<TestingDef<TestTypes>> = cdn_broker::Config {
+            discovery_endpoint: discovery_endpoint.clone(),
+            public_advertise_endpoint: public_address.clone(),
+            public_bind_endpoint: public_address,
+            private_advertise_endpoint: private_address.clone(),
+            private_bind_endpoint: private_address,
+
+            keypair: KeyPair {
+                public_key: WrappedSignatureKey(broker_public_key),
+                private_key: broker_private_key.clone(),
+            },
+
+            metrics_bind_endpoint: None,
+            ca_cert_path: None,
+            ca_key_path: None,
+        };
 
         // Create and spawn the broker
         async_spawn(async move {
@@ -98,12 +104,13 @@ async fn main() {
         .expect("CDN marshal address must be specified");
 
     // Configure the marshal
-    let marshal_config = MarshalConfigBuilder::default()
-        .bind_address(marshal_endpoint.clone())
-        .metrics_enabled(false)
-        .discovery_endpoint(discovery_endpoint)
-        .build()
-        .expect("failed to build marshal config");
+    let marshal_config = cdn_marshal::Config {
+        bind_endpoint: marshal_endpoint.clone(),
+        discovery_endpoint,
+        metrics_bind_endpoint: None,
+        ca_cert_path: None,
+        ca_key_path: None,
+    };
 
     // Spawn the marshal
     async_spawn(async move {

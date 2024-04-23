@@ -3,12 +3,25 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    ops::{self, Deref, Sub},
+    sync::Arc,
+    time::Duration,
+};
+
+use async_trait::async_trait;
+use committable::Committable;
+use serde::{Deserialize, Serialize};
+
 use super::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
     election::ElectionConfig,
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
     },
+    signature_key::BuilderSignatureKey,
     states::TestableState,
     storage::Storage,
     ValidatedState,
@@ -19,16 +32,6 @@ use crate::{
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
-};
-use async_trait::async_trait;
-use commit::Committable;
-use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Debug,
-    hash::Hash,
-    ops::{self, Deref, Sub},
-    sync::Arc,
-    time::Duration,
 };
 
 /// Node implementation aggregate trait
@@ -236,4 +239,7 @@ pub trait NodeType:
 
     /// Membership used for this implementation
     type Membership: Membership<Self>;
+
+    /// The type builder uses to sign its messages
+    type BuilderSignatureKey: BuilderSignatureKey;
 }

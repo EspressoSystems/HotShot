@@ -1,26 +1,24 @@
 use hotshot::traits::{
-    election::static_committee::GeneralStaticCommittee, implementations::PushCdnNetwork,
+    election::static_committee::{GeneralStaticCommittee, StaticCommittee, StaticElectionConfig},
+    implementations::{
+        CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork, WebServerNetwork,
+    },
+    NodeImplementation,
 };
+use hotshot_types::{
+    constants::WebServerVersion,
+    data::ViewNumber,
+    message::Message,
+    signature_key::{BLSPubKey, BuilderKey},
+    traits::node_implementation::NodeType,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
-
-use hotshot::traits::{
-    election::static_committee::{StaticCommittee, StaticElectionConfig},
-    implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, WebServerNetwork},
-    NodeImplementation,
-};
-
-use hotshot_types::constants::WebServerVersion;
-
-use hotshot_types::{
-    data::ViewNumber, message::Message, signature_key::BLSPubKey,
-    traits::node_implementation::NodeType,
-};
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Copy,
@@ -48,6 +46,7 @@ impl NodeType for TestTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
+    type BuilderSignatureKey = BuilderKey;
 }
 
 /// The Push CDN implementation

@@ -1,26 +1,31 @@
 //! Provides the core consensus types
 
-pub use crate::utils::{View, ViewInner};
-use displaydoc::Display;
-
-use crate::{
-    data::{Leaf, VidDisperseShare},
-    error::HotShotError,
-    simple_certificate::{DACertificate, QuorumCertificate, UpgradeCertificate},
-    traits::{
-        metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
-        node_implementation::NodeType,
-        ValidatedState,
-    },
-    utils::{StateAndDelta, Terminator},
-};
-use commit::Commitment;
-
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex},
 };
+
+use committable::Commitment;
+use displaydoc::Display;
 use tracing::error;
+
+pub use crate::utils::{View, ViewInner};
+use crate::{
+    data::{Leaf, QuorumProposal, VidDisperseShare},
+    error::HotShotError,
+    message::Proposal,
+    simple_certificate::{
+        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
+    },
+    traits::{
+        block_contents::BuilderFee,
+        metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
+        node_implementation::NodeType,
+        BlockPayload, ValidatedState,
+    },
+    utils::{BuilderCommitment, StateAndDelta, Terminator},
+    vid::VidCommitment,
+};
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -28,7 +33,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::Time,
-    HashMap<<TYPES as NodeType>::SignatureKey, VidDisperseShare<TYPES>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
 
 /// A reference to the consensus algorithm
@@ -48,10 +53,6 @@ pub struct Consensus<TYPES: NodeType> {
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
     pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
-
-    /// All the upgrade certs we've received for current and future views.
-    /// view -> upgrade cert
-    pub saved_upgrade_certs: HashMap<TYPES::Time, UpgradeCertificate<TYPES>>,
 
     /// View number that is currently on.
     pub cur_view: TYPES::Time,
@@ -335,8 +336,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         // perform gc
         self.saved_da_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
-        self.saved_upgrade_certs
-            .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
@@ -393,4 +392,38 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .0
             .expect("Decided state not found! Consensus internally inconsistent")
     }
+}
+
+/// Alias for the block payload commitment and the associated metadata. The primary data
+/// needed in order to submit a proposal.
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct CommitmentAndMetadata<TYPES: NodeType> {
+    /// Vid Commitment
+    pub commitment: VidCommitment,
+    /// Builder Commitment
+    pub builder_commitment: BuilderCommitment,
+    /// Metadata for the block payload
+    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    /// Builder fee data
+    pub fee: BuilderFee<TYPES>,
+}
+
+/// Helper type to hold the optional secondary information required to propose.
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub enum SecondaryProposalInformation<TYPES: NodeType> {
+    /// The quorum proposal and certificate needed to propose.
+    QuorumProposalAndCertificate(QuorumProposal<TYPES>, QuorumCertificate<TYPES>),
+    /// The timeout certificate which we can propose from.
+    Timeout(TimeoutCertificate<TYPES>),
+    /// The view sync certificate which we can propose from.
+    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+}
+
+/// Dependency data required to submit a proposal
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct ProposalDependencyData<TYPES: NodeType> {
+    /// The primary data in a proposal.
+    pub commitment_and_metadata: CommitmentAndMetadata<TYPES>,
+    /// The secondary data in a proposal
+    pub secondary_proposal_information: SecondaryProposalInformation<TYPES>,
 }

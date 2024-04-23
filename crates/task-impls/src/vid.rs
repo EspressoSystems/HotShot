@@ -1,8 +1,7 @@
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
-use crate::helpers::{broadcast_event, calculate_vid_disperse};
+use std::{marker::PhantomData, sync::Arc};
+
 use async_broadcast::Sender;
 use async_lock::RwLock;
-
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
@@ -13,12 +12,15 @@ use hotshot_types::{
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
+        BlockPayload,
     },
 };
-
-use std::marker::PhantomData;
-use std::sync::Arc;
 use tracing::{debug, error, instrument, warn};
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, calculate_vid_disperse},
+};
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<
@@ -59,10 +61,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::TransactionsSequenced(encoded_transactions, metadata, view_number) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
+                let payload = <TYPES as NodeType>::BlockPayload::from_bytes(
+                    encoded_transactions.clone().into_iter(),
+                    metadata,
+                );
+                let builder_commitment = payload.builder_commitment(metadata);
                 let vid_disperse = calculate_vid_disperse(
                     encoded_transactions.clone(),
-                    self.membership.clone(),
+                    &self.membership.clone(),
                     *view_number,
                 )
                 .await;
@@ -70,8 +77,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
                         vid_disperse.payload_commitment,
+                        builder_commitment,
                         metadata.clone(),
                         *view_number,
+                        fee.clone(),
                     )),
                     &event_stream,
                 )
@@ -89,7 +98,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    vid_disperse.payload_commitment.as_ref().as_ref(),
+                    vid_disperse.payload_commitment.as_ref(),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
@@ -167,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         !matches!(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::TransactionsSequenced(_, _, _)
+                | HotShotEvent::BlockRecv(_, _, _, _)
                 | HotShotEvent::BlockReady(_, _)
                 | HotShotEvent::ViewChange(_)
         )

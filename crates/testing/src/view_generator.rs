@@ -1,19 +1,12 @@
 use std::{cmp::max, marker::PhantomData};
 
+use committable::Committable;
+use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use sha2::{Digest, Sha256};
-
-use crate::task_helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
-use commit::Committable;
-
-use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
-
 use hotshot_types::{
     data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
@@ -22,17 +15,20 @@ use hotshot_types::{
         ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DAData, DAVote, TimeoutData, TimeoutVote, UpgradeProposalData, UpgradeVote,
-        ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DAData, DAVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
+        BlockPayload,
     },
 };
+use sha2::{Digest, Sha256};
 
-use hotshot_types::simple_vote::QuorumData;
-use hotshot_types::simple_vote::QuorumVote;
+use crate::task_helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 
 #[derive(Clone)]
 pub struct TestView {
@@ -49,6 +45,7 @@ pub struct TestView {
     pub da_certificate: DACertificate<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
+    formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
     timeout_cert_data: Option<TimeoutData<TestTypes>>,
 }
@@ -58,6 +55,10 @@ impl TestView {
         let genesis_view = ViewNumber::new(1);
 
         let transactions = Vec::new();
+
+        let (block_payload, metadata) =
+            TestBlockPayload::from_transactions(transactions.clone()).unwrap();
+        let builder_commitment = block_payload.builder_commitment(&metadata);
 
         let (private_key, public_key) = key_pair_for_id(*genesis_view);
 
@@ -84,6 +85,7 @@ impl TestView {
             block_number: 1,
             timestamp: 1,
             payload_commitment,
+            builder_commitment,
         };
 
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
@@ -137,6 +139,7 @@ impl TestView {
             transactions,
             leader_public_key,
             upgrade_data: None,
+            formed_upgrade_certificate: None,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
@@ -168,6 +171,10 @@ impl TestView {
         let (private_key, public_key) = key_pair_for_id(*next_view);
 
         let leader_public_key = public_key;
+
+        let (block_payload, metadata) =
+            TestBlockPayload::from_transactions(transactions.clone()).unwrap();
+        let builder_commitment = block_payload.builder_commitment(&metadata);
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
@@ -215,7 +222,7 @@ impl TestView {
 
             Some(cert)
         } else {
-            None
+            self.formed_upgrade_certificate.clone()
         };
 
         let view_sync_certificate = if let Some(ref data) = self.view_sync_finalize_data {
@@ -266,13 +273,14 @@ impl TestView {
             block_number: *next_view,
             timestamp: *next_view,
             payload_commitment,
+            builder_commitment,
         };
 
         let proposal = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
-            upgrade_certificate,
+            upgrade_certificate: upgrade_certificate.clone(),
             proposal_certificate,
         };
 
@@ -320,6 +328,9 @@ impl TestView {
             // so we reset for the next view.
             transactions: Vec::new(),
             upgrade_data: None,
+            // We preserve the upgrade_certificate once formed,
+            // and reattach it on every future view until cleared.
+            formed_upgrade_certificate: upgrade_certificate,
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,

@@ -41,13 +41,19 @@
           "rustfmt"
           "llvm-tools-preview"
         ];
-        fenixStable = fenix.packages.${system}.stable.withComponents [
-          "cargo"
-          "clippy"
-          "rust-src"
-          "rustc"
-          "rustfmt"
-          "llvm-tools-preview"
+        fenixStable = fenix.packages.${system}.combine [
+          ( fenix.packages.${system}.stable.withComponents [
+              "cargo"
+              "clippy"
+              "rust-src"
+              "rustc"
+              "llvm-tools-preview"
+            ]
+          )
+          ( fenix.packages.${system}.latest.withComponents [
+              "rustfmt"
+            ]
+          )
         ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system};
