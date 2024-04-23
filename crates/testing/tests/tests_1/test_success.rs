@@ -8,7 +8,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    test_builder::TestMetadata,
+    test_builder::TestDescription,
 };
 cross_tests!(
     TestName: test_success,
@@ -16,14 +16,14 @@ cross_tests!(
     Types: [TestTypes],
     Ignore: false,
     Metadata: {
-        TestMetadata {
+        TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     },
 );

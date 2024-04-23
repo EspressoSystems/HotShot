@@ -12,7 +12,7 @@ async fn test_timeout_web() {
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-        test_builder::{TestMetadata, TimingData},
+        test_builder::{TestDescription, TimingData},
     };
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -21,7 +21,7 @@ async fn test_timeout_web() {
         ..Default::default()
     };
 
-    let mut metadata = TestMetadata {
+    let mut metadata = TestDescription {
         num_nodes_with_stake: 10,
         start_nodes: 10,
         ..Default::default()
@@ -72,7 +72,7 @@ async fn test_timeout_libp2p() {
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         overall_safety_task::OverallSafetyPropertiesDescription,
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-        test_builder::{TestMetadata, TimingData},
+        test_builder::{TestDescription, TimingData},
     };
 
     async_compatibility_layer::logging::setup_logging();
@@ -84,7 +84,7 @@ async fn test_timeout_libp2p() {
         ..Default::default()
     };
 
-    let mut metadata = TestMetadata {
+    let mut metadata = TestDescription {
         num_nodes_with_stake: 10,
         start_nodes: 10,
         num_bootstrap_nodes: 10,

@@ -6,7 +6,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-    test_builder::TestMetadata,
+    test_builder::TestDescription,
 };
 // Test that a good leader can succeed in the view directly after view sync
 cross_tests!(
@@ -15,7 +15,7 @@ cross_tests!(
     Types: [TestTypes],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestMetadata::default_more_nodes();
+        let mut metadata = TestDescription::default_more_nodes();
         metadata.num_bootstrap_nodes = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;

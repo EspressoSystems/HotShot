@@ -6,7 +6,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-    test_builder::TestMetadata,
+    test_builder::TestDescription,
 };
 // Test f nodes leaving the network.
 cross_tests!(
@@ -16,7 +16,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
 
-        let mut metadata = TestMetadata::default_more_nodes();
+        let mut metadata = TestDescription::default_more_nodes();
         metadata.overall_safety_properties.num_failed_views = 6;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 22;
