@@ -481,7 +481,6 @@
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>committable::Committable;
@@ -575,7 +574,7 @@
         <span class="kw">let </span>quorum_proposal_inner = QuorumProposal::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(),
+            justify_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
             upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_certificate: <span class="prelude-val">None</span>,
         };
@@ -602,7 +601,6 @@
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
-        leaf.set_parent_commitment(Leaf::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}).commit());
 
         <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
             .expect(<span class="string">"Failed to sign leaf commitment!"</span>);

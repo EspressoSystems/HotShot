@@ -185,7 +185,6 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -213,10 +212,9 @@
 /// the underlying storage.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SystemContextHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The [sender](Sender) and an `InactiveReceiver` to keep the channel open.
-    /// The Channel will output all the events.  Subscribers will get an activated
-    /// clone of the `Receiver` when they get output stream.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// The [sender](Sender) and [receiver](Receiver),
+    /// to allow the application to communicate with HotShot.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, Receiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
     </span><span class="attr">#[allow(clippy::type_complexity)]
@@ -237,7 +235,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
     <span class="doccomment">/// obtains a stream to expose to the user
     </span><span class="kw">pub fn </span>get_event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
+        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.clone()
     }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...
@@ -246,7 +244,7 @@
     /// - type wrapper
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Event&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
+        <span class="self">self</span>.output_event_stream.<span class="number">1</span>.clone()
     }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...

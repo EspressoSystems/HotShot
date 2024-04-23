@@ -792,44 +792,21 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
-<span class="kw">use crate</span>::{consensus::update_view, helpers::AnyhowTracing};
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
-    event::{Event, EventType, LeafInfo},
+    event::{Event, EventType},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -837,7 +814,7 @@
         consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
         storage::Storage,
@@ -846,16 +823,16 @@
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>tracing::{debug, error, warn};
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
+<span class="kw">use </span>tracing::{debug, error, warn};
 
 <span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+<span class="kw">use crate</span>::{
+    consensus::update_view,
+    events::HotShotEvent,
+    helpers::{broadcast_event, AnyhowTracing},
+};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -885,11 +862,13 @@
 
     <span class="kw">let </span>state = Arc::new(validated_state);
     <span class="kw">let </span>delta = Arc::new(state_delta);
-    <span class="kw">let </span>parent_commitment = parent_leaf.commit();
     <span class="kw">let </span>view = proposal.data.get_view_number();
 
-    <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
-    proposed_leaf.set_parent_commitment(parent_commitment);
+    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
+    <span class="macro">ensure!</span>(
+        proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
+        <span class="string">"Proposed leaf does not extend the parent leaf."
+    </span>);
 
     <span class="comment">// Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     //
@@ -1034,8 +1013,10 @@
         upgrade_certificate: upgrade_cert,
     };
 
-    <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
-    proposed_leaf.set_parent_commitment(parent_leaf.commit());
+    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
+    <span class="kw">if </span>proposed_leaf.get_parent_commitment() != parent_leaf.commit() {
+        <span class="kw">return</span>;
+    }
 
     <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, proposed_leaf.commit().as_ref())
     <span class="kw">else </span>{
@@ -1447,46 +1428,19 @@
     <span class="kw">let </span>consensus_read = task_state.consensus.upgradable_read().<span class="kw">await</span>;
 
     <span class="comment">// Get the parent leaf and state.
-    </span><span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
-        <span class="comment">// Send the `Decide` event for the genesis block if the justify QC is genesis.
-        </span><span class="kw">let </span>leaf = Leaf::genesis(<span class="kw-2">&amp;</span>consensus_read.instance_state);
-        <span class="kw">let </span>(validated_state, state_delta) =
-            TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>consensus_read.instance_state);
-        <span class="kw">let </span>state = Arc::new(validated_state);
-        broadcast_event(
-            Event {
-                view_number: TYPES::Time::genesis(),
-                event: EventType::Decide {
-                    leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
-                        leaf.clone(),
-                        state.clone(),
-                        <span class="prelude-val">Some</span>(Arc::new(state_delta)),
-                        <span class="prelude-val">None</span>,
-                    )]),
-                    qc: Arc::new(justify_qc.clone()),
-                    block_size: <span class="prelude-val">None</span>,
-                },
-            },
-            <span class="kw-2">&amp;</span>task_state.output_event_stream,
-        )
-        .<span class="kw">await</span>;
-        <span class="prelude-val">Some</span>((leaf, state))
-    } <span class="kw">else </span>{
-        <span class="kw">match </span>consensus_read
-            .saved_leaves
-            .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
-            .cloned()
-        {
-            <span class="prelude-val">Some</span>(leaf) =&gt; {
-                <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.get_state_and_delta(leaf.get_view_number())
-                {
-                    <span class="prelude-val">Some</span>((leaf, state.clone()))
-                } <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
-                }
+    </span><span class="kw">let </span>parent = <span class="kw">match </span>consensus_read
+        .saved_leaves
+        .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
+        .cloned()
+    {
+        <span class="prelude-val">Some</span>(leaf) =&gt; {
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.get_state_and_delta(leaf.get_view_number()) {
+                <span class="prelude-val">Some</span>((leaf, state.clone()))
+            } <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
             }
-            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         }
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
     };
 
     <span class="kw">if </span>justify_qc.get_view_number() &gt; consensus_read.high_qc.view_number {

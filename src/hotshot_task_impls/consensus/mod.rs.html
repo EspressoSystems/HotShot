@@ -1042,27 +1042,12 @@
 <a href="#1040" id="1040">1040</a>
 <a href="#1041" id="1041">1041</a>
 <a href="#1042" id="1042">1042</a>
-<a href="#1043" id="1043">1043</a>
-<a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
-<a href="#1046" id="1046">1046</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>std::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
-<span class="kw">use crate</span>::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -1091,16 +1076,27 @@
     utils::Terminator,
     vote::{Certificate, HasViewNumber},
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>vbs::version::Version;
-
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>hotshot_types::{
     data::{null_block, VidDisperseShare},
     message::GeneralConsensusMessage,
     simple_vote::QuorumData,
+};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>vbs::version::Version;
+
+<span class="kw">use crate</span>::{
+    consensus::{
+        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
+        view_change::update_view,
+    },
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
 };
 
 <span class="doccomment">/// Helper functions to handler proposal-related functionality.
@@ -1261,14 +1257,10 @@
                 <span class="kw">let </span>view = cert.view_number;
                 <span class="comment">// TODO: do some of this logic without the vote token check, only do that when voting.
                 </span><span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
-                <span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis {
-                    <span class="prelude-val">Some</span>(Leaf::genesis(<span class="kw-2">&amp;</span>consensus.instance_state))
-                } <span class="kw">else </span>{
-                    consensus
-                        .saved_leaves
-                        .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
-                        .cloned()
-                };
+                <span class="kw">let </span>parent = consensus
+                    .saved_leaves
+                    .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
+                    .cloned();
 
                 <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
                 </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
@@ -1281,15 +1273,15 @@
                 };
                 <span class="kw">let </span>parent_commitment = parent.commit();
 
-                <span class="kw">let </span><span class="kw-2">mut </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                proposed_leaf.set_parent_commitment(parent_commitment);
+                <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                <span class="kw">if </span>proposed_leaf.get_parent_commitment() != parent_commitment {
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
 
                 <span class="comment">// Validate the DAC.
                 </span><span class="kw">let </span>message = <span class="kw">if </span>cert.is_valid_cert(<span class="self">self</span>.committee_membership.as_ref()) {
                     <span class="comment">// Validate the block payload commitment for non-genesis DAC.
-                    </span><span class="kw">if </span>!cert.is_genesis
-                        &amp;&amp; cert.get_data().payload_commit
-                            != proposal.block_header.payload_commitment()
+                    </span><span class="kw">if </span>cert.get_data().payload_commit != proposal.block_header.payload_commitment()
                     {
                         <span class="macro">error!</span>(<span class="string">"Block payload commitment does not equal da cert payload commitment. View = {}"</span>, <span class="kw-2">*</span>view);
                         <span class="kw">return </span><span class="bool-val">false</span>;

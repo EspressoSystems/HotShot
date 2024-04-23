@@ -101,7 +101,6 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 </span><span class="kw">use </span>anyhow::Result;
@@ -109,8 +108,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>sha2::Digest;
 
 <span class="attr">#[derive(Parser, Debug)]

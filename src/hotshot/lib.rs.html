@@ -735,6 +735,34 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -770,9 +798,9 @@
 </span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
-    event::EventType,
+    event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
@@ -881,7 +909,7 @@
 
     <span class="comment">// global_registry: GlobalRegistry,
     </span><span class="doccomment">/// Access to the output event stream.
-    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, Receiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
     </span><span class="attr">#[allow(clippy::type_complexity)]
@@ -921,6 +949,12 @@
         <span class="kw">let </span>anchored_leaf = initializer.inner;
         <span class="kw">let </span>instance_state = initializer.instance_state;
 
+        <span class="kw">let </span>(internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, <span class="kw-2">mut </span>external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        <span class="comment">// Allow overflow on the channel, otherwise sending to it may block.
+        </span>external_rx.set_overflow(<span class="bool-val">true</span>);
+
         <span class="comment">// Get the validated state from the initializer or construct an incomplete one from the
         // block header.
         </span><span class="kw">let </span>validated_state = <span class="kw">match </span>initializer.validated_state {
@@ -930,6 +964,8 @@
             )),
         };
 
+        <span class="kw">let </span>state_delta = initializer.state_delta.as_ref();
+
         <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -937,8 +973,8 @@
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state,
-                    delta: initializer.state_delta,
+                    state: validated_state.clone(),
+                    delta: initializer.state_delta.clone(),
                 },
             },
         );
@@ -949,6 +985,29 @@
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+
+        <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,
+        // which contains only that leaf and nothing else.
+        </span><span class="kw">if </span>anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            broadcast_event(
+                Event {
+                    view_number: anchored_leaf.get_view_number(),
+                    event: EventType::Decide {
+                        leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
+                            anchored_leaf.clone(),
+                            validated_state.clone(),
+                            state_delta.cloned(),
+                            <span class="prelude-val">None</span>,
+                        )]),
+                        qc: Arc::new(QuorumCertificate::genesis(<span class="kw-2">&amp;</span>instance_state)),
+                        block_size: <span class="prelude-val">None</span>,
+                    },
+                },
+                <span class="kw-2">&amp;</span>external_tx,
+            )
+            .<span class="kw">await</span>;
+        }
+
         <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
@@ -981,9 +1040,6 @@
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
         <span class="kw">let </span>version = Arc::new(RwLock::new(BASE_VERSION));
 
-        <span class="kw">let </span>(internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
-
         <span class="comment">// This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
         </span>external_tx.set_await_active(<span class="bool-val">false</span>);
@@ -1000,7 +1056,7 @@
             memberships: Arc::new(memberships),
             _metrics: consensus_metrics.clone(),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, external_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
         });
 
@@ -1432,13 +1488,13 @@
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
-            instance_state,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
-            high_qc: QuorumCertificate::genesis(),
+            high_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>instance_state),
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
+            instance_state,
         })
     }
 
