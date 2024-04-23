@@ -972,7 +972,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .clone();
         info!("broadcasting to topic: {}", topic);
 
-
         // gossip doesn't broadcast from itself, so special case
         if recipients.contains(&self.inner.pk) {
             // send to self
@@ -1108,7 +1107,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .await
             .map_err(|_| NetworkError::ShutDown)?;
 
-        self.publish(message, "transactions".to_string(), bind_version).await
+        self.publish(message, "transactions".to_string(), bind_version)
+            .await
     }
 
     /// Receive one or many messages from the underlying network.
@@ -1163,11 +1163,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
     async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
         error!("lrzasik: subscribe transactions");
-        self.inner.handle.subscribe("transactions".to_string()).await.map_err(Into::<NetworkError>::into)
+        self.inner
+            .handle
+            .subscribe("transactions".to_string())
+            .await
+            .map_err(Into::<NetworkError>::into)
     }
 
     async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
         error!("lrzasik: unsubscribe transactions");
-        self.inner.handle.unsubscribe("transactions".to_string()).await.map_err(Into::<NetworkError>::into)
+        self.inner
+            .handle
+            .unsubscribe("transactions".to_string())
+            .await
+            .map_err(Into::<NetworkError>::into)
     }
 }

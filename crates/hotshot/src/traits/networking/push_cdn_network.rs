@@ -418,6 +418,15 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             .await
     }
 
+    async fn publish_transaction<VER: StaticVersionType + 'static>(
+        &self,
+        message: Message<TYPES>,
+        bind_version: VER,
+    ) -> Result<(), NetworkError> {
+        self.broadcast_message(message, Topic::Transactions, bind_version)
+            .await
+    }
+
     /// Send a direct message to a node with a particular key. Does not retry.
     ///
     /// - If we fail to serialize the message
@@ -524,4 +533,22 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
 
     /// We don't need to poll.
     async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
+
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
+        self.client
+            .subscribe(vec![Topic::Transactions])
+            .await
+            .map_err(|_e| NetworkError::PushCdnNetwork {
+                source: PushCdnNetworkError::FailedToSubscribe,
+            })
+    }
+
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
+        self.client
+            .unsubscribe(vec![Topic::Transactions])
+            .await
+            .map_err(|_e| NetworkError::PushCdnNetwork {
+                source: PushCdnNetworkError::FailedToUnsubscribe,
+            })
+    }
 }

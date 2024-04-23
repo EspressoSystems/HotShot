@@ -66,6 +66,10 @@ pub enum PushCdnNetworkError {
     FailedToReceive,
     /// Failed to send a message to the server
     FailedToSend,
+    /// Failed to subscribe to a topic
+    FailedToSubscribe,
+    /// Failed to unsubscribe from a topic
+    FailedToUnsubscribe,
 }
 
 /// Web server specific errors
@@ -386,7 +390,9 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         &self,
         _message: M,
         _bind_version: VER,
-    ) -> Result<(), NetworkError> { Err(NetworkError::UnimplementedFeature) }
+    ) -> Result<(), NetworkError> {
+        Err(NetworkError::UnimplementedFeature)
+    }
 
     /// Receive one or many messages from the underlying network.
     ///

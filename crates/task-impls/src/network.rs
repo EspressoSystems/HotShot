@@ -3,7 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use futures::TryFutureExt;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
