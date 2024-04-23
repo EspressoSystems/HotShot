@@ -10,6 +10,7 @@ use jf_primitives::{errors::PrimitivesError, vid::VidScheme};
 use serde::{Deserialize, Serialize};
 use tagged_base64::TaggedBase64;
 
+use super::EncodeBytes;
 use crate::{utils::BuilderCommitment, vid::VidSchemeType};
 
 /// Type representing stake table entries in a `StakeTable`
@@ -189,16 +190,16 @@ pub trait BuilderSignatureKey:
     fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool;
 
     /// validate signature over fee information with the builder's public key
-    fn validate_fee_signature(
+    fn validate_fee_signature<Metadata: EncodeBytes>(
         &self,
         signature: &Self::BuilderSignature,
         fee_amount: u64,
-        payload_commitment: &BuilderCommitment,
+        metadata: &Metadata,
         vid_commitment: &<VidSchemeType as VidScheme>::Commit,
     ) -> bool {
         self.validate_builder_signature(
             signature,
-            &aggregate_fee_data(fee_amount, payload_commitment, vid_commitment),
+            &aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
     }
 
@@ -227,15 +228,15 @@ pub trait BuilderSignatureKey:
     /// sign fee offer for proposed payload
     /// # Errors
     /// If unable to sign the data with the key
-    fn sign_fee(
+    fn sign_fee<Metadata: EncodeBytes>(
         private_key: &Self::BuilderPrivateKey,
         fee_amount: u64,
-        payload_commitment: &BuilderCommitment,
+        metadata: &Metadata,
         vid_commitment: &<VidSchemeType as VidScheme>::Commit,
     ) -> Result<Self::BuilderSignature, Self::SignError> {
         Self::sign_builder_message(
             private_key,
-            &aggregate_fee_data(fee_amount, payload_commitment, vid_commitment),
+            &aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
     }
 
@@ -259,14 +260,14 @@ pub trait BuilderSignatureKey:
 }
 
 /// Aggregate all inputs used for signature over fee data
-fn aggregate_fee_data(
+fn aggregate_fee_data<Metadata: EncodeBytes>(
     fee_amount: u64,
-    payload_commitment: &BuilderCommitment,
+    metadata: &Metadata,
     vid_commitment: &<VidSchemeType as VidScheme>::Commit,
 ) -> Vec<u8> {
     let mut fee_info = Vec::new();
     fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
-    fee_info.extend_from_slice(payload_commitment.as_ref());
+    fee_info.extend_from_slice(metadata.encode().as_ref());
     fee_info.extend_from_slice(vid_commitment.as_ref());
     fee_info
 }
