@@ -24,7 +24,6 @@ use hotshot_types::{
     simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
@@ -57,10 +56,11 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
     storage: Arc<RwLock<impl Storage<TYPES>>>,
+    instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<()> {
     let (validated_state, state_delta) = parent_state
         .validate_and_apply_header(
-            &consensus.read().await.instance_state,
+            instance_state.as_ref(),
             &parent_leaf,
             &proposal.data.block_header.clone(),
         )
@@ -200,10 +200,11 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     round_start_delay: u64,
+    instance_state: Arc<TYPES::InstanceState>,
 ) {
     let block_header = TYPES::BlockHeader::new(
         state.as_ref(),
-        &consensus.read().await.instance_state,
+        instance_state.as_ref(),
         &parent_leaf,
         commitment_and_metadata.commitment,
         commitment_and_metadata.builder_commitment,
@@ -281,7 +282,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     if proposal.data.justify_qc.get_view_number() != view - 1 {
         let received_proposal_cert =
             proposal.data.proposal_certificate.clone().context(format!(
-"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
                 *view
         ))?;
 
@@ -395,6 +396,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     upgrade_cert: UpgradeCertificate<TYPES>,
     delay: u64,
+    instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -428,12 +430,14 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
                 builder_commitment,
                 metadata,
                 fee: null_block_fee,
+                block_view: view,
             },
             parent_leaf,
             state,
             Some(upgrade_cert),
             None,
             delay,
+            instance_state.clone(),
         )
         .await;
     }))
@@ -455,6 +459,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
+    instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -492,8 +497,13 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
     let cnm = commitment_and_metadata
-        .clone()
+        .take()
         .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
+
+    ensure!(
+        cnm.block_view == view,
+        "Cannot propose because our VID payload commitment and metadata is for an older view."
+    );
 
     let create_and_send_proposal_handle = async_spawn(async move {
         create_and_send_proposal(
@@ -508,6 +518,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             proposal_upgrade_certificate,
             proposal_certificate,
             delay,
+            instance_state.clone(),
         )
         .await;
     });
@@ -534,6 +545,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
+    instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<JoinHandle<()>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
@@ -546,6 +558,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             consensus,
             upgrade_cert,
             delay,
+            instance_state,
         )
         .await
     } else {
@@ -562,6 +575,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             decided_upgrade_cert,
             commitment_and_metadata,
             proposal_cert,
+            instance_state,
         )
         .await
     }
@@ -752,6 +766,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                     task_state.decided_upgrade_cert.clone(),
                     &mut task_state.payload_commitment_and_metadata,
                     &mut task_state.proposal_cert,
+                    task_state.instance_state.clone(),
                 )
                 .await?;
 
@@ -784,6 +799,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                 sender,
                 task_state.output_event_stream.clone(),
                 task_state.storage.clone(),
+                task_state.instance_state.clone(),
             )
             .map(AnyhowTracing::err_as_debug),
         ));
