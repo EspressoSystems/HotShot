@@ -430,6 +430,8 @@
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -839,6 +841,8 @@
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
     <span class="doccomment">/// Builder fee data
     </span><span class="kw">pub </span>fee: BuilderFee&lt;TYPES&gt;,
+    <span class="doccomment">/// View number this block is for
+    </span><span class="kw">pub </span>block_view: TYPES::Time,
 }
 
 <span class="doccomment">/// Helper type to hold the optional secondary information required to propose.

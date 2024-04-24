@@ -539,7 +539,7 @@
     &gt; TransactionTaskState&lt;TYPES, I, A, Ver&gt;
 {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction Handling Task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -690,7 +690,7 @@
         </span>consensus.get_decided_leaf().get_payload_commitment()
     }
 
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction Handling Task"</span>, level = <span class="string">"error"</span>)]
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponses&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 

@@ -1010,6 +1010,7 @@
 <a href="#1008" id="1008">1008</a>
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1274,7 +1275,7 @@
                     payload_commitment,
                     builder_commitment,
                     metadata,
-                    _view,
+                    view,
                     fee,
                 ) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">"Got commit and meta {:?}"</span>, payload_commitment);
@@ -1283,6 +1284,7 @@
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
                         fee: fee.clone(),
+                        block_view: <span class="kw-2">*</span>view,
                     });
                 }
                 HotShotEvent::QCFormed(cert) =&gt; <span class="kw">match </span>cert {
