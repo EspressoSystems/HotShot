@@ -1,6 +1,4 @@
-use core::time::Duration;
-use std::{marker::PhantomData, sync::Arc};
-
+#[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
 #[cfg(feature = "dependency-tasks")]
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
@@ -16,6 +14,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use committable::Committable;
+use core::time::Duration;
 use futures::FutureExt;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
@@ -37,6 +36,7 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+use std::{marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};

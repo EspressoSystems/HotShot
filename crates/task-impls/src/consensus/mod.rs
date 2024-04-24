@@ -3,20 +3,30 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
+use crate::{
+    consensus::view_change::update_view,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use chrono::Utc;
+#[cfg(not(feature = "dependency-tasks"))]
 use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
@@ -33,6 +43,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::{data::Leaf, message::Proposal};
+#[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{
     data::{null_block, VidDisperseShare},
     message::GeneralConsensusMessage,
@@ -42,19 +54,6 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
-
-use crate::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
-
 /// Helper functions to handler proposal-related functionality.
 pub(crate) mod proposal_helpers;
 

@@ -3,40 +3,28 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, validate_proposal_safety_and_liveness},
-        view_change::update_view,
-    },
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    consensus::proposal_helpers::handle_quorum_proposal_recv, events::HotShotEvent,
+    helpers::cancel_task,
 };
 use async_broadcast::Sender;
-use async_compatibility_layer::art::async_spawn;
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::Consensus,
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
-    event::{Event, EventType, LeafInfo},
+    consensus::{CommitmentAndMetadata, Consensus},
+    data::{QuorumProposal, ViewChangeEvidence},
+    event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
-        election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
-        storage::Storage,
-        ValidatedState,
     },
-    utils::{View, ViewInner},
-    vote::{Certificate, HasViewNumber, VoteDependencyData},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{instrument, warn};
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.
@@ -53,6 +41,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
+    /// The commitment to the current block payload and its metadata submitted to DA.
+    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
+
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
 
@@ -68,11 +59,28 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View timeout from config.
     pub timeout: u64,
 
+    /// Round start delay from config, in milliseconds.
+    pub round_start_delay: u64,
+
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// last View Sync Certificate or Timeout Certificate this node formed.
+    pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
+
+    /// most recent decided upgrade certificate
+    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// The most recent proposal we have, will correspond to the current view if Some()
     /// Will be none if the view advanced through timeout/view_sync
@@ -118,16 +126,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         // Build the parent leaf since we didn't find it during the proposal check.
                         let consensus = self.consensus.read().await;
 
-                        broadcast_event(
-                            Arc::new(HotShotEvent::VoteNow(
-                                proposal.data.get_view_number() + 1,
-                                VoteDependencyData {
-                                    quorum_proposal: current_proposal,
-                                },
-                            )),
-                            &event_stream,
-                        )
-                        .await;
+                        // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
+                        // broadcast_event(
+                        //     Arc::new(HotShotEvent::VoteNow(
+                        //         proposal.data.get_view_number() + 1,
+                        //         VoteDependencyData {
+                        //             quorum_proposal: current_proposal,
+                        //         },
+                        //     )),
+                        //     &event_stream,
+                        // )
+                        // .await;
                         // if self.vote_if_able(&event_stream).await {
                         //     self.current_proposal = None;
                         // }
