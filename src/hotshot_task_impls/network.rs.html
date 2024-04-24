@@ -537,6 +537,8 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -640,11 +642,13 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkMessageTaskState&lt;TYPES&gt; {
-    <span class="doccomment">/// Handle the message.
+    <span class="attr">#[instrument(skip_all, name = <span class="string">"Network message task"</span>, level = <span class="string">"trace"</span>)]
+    </span><span class="doccomment">/// Handle the message.
     </span><span class="kw">pub async fn </span>handle_messages(<span class="kw-2">&amp;mut </span><span class="self">self</span>, messages: Vec&lt;Message&lt;TYPES&gt;&gt;) {
         <span class="comment">// We will send only one event for a vector of transactions.
         </span><span class="kw">let </span><span class="kw-2">mut </span>transactions = Vec::new();
         <span class="kw">for </span>message <span class="kw">in </span>messages {
+            <span class="macro">tracing::trace!</span>(<span class="string">"Received message from network:\n\n{message:?}"</span>);
             <span class="kw">let </span>sender = message.sender;
             <span class="kw">match </span>message.kind {
                 MessageKind::Consensus(consensus_message) =&gt; {
