@@ -69,6 +69,7 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        state: InstanceState,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
     /// Build a payload with the encoded transaction bytes, metadata,
