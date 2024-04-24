@@ -179,7 +179,7 @@ fmt:
 fmt_lint: 
   echo Formatting and linting
   cargo fmt
-  cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
+  cargo clippy --workspace --examples --bins --tests -- -D warnings
 
 careful:
   echo Careful-ing with tokio executor

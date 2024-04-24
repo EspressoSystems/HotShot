@@ -101,9 +101,6 @@ pub struct ConsensusTaskState<
     /// Membership for DA committee Votes/certs
     pub committee_membership: Arc<TYPES::Membership>,
 
-    /// Consensus api
-    pub api: A,
-
     /// Current Vote collection task, with it's view.
     pub vote_collector:
         RwLock<VoteCollectorOption<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>>,
@@ -151,8 +148,8 @@ pub struct ConsensusTaskState<
     pub storage: Arc<RwLock<I::Storage>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    ConsensusTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    ConsensusTaskState<TYPES, I>
 {
     /// Cancel all tasks the consensus tasks has spawned before the given view
     async fn cancel_tasks(&mut self, view: TYPES::Time) {
