@@ -1,9 +1,9 @@
-use std::{cmp::max, marker::PhantomData};
+use std::{cmp::max, marker::PhantomData, sync::Arc};
 
 use committable::Committable;
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
@@ -91,12 +91,12 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(),
+            justify_qc: QuorumCertificate::genesis(&TestInstanceState {}),
             upgrade_certificate: None,
             proposal_certificate: None,
         };
 
-        let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+        let encoded_transactions = Arc::from(TestTransaction::encode(&transactions).unwrap());
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
@@ -104,7 +104,7 @@ impl TestView {
 
         let da_proposal_inner = DAProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: (),
+            metadata: TestMetadata,
             view_number: genesis_view,
         };
 
@@ -118,7 +118,6 @@ impl TestView {
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
-        leaf.set_parent_commitment(Leaf::genesis(&TestInstanceState {}).commit());
 
         let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
             .expect("Failed to sign leaf commitment!");
@@ -298,7 +297,7 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+        let encoded_transactions = Arc::from(TestTransaction::encode(transactions).unwrap());
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let block_payload_signature =
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
@@ -306,7 +305,7 @@ impl TestView {
 
         let da_proposal_inner = DAProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: (),
+            metadata: TestMetadata,
             view_number: next_view,
         };
 

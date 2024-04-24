@@ -41,9 +41,6 @@ pub type VidShares<TYPES> = BTreeMap<
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
 pub struct Consensus<TYPES: NodeType> {
-    /// Immutable instance-level state.
-    pub instance_state: TYPES::InstanceState,
-
     /// The validated states that are currently loaded in memory.
     pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
 
@@ -68,7 +65,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    pub saved_payloads: BTreeMap<TYPES::Time, Vec<u8>>,
+    pub saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
@@ -103,6 +100,8 @@ pub struct ConsensusMetricsValue {
     pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
+    /// The number of empty blocks that have been proposed
+    pub number_of_empty_blocks_proposed: Box<dyn Counter>,
 }
 
 /// The wrapper with a string name for the networking metrics
@@ -239,6 +238,8 @@ impl ConsensusMetricsValue {
             outstanding_transactions_memory_size: metrics
                 .create_gauge(String::from("outstanding_transactions_memory_size"), None),
             number_of_timeouts: metrics.create_counter(String::from("number_of_timeouts"), None),
+            number_of_empty_blocks_proposed: metrics
+                .create_counter(String::from("number_of_empty_blocks_proposed"), None),
         }
     }
 }

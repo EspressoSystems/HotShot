@@ -143,12 +143,13 @@ impl<
                 {
                     // send the sequenced transactions to VID and DA tasks
                     let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
+                        Ok(encoded) => encoded,
                         Err(e) => {
                             error!("Failed to encode the block payload: {:?}.", e);
                             return None;
                         }
                     };
+
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
                             encoded_transactions,
@@ -165,9 +166,17 @@ impl<
                 } else {
                     // If we couldn't get a block, send an empty block
                     error!(
-                        "Failed to get a block for view {:?} proposing empty block",
+                        "Failed to get a block for view {:?}, proposing empty block",
                         view
                     );
+
+                    // Increment the metric for number of empty blocks proposed
+                    self.consensus
+                        .write()
+                        .await
+                        .metrics
+                        .number_of_empty_blocks_proposed
+                        .add(1);
 
                     // Calculate the builder fee for the empty block
                     let Some(builder_fee) = null_block::builder_fee(self.membership.total_nodes())
@@ -187,7 +196,7 @@ impl<
                     // Broadcast the empty block
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            vec![],
+                            vec![].into(),
                             metadata,
                             block_view,
                             builder_fee,
@@ -314,19 +323,12 @@ impl<
 
             // Verify signature over chosen block instead of
             // verifying the signature over all the blocks received from builder
-            let combined_message_bytes = {
-                let mut combined_response_bytes: Vec<u8> = Vec::new();
-                combined_response_bytes
-                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
-                combined_response_bytes
-                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
-                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
-                combined_response_bytes
-            };
-            if !block_info
-                .sender
-                .validate_builder_signature(&block_info.signature, &combined_message_bytes)
-            {
+            if !block_info.sender.validate_block_info_signature(
+                &block_info.signature,
+                block_info.block_size,
+                block_info.offered_fee,
+                &block_info.block_hash,
+            ) {
                 error!("Failed to verify available block info response message signature");
                 continue;
             }
@@ -387,23 +389,12 @@ impl<
                         continue;
                     }
 
-                    let offered_fee = block_info.offered_fee;
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    let vid_commitment = header_input.vid_commitment;
-                    let combined_response_bytes = {
-                        let mut combined_response_bytes: Vec<u8> = Vec::new();
-                        combined_response_bytes
-                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
-                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
-                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
-                        combined_response_bytes
-                    };
                     // verify the signature over the message
-                    if !header_input.sender.validate_builder_signature(
+                    if !header_input.sender.validate_fee_signature(
                         &header_input.fee_signature,
-                        combined_response_bytes.as_ref(),
+                        block_info.offered_fee,
+                        &block_data.metadata,
+                        &header_input.vid_commitment,
                     ) {
                         error!("Failed to verify fee signature");
                         continue;
