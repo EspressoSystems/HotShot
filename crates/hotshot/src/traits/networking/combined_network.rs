@@ -539,8 +539,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             self.networks.0.subscribe_transactions(),
             self.networks.1.subscribe_transactions()
         ) {
-            (Err(e), _) => Err(e),
-            (_, Err(e)) => Err(e),
+            (Err(e1), _) => Err(e1),
+            (_, Err(e2)) => Err(e2),
             (Ok(res), _) => Ok(res),
         }
     }
@@ -550,8 +550,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             self.networks.0.unsubscribe_transactions(),
             self.networks.1.unsubscribe_transactions()
         ) {
-            (Err(e), _) => Err(e),
-            (_, Err(e)) => Err(e),
+            (Err(e1), _) => Err(e1),
+            (_, Err(e2)) => Err(e2),
             (Ok(res), _) => Ok(res),
         }
     }

@@ -785,6 +785,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         });
     }
 
+    /// Publish a message to a topic
     async fn publish<VER: StaticVersionType + 'static>(
         &self,
         message: M,

@@ -410,13 +410,13 @@ impl<
                 }
                 HotShotEvent::SubscribeTransactions => {
                     if let Err(e) = self.channel.subscribe_transactions().await {
-                        warn!("Could not subscribe to transactions: {:?}", e)
+                        warn!("Could not subscribe to transactions: {:?}", e);
                     };
                     return None;
                 }
                 HotShotEvent::UnsubscribeTransactions => {
                     if let Err(e) = self.channel.unsubscribe_transactions().await {
-                        warn!("Could not unsubscribe from transactions: {:?}", e)
+                        warn!("Could not unsubscribe from transactions: {:?}", e);
                     };
                     return None;
                 }

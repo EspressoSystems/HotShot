@@ -451,6 +451,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         Err(NetworkError::UnimplementedFeature)
     }
 
+    /// Unsubscribe from transactions topic
     async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
         Err(NetworkError::UnimplementedFeature)
     }
