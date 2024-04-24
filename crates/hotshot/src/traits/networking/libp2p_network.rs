@@ -793,7 +793,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     ) -> Result<(), NetworkError> {
         self.wait_for_ready().await;
 
-        error!("Publishing to topic: {}", topic);
+        info!("Publishing to topic: {}", topic);
 
         // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
         #[cfg(feature = "hotshot-testing")]
@@ -1098,8 +1098,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         message: M,
         bind_version: VER,
     ) -> Result<(), NetworkError> {
-        error!("lrzasik: publish transaction in libp2p");
-
         // send to self
         self.inner
             .sender
