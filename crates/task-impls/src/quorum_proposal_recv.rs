@@ -1,10 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, validate_proposal_safety_and_liveness},
-        view_change::update_view,
-    },
+    consensus::{proposal_helpers::handle_quorum_proposal_recv, view_change::update_view},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
@@ -72,10 +69,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// The most recent proposal we have, will correspond to the current view if Some()
-    /// Will be none if the view advanced through timeout/view_sync
-    pub current_proposal: Option<QuorumProposal<TYPES>>,
-
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
@@ -111,8 +104,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .await
                 {
                     Ok(Some(current_proposal)) => {
-                        self.current_proposal = Some(current_proposal);
-
                         // Build the parent leaf since we didn't find it during the proposal check.
                         let consensus = self.consensus.read().await;
 
@@ -126,9 +117,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             &event_stream,
                         )
                         .await;
-                        // if self.vote_if_able(&event_stream).await {
-                        //     self.current_proposal = None;
-                        // }
                     }
                     Ok(None) => {}
                     Err(e) => warn!(?e, "Failed to propose"),

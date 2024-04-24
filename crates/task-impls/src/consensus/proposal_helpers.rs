@@ -45,7 +45,7 @@ use crate::{
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
+async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
@@ -573,7 +573,6 @@ type TempraryProposalCombinedType<TYPES, I, A> = QuorumProposalRecvTaskState<TYP
 #[cfg(not(feature = "dependency-tasks"))]
 type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>;
 
-// TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.

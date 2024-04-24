@@ -9,14 +9,15 @@ use committable::Commitment;
 use displaydoc::Display;
 use tracing::error;
 
+#[cfg(feature = "dependency-tasks")]
+use crate::simple_certificate::UpgradeCertificate;
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
     },
     traits::{
         block_contents::BuilderFee,
