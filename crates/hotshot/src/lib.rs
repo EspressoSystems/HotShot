@@ -167,17 +167,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             public_key: self.public_key.clone(),
             private_key: self.private_key.clone(),
             config: self.config.clone(),
-            networks: self.networks.clone(),
-            memberships: self.memberships.clone(),
-            metrics: self.metrics.clone(),
-            consensus: self.consensus.clone(),
-            instance_state: self.instance_state.clone(),
-            version: self.version.clone(),
+            networks: Arc::clone(&self.networks),
+            memberships: Arc::clone(&self.memberships),
+            metrics: Arc::clone(&self.metrics),
+            consensus: Arc::clone(&self.consensus),
+            instance_state: Arc::clone(&self.instance_state),
+            version: Arc::clone(&self.version),
             start_view: self.start_view,
             output_event_stream: self.output_event_stream.clone(),
             internal_event_stream: self.internal_event_stream.clone(),
             id: self.id,
-            storage: self.storage.clone(),
+            storage: Arc::clone(&self.storage),
         }
     }
 }
@@ -230,7 +230,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state.clone(),
+                    state: Arc::clone(&validated_state),
                     delta: initializer.state_delta.clone(),
                 },
             },
@@ -252,7 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![LeafInfo::new(
                             anchored_leaf.clone(),
-                            validated_state.clone(),
+                            Arc::clone(&validated_state),
                             state_delta.cloned(),
                             None,
                         )]),
@@ -408,7 +408,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
     /// Returns a copy of the instance state
     pub fn get_instance_state(&self) -> Arc<TYPES::InstanceState> {
-        self.instance_state.clone()
+        Arc::clone(&self.instance_state)
     }
 
     /// Returns a copy of the last decided leaf
