@@ -177,20 +177,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
+    for ConsensusTaskState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> ConsensusTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> ConsensusTaskState<TYPES, I> {
         let consensus = handle.hotshot.get_consensus();
 
         ConsensusTaskState {
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
             cur_view: handle.get_cur_view().await,
             payload_commitment_and_metadata: None,
-            api: handle.clone(),
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             timeout_task: None,
@@ -225,6 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             latest_voted_view: handle.get_cur_view().await,
             vote_dependencies: HashMap::new(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
@@ -253,6 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             committee_network: Arc::clone(&handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.output_event_stream.0.clone(),
             consensus,
+            instance_state: handle.hotshot.get_instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.get_cur_view().await,

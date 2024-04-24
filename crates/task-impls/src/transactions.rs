@@ -12,7 +12,7 @@ use hotshot_builder_api::block_info::{
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
         block_contents::BuilderFee,
@@ -87,7 +87,7 @@ impl<
     > TransactionTaskState<TYPES, I, A, Ver>
 {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -124,6 +124,7 @@ impl<
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
+                let block_view = if make_block { view } else { view + 1 };
 
                 if let Some(BuilderResponses {
                     block_data,
@@ -132,14 +133,14 @@ impl<
                 }) = self.wait_for_block().await
                 {
                     // send the sequenced transactions to VID and DA tasks
-                    let block_view = if make_block { view } else { view + 1 };
                     let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
+                        Ok(encoded) => encoded,
                         Err(e) => {
                             error!("Failed to encode the block payload: {:?}.", e);
                             return None;
                         }
                     };
+
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
                             encoded_transactions,
@@ -154,7 +155,46 @@ impl<
                     )
                     .await;
                 } else {
-                    error!("Failed to get a block from the builder");
+                    // If we couldn't get a block, send an empty block
+                    error!(
+                        "Failed to get a block for view {:?}, proposing empty block",
+                        view
+                    );
+
+                    // Increment the metric for number of empty blocks proposed
+                    self.consensus
+                        .write()
+                        .await
+                        .metrics
+                        .number_of_empty_blocks_proposed
+                        .add(1);
+
+                    // Calculate the builder fee for the empty block
+                    let Some(builder_fee) = null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get builder fee");
+                        return None;
+                    };
+
+                    // Create an empty block payload and metadata
+                    let Ok((_, metadata)) =
+                        <TYPES as NodeType>::BlockPayload::from_transactions(vec![])
+                    else {
+                        error!("Failed to create empty block payload");
+                        return None;
+                    };
+
+                    // Broadcast the empty block
+                    broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            vec![].into(),
+                            metadata,
+                            block_view,
+                            builder_fee,
+                        )),
+                        &event_stream,
+                    )
+                    .await;
                 };
 
                 return None;
@@ -198,7 +238,7 @@ impl<
         consensus.get_decided_leaf().get_payload_commitment()
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
     async fn wait_for_block(&self) -> Option<BuilderResponses<TYPES>> {
         let task_start_time = Instant::now();
 
@@ -231,24 +271,38 @@ impl<
                 continue;
             };
 
-            let mut available_blocks = match self
-                .builder_client
-                .get_available_blocks(
+            let mut available_blocks = match async_compatibility_layer::art::async_timeout(
+                self.api
+                    .propose_max_round_time()
+                    .saturating_sub(task_start_time.elapsed()),
+                self.builder_client.get_available_blocks(
                     parent_commitment,
                     self.public_key.clone(),
                     &request_signature,
-                )
-                .await
+                ),
+            )
+            .await
             {
-                Ok(blocks) => {
+                // We got available blocks
+                Ok(Ok(blocks)) => {
                     tracing::debug!("Got available blocks: {:?}", blocks);
                     blocks
                 }
-                Err(err) => {
+
+                // We failed to get available blocks
+                Ok(Err(err)) => {
                     error!(%err, "Couldn't get available blocks");
                     // pause a bit
                     async_sleep(Duration::from_millis(100)).await;
                     continue;
+                }
+
+                // We timed out while getting available blocks
+                Err(err) => {
+                    if latest_block.is_none() {
+                        error!(%err, "Timeout while getting available blocks");
+                    }
+                    break;
                 }
             };
 
@@ -260,19 +314,12 @@ impl<
 
             // Verify signature over chosen block instead of
             // verifying the signature over all the blocks received from builder
-            let combined_message_bytes = {
-                let mut combined_response_bytes: Vec<u8> = Vec::new();
-                combined_response_bytes
-                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
-                combined_response_bytes
-                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
-                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
-                combined_response_bytes
-            };
-            if !block_info
-                .sender
-                .validate_builder_signature(&block_info.signature, &combined_message_bytes)
-            {
+            if !block_info.sender.validate_block_info_signature(
+                &block_info.signature,
+                block_info.block_size,
+                block_info.offered_fee,
+                &block_info.block_hash,
+            ) {
                 error!("Failed to verify available block info response message signature");
                 continue;
             }
@@ -317,7 +364,7 @@ impl<
                     block_data
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block data");
                     continue;
                 }
             };
@@ -333,23 +380,12 @@ impl<
                         continue;
                     }
 
-                    let offered_fee = block_info.offered_fee;
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    let vid_commitment = header_input.vid_commitment;
-                    let combined_response_bytes = {
-                        let mut combined_response_bytes: Vec<u8> = Vec::new();
-                        combined_response_bytes
-                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
-                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
-                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
-                        combined_response_bytes
-                    };
                     // verify the signature over the message
-                    if !header_input.sender.validate_builder_signature(
+                    if !header_input.sender.validate_fee_signature(
                         &header_input.fee_signature,
-                        combined_response_bytes.as_ref(),
+                        block_info.offered_fee,
+                        &block_data.metadata,
+                        &header_input.vid_commitment,
                     ) {
                         error!("Failed to verify fee signature");
                         continue;
@@ -357,7 +393,7 @@ impl<
                     header_input
                 }
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
+                    error!(%err, "Failed to claim block header input");
                     continue;
                 }
             };

@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.40"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.43"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.65.0"
@@ -59,10 +59,10 @@ futures = "0.3"
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.3" }
-jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.3" }
-jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.3" }
-jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.3" }
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
+jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.4" }
 lazy_static = "1"
 libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5", default-features = false }
@@ -131,9 +131,10 @@ anyhow = "1"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.25" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.25" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.1.25" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
 
 ### Profiles
 ###

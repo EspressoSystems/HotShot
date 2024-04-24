@@ -8,12 +8,13 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
+    sync::Arc,
 };
 
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::Options;
-use committable::{Commitment, Committable, RawCommitmentBuilder};
+use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use jf_primitives::vid::VidDisperse as JfVidDisperse;
 use rand::Rng;
@@ -26,7 +27,7 @@ use crate::{
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::UpgradeProposalData,
+    simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
@@ -114,7 +115,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
-    pub encoded_transactions: Vec<u8>,
+    pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to
@@ -429,6 +430,24 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> QuorumCertificate<TYPES> {
+    #[must_use]
+    /// Creat the Genesis certificate
+    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+        let data = QuorumData {
+            leaf_commit: Leaf::genesis(instance_state).commit(),
+        };
+        let commit = data.commit();
+        Self {
+            data,
+            vote_commitment: commit,
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
+            signatures: None,
+            _pd: PhantomData,
+        }
+    }
+}
+
 impl<TYPES: NodeType> Leaf<TYPES> {
     /// Create a new leaf from its components.
     ///
@@ -440,21 +459,33 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let (payload, metadata) = TYPES::BlockPayload::genesis();
         let builder_commitment = payload.builder_commitment(&metadata);
-        let payload_bytes = payload
-            .encode()
-            .expect("unable to encode genesis payload")
-            .collect();
+        let payload_bytes = payload.encode().expect("unable to encode genesis payload");
+
         let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
             payload_commitment,
             builder_commitment,
             metadata,
         );
+
+        let null_quorum_data = QuorumData {
+            leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
+        };
+
+        let justify_qc = QuorumCertificate {
+            data: null_quorum_data.clone(),
+            vote_commitment: null_quorum_data.commit(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
+            signatures: None,
+            _pd: PhantomData,
+        };
+
         Self {
             view_number: TYPES::Time::genesis(),
-            justify_qc: QuorumCertificate::<TYPES>::genesis(),
-            parent_commitment: fake_commitment(),
+            justify_qc,
+            parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
@@ -483,11 +514,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     pub fn get_parent_commitment(&self) -> Commitment<Self> {
         self.parent_commitment
     }
-    /// Commitment to this leaf's parent.
-    pub fn set_parent_commitment(&mut self, commitment: Commitment<Self>) {
-        self.parent_commitment = commitment;
-    }
-    /// Get a reference to the block header contained in this leaf.
+    /// The block header contained in this leaf.
     pub fn get_block_header(&self) -> &<TYPES as NodeType>::BlockHeader {
         &self.block_header
     }
@@ -507,11 +534,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
     ) -> Result<(), BlockError> {
-        let encoded_txns = match block_payload.encode() {
-            // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-            // <https://github.com/EspressoSystems/HotShot/issues/2115>
-            Ok(encoded) => encoded.into_iter().collect(),
-            Err(_) => return Err(BlockError::InvalidTransactionLength),
+        let Ok(encoded_txns) = block_payload.encode() else {
+            return Err(BlockError::InvalidTransactionLength);
         };
         let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
@@ -553,9 +577,10 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             self.get_upgrade_certificate(),
             parent.get_upgrade_certificate(),
         ) {
-            // If the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade. Again, this is always fine.
-            // But, if we have no upgrade certificate on either is the most common case, and is always fine.
-            (Some(_) | None, None) => {}
+            // Easiest cases are:
+            //   - no upgrade certificate on either: this is the most common case, and is always fine.
+            //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
+            (None | Some(_), None) => {}
             // If we no longer see a cert, we have to make sure that we either:
             //    - no longer care because we have passed new_version_first_view, or
             //    - no longer care because we have passed `decide_by` without deciding the certificate.
@@ -715,13 +740,13 @@ pub mod null_block {
                 [0_u8; 32], 0,
             );
 
-        let (null_block, null_block_metadata) =
+        let (_null_block, null_block_metadata) =
             <TYPES::BlockPayload as BlockPayload>::from_transactions([]).ok()?;
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,
             FEE_AMOUNT,
-            &null_block.builder_commitment(&null_block_metadata),
+            &null_block_metadata,
             &commitment(num_storage_nodes)?,
         ) {
             Ok(sig) => Some(BuilderFee {

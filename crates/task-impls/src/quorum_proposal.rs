@@ -35,7 +35,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
-    consensus::proposal::validate_proposal,
+    consensus::proposal_helpers::validate_proposal_safety_and_liveness,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, AnyhowTracing},
 };
@@ -72,6 +72,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// Reference to consensus. The replica will require a write lock on this.
     consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// Immutable instance state
+    instance_state: Arc<TYPES::InstanceState>,
 
     /// Output events to application
     #[allow(dead_code)]
@@ -110,6 +113,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         view: TYPES::Time,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         commit_and_metadata: CommitmentAndMetadata<TYPES>,
+        instance_state: Arc<TYPES::InstanceState>,
     ) -> bool {
         if self.quorum_membership.get_leader(view) != self.public_key {
             // This is expected for view 1, so skipping the logging.
@@ -181,7 +185,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         let block_header = TYPES::BlockHeader::new(
             state,
-            &consensus.instance_state,
+            instance_state.as_ref(),
             &parent_leaf,
             commit_and_metadata.commitment,
             commit_and_metadata.builder_commitment,
@@ -258,7 +262,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     payload_commitment,
                     builder_commitment,
                     metadata,
-                    _view,
+                    view,
                     fee,
                 ) => {
                     debug!("Got commit and meta {:?}", payload_commitment);
@@ -267,6 +271,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
                         fee: fee.clone(),
+                        block_view: *view,
                     });
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
@@ -306,8 +311,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
-        self.publish_proposal_if_able(self.view_number, &self.sender, commit_and_metadata.unwrap())
-            .await;
+        self.publish_proposal_if_able(
+            self.view_number,
+            &self.sender,
+            commit_and_metadata.unwrap(),
+            self.instance_state.clone(),
+        )
+        .await;
     }
 }
 
@@ -330,6 +340,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Membership for Timeout votes/certs
     pub timeout_membership: Arc<TYPES::Membership>,
@@ -493,11 +506,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::ProposeNow(..) => {
-                propose_now_dependency.mark_as_completed(Arc::clone(&event));
-            }
+            HotShotEvent::ProposeNow(..) => propose_now_dependency.mark_as_completed(event.clone()),
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
-                payload_commitment_dependency.mark_as_completed(Arc::clone(&event));
+                payload_commitment_dependency.mark_as_completed(event.clone());
             }
             HotShotEvent::QuorumProposalValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
@@ -572,15 +583,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ProposalDependencyHandle {
                 view_number,
                 sender: event_sender,
-                consensus: Arc::clone(&self.consensus),
+                consensus: self.consensus.clone(),
                 output_event_stream: self.output_event_stream.clone(),
-                timeout_membership: Arc::clone(&self.timeout_membership),
-                quorum_membership: Arc::clone(&self.quorum_membership),
+                timeout_membership: self.timeout_membership.clone(),
+                quorum_membership: self.quorum_membership.clone(),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 timeout: self.timeout,
                 round_start_delay: self.round_start_delay,
                 id: self.id,
+                instance_state: self.instance_state.clone(),
             },
         );
         self.propose_dependencies
@@ -625,7 +637,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     *view,
                     event_receiver,
                     event_sender,
-                    Arc::clone(&event),
+                    event.clone(),
                 );
             }
             HotShotEvent::QCFormed(cert) => {
@@ -645,7 +657,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             view,
                             event_receiver,
                             event_sender,
-                            Arc::clone(&event),
+                            event.clone(),
                         );
                     }
                     either::Left(qc) => {
@@ -674,7 +686,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             view,
                             event_receiver,
                             event_sender,
-                            Arc::clone(&event),
+                            event.clone(),
                         );
                     }
                 }
@@ -696,7 +708,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     view,
                     event_receiver,
                     event_sender,
-                    Arc::clone(&event),
+                    event.clone(),
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
@@ -786,7 +798,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         if let (Some(state), _) =
                             consensus.get_state_and_delta(leaf.get_view_number())
                         {
-                            Some((leaf, Arc::clone(&state)))
+                            Some((leaf, state.clone()))
                         } else {
                             error!("Parent state not found! Consensus internally inconsistent");
                             return;
@@ -824,18 +836,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 };
                 async_spawn(
-                    validate_proposal(
+                    validate_proposal_safety_and_liveness(
                         proposal.clone(),
                         parent_leaf,
-                        Arc::clone(&self.consensus),
+                        self.consensus.clone(),
                         None,
-                        Arc::clone(&self.quorum_membership),
-                        Arc::clone(&parent_state),
+                        self.quorum_membership.clone(),
+                        parent_state.clone(),
                         view_leader_key,
                         event_sender.clone(),
                         sender,
                         self.output_event_stream.clone(),
-                        Arc::clone(&self.storage),
+                        self.storage.clone(),
+                        self.instance_state.clone(),
                     )
                     .map(AnyhowTracing::err_as_debug),
                 );
@@ -853,7 +866,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     new_view,
                     event_receiver,
                     event_sender,
-                    Arc::clone(&event),
+                    event.clone(),
                 );
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {

@@ -1,6 +1,5 @@
 use hotshot::{
     tasks::{inject_consensus_polls, task_state::CreateTaskState},
-    types::SystemContextHandle,
 };
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
@@ -28,6 +27,7 @@ use sha2::Digest;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
+    use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -85,7 +85,7 @@ async fn test_consensus_task() {
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
-                (),
+                TestMetadata,
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
@@ -101,7 +101,6 @@ async fn test_consensus_task() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -162,7 +161,6 @@ async fn test_consensus_vote() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -232,7 +230,6 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -259,6 +256,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
+    use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -368,7 +366,7 @@ async fn test_view_sync_finalize_propose() {
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
-                (),
+                TestMetadata,
                 ViewNumber::new(4),
                 null_block::builder_fee(4).unwrap(),
             ),
@@ -384,7 +382,6 @@ async fn test_view_sync_finalize_propose() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -484,7 +481,6 @@ async fn test_view_sync_finalize_vote() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -594,7 +590,6 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -649,7 +644,6 @@ async fn test_vid_disperse_storage_failure() {
     let consensus_state = ConsensusTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 

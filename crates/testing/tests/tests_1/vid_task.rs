@@ -1,8 +1,8 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::types::SignatureKey;
 use hotshot_example_types::{
-    block_types::{TestBlockPayload, TestTransaction},
+    block_types::{TestBlockPayload, TestMetadata, TestTransaction},
     node_types::TestTypes,
 };
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
@@ -38,7 +38,7 @@ async fn test_vid_task() {
     let transactions = vec![TestTransaction(vec![0])];
     let (payload, metadata) = TestBlockPayload::from_transactions(transactions.clone()).unwrap();
     let builder_commitment = payload.builder_commitment(&metadata);
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = Arc::from(TestTransaction::encode(&transactions).unwrap());
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
@@ -49,7 +49,7 @@ async fn test_vid_task() {
     .expect("Failed to sign block payload!");
     let proposal: DAProposal<TestTypes> = DAProposal {
         encoded_transactions: encoded_transactions.clone(),
-        metadata: (),
+        metadata: TestMetadata,
         view_number: ViewNumber::new(2),
     };
     let message = Proposal {
@@ -83,8 +83,8 @@ async fn test_vid_task() {
     input.push(HotShotEvent::ViewChange(ViewNumber::new(1)));
     input.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     input.push(HotShotEvent::BlockRecv(
-        encoded_transactions.clone(),
-        (),
+        encoded_transactions,
+        TestMetadata,
         ViewNumber::new(2),
         null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
     ));
@@ -106,7 +106,7 @@ async fn test_vid_task() {
         HotShotEvent::SendPayloadCommitmentAndMetadata(
             payload_commitment,
             builder_commitment,
-            (),
+            TestMetadata,
             ViewNumber::new(2),
             null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),

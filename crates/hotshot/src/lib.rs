@@ -33,9 +33,9 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
-    event::EventType,
+    event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
@@ -113,7 +113,6 @@ pub struct Memberships<TYPES: NodeType> {
 }
 
 /// Holds the state needed to participate in `HotShot` consensus
-#[derive(Clone)]
 pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
@@ -131,17 +130,23 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub memberships: Arc<Memberships<TYPES>>,
 
     /// the metrics that the implementor is using.
-    _metrics: Arc<ConsensusMetricsValue>,
+    metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 
+    /// Immutable instance state
+    instance_state: Arc<TYPES::InstanceState>,
+
     /// The network version
     version: Arc<RwLock<Version>>,
 
+    /// The view to enter when first starting consensus
+    start_view: TYPES::Time,
+
     // global_registry: GlobalRegistry,
     /// Access to the output event stream.
-    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+    pub output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
 
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
@@ -155,6 +160,26 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Reference to the internal storage for consensus datum.
     pub storage: Arc<RwLock<I::Storage>>,
+}
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPES, I> {
+    fn clone(&self) -> Self {
+        Self {
+            public_key: self.public_key.clone(),
+            private_key: self.private_key.clone(),
+            config: self.config.clone(),
+            networks: self.networks.clone(),
+            memberships: self.memberships.clone(),
+            metrics: self.metrics.clone(),
+            consensus: self.consensus.clone(),
+            instance_state: self.instance_state.clone(),
+            version: self.version.clone(),
+            start_view: self.start_view,
+            output_event_stream: self.output_event_stream.clone(),
+            internal_event_stream: self.internal_event_stream.clone(),
+            id: self.id,
+            storage: self.storage.clone(),
+        }
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
@@ -181,6 +206,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
 
+        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (mut external_tx, mut external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        external_rx.set_overflow(true);
+
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
         let validated_state = match initializer.validated_state {
@@ -190,6 +221,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             )),
         };
 
+        let state_delta = initializer.state_delta.as_ref();
+
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -197,8 +230,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state,
-                    delta: initializer.state_delta,
+                    state: validated_state.clone(),
+                    delta: initializer.state_delta.clone(),
                 },
             },
         );
@@ -209,29 +242,47 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+
+        // Some applications seem to expect a leaf decide event for the genesis leaf,
+        // which contains only that leaf and nothing else.
+        if anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            broadcast_event(
+                Event {
+                    view_number: anchored_leaf.get_view_number(),
+                    event: EventType::Decide {
+                        leaf_chain: Arc::new(vec![LeafInfo::new(
+                            anchored_leaf.clone(),
+                            validated_state.clone(),
+                            state_delta.cloned(),
+                            None,
+                        )]),
+                        qc: Arc::new(QuorumCertificate::genesis(&instance_state)),
+                        block_size: None,
+                    },
+                },
+                &external_tx,
+            )
+            .await;
+        }
+
         for leaf in initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns: Vec<u8> = match payload.encode() {
-                // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-                // <https://github.com/EspressoSystems/HotShot/issues/2115>
-                Ok(encoded) => encoded.into_iter().collect(),
+            let encoded_txns = match payload.encode() {
+                Ok(encoded) => encoded,
                 Err(e) => {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
 
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
+            saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(&encoded_txns));
         }
 
-        let start_view = initializer.start_view;
-
         let consensus = Consensus {
-            instance_state,
             validated_state_map,
             vid_shares: BTreeMap::new(),
-            cur_view: start_view,
+            cur_view: anchored_leaf.get_view_number(),
             last_decided_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
@@ -245,9 +296,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
 
-        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
-
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
         external_tx.set_await_active(false);
@@ -255,15 +303,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
             consensus,
+            instance_state: Arc::new(instance_state),
             public_key,
             private_key,
             config,
             version,
+            start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            _metrics: Arc::clone(&consensus_metrics),
+            metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, external_rx.deactivate()),
+            output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
         });
 
@@ -276,15 +326,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
         debug!("Starting Consensus");
+        let consensus = self.consensus.read().await;
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(0))))
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
             .await
             .expect("Genesis Broadcast failed");
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                QuorumCertificate::genesis(),
+                consensus.high_qc.clone(),
             ))))
             .await
             .expect("Genesis Broadcast failed");
@@ -353,6 +404,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
         Arc::clone(&self.consensus)
+    }
+
+    /// Returns a copy of the instance state
+    pub fn get_instance_state(&self) -> Arc<TYPES::InstanceState> {
+        self.instance_state.clone()
     }
 
     /// Returns a copy of the last decided leaf
@@ -704,13 +760,13 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         Ok(Self {
             inner: Leaf::genesis(&instance_state),
-            instance_state,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(),
+            high_qc: QuorumCertificate::genesis(&instance_state),
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
+            instance_state,
         })
     }
 

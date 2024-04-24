@@ -13,7 +13,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
-    event::{Event, EventType, LeafInfo},
+    event::{Event, EventType},
     message::GeneralConsensusMessage,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
@@ -84,14 +84,16 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                         payload_commitment = Some(proposal_payload_comm);
                     }
                     let parent_commitment = parent_leaf.commit();
-                    let mut proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    proposed_leaf.set_parent_commitment(parent_commitment);
+                    let proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                    if proposed_leaf.get_parent_commitment() != parent_commitment {
+                        return;
+                    }
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DACertificateValidated(cert) => {
                     let cert_payload_comm = cert.get_data().payload_commit;
                     if let Some(comm) = payload_commitment {
-                        if !cert.is_genesis && cert_payload_comm != comm {
+                        if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
@@ -174,6 +176,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Latest view number that has been voted for.
     pub latest_voted_view: TYPES::Time,
@@ -306,7 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             VoteDependencyHandle {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                storage: Arc::clone(&self.storage),
+                storage: self.storage.clone(),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -377,31 +382,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
                 let consensus = self.consensus.upgradable_read().await;
                 // Get the parent leaf and state.
-                let parent = if justify_qc.is_genesis {
-                    // Send the `Decide` event for the genesis block if the justify QC is genesis.
-                    let leaf = Leaf::genesis(&consensus.instance_state);
-                    let (validated_state, state_delta) =
-                        TYPES::ValidatedState::genesis(&consensus.instance_state);
-                    let state = Arc::new(validated_state);
-                    broadcast_event(
-                        Event {
-                            view_number: TYPES::Time::genesis(),
-                            event: EventType::Decide {
-                                leaf_chain: Arc::new(vec![LeafInfo::new(
-                                    leaf.clone(),
-                                    Arc::clone(&state),
-                                    Some(Arc::new(state_delta)),
-                                    None,
-                                )]),
-                                qc: Arc::new(justify_qc.clone()),
-                                block_size: None,
-                            },
-                        },
-                        &self.output_event_stream,
-                    )
-                    .await;
-                    Some((leaf, state))
-                } else {
+                let parent = {
                     match consensus
                         .saved_leaves
                         .get(&justify_qc.get_data().leaf_commit)
@@ -411,7 +392,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                             if let (Some(state), _) =
                                 consensus.get_state_and_delta(leaf.get_view_number())
                             {
-                                Some((leaf, Arc::clone(&state)))
+                                Some((leaf, state.clone()))
                             } else {
                                 error!("Parent state not found! Consensus internally inconsistent");
                                 return;
@@ -487,7 +468,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 // Validate the state.
                 let Ok((validated_state, state_delta)) = parent_state
                     .validate_and_apply_header(
-                        &self.consensus.read().await.instance_state,
+                        self.instance_state.as_ref(),
                         &parent_leaf,
                         &proposal.data.block_header.clone(),
                     )
@@ -500,8 +481,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let delta = Arc::new(state_delta);
                 let parent_commitment = parent_leaf.commit();
                 let view = proposal.data.get_view_number();
-                let mut proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-                proposed_leaf.set_parent_commitment(parent_commitment);
+                let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+                if proposed_leaf.get_parent_commitment() != parent_commitment {
+                    return;
+                }
 
                 // Validate the signature. This should also catch if `leaf_commitment`` does not
                 // equal our calculated parent commitment.
@@ -579,8 +562,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: proposed_leaf.commit(),
-                            state: Arc::clone(&state),
-                            delta: Some(Arc::clone(&delta)),
+                            state: state.clone(),
+                            delta: Some(delta.clone()),
                         },
                     },
                 );
