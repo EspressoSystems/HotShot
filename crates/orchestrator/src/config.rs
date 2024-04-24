@@ -730,6 +730,7 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<ValidatorConfigFile> for HotShot
 
 impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
     fn default() -> Self {
+        // The default number of nodes is 5
         let staked_committee_nodes: usize = 5;
 
         // Aggregate the DA nodes
