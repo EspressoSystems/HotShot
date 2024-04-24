@@ -1,9 +1,11 @@
 #![cfg(feature = "dependency-tasks")]
 
+use crate::helpers::broadcast_event;
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    consensus::proposal_helpers::handle_quorum_proposal_recv, events::HotShotEvent,
+    consensus::proposal_helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
+    events::HotShotEvent,
     helpers::cancel_task,
 };
 use async_broadcast::Sender;
@@ -21,10 +23,11 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    vote::{HasViewNumber, VoteDependencyData},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.
@@ -124,22 +127,62 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         self.current_proposal = Some(current_proposal);
 
                         // Build the parent leaf since we didn't find it during the proposal check.
-                        let consensus = self.consensus.read().await;
+                        let parent_leaf = match get_parent_leaf_and_state(
+                            self.cur_view,
+                            proposal.data.get_view_number() + 1,
+                            self.quorum_membership.clone(),
+                            self.public_key.clone(),
+                            self.consensus.clone(),
+                        )
+                        .await
+                        {
+                            Ok((parent_leaf, _ /* state */)) => parent_leaf,
+                            Err(e) => {
+                                warn!(?e, "Failed to get parent leaf and state");
+                                return;
+                            }
+                        };
 
                         // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
-                        // broadcast_event(
-                        //     Arc::new(HotShotEvent::VoteNow(
-                        //         proposal.data.get_view_number() + 1,
-                        //         VoteDependencyData {
-                        //             quorum_proposal: current_proposal,
-                        //         },
-                        //     )),
-                        //     &event_stream,
-                        // )
-                        // .await;
-                        // if self.vote_if_able(&event_stream).await {
-                        //     self.current_proposal = None;
-                        // }
+                        let view = current_proposal.get_view_number();
+                        let Some(vid_shares) = self.consensus.read().await.vid_shares.get(&view)
+                        else {
+                            debug!(
+                                "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
+                                current_proposal.view_number
+                            );
+                            return;
+                        };
+                        let Some(disperse_share) = vid_shares.get(&self.public_key) else {
+                            error!("Did not get a VID share for our public key, aborting vote");
+                            return;
+                        };
+                        let Some(da_cert) = self
+                            .consensus
+                            .read()
+                            .await
+                            .saved_da_certs
+                            .get(&current_proposal.get_view_number())
+                        else {
+                            debug!(
+                                "Received VID share, but couldn't find DAC cert for view {:?}",
+                                current_proposal.get_view_number()
+                            );
+                            return;
+                        };
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VoteNow(
+                                view,
+                                VoteDependencyData {
+                                    quorum_proposal: current_proposal,
+                                    leaf: parent_leaf,
+                                    disperse_share: disperse_share.clone(),
+                                    da_cert: da_cert.clone(),
+                                },
+                            )),
+                            &event_stream,
+                        )
+                        .await;
                     }
                     Ok(None) => {}
                     Err(e) => warn!(?e, "Failed to propose"),

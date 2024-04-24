@@ -568,7 +568,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 #[cfg(feature = "dependency-tasks")]
-type TempraryProposalCombinedType<TYPES, I, A> = QuorumProposalRecvTaskState<TYPES, I>;
+type TempraryProposalCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
 
 /// TODO: doc
 #[cfg(not(feature = "dependency-tasks"))]
@@ -579,15 +579,11 @@ type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_lines)]
-pub async fn handle_quorum_proposal_recv<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I>,
->(
+pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut TempraryProposalCombinedType<TYPES, I, A>,
+    task_state: &mut TempraryProposalCombinedType<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
