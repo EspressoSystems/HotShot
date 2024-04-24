@@ -401,12 +401,12 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         let mut da_keys = BTreeSet::new();
 
         // Make a node DA if it is under the staked committee size
-        for (_, node) in config.config.known_da_nodes.into_iter().enumerate() {
+        for node in config.config.known_da_nodes {
             da_keys.insert(K::get_public_key(&node.stake_table_entry));
         }
 
         // Insert all known nodes into the set of all keys
-        for (_, node) in config.config.known_nodes_with_stake.into_iter().enumerate() {
+        for node in config.config.known_nodes_with_stake {
             all_keys.insert(K::get_public_key(&node.stake_table_entry));
         }
 
