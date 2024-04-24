@@ -1,3 +1,5 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{

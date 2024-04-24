@@ -1,6 +1,14 @@
 use core::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 
+use super::ConsensusTaskState;
+#[cfg(feature = "dependency-tasks")]
+use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
+use crate::{
+    consensus::update_view,
+    events::HotShotEvent,
+    helpers::{broadcast_event, AnyhowTracing},
+};
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -32,14 +40,6 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
-
-use super::ConsensusTaskState;
-use crate::{
-    consensus::update_view,
-    events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
-    quorum_proposal_recv::QuorumProposalRecvTaskState,
-};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -570,6 +570,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 #[cfg(feature = "dependency-tasks")]
 type TempraryProposalCombinedType<TYPES, I, A> = QuorumProposalRecvTaskState<TYPES, I>;
 
+/// TODO: doc
 #[cfg(not(feature = "dependency-tasks"))]
 type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>;
 
