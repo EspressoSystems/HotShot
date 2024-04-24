@@ -149,7 +149,7 @@ debug = 0
 
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
-opt-level = 0
+opt-level = 1
 strip = true
 debug = 0
 
