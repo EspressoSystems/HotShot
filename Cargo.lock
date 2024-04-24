@@ -3433,6 +3433,7 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
+ "cdn-proto",
  "committable",
  "custom_debug",
  "derivative",
