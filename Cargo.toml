@@ -134,6 +134,7 @@ anyhow = "1"
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.1" }
 
 ### Profiles
 ###
@@ -148,7 +149,7 @@ debug = 0
 
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
-opt-level = 1
+opt-level = 0
 strip = true
 debug = 0
 
