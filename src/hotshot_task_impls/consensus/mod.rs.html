@@ -1033,18 +1033,6 @@
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
-<a href="#1038" id="1038">1038</a>
-<a href="#1039" id="1039">1039</a>
-<a href="#1040" id="1040">1040</a>
-<a href="#1041" id="1041">1041</a>
-<a href="#1042" id="1042">1042</a>
-<a href="#1043" id="1043">1043</a>
-<a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -1068,7 +1056,6 @@
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -1113,11 +1100,7 @@
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-</span><span class="kw">pub struct </span>ConsensusTaskState&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>,
-&gt; {
+</span><span class="kw">pub struct </span>ConsensusTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
@@ -1150,9 +1133,6 @@
 
     <span class="doccomment">/// Membership for DA committee Votes/certs
     </span><span class="kw">pub </span>committee_membership: Arc&lt;TYPES::Membership&gt;,
-
-    <span class="doccomment">/// Consensus api
-    </span><span class="kw">pub </span>api: A,
 
     <span class="doccomment">/// Current Vote collection task, with it's view.
     </span><span class="kw">pub </span>vote_collector:
@@ -1201,9 +1181,7 @@
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt;
-    ConsensusTaskState&lt;TYPES, I, A&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ConsensusTaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
     </span><span class="kw">async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
         <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
@@ -2054,9 +2032,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, A: ConsensusApi&lt;TYPES, I&gt; + <span class="lifetime">'static</span>&gt; TaskState
-    <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, A&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I&gt; {
     <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
     <span class="kw">type </span>Output = ();
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {

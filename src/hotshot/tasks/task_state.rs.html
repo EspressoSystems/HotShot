@@ -267,9 +267,6 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -448,11 +445,9 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>create_from(
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; ConsensusTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; ConsensusTaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
 
         ConsensusTaskState {
@@ -462,7 +457,6 @@
             round_start_delay: handle.hotshot.config.round_start_delay,
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
             payload_commitment_and_metadata: <span class="prelude-val">None</span>,
-            api: handle.clone(),
             vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_task: <span class="prelude-val">None</span>,
