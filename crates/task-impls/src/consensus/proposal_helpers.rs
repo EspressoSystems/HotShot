@@ -589,11 +589,11 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
-/// TODO: doc
+/// TEMPORARY TYPE: Quorum proposal recv task state when using dependency tasks
 #[cfg(feature = "dependency-tasks")]
 type TemporaryProposalRecvCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
 
-/// TODO: doc
+/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
 #[cfg(not(feature = "dependency-tasks"))]
 type TemporaryProposalRecvCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
 
@@ -815,11 +815,11 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     Ok(None)
 }
 
-/// TODO: doc
+/// TEMPORARY TYPE: Quorum proposal task state when using dependency tasks
 #[cfg(feature = "dependency-tasks")]
 type TemporaryProposalValidatedCombinedType<TYPES, I> = QuorumProposalTaskState<TYPES, I>;
 
-/// TODO: doc
+/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
 #[cfg(not(feature = "dependency-tasks"))]
 type TemporaryProposalValidatedCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
 
