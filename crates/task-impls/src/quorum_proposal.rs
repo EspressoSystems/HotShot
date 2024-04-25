@@ -1,13 +1,12 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_compatibility_layer::art::async_sleep;
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use committable::Committable;
 use either::Either;
-use futures::future::FutureExt;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -18,7 +17,6 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal},
     event::Event,
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -34,11 +32,8 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
-    consensus::{
-        proposal_helpers::validate_proposal_safety_and_liveness, view_change::update_view,
-    },
     events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task, AnyhowTracing},
+    helpers::{broadcast_event, cancel_task},
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
