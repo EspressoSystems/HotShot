@@ -122,12 +122,6 @@ impl<
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
                 if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
                     debug!("Not next leader for view {:?}", self.cur_view);
-                    // unsubscribe from transactions for the next view
-                    broadcast_event(
-                        Arc::new(HotShotEvent::UnsubscribeTransactions),
-                        &event_stream,
-                    )
-                    .await;
                     return None;
                 }
                 let block_view = if make_block { view } else { view + 1 };
@@ -205,6 +199,13 @@ impl<
                     )
                     .await;
                 };
+
+                // unsubscribe from transactions for the next view
+                broadcast_event(
+                    Arc::new(HotShotEvent::UnsubscribeTransactions),
+                    &event_stream,
+                )
+                .await;
 
                 return None;
             }
