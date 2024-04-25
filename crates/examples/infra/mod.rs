@@ -1080,7 +1080,7 @@ pub async fn main_entry_point<
 
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
-    let hotshot = run.initialize_state_and_hotshot().await;
+    let mut hotshot = run.initialize_state_and_hotshot().await;
 
     if let Some(task) = builder_task {
         task.start(Box::new(hotshot.get_event_stream()));
