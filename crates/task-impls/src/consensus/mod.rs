@@ -306,6 +306,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         false
     }
 
+    #[cfg(feature = "dependency-tasks")]
+    async fn publish_proposal(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    #[cfg(not(feature = "dependency-tasks"))]
     /// Publishes a proposal
     async fn publish_proposal(
         &mut self,
@@ -742,7 +752,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
-                    #[cfg(not(feature = "dependency-tasks"))]
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         warn!("Failed to propose; error = {e:?}");
                     };
@@ -754,7 +763,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             if self.quorum_membership.get_leader(tc.get_view_number() + 1)
                                 == self.public_key
                             {
-                                #[cfg(not(feature = "dependency-tasks"))]
                                 if let Err(e) = self.publish_proposal(view, event_stream).await {
                                     warn!("Failed to propose; error = {e:?}");
                                 };
@@ -764,7 +772,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             if self.quorum_membership.get_leader(vsc.get_view_number())
                                 == self.public_key
                             {
-                                #[cfg(not(feature = "dependency-tasks"))]
                                 if let Err(e) = self.publish_proposal(view, event_stream).await {
                                     warn!("Failed to propose; error = {e:?}");
                                 };
@@ -799,7 +806,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         *certificate.view_number
                     );
 
-                    #[cfg(not(feature = "dependency-tasks"))]
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
                         warn!("Failed to propose; error = {e:?}");
                     };
