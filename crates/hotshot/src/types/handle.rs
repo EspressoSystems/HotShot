@@ -27,7 +27,11 @@ use crate::{traits::NodeImplementation, types::Event, SystemContext};
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
-    pub(crate) output_event_stream: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    #[allow(clippy::type_complexity)]
+    pub(crate) output_event_stream: (
+        Sender<Event<TYPES>>,
+        either::Either<Receiver<Event<TYPES>>, InactiveReceiver<Event<TYPES>>>,
+    ),
 
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
@@ -47,8 +51,18 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// obtains a stream to expose to the user
-    pub fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
-        self.output_event_stream.1.clone()
+    pub fn get_event_stream(&mut self) -> impl Stream<Item = Event<TYPES>> {
+        match &self.output_event_stream.1 {
+            either::Left(receiver) => {
+                let active_receiver = receiver.clone();
+                let inactive_receiver = receiver.clone().deactivate();
+                self.output_event_stream.1 = either::Right(inactive_receiver);
+
+                active_receiver
+            }
+
+            either::Right(inactive_receiver) => inactive_receiver.activate_cloned(),
+        }
     }
 
     /// HACK so we can know the types when running tests...
@@ -56,8 +70,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     #[must_use]
-    pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
-        self.output_event_stream.1.clone()
+    pub fn get_event_stream_known_impl(&mut self) -> Receiver<Event<TYPES>> {
+        match &self.output_event_stream.1 {
+            either::Left(receiver) => {
+                let active_receiver = receiver.clone();
+                let inactive_receiver = receiver.clone().deactivate();
+                self.output_event_stream.1 = either::Right(inactive_receiver);
+
+                active_receiver
+            }
+
+            either::Right(inactive_receiver) => inactive_receiver.activate_cloned(),
+        }
     }
 
     /// HACK so we can know the types when running tests...

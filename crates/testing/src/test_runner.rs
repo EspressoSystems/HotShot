@@ -158,11 +158,11 @@ where
         let mut event_rxs = vec![];
         let mut internal_event_rxs = vec![];
 
-        for node in &self.nodes {
+        for node in &mut self.nodes {
             let r = node.handle.get_event_stream_known_impl();
             event_rxs.push(r);
         }
-        for node in &self.nodes {
+        for node in &mut self.nodes {
             let r = node.handle.get_internal_event_stream_known_impl();
             internal_event_rxs.push(r);
         }
@@ -418,7 +418,7 @@ where
                         },
                     );
                 } else {
-                    let handle = hotshot.run_tasks().await;
+                    let mut handle = hotshot.run_tasks().await;
                     if node_id == 1 {
                         if let Some(task) = builder_task.take() {
                             task.start(Box::new(handle.get_event_stream()))
