@@ -701,6 +701,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 
 pub mod null_block {
     #![allow(missing_docs)]
+    use std::sync::Arc;
+
     use jf_primitives::vid::VidScheme;
     use memoize::memoize;
 
@@ -733,7 +735,9 @@ pub mod null_block {
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        state: <<TYPES as crate::traits::node_implementation::NodeType>::BlockPayload as crate::traits::block_contents::BlockPayload>::Instance,
+        state: Arc<
+            <TYPES::BlockPayload as crate::traits::block_contents::BlockPayload>::InstanceState,
+        >,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
