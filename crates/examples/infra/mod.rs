@@ -456,7 +456,7 @@ pub trait RunDA<
     #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
-        context: SystemContextHandle<TYPES, NODE>,
+        mut context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
