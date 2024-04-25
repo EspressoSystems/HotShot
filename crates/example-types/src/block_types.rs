@@ -121,7 +121,7 @@ impl BlockPayload for TestBlockPayload {
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        state: Arc<dyn InstanceState>,
+        _state: Arc<dyn InstanceState>,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
         Ok((
