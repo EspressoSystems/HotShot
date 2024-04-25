@@ -518,25 +518,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     debug!("Decided txns len {:?}", included_txns_set.len());
                     decide_sent.await;
                     debug!("decide send succeeded");
+                }
 
-                    drop(consensus);
+                #[cfg(not(feature = "dependency-tasks"))]
+                let new_view = self.current_proposal.clone().unwrap().view_number + 1;
+                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                #[cfg(not(feature = "dependency-tasks"))]
+                let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
+                    && consensus.high_qc.view_number
+                        == self.current_proposal.clone().unwrap().view_number;
+                // todo get rid of this clone
+                #[cfg(not(feature = "dependency-tasks"))]
+                let qc = consensus.high_qc.clone();
+
+                drop(consensus);
+                if new_decide_reached {
                     self.cancel_tasks(new_anchor_view).await;
                 }
 
                 #[cfg(not(feature = "dependency-tasks"))]
                 {
-                    let new_view = self.current_proposal.clone().unwrap().view_number + 1;
-
-                    // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                    let should_propose = self.quorum_membership.get_leader(new_view)
-                        == self.public_key
-                        && consensus.high_qc.view_number
-                            == self.current_proposal.clone().unwrap().view_number;
-
-                    // todo get rid of this clone
-                    let qc = consensus.high_qc.clone();
-
                     if should_propose {
                         debug!(
                             "Attempting to publish proposal after voting; now in view: {}",
