@@ -731,7 +731,10 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>(
+        num_storage_nodes: usize,
+        state: &<<TYPES as crate::traits::node_implementation::NodeType>::BlockPayload as crate::traits::block_contents::BlockPayload>::Instance,
+    ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
@@ -741,7 +744,7 @@ pub mod null_block {
             );
 
         let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload>::from_transactions([]).ok()?;
+            <TYPES::BlockPayload as BlockPayload>::from_transactions([], state).ok()?;
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,

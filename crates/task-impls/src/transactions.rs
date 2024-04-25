@@ -92,6 +92,7 @@ impl<
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+        state: &<<TYPES as crate::traits::node_implementation::NodeType>::BlockPayload as crate::traits::block_contents::BlockPayload>::Instance,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
@@ -170,7 +171,8 @@ impl<
                         .add(1);
 
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(self.membership.total_nodes())
+                    let Some(builder_fee) =
+                        null_block::builder_fee(self.membership.total_nodes(), state)
                     else {
                         error!("Failed to get builder fee");
                         return None;
@@ -178,7 +180,7 @@ impl<
 
                     // Create an empty block payload and metadata
                     let Ok((_, metadata)) =
-                        <TYPES as NodeType>::BlockPayload::from_transactions(vec![])
+                        <TYPES as NodeType>::BlockPayload::from_transactions(vec![], state)
                     else {
                         error!("Failed to create empty block payload");
                         return None;
