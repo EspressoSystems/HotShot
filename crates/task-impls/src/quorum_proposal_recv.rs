@@ -93,6 +93,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
+
     /// The node's id
     pub id: u64,
 }

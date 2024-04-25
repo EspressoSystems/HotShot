@@ -586,7 +586,7 @@ type TempraryProposalCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES,
 
 /// TODO: doc
 #[cfg(not(feature = "dependency-tasks"))]
-type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>;
+type TempraryProposalCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
 
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
