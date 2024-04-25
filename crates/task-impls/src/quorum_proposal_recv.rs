@@ -6,13 +6,11 @@ use std::{collections::BTreeMap, sync::Arc};
 use crate::{
     consensus::proposal_helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
     events::HotShotEvent,
-    helpers::cancel_task,
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
@@ -20,7 +18,7 @@ use hotshot_types::{
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::{HasViewNumber, VoteDependencyData},
@@ -102,18 +100,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
 #[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
-    /// Cancel all tasks that have been spawned before the provided view.
-    async fn cancel_tasks(&mut self, view: TYPES::Time) {
-        let keep = self.spawned_tasks.split_off(&view);
-        let mut cancel = Vec::new();
-        while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
-            let mut to_cancel = tasks.into_iter().map(cancel_task).collect();
-            cancel.append(&mut to_cancel);
-        }
-        self.spawned_tasks = keep;
-        join_all(cancel).await;
-    }
-
     /// Handles all consensus events relating to propose and vote-enabling events.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
     pub async fn handle(
