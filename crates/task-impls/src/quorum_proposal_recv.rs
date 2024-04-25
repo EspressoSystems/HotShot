@@ -84,10 +84,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// most recent decided upgrade certificate
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
-    /// The most recent proposal we have, will correspond to the current view if Some()
-    /// Will be none if the view advanced through timeout/view_sync
-    pub current_proposal: Option<QuorumProposal<TYPES>>,
-
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
