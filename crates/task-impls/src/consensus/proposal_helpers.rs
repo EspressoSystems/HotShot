@@ -851,7 +851,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let old_anchor_view = consensus.last_decided_view;
     let parent_view = proposal.justify_qc.get_view_number();
     let mut current_chain_length = 0usize;
-
     if parent_view + 1 == view {
         current_chain_length += 1;
         if let Err(e) = consensus.visit_leaf_ancestors(
