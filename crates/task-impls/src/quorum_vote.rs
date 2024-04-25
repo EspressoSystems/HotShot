@@ -175,6 +175,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
+
     /// Latest view number that has been voted for.
     pub latest_voted_view: TYPES::Time,
 

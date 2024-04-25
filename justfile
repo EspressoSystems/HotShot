@@ -181,6 +181,11 @@ fmt_lint:
   cargo fmt
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
+fmt_lint_dependency: 
+  echo Formatting and linting
+  cargo fmt
+  cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
+
 careful:
   echo Careful-ing with tokio executor
   cargo careful test --verbose --profile careful --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture

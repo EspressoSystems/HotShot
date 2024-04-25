@@ -3,25 +3,35 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
+use crate::{
+    consensus::view_change::update_view,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
+#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use chrono::Utc;
+#[cfg(not(feature = "dependency-tasks"))]
 use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -33,6 +43,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::{data::Leaf, message::Proposal};
+#[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{
     data::{null_block, VidDisperseShare},
     message::GeneralConsensusMessage,
@@ -42,19 +54,6 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
-
-use crate::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
-
 /// Helper functions to handler proposal-related functionality.
 pub(crate) mod proposal_helpers;
 
@@ -66,17 +65,15 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-pub struct ConsensusTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
+pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Our public key
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
     /// View timeout from config.
     pub timeout: u64,
     /// Round start delay from config, in milliseconds.
@@ -101,9 +98,6 @@ pub struct ConsensusTaskState<
 
     /// Membership for DA committee Votes/certs
     pub committee_membership: Arc<TYPES::Membership>,
-
-    /// Consensus api
-    pub api: A,
 
     /// Current Vote collection task, with it's view.
     pub vote_collector:
@@ -152,9 +146,7 @@ pub struct ConsensusTaskState<
     pub storage: Arc<RwLock<I::Storage>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    ConsensusTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
     /// Cancel all tasks the consensus tasks has spawned before the given view
     async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);
@@ -165,12 +157,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         }
         self.spawned_tasks = keep;
         join_all(cancel).await;
-    }
-
-    /// Ignores old vote behavior and lets `QuorumVoteTask` take over.
-    #[cfg(feature = "dependency-tasks")]
-    async fn vote_if_able(&mut self, _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
-        false
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
@@ -328,15 +314,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
         false
     }
 
-    #[cfg(feature = "dependency-tasks")]
-    async fn publish_proposal(
-        &mut self,
-        _view: TYPES::Time,
-        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<()> {
-        Ok(())
-    }
-
     /// Publishes a proposal
     #[cfg(not(feature = "dependency-tasks"))]
     async fn publish_proposal(
@@ -357,6 +334,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             self.decided_upgrade_cert.clone(),
             &mut self.payload_commitment_and_metadata,
             &mut self.proposal_cert,
+            self.instance_state.clone(),
         )
         .await?;
 
@@ -542,34 +520,41 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     debug!("decide send succeeded");
                 }
 
+                #[cfg(not(feature = "dependency-tasks"))]
                 let new_view = self.current_proposal.clone().unwrap().view_number + 1;
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                #[cfg(not(feature = "dependency-tasks"))]
                 let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
                     && consensus.high_qc.view_number
                         == self.current_proposal.clone().unwrap().view_number;
                 // todo get rid of this clone
+                #[cfg(not(feature = "dependency-tasks"))]
                 let qc = consensus.high_qc.clone();
 
                 drop(consensus);
                 if new_decide_reached {
                     self.cancel_tasks(new_anchor_view).await;
                 }
-                if should_propose {
-                    debug!(
-                        "Attempting to publish proposal after voting; now in view: {}",
-                        *new_view
-                    );
-                    if let Err(e) = self
-                        .publish_proposal(qc.view_number + 1, event_stream.clone())
-                        .await
-                    {
-                        warn!("Failed to propose; error = {e:?}");
-                    };
-                }
 
-                if !self.vote_if_able(&event_stream).await {
-                    return;
+                #[cfg(not(feature = "dependency-tasks"))]
+                {
+                    if should_propose {
+                        debug!(
+                            "Attempting to publish proposal after voting; now in view: {}",
+                            *new_view
+                        );
+                        if let Err(e) = self
+                            .publish_proposal(qc.view_number + 1, event_stream.clone())
+                            .await
+                        {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
+                    }
+
+                    if !self.vote_if_able(&event_stream).await {
+                        return;
+                    }
                 }
                 self.current_proposal = None;
             }
@@ -682,6 +667,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             *qc.view_number
                         );
 
+                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -711,6 +697,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                             *qc.view_number
                         );
 
+                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -833,6 +820,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
 
+                if let Some(commitment_and_metadata) = &self.payload_commitment_and_metadata {
+                    if commitment_and_metadata.block_view < old_view_number {
+                        self.payload_commitment_and_metadata = None;
+                    }
+                }
+
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
@@ -849,7 +842,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e:?}");
                     return;
                 }
 
@@ -937,33 +930,40 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                     fee: fee.clone(),
+                    block_view: view,
                 });
-                if self.quorum_membership.get_leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
-                {
-                    if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
-                        warn!("Failed to propose; error = {e:?}");
-                    };
-                }
 
-                if let Some(cert) = &self.proposal_cert {
-                    match cert {
-                        ViewChangeEvidence::Timeout(tc) => {
-                            if self.quorum_membership.get_leader(tc.get_view_number() + 1)
-                                == self.public_key
-                            {
-                                if let Err(e) = self.publish_proposal(view, event_stream).await {
-                                    warn!("Failed to propose; error = {e:?}");
-                                };
+                #[cfg(not(feature = "dependency-tasks"))]
+                {
+                    if self.quorum_membership.get_leader(view) == self.public_key
+                        && self.consensus.read().await.high_qc.get_view_number() + 1 == view
+                    {
+                        if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
+                    }
+
+                    if let Some(cert) = &self.proposal_cert {
+                        match cert {
+                            ViewChangeEvidence::Timeout(tc) => {
+                                if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                                    == self.public_key
+                                {
+                                    if let Err(e) = self.publish_proposal(view, event_stream).await
+                                    {
+                                        warn!("Failed to propose; error = {e:?}");
+                                    };
+                                }
                             }
-                        }
-                        ViewChangeEvidence::ViewSync(vsc) => {
-                            if self.quorum_membership.get_leader(vsc.get_view_number())
-                                == self.public_key
-                            {
-                                if let Err(e) = self.publish_proposal(view, event_stream).await {
-                                    warn!("Failed to propose; error = {e:?}");
-                                };
+                            ViewChangeEvidence::ViewSync(vsc) => {
+                                if self.quorum_membership.get_leader(vsc.get_view_number())
+                                    == self.public_key
+                                {
+                                    if let Err(e) = self.publish_proposal(view, event_stream).await
+                                    {
+                                        warn!("Failed to propose; error = {e:?}");
+                                    };
+                                }
                             }
                         }
                     }
@@ -987,16 +987,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     ))
                     .await;
 
-                let view = certificate.view_number;
+                #[cfg(not(feature = "dependency-tasks"))]
+                {
+                    let view = certificate.view_number;
 
-                if self.quorum_membership.get_leader(view) == self.public_key {
-                    debug!(
+                    if self.quorum_membership.get_leader(view) == self.public_key {
+                        debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
-                    if let Err(e) = self.publish_proposal(view, event_stream).await {
-                        warn!("Failed to propose; error = {e:?}");
-                    };
+                        if let Err(e) = self.publish_proposal(view, event_stream).await {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
+                    }
                 }
             }
             _ => {}
@@ -1004,9 +1007,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for ConsensusTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
