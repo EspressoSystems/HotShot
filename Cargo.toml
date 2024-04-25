@@ -176,6 +176,7 @@ all = "warn"
 pedantic = "warn"
 missing_docs_in_private_items = "warn"
 panic = "warn"
+clone_on_ref_ptr = "warn"
 # allows
 doc_markdown = "allow"
 module_name_repetitions = "allow"
