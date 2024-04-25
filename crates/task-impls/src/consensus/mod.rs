@@ -384,7 +384,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    warn!(?e, "Failed to handle QuorumProposalValidated event");
+                    debug!(?e, "Failed to handle QuorumProposalValidated event");
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
