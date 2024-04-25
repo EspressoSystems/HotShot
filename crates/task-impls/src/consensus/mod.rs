@@ -377,14 +377,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         }
                     }
                     Ok(None) => {}
-                    Err(e) => warn!(?e, "Failed to propose"),
+                    Err(e) => warn!("Failed to propose {e:#}"),
                 }
             }
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    debug!(?e, "Failed to handle QuorumProposalValidated event");
+                    info!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
@@ -669,7 +669,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 )
                 .await
                 {
-                    tracing::trace!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e}");
                     return;
                 }
 
