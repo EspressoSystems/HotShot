@@ -581,14 +581,14 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
+/// Task state for handling quorum proposal when building with dependency tasks.
 #[cfg(feature = "dependency-tasks")]
 type TempraryProposalCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
 
-/// TODO: doc
+/// Task state for handling quorum proposal when building without dependency tasks.
 #[cfg(not(feature = "dependency-tasks"))]
-type TempraryProposalCombinedType<TYPES, I, A> = ConsensusTaskState<TYPES, I, A>;
+type TempraryProposalCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
 
-// TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.

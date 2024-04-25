@@ -292,10 +292,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
             metrics: consensus_metrics.clone(),
-            #[cfg(feature = "dependency-tasks")]
-            decided_upgrade_cert: None,
-            #[cfg(feature = "dependency-tasks")]
-            formed_upgrade_certificate: None,
+            // TODO: Why can't we include these fields when building with `dependency-tasks`?
+            // #[cfg(feature = "dependency-tasks")]
+            // decided_upgrade_cert: None,
+            // #[cfg(feature = "dependency-tasks")]
+            // formed_upgrade_certificate: None,
         };
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
