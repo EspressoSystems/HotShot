@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.40"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.43"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.65.0"
@@ -134,6 +134,7 @@ anyhow = "1"
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.2" }
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.2" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.2" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.2" }
 
 ### Profiles
 ###

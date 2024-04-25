@@ -21,7 +21,6 @@ use hotshot_types::{
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -66,11 +65,7 @@ type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYP
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-pub struct ConsensusTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
+pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Our public key
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
@@ -103,9 +98,6 @@ pub struct ConsensusTaskState<
 
     /// Membership for DA committee Votes/certs
     pub committee_membership: Arc<TYPES::Membership>,
-
-    /// Consensus api
-    pub api: A,
 
     /// Current Vote collection task, with it's view.
     pub vote_collector:
@@ -154,9 +146,7 @@ pub struct ConsensusTaskState<
     pub storage: Arc<RwLock<I::Storage>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    ConsensusTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
     /// Cancel all tasks the consensus tasks has spawned before the given view
     async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);
@@ -836,6 +826,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     }
                 }
 
+                if let Some(commitment_and_metadata) = &self.payload_commitment_and_metadata {
+                    if commitment_and_metadata.block_view < old_view_number {
+                        self.payload_commitment_and_metadata = None;
+                    }
+                }
+
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
@@ -852,7 +848,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 )
                 .await
                 {
-                    warn!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e:?}");
                     return;
                 }
 
@@ -940,6 +936,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
                     fee: fee.clone(),
+                    block_view: view,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
                     && self.consensus.read().await.high_qc.get_view_number() + 1 == view
@@ -1007,9 +1004,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for ConsensusTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {

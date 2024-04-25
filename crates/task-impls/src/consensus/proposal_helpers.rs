@@ -17,7 +17,6 @@ use hotshot_types::{
     simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
@@ -282,7 +281,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     if proposal.data.justify_qc.get_view_number() != view - 1 {
         let received_proposal_cert =
             proposal.data.proposal_certificate.clone().context(format!(
-"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
+                "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
                 *view
         ))?;
 
@@ -430,6 +429,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
                 builder_commitment,
                 metadata,
                 fee: null_block_fee,
+                block_view: view,
             },
             parent_leaf,
             state,
@@ -496,8 +496,13 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
     let cnm = commitment_and_metadata
-        .clone()
+        .take()
         .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
+
+    ensure!(
+        cnm.block_view == view,
+        "Cannot propose because our VID payload commitment and metadata is for an older view."
+    );
 
     let create_and_send_proposal_handle = async_spawn(async move {
         create_and_send_proposal(
@@ -580,15 +585,11 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_lines)]
-pub async fn handle_quorum_proposal_recv<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I>,
->(
+pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I, A>,
+    task_state: &mut ConsensusTaskState<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
