@@ -75,6 +75,8 @@ pub struct TransactionTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// InstanceState
+    pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
 }
@@ -92,7 +94,6 @@ impl<
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-        state: &<<TYPES as crate::traits::node_implementation::NodeType>::BlockPayload as crate::traits::block_contents::BlockPayload>::Instance,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
@@ -172,16 +173,17 @@ impl<
 
                     // Calculate the builder fee for the empty block
                     let Some(builder_fee) =
-                        null_block::builder_fee(self.membership.total_nodes(), state)
+                        null_block::builder_fee(self.membership.total_nodes(), self.instance_state)
                     else {
                         error!("Failed to get builder fee");
                         return None;
                     };
 
                     // Create an empty block payload and metadata
-                    let Ok((_, metadata)) =
-                        <TYPES as NodeType>::BlockPayload::from_transactions(vec![], state)
-                    else {
+                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
+                        vec![],
+                        self.instance_state,
+                    ) else {
                         error!("Failed to create empty block payload");
                         return None;
                     };
@@ -443,7 +445,9 @@ impl<
         task: &mut Task<Self>,
     ) -> Option<HotShotTaskCompleted> {
         let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await
+        task.state_mut()
+            .handle(event, sender, task.instance_state)
+            .await
     }
 
     fn should_shutdown(event: &Self::Event) -> bool {
