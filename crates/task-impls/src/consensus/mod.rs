@@ -158,12 +158,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         join_all(cancel).await;
     }
 
-    /// Ignores old vote behavior and lets `QuorumVoteTask` take over.
-    #[cfg(feature = "dependency-tasks")]
-    async fn vote_if_able(&mut self, _event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
-        false
-    }
-
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
     #[cfg(not(feature = "dependency-tasks"))]
     // Check if we are able to vote, like whether the proposal is valid,
@@ -317,15 +311,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
         }
         false
-    }
-
-    #[cfg(feature = "dependency-tasks")]
-    async fn publish_proposal(
-        &mut self,
-        _view: TYPES::Time,
-        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<()> {
-        Ok(())
     }
 
     /// Publishes a proposal
