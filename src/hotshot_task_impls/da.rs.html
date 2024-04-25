@@ -575,7 +575,7 @@
                     );
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="kw">let </span>txns = proposal.data.encoded_transactions.clone();
+                <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
                 <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes();
                 <span class="kw">let </span>payload_commitment =
                     spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
@@ -628,7 +628,7 @@
                     <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
-                        membership: <span class="self">self</span>.da_membership.clone(),
+                        membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership),
                         view: vote.get_view_number(),
                         id: <span class="self">self</span>.id,
                     };
@@ -642,7 +642,7 @@
                     <span class="kw">let </span>result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>event_stream)
+                        .handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await</span>;
 
                     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -717,7 +717,7 @@
                 };
 
                 <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
-                    encoded_transactions: encoded_transactions.clone(),
+                    encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
                     </span>view_number: view,

@@ -461,8 +461,8 @@
         // and so we don't implicitly rely on the same replica all the time.
         </span>recipients.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
         <span class="kw">let </span>requester = DelayedRequester::&lt;TYPES, I&gt; {
-            network: <span class="self">self</span>.network.clone(),
-            state: <span class="self">self</span>.state.clone(),
+            network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
+            state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
             sender,
             delay: <span class="self">self</span>.delay,
             recipients,

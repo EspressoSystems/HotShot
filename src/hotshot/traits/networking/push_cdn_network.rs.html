@@ -907,7 +907,7 @@
                         </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
                     });
 
-                    (client.clone(), client)
+                    (Arc::clone(<span class="kw-2">&amp;</span>client), client)
                 })
             }
         })

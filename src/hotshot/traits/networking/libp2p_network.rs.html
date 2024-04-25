@@ -1403,7 +1403,7 @@
                         .build()
                         .unwrap()
                 };
-                <span class="kw">let </span>bootstrap_addrs_ref = bootstrap_addrs.clone();
+                <span class="kw">let </span>bootstrap_addrs_ref = Arc::clone(<span class="kw-2">&amp;</span>bootstrap_addrs);
                 <span class="kw">let </span>keys = all_keys.clone();
                 <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
@@ -1429,7 +1429,7 @@
                             }
                         },
                     );
-                    (net.clone(), net)
+                    (Arc::clone(<span class="kw-2">&amp;</span>net), net)
                 })
             }
         })
@@ -1673,9 +1673,9 @@
         node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
         <span class="kw">_</span>: Ver,
     ) {
-        <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+        <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
-        <span class="kw">let </span>latest_seen_view = <span class="self">self</span>.inner.latest_seen_view.clone();
+        <span class="kw">let </span>latest_seen_view = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.latest_seen_view);
 
         <span class="comment">// deals with handling lookup queue. should be infallible
         </span>async_spawn(<span class="kw">async move </span>{
@@ -1704,15 +1704,15 @@
     <span class="doccomment">/// Initiates connection to the outside world
     </span><span class="kw">fn </span>spawn_connect&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, bind_version: VER) {
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.pk.clone();
-        <span class="kw">let </span>bootstrap_ref = <span class="self">self</span>.inner.bootstrap_addrs.clone();
-        <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
-        <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
+        <span class="kw">let </span>bootstrap_ref = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.bootstrap_addrs);
+        <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
+        <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
         <span class="kw">let </span>node_type = <span class="self">self</span>.inner.handle.config().node_type;
-        <span class="kw">let </span>metrics_connected_peers = <span class="self">self</span>.inner.clone();
+        <span class="kw">let </span>metrics_connected_peers = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
         <span class="kw">let </span>is_da = <span class="self">self</span>.inner.is_da;
 
         async_spawn({
-            <span class="kw">let </span>is_ready = <span class="self">self</span>.inner.is_ready.clone();
+            <span class="kw">let </span>is_ready = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_ready);
             <span class="kw">async move </span>{
                 <span class="kw">let </span>bs_addrs = bootstrap_ref.read().<span class="kw">await</span>.clone();
 
@@ -1854,7 +1854,7 @@
         <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver,
     ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
-        <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
+        <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>kill_switch) = network_rx.take_kill_switch() <span class="kw">else </span>{
                 <span class="macro">tracing::error!</span>(
@@ -1978,7 +1978,7 @@
         bind_version: VER,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(M, network::ResponseChannel&lt;M&gt;)&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>internal_rx = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take()<span class="question-mark">?</span>;
-        <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+        <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = mpsc::channel(<span class="number">100</span>);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">while let </span><span class="prelude-val">Some</span>((request, chan)) = internal_rx.next().<span class="kw">await </span>{
@@ -2063,7 +2063,7 @@
         </span>{
             <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
-                <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+                <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
 
                 <span class="kw">let </span>serialized_msg =
                     Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
@@ -2071,7 +2071,7 @@
                     serialized_msg,
                     Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                         <span class="kw">let </span>topic_2 = topic.clone();
-                        <span class="kw">let </span>handle_2 = handle.clone();
+                        <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
                             <span class="kw">match </span>handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
@@ -2178,14 +2178,14 @@
         </span>{
             <span class="kw">let </span>metrics = <span class="self">self</span>.inner.metrics.clone();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
-                <span class="kw">let </span>handle = <span class="self">self</span>.inner.handle.clone();
+                <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
 
                 <span class="kw">let </span>serialized_msg =
                     Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
                 <span class="kw">let </span>fut = config.clone().chaos_send_msg(
                     serialized_msg,
                     Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
-                        <span class="kw">let </span>handle_2 = handle.clone();
+                        <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
                             <span class="kw">match </span>handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{

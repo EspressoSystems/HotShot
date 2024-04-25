@@ -396,7 +396,7 @@
 ) {
     <span class="kw">let </span>state = NetworkRequestState::&lt;TYPES, I, Version01&gt;::create_from(handle).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -427,12 +427,12 @@
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     channel: Arc&lt;NET&gt;,
 ) {
-    <span class="kw">let </span>net = channel.clone();
+    <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span>channel);
     <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
         event_stream: event_stream.clone(),
     };
 
-    <span class="kw">let </span>network = net.clone();
+    <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
     <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
         <span class="kw">loop </span>{
@@ -477,7 +477,7 @@
         filter,
         storage,
     };
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), network_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), network_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -586,7 +586,7 @@
 
     inject_consensus_polls(<span class="kw-2">&amp;</span>consensus_state).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), consensus_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), consensus_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -598,7 +598,7 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     <span class="kw">let </span>vid_state = VIDTaskState::create_from(handle).<span class="kw">await</span>;
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), vid_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), vid_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -611,7 +611,7 @@
 ) {
     <span class="kw">let </span>upgrade_state = UpgradeTaskState::create_from(handle).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), upgrade_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), upgrade_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 <span class="doccomment">/// add the Data Availability task
@@ -624,7 +624,7 @@
     <span class="comment">// build the da task
     </span><span class="kw">let </span>da_state = DATaskState::create_from(handle).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), da_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), da_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -637,7 +637,7 @@
 ) {
     <span class="kw">let </span>transactions_state = TransactionTaskState::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Version01&gt;::create_from(handle).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), transactions_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), transactions_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -650,7 +650,7 @@
 ) {
     <span class="kw">let </span>view_sync_state = ViewSyncTaskState::create_from(handle).<span class="kw">await</span>;
 
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), view_sync_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), view_sync_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -663,7 +663,7 @@
 ) {
     <span class="kw">let </span>quorum_proposal_task_state = QuorumProposalTaskState::create_from(handle).<span class="kw">await</span>;
     inject_quorum_proposal_polls(<span class="kw-2">&amp;</span>quorum_proposal_task_state).<span class="kw">await</span>;
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), quorum_proposal_task_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), quorum_proposal_task_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 
@@ -675,7 +675,7 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     <span class="kw">let </span>quorum_vote_state = QuorumVoteTaskState::create_from(handle).<span class="kw">await</span>;
-    <span class="kw">let </span>task = Task::new(tx, rx, task_reg.clone(), quorum_vote_state);
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), quorum_vote_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

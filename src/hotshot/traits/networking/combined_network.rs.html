@@ -680,7 +680,7 @@
 
         <span class="kw">if </span>!primary_failed &amp;&amp; <span class="self">Self</span>::should_delay(<span class="kw-2">&amp;</span>message) {
             <span class="kw">let </span>duration = <span class="kw-2">*</span><span class="self">self</span>.delay_duration.read().<span class="kw">await</span>;
-            <span class="kw">let </span>primary_fail_counter = <span class="self">self</span>.primary_fail_counter.clone();
+            <span class="kw">let </span>primary_fail_counter = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.primary_fail_counter);
             <span class="self">self</span>.delayed_tasks
                 .write()
                 .<span class="kw">await
@@ -993,7 +993,7 @@
     }
 
     <span class="kw">fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: u64) {
-        <span class="kw">let </span>delayed_map = <span class="self">self</span>.delayed_tasks.clone();
+        <span class="kw">let </span>delayed_map = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.delayed_tasks);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>cancel_tasks = Vec::new();
             {

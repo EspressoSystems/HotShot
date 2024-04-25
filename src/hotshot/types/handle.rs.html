@@ -367,7 +367,7 @@
     /// historical data
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;I::Storage&gt;&gt; {
-        <span class="self">self</span>.storage.clone()
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage)
     }
 }
 </code></pre></div></section></main></body></html>

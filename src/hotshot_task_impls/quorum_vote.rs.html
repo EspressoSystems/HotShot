@@ -1049,7 +1049,7 @@
             VoteDependencyHandle {
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
-                storage: <span class="self">self</span>.storage.clone(),
+                storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -1130,7 +1130,7 @@
                             <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =
                                 consensus.get_state_and_delta(leaf.get_view_number())
                             {
-                                <span class="prelude-val">Some</span>((leaf, state.clone()))
+                                <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
                             } <span class="kw">else </span>{
                                 <span class="macro">error!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
                                 <span class="kw">return</span>;
@@ -1300,8 +1300,8 @@
                     View {
                         view_inner: ViewInner::Leaf {
                             leaf: proposed_leaf.commit(),
-                            state: state.clone(),
-                            delta: <span class="prelude-val">Some</span>(delta.clone()),
+                            state: Arc::clone(<span class="kw-2">&amp;</span>state),
+                            delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
                         },
                     },
                 );

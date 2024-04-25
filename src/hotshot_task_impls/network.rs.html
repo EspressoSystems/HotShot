@@ -964,8 +964,8 @@
         };
         <span class="kw">let </span>view = message.kind.get_view_number();
         <span class="kw">let </span>committee = membership.get_whole_committee(view);
-        <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
-        <span class="kw">let </span>storage = <span class="self">self</span>.storage.clone();
+        <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
+        <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>version = <span class="self">self</span>.version;
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, COMMCHANNEL, S&gt;::maybe_record_action(
@@ -1032,8 +1032,8 @@
             })
             .collect();
 
-        <span class="kw">let </span>net = <span class="self">self</span>.channel.clone();
-        <span class="kw">let </span>storage = <span class="self">self</span>.storage.clone();
+        <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
+        <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, COMMCHANNEL, S&gt;::maybe_record_action(
                 <span class="prelude-val">Some</span>(HotShotAction::VidDisperse),

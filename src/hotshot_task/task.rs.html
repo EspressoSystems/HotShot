@@ -653,7 +653,7 @@
         <span class="kw">let </span>task = Task {
             event_sender: <span class="self">self</span>.clone_sender(),
             event_receiver: <span class="self">self</span>.subscribe(),
-            registry: <span class="self">self</span>.registry.clone(),
+            registry: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.registry),
             state,
         };
         <span class="comment">// Note: await here is only awaiting the task to be added to the
@@ -868,7 +868,7 @@
         <span class="kw">let </span>task1 = Task::&lt;DummyHandle&gt; {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
-            registry: reg.clone(),
+            registry: Arc::clone(<span class="kw-2">&amp;</span>reg),
             state: DummyHandle::default(),
         };
         tx.broadcast(<span class="number">1</span>).<span class="kw">await</span>.unwrap();
@@ -897,7 +897,7 @@
         <span class="kw">let </span>task1 = Task::&lt;DummyHandle&gt; {
             event_sender: tx.clone(),
             event_receiver: rx.clone(),
-            registry: reg.clone(),
+            registry: Arc::clone(<span class="kw-2">&amp;</span>reg),
             state: DummyHandle::default(),
         };
         tx.broadcast(<span class="number">1</span>).<span class="kw">await</span>.unwrap();

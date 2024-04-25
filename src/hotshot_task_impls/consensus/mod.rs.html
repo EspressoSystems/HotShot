@@ -1382,16 +1382,16 @@
             <span class="self">self</span>.cur_view,
             view,
             event_stream,
-            <span class="self">self</span>.quorum_membership.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
-            <span class="self">self</span>.consensus.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
             <span class="self">self</span>.round_start_delay,
             <span class="self">self</span>.formed_upgrade_certificate.clone(),
             <span class="self">self</span>.decided_upgrade_cert.clone(),
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.payload_commitment_and_metadata,
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.proposal_cert,
-            <span class="self">self</span>.instance_state.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1507,7 +1507,7 @@
                                         .get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned().map(|prop| prop.data);
 
                                 <span class="comment">// Add our data into a new `LeafInfo`
-                                </span>leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
+                                </span>leaf_views.push(LeafInfo::new(leaf.clone(), Arc::clone(<span class="kw-2">&amp;</span>state), delta.clone(), vid_share));
                                 leafs_decided.push(leaf.clone());
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.get_block_payload() {
                                     <span class="kw">for </span>txn <span class="kw">in </span>payload
@@ -1631,7 +1631,7 @@
                     <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
-                        membership: <span class="self">self</span>.quorum_membership.clone(),
+                        membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                         view: vote.get_view_number(),
                         id: <span class="self">self</span>.id,
                     };
@@ -1645,7 +1645,7 @@
                     <span class="kw">let </span>result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>event_stream)
+                        .handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await</span>;
 
                     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -1677,7 +1677,7 @@
                     <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
-                        membership: <span class="self">self</span>.quorum_membership.clone(),
+                        membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                         view: vote.get_view_number(),
                         id: <span class="self">self</span>.id,
                     };
@@ -1691,7 +1691,7 @@
                     <span class="kw">let </span>result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), <span class="kw-2">&amp;</span>event_stream)
+                        .handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
                         .<span class="kw">await</span>;
 
                     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -1881,10 +1881,10 @@
                     <span class="self">self</span>.public_key.clone(),
                     new_view,
                     <span class="kw-2">&amp;</span>event_stream,
-                    <span class="self">self</span>.quorum_membership.clone(),
-                    <span class="self">self</span>.quorum_network.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_network),
                     <span class="self">self</span>.timeout,
-                    <span class="self">self</span>.consensus.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view,
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.timeout_task,
                 )

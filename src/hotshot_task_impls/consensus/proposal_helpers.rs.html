@@ -966,8 +966,8 @@
         View {
             view_inner: ViewInner::Leaf {
                 leaf: proposed_leaf.commit(),
-                state: state.clone(),
-                delta: <span class="prelude-val">Some</span>(delta.clone()),
+                state: Arc::clone(<span class="kw-2">&amp;</span>state),
+                delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
             },
         },
     );
@@ -1184,7 +1184,7 @@
         <span class="comment">// TODO do some sort of sanity check on the view number that it matches decided
     </span>}
 
-    <span class="prelude-val">Ok</span>((parent_leaf, state.clone()))
+    <span class="prelude-val">Ok</span>((parent_leaf, Arc::clone(state)))
 }
 
 <span class="doccomment">/// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is a special
@@ -1206,9 +1206,9 @@
     <span class="kw">let </span>(parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
         view,
-        quorum_membership.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
         public_key.clone(),
-        consensus.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>consensus),
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1242,7 +1242,7 @@
             <span class="prelude-val">Some</span>(upgrade_cert),
             <span class="prelude-val">None</span>,
             delay,
-            instance_state.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>instance_state),
         )
         .<span class="kw">await</span>;
     }))
@@ -1271,7 +1271,7 @@
         view,
         quorum_membership,
         public_key.clone(),
-        consensus.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>consensus),
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1323,7 +1323,7 @@
             proposal_upgrade_certificate,
             proposal_certificate,
             delay,
-            instance_state.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>instance_state),
         )
         .<span class="kw">await</span>;
     });
@@ -1435,10 +1435,10 @@
         task_state.public_key.clone(),
         view,
         <span class="kw-2">&amp;</span>event_stream,
-        task_state.quorum_membership.clone(),
-        task_state.quorum_network.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_network),
         task_state.timeout,
-        task_state.consensus.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
         <span class="kw-2">&amp;mut </span>task_state.cur_view,
         <span class="kw-2">&amp;mut </span>task_state.timeout_task,
     )
@@ -1457,7 +1457,7 @@
     {
         <span class="prelude-val">Some</span>(leaf) =&gt; {
             <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.get_state_and_delta(leaf.get_view_number()) {
-                <span class="prelude-val">Some</span>((leaf, state.clone()))
+                <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
             } <span class="kw">else </span>{
                 <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
             }
@@ -1555,16 +1555,16 @@
                     task_state.cur_view,
                     qc.view_number + <span class="number">1</span>,
                     event_stream,
-                    task_state.quorum_membership.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
                     task_state.public_key.clone(),
                     task_state.private_key.clone(),
-                    task_state.consensus.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
                     task_state.decided_upgrade_cert.clone(),
                     <span class="kw-2">&amp;mut </span>task_state.payload_commitment_and_metadata,
                     <span class="kw-2">&amp;mut </span>task_state.proposal_cert,
-                    task_state.instance_state.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1593,16 +1593,16 @@
             validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,
-                task_state.consensus.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
                 task_state.decided_upgrade_cert.clone(),
-                task_state.quorum_membership.clone(),
-                parent_state.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
+                Arc::clone(<span class="kw-2">&amp;</span>parent_state),
                 view_leader_key,
                 event_stream.clone(),
                 sender,
                 task_state.output_event_stream.clone(),
-                task_state.storage.clone(),
-                task_state.instance_state.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.storage),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
             )
             .map(AnyhowTracing::err_as_debug),
         ));

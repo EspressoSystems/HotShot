@@ -253,8 +253,8 @@
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
                 <span class="kw">let </span>vid_disperse = calculate_vid_disperse(
-                    encoded_transactions.clone(),
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.membership.clone(),
+                    Arc::clone(encoded_transactions),
+                    <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
                 )
                 .<span class="kw">await</span>;

@@ -267,9 +267,11 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
+    sync::Arc,
 };
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -306,7 +308,7 @@
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; NetworkRequestState&lt;TYPES, I, V&gt; {
         NetworkRequestState {
-            network: handle.hotshot.networks.quorum_network.clone(),
+            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             state: handle.hotshot.get_consensus(),
             view: handle.get_cur_view().<span class="kw">await</span>,
             delay: handle.hotshot.config.data_request_delay,
@@ -331,7 +333,7 @@
             api: handle.clone(),
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            quorum_network: handle.hotshot.networks.quorum_network.clone(),
+            quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             <span class="attr">#[cfg(not(feature = <span class="string">"example-upgrade"</span>))]
             </span>should_vote: |_upgrade_proposal| <span class="bool-val">false</span>,
             <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
@@ -356,7 +358,7 @@
             consensus: handle.hotshot.get_consensus(),
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>,
-            network: handle.hotshot.networks.quorum_network.clone(),
+            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             membership: handle.hotshot.memberships.vid_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -376,14 +378,14 @@
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
-            da_network: handle.hotshot.networks.da_network.clone(),
+            da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
-            storage: handle.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
         }
     }
 }
@@ -399,7 +401,7 @@
         ViewSyncTaskState {
             current_view: cur_view,
             next_view: cur_view,
-            network: handle.hotshot.networks.quorum_network.clone(),
+            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             membership: handle
                 .hotshot
                 .memberships
@@ -433,7 +435,7 @@
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
-            network: handle.hotshot.networks.quorum_network.clone(),
+            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -464,18 +466,18 @@
             formed_upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_cert: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
-            version: handle.hotshot.version.clone(),
+            version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
             current_proposal: <span class="prelude-val">None</span>,
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            quorum_network: handle.hotshot.networks.quorum_network.clone(),
-            committee_network: handle.hotshot.networks.da_network.clone(),
+            quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
+            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
-            storage: handle.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
         }
     }
 }
@@ -494,13 +496,13 @@
             instance_state: handle.hotshot.get_instance_state(),
             latest_voted_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_dependencies: HashMap::new(),
-            quorum_network: handle.hotshot.networks.quorum_network.clone(),
-            committee_network: handle.hotshot.networks.da_network.clone(),
+            quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
+            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
             id: handle.hotshot.id,
-            storage: handle.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
         }
     }
 }
@@ -516,8 +518,8 @@
         QuorumProposalTaskState {
             latest_proposed_view: handle.get_cur_view().<span class="kw">await</span>,
             propose_dependencies: HashMap::new(),
-            quorum_network: handle.hotshot.networks.quorum_network.clone(),
-            committee_network: handle.hotshot.networks.da_network.clone(),
+            quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
+            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.output_event_stream.<span class="number">0</span>.clone(),
             consensus,
             instance_state: handle.hotshot.get_instance_state(),
@@ -526,7 +528,7 @@
             cur_view: handle.get_cur_view().<span class="kw">await</span>,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            storage: handle.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
             timeout_task: <span class="prelude-val">None</span>,
             round_start_delay: handle.hotshot.config.round_start_delay,

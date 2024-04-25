@@ -2201,7 +2201,7 @@
                     e.insert(sender);
 
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2239,7 +2239,7 @@
                     e.insert(sender);
 
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2272,7 +2272,7 @@
                 <span class="comment">// Only start this task if we haven't already started it.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_proposal_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
-                    <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                    <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
 
                     <span class="comment">// Create sender and receiver for cancelling the task
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
@@ -2302,7 +2302,7 @@
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.upgrade_proposal_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
                     <span class="macro">error!</span>(<span class="string">"Starting poll for upgrade proposals!"</span>);
-                    <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                    <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
 
                     <span class="comment">// Create sender and receiver for cancelling the task
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
@@ -2332,7 +2332,7 @@
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.upgrade_vote_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
                     <span class="macro">debug!</span>(<span class="string">"Starting poll for upgrade proposals!"</span>);
-                    <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                    <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
 
                     <span class="comment">// Create sender and receiver for cancelling the task
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
@@ -2361,7 +2361,7 @@
                 <span class="comment">// Only start this task if we haven't already started it.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>cancel_handle = <span class="self">self</span>.inner.latest_view_sync_certificate_task.write().<span class="kw">await</span>;
                 <span class="kw">if </span>cancel_handle.is_none() {
-                    <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                    <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
 
                     <span class="comment">// Create sender and receiver for cancelling the task
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
@@ -2393,7 +2393,7 @@
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2428,7 +2428,7 @@
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2476,7 +2476,7 @@
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2513,7 +2513,7 @@
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(
@@ -2579,7 +2579,7 @@
                     </span><span class="kw">let </span>(sender, receiver) = unbounded();
                     e.insert(sender);
                     async_spawn({
-                        <span class="kw">let </span>inner_clone = <span class="self">self</span>.inner.clone();
+                        <span class="kw">let </span>inner_clone = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
                         <span class="kw">async move </span>{
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                                 .poll_web_server(

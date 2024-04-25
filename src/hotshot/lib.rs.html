@@ -790,6 +790,16 @@
 <a href="#788" id="788">788</a>
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -959,17 +969,17 @@
             public_key: <span class="self">self</span>.public_key.clone(),
             private_key: <span class="self">self</span>.private_key.clone(),
             config: <span class="self">self</span>.config.clone(),
-            networks: <span class="self">self</span>.networks.clone(),
-            memberships: <span class="self">self</span>.memberships.clone(),
-            metrics: <span class="self">self</span>.metrics.clone(),
-            consensus: <span class="self">self</span>.consensus.clone(),
-            instance_state: <span class="self">self</span>.instance_state.clone(),
-            version: <span class="self">self</span>.version.clone(),
+            networks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks),
+            memberships: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.memberships),
+            metrics: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.metrics),
+            consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+            instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+            version: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.version),
             start_view: <span class="self">self</span>.start_view,
             output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
             internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
             id: <span class="self">self</span>.id,
-            storage: <span class="self">self</span>.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
         }
     }
 }
@@ -1022,7 +1032,7 @@
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state.clone(),
+                    state: Arc::clone(<span class="kw-2">&amp;</span>validated_state),
                     delta: initializer.state_delta.clone(),
                 },
             },
@@ -1044,7 +1054,7 @@
                     event: EventType::Decide {
                         leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
                             anchored_leaf.clone(),
-                            validated_state.clone(),
+                            Arc::clone(<span class="kw-2">&amp;</span>validated_state),
                             state_delta.cloned(),
                             <span class="prelude-val">None</span>,
                         )]),
@@ -1083,7 +1093,7 @@
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
-            metrics: consensus_metrics.clone(),
+            metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
         };
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
         <span class="kw">let </span>version = Arc::new(RwLock::new(BASE_VERSION));
@@ -1103,7 +1113,7 @@
             start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            metrics: consensus_metrics.clone(),
+            metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx, external_rx),
             storage: Arc::new(RwLock::new(storage)),
@@ -1195,12 +1205,12 @@
     <span class="doccomment">/// Returns a copy of the consensus struct
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        <span class="self">self</span>.consensus.clone()
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)
     }
 
     <span class="doccomment">/// Returns a copy of the instance state
     </span><span class="kw">pub fn </span>get_instance_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::InstanceState&gt; {
-        <span class="self">self</span>.instance_state.clone()
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state)
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
@@ -1227,7 +1237,7 @@
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
-        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_state().clone()
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_state())
     }
 
     <span class="doccomment">/// Get the validated state from a given `view`.
@@ -1285,7 +1295,7 @@
             storage,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>handle = hotshot.clone().run_tasks().<span class="kw">await</span>;
+        <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span>hotshot).run_tasks().<span class="kw">await</span>;
         <span class="kw">let </span>(tx, rx) = hotshot.internal_event_stream.clone();
 
         <span class="prelude-val">Ok</span>((handle, tx, rx.activate()))
@@ -1315,8 +1325,8 @@
         <span class="kw">let </span>output_event_stream = <span class="self">self</span>.output_event_stream.clone();
         <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.internal_event_stream.clone();
 
-        <span class="kw">let </span>quorum_network = <span class="self">self</span>.networks.quorum_network.clone();
-        <span class="kw">let </span>da_network = <span class="self">self</span>.networks.da_network.clone();
+        <span class="kw">let </span>quorum_network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks.quorum_network);
+        <span class="kw">let </span>da_network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks.da_network);
         <span class="kw">let </span>quorum_membership = <span class="self">self</span>.memberships.quorum_membership.clone();
         <span class="kw">let </span>da_membership = <span class="self">self</span>.memberships.da_membership.clone();
         <span class="kw">let </span>vid_membership = <span class="self">self</span>.memberships.vid_membership.clone();
@@ -1325,26 +1335,36 @@
         <span class="kw">let </span>(event_tx, event_rx) = internal_event_stream.clone();
 
         <span class="kw">let </span>handle = SystemContextHandle {
-            registry: registry.clone(),
+            registry: Arc::clone(<span class="kw-2">&amp;</span>registry),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: <span class="self">self</span>.clone().into(),
-            storage: <span class="self">self</span>.storage.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
         };
 
-        add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).<span class="kw">await</span>;
-        add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).<span class="kw">await</span>;
+        add_network_message_task(
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
+            event_tx.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
+        )
+        .<span class="kw">await</span>;
+        add_network_message_task(
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
+            event_tx.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>da_network),
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).<span class="kw">await </span>{
             add_response_task(
-                registry.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>registry),
                 event_rx.activate_cloned(),
                 request_rx,
                 <span class="kw-2">&amp;</span>handle,
             )
             .<span class="kw">await</span>;
             add_request_network_task(
-                registry.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>registry),
                 event_tx.clone(),
                 event_rx.activate_cloned(),
                 <span class="kw-2">&amp;</span>handle,
@@ -1353,92 +1373,92 @@
         }
 
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             quorum_membership.clone(),
             network::quorum_filter,
-            handle.get_storage().clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             quorum_membership,
             network::upgrade_filter,
-            handle.get_storage().clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            da_network.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>da_network),
             da_membership,
             network::committee_filter,
-            handle.get_storage().clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             view_sync_membership,
             network::view_sync_filter,
-            handle.get_storage().clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             vid_membership,
             network::vid_filter,
-            handle.get_storage().clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;
         add_consensus_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
         add_da_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
         add_vid_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
         add_transaction_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
         add_view_sync_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
         )
         .<span class="kw">await</span>;
         add_upgrade_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
@@ -1446,7 +1466,7 @@
         .<span class="kw">await</span>;
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span>add_quorum_proposal_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,
@@ -1454,7 +1474,7 @@
         .<span class="kw">await</span>;
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span>add_quorum_vote_task(
-            registry.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             <span class="kw-2">&amp;</span>handle,

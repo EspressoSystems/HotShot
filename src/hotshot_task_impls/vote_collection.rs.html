@@ -698,14 +698,14 @@
     };
 
     <span class="kw">let </span><span class="kw-2">mut </span>state = VoteCollectionTaskState::&lt;TYPES, VOTE, CERT&gt; {
-        membership: info.membership.clone(),
+        membership: Arc::clone(<span class="kw-2">&amp;</span>info.membership),
         public_key: info.public_key.clone(),
         accumulator: <span class="prelude-val">Some</span>(new_accumulator),
         view: info.view,
         id: info.id,
     };
 
-    <span class="kw">let </span>result = state.handle_event(event.clone(), sender).<span class="kw">await</span>;
+    <span class="kw">let </span>result = state.handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span>;
 
     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
         <span class="comment">// The protocol has finished

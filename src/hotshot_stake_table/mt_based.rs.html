@@ -541,8 +541,8 @@
 
     <span class="doccomment">/// Update the stake table when the epoch number advances, should be manually called.
     </span><span class="kw">pub fn </span>advance(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.last_epoch_start = <span class="self">self</span>.epoch_start.clone();
-        <span class="self">self</span>.epoch_start = <span class="self">self</span>.head.clone();
+        <span class="self">self</span>.last_epoch_start = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.epoch_start);
+        <span class="self">self</span>.epoch_start = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.head);
     }
 
     <span class="doccomment">/// Set the stake withheld by `key` to be `value`.

@@ -532,7 +532,7 @@
             inner: Arc::new(MemoryNetworkInner {
                 input: RwLock::new(<span class="prelude-val">Some</span>(input)),
                 output: Mutex::new(output),
-                master_map: master_map.clone(),
+                master_map: Arc::clone(<span class="kw-2">&amp;</span>master_map),
                 in_flight_message_count,
                 metrics,
                 reliability_config,
@@ -579,7 +579,7 @@
             <span class="kw">let </span>net = MemoryNetwork::new(
                 pubkey,
                 NetworkingMetricsValue::default(),
-                master.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>master),
                 reliability_config.clone(),
             );
             Box::pin(<span class="kw">async move </span>{ (net.clone().into(), net.into()) })

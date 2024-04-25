@@ -1011,6 +1011,8 @@
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
 <a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1328,7 +1330,7 @@
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
             commit_and_metadata.unwrap(),
-            <span class="self">self</span>.instance_state.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
         )
         .<span class="kw">await</span>;
     }
@@ -1519,9 +1521,11 @@
         );
 
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::ProposeNow(..) =&gt; propose_now_dependency.mark_as_completed(event.clone()),
+            HotShotEvent::ProposeNow(..) =&gt; {
+                propose_now_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
+            }
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) =&gt; {
-                payload_commitment_dependency.mark_as_completed(event.clone());
+                payload_commitment_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
             }
             HotShotEvent::QuorumProposalValidated(..) =&gt; {
                 proposal_dependency.mark_as_completed(event);
@@ -1596,16 +1600,16 @@
             ProposalDependencyHandle {
                 view_number,
                 sender: event_sender,
-                consensus: <span class="self">self</span>.consensus.clone(),
+                consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
                 output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
-                timeout_membership: <span class="self">self</span>.timeout_membership.clone(),
-                quorum_membership: <span class="self">self</span>.quorum_membership.clone(),
+                timeout_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.timeout_membership),
+                quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
                 timeout: <span class="self">self</span>.timeout,
                 round_start_delay: <span class="self">self</span>.round_start_delay,
                 id: <span class="self">self</span>.id,
-                instance_state: <span class="self">self</span>.instance_state.clone(),
+                instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
             },
         );
         <span class="self">self</span>.propose_dependencies
@@ -1650,7 +1654,7 @@
                     <span class="kw-2">*</span>view,
                     event_receiver,
                     event_sender,
-                    event.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
             HotShotEvent::QCFormed(cert) =&gt; {
@@ -1670,7 +1674,7 @@
                             view,
                             event_receiver,
                             event_sender,
-                            event.clone(),
+                            Arc::clone(<span class="kw-2">&amp;</span>event),
                         );
                     }
                     either::Left(qc) =&gt; {
@@ -1699,7 +1703,7 @@
                             view,
                             event_receiver,
                             event_sender,
-                            event.clone(),
+                            Arc::clone(<span class="kw-2">&amp;</span>event),
                         );
                     }
                 }
@@ -1721,7 +1725,7 @@
                     view,
                     event_receiver,
                     event_sender,
-                    event.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
@@ -1811,7 +1815,7 @@
                         <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =
                             consensus.get_state_and_delta(leaf.get_view_number())
                         {
-                            <span class="prelude-val">Some</span>((leaf, state.clone()))
+                            <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
                         } <span class="kw">else </span>{
                             <span class="macro">error!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
                             <span class="kw">return</span>;
@@ -1852,16 +1856,16 @@
                     validate_proposal_safety_and_liveness(
                         proposal.clone(),
                         parent_leaf,
-                        <span class="self">self</span>.consensus.clone(),
+                        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
                         <span class="prelude-val">None</span>,
-                        <span class="self">self</span>.quorum_membership.clone(),
-                        parent_state.clone(),
+                        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+                        Arc::clone(<span class="kw-2">&amp;</span>parent_state),
                         view_leader_key,
                         event_sender.clone(),
                         sender,
                         <span class="self">self</span>.output_event_stream.clone(),
-                        <span class="self">self</span>.storage.clone(),
-                        <span class="self">self</span>.instance_state.clone(),
+                        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
+                        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
                     )
                     .map(AnyhowTracing::err_as_debug),
                 );
@@ -1879,7 +1883,7 @@
                     new_view,
                     event_receiver,
                     event_sender,
-                    event.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
