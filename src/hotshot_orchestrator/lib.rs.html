@@ -482,6 +482,18 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -652,6 +664,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         node_index: u64,
         pubkey: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;,
+        is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
     <span class="doccomment">/// post endpoint for whether or not all peers public keys are ready
     /// # Errors
@@ -746,6 +759,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         node_index: u64,
         pubkey: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;,
+        is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="kw">if </span><span class="self">self</span>.pub_posted.contains(<span class="kw-2">&amp;</span>node_index) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
@@ -759,7 +773,16 @@
         </span>pubkey.drain(..<span class="number">12</span>);
         <span class="kw">let </span>register_pub_key_with_stake = PeerConfig::&lt;KEY&gt;::from_bytes(pubkey).unwrap();
         <span class="self">self</span>.config.config.known_nodes_with_stake[node_index <span class="kw">as </span>usize] =
-            register_pub_key_with_stake;
+            register_pub_key_with_stake.clone();
+
+        <span class="comment">// If the node wants to be DA, add it to the list of known DAs
+        </span><span class="kw">if </span>is_da {
+            <span class="self">self</span>.config
+                .config
+                .known_da_nodes
+                .insert(register_pub_key_with_stake);
+        };
+
         <span class="self">self</span>.nodes_with_pubkey += <span class="number">1</span>;
         <span class="macro">println!</span>(
             <span class="string">"Node {:?} posted public key, now total num posted public key: {:?}"</span>,
@@ -911,8 +934,9 @@
     </span>.post(<span class="string">"post_pubkey"</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="kw">let </span>node_index = req.integer_param(<span class="string">"node_index"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>is_da = req.boolean_param(<span class="string">"is_da"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>pubkey = req.body_bytes();
-            state.register_public_key(node_index, <span class="kw-2">&amp;mut </span>pubkey)
+            state.register_public_key(node_index, <span class="kw-2">&amp;mut </span>pubkey, is_da)
         }
         .boxed()
     })<span class="question-mark">?

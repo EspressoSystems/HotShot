@@ -230,6 +230,10 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::{BTreeMap, HashMap};
 
 <span class="kw">use </span>either::{Left, Right};
@@ -369,7 +373,11 @@
                                         <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
                                         </span><span class="kw">let </span>validator_config =
                                             ValidatorConfig::generated_from_seed_indexed(
-                                                [<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>,
+                                                [<span class="number">0u8</span>; <span class="number">32</span>],
+                                                node_id,
+                                                <span class="number">1</span>,
+                                                <span class="comment">// For tests, make the node DA based on its index
+                                                </span>node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64,
                                             );
                                         TestRunner::add_node_with_config(
                                             node_id,

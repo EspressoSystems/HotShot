@@ -1133,6 +1133,8 @@
 <a href="#1131" id="1131">1131</a>
 <a href="#1132" id="1132">1132</a>
 <a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1536,10 +1538,12 @@
         <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
 
         <span class="comment">// Make a node DA if it is under the staked committee size
-        </span><span class="kw">for </span>(i, node) <span class="kw">in </span>config.config.known_nodes_with_stake.into_iter().enumerate() {
-            <span class="kw">if </span>i &lt; config.config.da_staked_committee_size {
-                da_keys.insert(K::get_public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
-            }
+        </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_da_nodes {
+            da_keys.insert(K::get_public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
+        }
+
+        <span class="comment">// Insert all known nodes into the set of all keys
+        </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_nodes_with_stake {
             all_keys.insert(K::get_public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
         }
 

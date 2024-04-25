@@ -472,6 +472,11 @@
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
 <a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -833,7 +838,8 @@
                 da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     committee_election_config(
-                        config.da_staked_committee_size <span class="kw">as </span>u64,
+                        <span class="comment">// Use the _actual_ number of DA nodes instead of expected
+                        </span>config.known_da_nodes.len() <span class="kw">as </span>u64,
                         config.num_nodes_without_stake <span class="kw">as </span>u64,
                     ),
                     config.fixed_leader_for_gpuvid,
@@ -865,9 +871,13 @@
             } <span class="kw">else </span>{
                 <span class="kw">let </span>initializer =
                     HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {}).unwrap();
+
+                <span class="comment">// See whether or not we should be DA
+                </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
+
                 <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
                 </span><span class="kw">let </span>validator_config =
-                    ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>);
+                    ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
                 <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
                     node_id,
                     networks.clone(),

@@ -1134,6 +1134,14 @@
 <a href="#1132" id="1132">1132</a>
 <a href="#1133" id="1133">1133</a>
 <a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1432,7 +1440,7 @@
     // but its type is too complex to load so we'll generate it from seed now.
     // Also this function is only used for orchestrator initialization now, so this value doesn't matter
     </span>config.config.my_own_validator_config =
-        ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>);
+        ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>, <span class="bool-val">true</span>);
     <span class="comment">// initialize it with size for better assignment of peers' config
     </span>config.config.known_nodes_with_stake =
         <span class="macro">vec!</span>[PeerConfig::default(); config.config.num_nodes_with_stake.get() <span class="kw">as </span>usize];
@@ -1539,7 +1547,8 @@
         });
 
         <span class="kw">let </span>committee_election_config = TYPES::Membership::default_election_config(
-            config.config.da_staked_committee_size.try_into().unwrap(),
+            <span class="comment">// Use the number of _actual_ DA nodes connected for the committee size
+            </span>config.config.known_da_nodes.len() <span class="kw">as </span>u64,
             config.config.num_nodes_without_stake <span class="kw">as </span>u64,
         );
         <span class="kw">let </span>networks_bundle = Networks {
@@ -1887,9 +1896,9 @@
             private_key: key.private_key,
         };
 
-        <span class="comment">// See if we should be DA
+        <span class="comment">// See if we should be DA, subscribe to the DA topic if so
         </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[Topic::Global];
-        <span class="kw">if </span>config.node_index &lt; config.config.da_staked_committee_size <span class="kw">as </span>u64 {
+        <span class="kw">if </span>config.config.my_own_validator_config.is_da {
             topics.push(Topic::DA);
         }
 
@@ -1903,6 +1912,9 @@
             keypair,
         )
         .expect(<span class="string">"failed to create network"</span>);
+
+        <span class="comment">// Wait for the network to be ready
+        </span>network.wait_for_ready().<span class="kw">await</span>;
 
         PushCdnDaRun {
             config,
@@ -2154,7 +2166,9 @@
     <span class="comment">// We assume one node will not call this twice to generate two validator_config-s with same identity.
     </span><span class="kw">let </span>my_own_validator_config = NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::generate_init_validator_config(
         <span class="kw-2">&amp;</span>orchestrator_client,
-    ).<span class="kw">await</span>;
+        <span class="comment">// This is false for now, we only use it to generate the keypair
+        </span><span class="bool-val">false
+    </span>).<span class="kw">await</span>;
 
     <span class="comment">// Derives our Libp2p private key from our private key, and then returns the public key of that key
     </span><span class="kw">let </span>libp2p_public_key =
@@ -2174,6 +2188,8 @@
             my_own_validator_config,
             args.advertise_address,
             <span class="prelude-val">Some</span>(libp2p_public_key),
+            <span class="comment">// If `indexed_da` is true: use the node index to determine if we are a DA node.
+            </span><span class="bool-val">true</span>,
         )
         .<span class="kw">await
         </span>.expect(<span class="string">"failed to get config"</span>);

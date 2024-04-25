@@ -196,8 +196,22 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
-</span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
+</span><span class="kw">use </span>std::{
+    collections::HashSet, fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration,
+};
 
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>displaydoc::Display;
@@ -266,12 +280,19 @@
     </span><span class="kw">pub </span>stake_value: u64,
     <span class="doccomment">/// the validator's key pairs for state signing/verification
     </span><span class="kw">pub </span>state_key_pair: light_client::StateKeyPair,
+    <span class="doccomment">/// Whether or not this validator is DA
+    </span><span class="kw">pub </span>is_da: bool,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; ValidatorConfig&lt;KEY&gt; {
-    <span class="doccomment">/// generate validator config from input seed, index and stake value
+    <span class="doccomment">/// generate validator config from input seed, index, stake value, and whether it's DA
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64, stake_value: u64) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>generated_from_seed_indexed(
+        seed: [u8; <span class="number">32</span>],
+        index: u64,
+        stake_value: u64,
+        is_da: bool,
+    ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(public_key, private_key) = KEY::generated_from_seed_indexed(seed, index);
         <span class="kw">let </span>state_key_pairs = light_client::StateKeyPair::generate_from_seed_indexed(seed, index);
         <span class="self">Self </span>{
@@ -279,6 +300,7 @@
             private_key,
             stake_value,
             state_key_pair: state_key_pairs,
+            is_da,
         }
     }
 
@@ -293,11 +315,11 @@
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>ValidatorConfig&lt;KEY&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">0</span>, <span class="number">1</span>)
+        <span class="self">Self</span>::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">0</span>, <span class="number">1</span>, <span class="bool-val">true</span>)
     }
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
+<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="doccomment">/// structure of peers' config, including public key, stake value, and state key.
 </span><span class="kw">pub struct </span>PeerConfig&lt;KEY: SignatureKey&gt; {
@@ -359,6 +381,8 @@
     </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
     <span class="doccomment">/// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
+    <span class="doccomment">/// All public keys known to be DA nodes
+    </span><span class="kw">pub </span>known_da_nodes: HashSet&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// List of known non-staking nodes' public keys
     </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
     <span class="doccomment">/// My own validator config, including my public key, private key, stake value, serving as private parameter
