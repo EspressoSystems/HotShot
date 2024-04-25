@@ -163,7 +163,7 @@
         # # programmatically generate output packages based on what exists in the workspace
         # pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
 
-        buildDeps = with pkgs;
+        buildDepsSimple = with pkgs;
           [
             cargo-vet
             curl.out
@@ -173,7 +173,6 @@
             nixpkgs-fmt
             git-chglog
             protobuf
-            capnproto
             python3
             zlib.dev
             zlib.out
@@ -187,17 +186,19 @@
             pkgs.libiconv
             darwin.apple_sdk.frameworks.SystemConfiguration
           ];
+
+        buildDeps = buildDepsSimple ++ [ fenix.packages.${system}.rust-analyzer ];
       in {
         devShell = pkgs.mkShell {
           inherit CARGO_TARGET_DIR;
-          buildInputs = [ fenixStable fenix.packages.${system}.rust-analyzer ] ++ buildDeps;
+          buildInputs = [ fenixStable ] ++ buildDeps;
         };
 
         devShells = {
           # A simple shell without rust-analyzer
           simpleShell = pkgs.mkShell {
             inherit CARGO_TARGET_DIR;
-            buildInputs = [ fenixStable ] ++ buildDeps;
+            buildInputs = [ fenixStable ] ++ buildDepsSimple;
           };
 
           # usage: check correctness
