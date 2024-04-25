@@ -31,6 +31,9 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
+#[cfg(feature = "dependency-tasks")]
+use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
+
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
@@ -735,9 +738,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
                 }
             }
+            #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let current_proposal = Some(proposal.clone());
-                let new_view = current_proposal.clone().unwrap().view_number + 1;
+                let new_view = proposal.view_number + 1;
+
+                if let Err(e) =
+                    handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
+                {
+                    warn!(?e, "Failed to handle QuorumProposalValidated event");
+                }
 
                 info!(
                     "Node {} creating dependency task for view {:?} from QuorumProposalRecv",

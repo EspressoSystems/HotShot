@@ -279,25 +279,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(&encoded_txns));
         }
 
-        #[cfg(feature = "dependency-tasks")]
-        let consensus = Consensus {
-            validated_state_map,
-            vid_shares: BTreeMap::new(),
-            cur_view: anchored_leaf.get_view_number(),
-            last_decided_view: anchored_leaf.get_view_number(),
-            saved_leaves,
-            saved_payloads,
-            saved_da_certs: HashMap::new(),
-            // TODO this is incorrect
-            // https://github.com/EspressoSystems/HotShot/issues/560
-            locked_view: anchored_leaf.get_view_number(),
-            high_qc: initializer.high_qc,
-            metrics: consensus_metrics.clone(),
-            decided_upgrade_cert: None,
-            formed_upgrade_certificate: None,
-        };
-
-        #[cfg(not(feature = "dependency-tasks"))]
         let consensus = Consensus {
             validated_state_map,
             vid_shares: BTreeMap::new(),
@@ -311,6 +292,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
             metrics: Arc::clone(&consensus_metrics),
+            decided_upgrade_cert: None,
+            formed_upgrade_certificate: None,
         };
 
         let consensus = Arc::new(RwLock::new(consensus));

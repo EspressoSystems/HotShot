@@ -1,6 +1,8 @@
 #[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
 #[cfg(feature = "dependency-tasks")]
+use crate::quorum_proposal::QuorumProposalTaskState;
+#[cfg(feature = "dependency-tasks")]
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::update_view,
@@ -587,12 +589,13 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
+/// TODO: doc
 #[cfg(feature = "dependency-tasks")]
-type TempraryProposalCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
+type TemporaryProposalRecvCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
 
 /// TODO: doc
 #[cfg(not(feature = "dependency-tasks"))]
-type TempraryProposalCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
+type TemporaryProposalRecvCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
 
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
@@ -603,7 +606,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut TempraryProposalCombinedType<TYPES, I>,
+    task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
@@ -812,16 +815,30 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     Ok(None)
 }
 
-/// Handle `QuorumProposalRecv` event content and submit a proposal if possible.
+/// TODO: doc
+#[cfg(feature = "dependency-tasks")]
+type TemporaryProposalValidatedCombinedType<TYPES, I> = QuorumProposalTaskState<TYPES, I>;
+
+/// TODO: doc
+#[cfg(not(feature = "dependency-tasks"))]
+type TemporaryProposalValidatedCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
+
+/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 #[allow(clippy::too_many_lines)]
 pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I>,
+    task_state: &mut TemporaryProposalValidatedCombinedType<TYPES, I>,
 ) -> Result<()> {
     let consensus = task_state.consensus.upgradable_read().await;
     let view = proposal.get_view_number();
-    task_state.current_proposal = Some(proposal.clone());
+    #[cfg(not(feature = "dependency-tasks"))]
+    {
+        task_state.current_proposal = Some(proposal.clone());
+    }
+
+    #[allow(unused_mut)]
+    let mut decided_upgrade_cert = None;
     let mut new_anchor_view = consensus.last_decided_view;
     let mut new_locked_view = consensus.locked_view;
     let mut last_view_number_visited = view;
@@ -834,6 +851,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let old_anchor_view = consensus.last_decided_view;
     let parent_view = proposal.justify_qc.get_view_number();
     let mut current_chain_length = 0usize;
+
     if parent_view + 1 == view {
         current_chain_length += 1;
         if let Err(e) = consensus.visit_leaf_ancestors(
@@ -877,7 +895,15 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                                 "Updating consensus state with decided upgrade certificate: {:?}",
                                 cert
                             );
-                            task_state.decided_upgrade_cert = Some(cert.clone());
+                            #[cfg(not(feature = "dependency-tasks"))]
+                            {
+                                task_state.decided_upgrade_cert = Some(cert.clone());
+                            }
+
+                            #[cfg(feature = "dependency-tasks")]
+                            {
+                                decided_upgrade_cert = Some(cert.clone());
+                            }
                         }
                     }
                     // If the block payload is available for this leaf, include it in
@@ -936,6 +962,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     if new_commit_reached {
         consensus.locked_view = new_locked_view;
     }
+
+    // This is ALWAYS None if "dependency-tasks" is not active.
+    consensus.decided_upgrade_cert = decided_upgrade_cert;
+
     #[allow(clippy::cast_precision_loss)]
     if new_decide_reached {
         broadcast_event(
@@ -979,37 +1009,41 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         debug!("decide send succeeded");
     }
 
-    let new_view = task_state.current_proposal.clone().unwrap().view_number + 1;
-    // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-    let should_propose = task_state.quorum_membership.get_leader(new_view) == task_state.public_key
-        && consensus.high_qc.view_number
-            == task_state.current_proposal.clone().unwrap().view_number;
-    // todo get rid of this clone
-    let qc = consensus.high_qc.clone();
+    #[cfg(not(feature = "dependency-tasks"))]
+    {
+        let new_view = task_state.current_proposal.clone().unwrap().view_number + 1;
+        // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+        let should_propose = task_state.quorum_membership.get_leader(new_view)
+            == task_state.public_key
+            && consensus.high_qc.view_number
+                == task_state.current_proposal.clone().unwrap().view_number;
+        // todo get rid of this clone
+        let qc = consensus.high_qc.clone();
 
-    drop(consensus);
-    if new_decide_reached {
-        task_state.cancel_tasks(new_anchor_view).await;
-    }
-    if should_propose {
-        debug!(
-            "Attempting to publish proposal after voting; now in view: {}",
-            *new_view
+        drop(consensus);
+        if new_decide_reached {
+            task_state.cancel_tasks(new_anchor_view).await;
+        }
+        if should_propose {
+            debug!(
+                "Attempting to publish proposal after voting; now in view: {}",
+                *new_view
+            );
+            if let Err(e) = task_state
+                .publish_proposal(qc.view_number + 1, event_stream.clone())
+                .await
+            {
+                warn!("Failed to propose; error = {e:?}");
+            };
+        }
+
+        ensure!(
+            task_state.vote_if_able(&event_stream).await,
+            "Failed to vote"
         );
-        if let Err(e) = task_state
-            .publish_proposal(qc.view_number + 1, event_stream.clone())
-            .await
-        {
-            warn!("Failed to propose; error = {e:?}");
-        };
+        task_state.current_proposal = None;
     }
-
-    ensure!(
-        task_state.vote_if_able(&event_stream).await,
-        "Failed to vote"
-    );
-    task_state.current_proposal = None;
 
     Ok(())
 }

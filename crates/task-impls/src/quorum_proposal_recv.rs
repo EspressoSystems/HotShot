@@ -1,11 +1,12 @@
-#![cfg(feature = "dependency-tasks")]
+#![allow(unused_imports)]
 
-use crate::helpers::broadcast_event;
+use futures::future::join_all;
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     consensus::proposal_helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
     events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -98,86 +99,93 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub id: u64,
 }
 
-#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
+    /// Cancel all tasks the consensus tasks has spawned before the given view
+    pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
+        let keep = self.spawned_tasks.split_off(&view);
+        let mut cancel = Vec::new();
+        while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
+            let mut to_cancel = tasks.into_iter().map(cancel_task).collect();
+            cancel.append(&mut to_cancel);
+        }
+        self.spawned_tasks = keep;
+        join_all(cancel).await;
+    }
+
     /// Handles all consensus events relating to propose and vote-enabling events.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[allow(unused_variables)]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        match event.as_ref() {
-            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
+        #[cfg(feature = "dependency-tasks")]
+        if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
+            match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
+                Ok(Some(current_proposal)) => {
+                    // Build the parent leaf since we didn't find it during the proposal check.
+                    let parent_leaf = match get_parent_leaf_and_state(
+                        self.cur_view,
+                        proposal.data.get_view_number() + 1,
+                        Arc::clone(&self.quorum_membership),
+                        self.public_key.clone(),
+                        Arc::clone(&self.consensus),
+                    )
                     .await
-                {
-                    Ok(Some(current_proposal)) => {
-                        // Build the parent leaf since we didn't find it during the proposal check.
-                        let parent_leaf = match get_parent_leaf_and_state(
-                            self.cur_view,
-                            proposal.data.get_view_number() + 1,
-                            self.quorum_membership.clone(),
-                            self.public_key.clone(),
-                            self.consensus.clone(),
-                        )
-                        .await
-                        {
-                            Ok((parent_leaf, _ /* state */)) => parent_leaf,
-                            Err(e) => {
-                                warn!(?e, "Failed to get parent leaf and state");
-                                return;
-                            }
-                        };
+                    {
+                        Ok((parent_leaf, _ /* state */)) => parent_leaf,
+                        Err(e) => {
+                            warn!(?e, "Failed to get parent leaf and state");
+                            return;
+                        }
+                    };
 
-                        // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
-                        let consensus = self.consensus.read().await;
-                        let view = current_proposal.get_view_number().clone();
-                        let Some(vid_shares) = consensus.vid_shares.get(&view) else {
-                            debug!(
+                    // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
+                    let consensus = self.consensus.read().await;
+                    let view = current_proposal.get_view_number();
+                    let Some(vid_shares) = consensus.vid_shares.get(&view) else {
+                        debug!(
                                 "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
                                 view
                             );
-                            return;
-                        };
-                        let Some(disperse_share) = vid_shares.get(&self.public_key) else {
-                            error!("Did not get a VID share for our public key, aborting vote");
-                            return;
-                        };
-                        let Some(da_cert) = consensus
-                            .saved_da_certs
-                            .get(&current_proposal.get_view_number())
-                        else {
-                            debug!(
-                                "Received VID share, but couldn't find DAC cert for view {:?}",
-                                current_proposal.get_view_number()
-                            );
-                            return;
-                        };
-                        broadcast_event(
-                            Arc::new(HotShotEvent::VoteNow(
-                                view,
-                                VoteDependencyData {
-                                    quorum_proposal: current_proposal,
-                                    leaf: parent_leaf,
-                                    disperse_share: disperse_share.clone(),
-                                    da_cert: da_cert.clone(),
-                                },
-                            )),
-                            &event_stream,
-                        )
-                        .await;
-                    }
-                    Ok(None) => {}
-                    Err(e) => warn!(?e, "Failed to propose"),
+                        return;
+                    };
+                    let Some(disperse_share) = vid_shares.get(&self.public_key) else {
+                        error!("Did not get a VID share for our public key, aborting vote");
+                        return;
+                    };
+                    let Some(da_cert) = consensus
+                        .saved_da_certs
+                        .get(&current_proposal.get_view_number())
+                    else {
+                        debug!(
+                            "Received VID share, but couldn't find DAC cert for view {:?}",
+                            current_proposal.get_view_number()
+                        );
+                        return;
+                    };
+                    broadcast_event(
+                        Arc::new(HotShotEvent::VoteNow(
+                            view,
+                            VoteDependencyData {
+                                quorum_proposal: current_proposal,
+                                leaf: parent_leaf,
+                                disperse_share: disperse_share.clone(),
+                                da_cert: da_cert.clone(),
+                            },
+                        )),
+                        &event_stream,
+                    )
+                    .await;
                 }
+                Ok(None) => {}
+                Err(e) => warn!(?e, "Failed to propose"),
             }
-            _ => {}
         }
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     for QuorumProposalRecvTaskState<TYPES, I>
 {

@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+#[cfg(not(feature = "dependency-tasks"))]
 use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
 use crate::{
     consensus::view_change::update_view,
@@ -45,6 +46,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
+#[cfg(not(feature = "dependency-tasks"))]
 use self::proposal_helpers::handle_quorum_proposal_validated;
 
 /// Helper functions to handle proposal-related functionality.
@@ -141,7 +143,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
     /// Cancel all tasks the consensus tasks has spawned before the given view
-    async fn cancel_tasks(&mut self, view: TYPES::Time) {
+    pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);
         let mut cancel = Vec::new();
         while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
@@ -306,11 +308,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         false
     }
 
+    /// Dummy proposal
     #[cfg(feature = "dependency-tasks")]
+    #[allow(clippy::unused_async, clippy::no_effect_underscore_binding)]
     async fn publish_proposal(
         &mut self,
-        view: TYPES::Time,
-        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+        _view: TYPES::Time,
+        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
         Ok(())
     }
@@ -370,6 +374,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Err(e) => warn!(?e, "Failed to propose"),
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
