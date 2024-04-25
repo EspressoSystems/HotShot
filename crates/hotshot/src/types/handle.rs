@@ -50,16 +50,13 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
+    #[deprecated(
+        note = "This function will be removed in a future version of HotShot. Applications should create the channel themselves, provide the sender in `SystemContext::create` and retain the receiver to keep the channel open."
+    )]
     /// obtains a stream to expose to the user
-    pub fn get_event_stream(&mut self) -> impl Stream<Item = Event<TYPES>> {
+    pub fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
         match &self.output_event_stream.1 {
-            either::Left(receiver) => {
-                let active_receiver = receiver.clone();
-                let inactive_receiver = receiver.clone().deactivate();
-                self.output_event_stream.1 = either::Right(inactive_receiver);
-
-                active_receiver
-            }
+            either::Left(receiver) => receiver.clone(),
 
             either::Right(inactive_receiver) => inactive_receiver.activate_cloned(),
         }
@@ -69,16 +66,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
+    #[deprecated(
+        note = "This function will be removed in a future version of HotShot. Applications should create the channel themselves, provide the sender in `SystemContext::create` and retain the receiver to keep the channel open."
+    )]
     #[must_use]
-    pub fn get_event_stream_known_impl(&mut self) -> Receiver<Event<TYPES>> {
+    pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
         match &self.output_event_stream.1 {
-            either::Left(receiver) => {
-                let active_receiver = receiver.clone();
-                let inactive_receiver = receiver.clone().deactivate();
-                self.output_event_stream.1 = either::Right(inactive_receiver);
-
-                active_receiver
-            }
+            either::Left(receiver) => receiver.clone(),
 
             either::Right(inactive_receiver) => inactive_receiver.activate_cloned(),
         }

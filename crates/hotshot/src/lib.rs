@@ -187,12 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
-    ///
-    /// To do a full initialization, use `fn init` instead, which will set up background tasks as
-    /// well.
-    #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
+    #[deprecated(note = "Please use `SystemContext<TYPES, I>::create` instead, which is functionally identical but requires the application channel to be passed in as an argument.")]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -204,6 +199,50 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
     ) -> Result<Arc<Self>, HotShotError<TYPES>> {
+        let (mut external_tx, mut external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        external_rx.set_overflow(true);
+
+        let mut hotshot = Arc::unwrap_or_clone(
+            Self::create(
+                public_key,
+                private_key,
+                nonce,
+                config,
+                memberships,
+                networks,
+                initializer,
+                metrics,
+                storage,
+                external_tx,
+            )
+            .await?,
+        );
+
+        hotshot.output_event_stream.1 = either::Left(external_rx);
+
+        Ok(Arc::new(hotshot))
+    }
+
+    /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
+    ///
+    /// To do a full initialization, use `fn init` instead, which will set up background tasks as
+    /// well.
+    #[allow(clippy::too_many_arguments)]
+    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
+    pub async fn create(
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        memberships: Memberships<TYPES>,
+        networks: Networks<TYPES, I>,
+        initializer: HotShotInitializer<TYPES>,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+        sender: Sender<Event<TYPES>>,
+    ) -> Result<Arc<Self>, HotShotError<TYPES>> {
         debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
@@ -211,10 +250,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let instance_state = initializer.instance_state;
 
         let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        let (mut external_tx, mut external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
 
-        // Allow overflow on the channel, otherwise sending to it may block.
-        external_rx.set_overflow(true);
+        let mut external_tx = sender;
+
+        let external_rx = external_tx.new_receiver().deactivate();
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
@@ -317,7 +356,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             memberships: Arc::new(memberships),
             metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, either::Left(external_rx)),
+            output_event_stream: (external_tx, either::Right(external_rx)),
             storage: Arc::new(RwLock::new(storage)),
         });
 
