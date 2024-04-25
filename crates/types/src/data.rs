@@ -735,9 +735,7 @@ pub mod null_block {
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        state: Arc<
-            <TYPES::BlockPayload as crate::traits::block_contents::BlockPayload>::InstanceState,
-        >,
+        state: Arc<TYPES::InstanceState>,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;

@@ -51,7 +51,6 @@ pub trait BlockPayload:
 
     /// The type of the transitions we are applying
     type Transaction: Transaction;
-    type InstanceState: InstanceState;
     /// Data created during block building which feeds into the block header
     type Metadata: Clone
         + Debug
@@ -69,7 +68,7 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        state: Arc<<Self as crate::traits::block_contents::BlockPayload>::InstanceState>,
+        state: Arc<dyn InstanceState>,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
     /// Build a payload with the encoded transaction bytes, metadata,

@@ -172,9 +172,10 @@ impl<
                         .add(1);
 
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) =
-                        null_block::builder_fee(self.membership.total_nodes(), self.instance_state)
-                    else {
+                    let Some(builder_fee) = null_block::builder_fee(
+                        self.membership.total_nodes(),
+                        self.instance_state.clone(),
+                    ) else {
                         error!("Failed to get builder fee");
                         return None;
                     };
@@ -182,7 +183,7 @@ impl<
                     // Create an empty block payload and metadata
                     let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
                         vec![],
-                        self.instance_state,
+                        self.instance_state.clone(),
                     ) else {
                         error!("Failed to create empty block payload");
                         return None;
@@ -445,9 +446,7 @@ impl<
         task: &mut Task<Self>,
     ) -> Option<HotShotTaskCompleted> {
         let sender = task.clone_sender();
-        task.state_mut()
-            .handle(event, sender, task.instance_state)
-            .await
+        task.state_mut().handle(event, sender).await
     }
 
     fn should_shutdown(event: &Self::Event) -> bool {
