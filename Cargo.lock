@@ -1331,10 +1331,10 @@ checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.2#287fa324ffc9135049f088c428f3d514e5b1997a"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.2)",
  "clap",
  "dashmap",
  "derivative",
@@ -1356,7 +1356,7 @@ version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1)",
  "clap",
  "jf-primitives 0.4.0-pre.0",
  "rand 0.8.5",
@@ -1371,7 +1371,7 @@ version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1)",
  "clap",
  "jf-primitives 0.4.0-pre.0",
  "tokio",
@@ -1383,6 +1383,38 @@ dependencies = [
 name = "cdn-proto"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1#3a80e1839770062a2a6dc42914463e6cff1c9045"
+dependencies = [
+ "anyhow",
+ "ark-serialize",
+ "async-trait",
+ "capnp",
+ "derivative",
+ "jf-primitives 0.4.0-pre.0",
+ "kanal",
+ "lazy_static",
+ "mnemonic",
+ "mockall",
+ "parking_lot",
+ "pem",
+ "prometheus",
+ "quinn",
+ "rand 0.8.5",
+ "rcgen 0.12.1",
+ "redis",
+ "rkyv",
+ "rustls 0.21.11",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+ "warp",
+]
+
+[[package]]
+name = "cdn-proto"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.2#287fa324ffc9135049f088c428f3d514e5b1997a"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3433,7 +3465,7 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.1)",
  "committable",
  "custom_debug",
  "derivative",
