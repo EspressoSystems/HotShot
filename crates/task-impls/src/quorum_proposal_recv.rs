@@ -124,8 +124,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .await
                 {
                     Ok(Some(current_proposal)) => {
-                        self.current_proposal = Some(current_proposal);
-
                         // Build the parent leaf since we didn't find it during the proposal check.
                         let parent_leaf = match get_parent_leaf_and_state(
                             self.cur_view,
@@ -144,12 +142,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         };
 
                         // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
-                        let view = current_proposal.get_view_number();
-                        let Some(vid_shares) = self.consensus.read().await.vid_shares.get(&view)
-                        else {
+                        let consensus = self.consensus.read().await;
+                        let view = current_proposal.get_view_number().clone();
+                        let Some(vid_shares) = consensus.vid_shares.get(&view) else {
                             debug!(
                                 "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-                                current_proposal.view_number
+                                view
                             );
                             return;
                         };
@@ -157,10 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             error!("Did not get a VID share for our public key, aborting vote");
                             return;
                         };
-                        let Some(da_cert) = self
-                            .consensus
-                            .read()
-                            .await
+                        let Some(da_cert) = consensus
                             .saved_da_certs
                             .get(&current_proposal.get_view_number())
                         else {
