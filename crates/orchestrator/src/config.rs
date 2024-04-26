@@ -517,6 +517,28 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
 }
 
+impl<K: SignatureKey> NetworkConfigFile<K> {
+    /// get election type in use
+    pub fn get_election_type() -> String {
+        // leader is chosen in index order
+        #[cfg(not(any(
+            feature = "randomized-leader-election",
+            feature = "fixed-leader-election"
+        )))]
+        let election_type = "static-leader-selection".to_string();
+
+        // leader is from a fixed set
+        #[cfg(feature = "fixed-leader-election")]
+        let election_type = "fixed-leader-election".to_string();
+
+        // leader is randomly chosen
+        #[cfg(feature = "randomized-leader-election")]
+        let election_type = "randomized-leader-election".to_string();
+
+        election_type
+    }
+}
+
 impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
     fn from(val: NetworkConfigFile<K>) -> Self {
         NetworkConfig {
@@ -551,7 +573,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
-            election_config_type_name: "unset".to_string(),
+            election_config_type_name: NetworkConfigFile::<K>::get_election_type(),
             start_delay_seconds: val.start_delay_seconds,
             cdn_marshal_address: val.cdn_marshal_address,
             web_server_config: val.web_server_config,
