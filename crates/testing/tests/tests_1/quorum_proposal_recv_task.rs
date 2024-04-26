@@ -1,24 +1,15 @@
 use hotshot::tasks::task_state::CreateTaskState;
-use hotshot_example_types::{
-    block_types::TestMetadata,
-    node_types::{MemoryImpl, TestTypes},
-};
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
     events::HotShotEvent::*, quorum_proposal_recv::QuorumProposalRecvTaskState,
 };
 use hotshot_testing::{
-    predicates::event::{exact, quorum_proposal_send, quorum_proposal_validated},
+    predicates::event::exact,
     script::{run_test_script, TestScriptStage},
-    task_helpers::{build_system_handle, get_vid_share, vid_scheme_from_view_number},
+    task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{
-    data::{null_block, ViewNumber},
-    traits::{election::Membership, node_implementation::ConsensusTime},
-    utils::BuilderCommitment,
-};
-use jf_primitives::vid::VidScheme;
-use sha2::Digest;
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 
 #[cfg(test)]
 #[cfg(feature = "dependency-tasks")]
@@ -30,13 +21,6 @@ async fn test_quorum_proposal_recv_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-
-    // Make some empty encoded transactions, we just care about having a commitment handy for the
-    // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
-    let encoded_transactions = Vec::new();
-    let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let payload_commitment = vid_disperse.commit;
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
     let mut proposals = Vec::new();

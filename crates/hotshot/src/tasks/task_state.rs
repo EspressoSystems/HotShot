@@ -288,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_task: None,
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
-            output_event_stream: handle.hotshot.output_event_stream.0.clone(),
+            output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
             formed_upgrade_certificate: None,
             proposal_cert: None,
