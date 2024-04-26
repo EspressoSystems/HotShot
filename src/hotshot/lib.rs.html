@@ -800,6 +800,22 @@
 <a href="#798" id="798">798</a>
 <a href="#799" id="799">799</a>
 <a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -946,9 +962,17 @@
     <span class="doccomment">/// The view to enter when first starting consensus
     </span>start_view: TYPES::Time,
 
-    <span class="comment">// global_registry: GlobalRegistry,
-    </span><span class="doccomment">/// Access to the output event stream.
-    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, Receiver&lt;Event&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// Access to the output event stream.
+    </span><span class="attr">#[deprecated(
+        note = <span class="string">"please use the `get_event_stream` method on `SystemContextHandle` instead. This field will be made private in a future release of HotShot"
+    </span>)]
+    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// External event stream for communication with the application.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) external_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Anchored leaf provided by the initializer.
+    </span>anchored_leaf: Leaf&lt;TYPES&gt;,
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
     </span><span class="attr">#[allow(clippy::type_complexity)]
@@ -964,7 +988,8 @@
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Clone <span class="kw">for </span>SystemContext&lt;TYPES, I&gt; {
-    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+    <span class="attr">#![allow(deprecated)]
+    </span><span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             public_key: <span class="self">self</span>.public_key.clone(),
             private_key: <span class="self">self</span>.private_key.clone(),
@@ -977,6 +1002,8 @@
             version: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.version),
             start_view: <span class="self">self</span>.start_view,
             output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
+            external_event_stream: <span class="self">self</span>.external_event_stream.clone(),
+            anchored_leaf: <span class="self">self</span>.anchored_leaf.clone(),
             internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
             id: <span class="self">self</span>.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
@@ -985,7 +1012,8 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
+    <span class="attr">#![allow(deprecated)]
+    </span><span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
@@ -1023,8 +1051,6 @@
             )),
         };
 
-        <span class="kw">let </span>state_delta = initializer.state_delta.as_ref();
-
         <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -1044,28 +1070,6 @@
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
-
-        <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,
-        // which contains only that leaf and nothing else.
-        </span><span class="kw">if </span>anchored_leaf.get_view_number() == TYPES::Time::genesis() {
-            broadcast_event(
-                Event {
-                    view_number: anchored_leaf.get_view_number(),
-                    event: EventType::Decide {
-                        leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
-                            anchored_leaf.clone(),
-                            Arc::clone(<span class="kw-2">&amp;</span>validated_state),
-                            state_delta.cloned(),
-                            <span class="prelude-val">None</span>,
-                        )]),
-                        qc: Arc::new(QuorumCertificate::genesis(<span class="kw-2">&amp;</span>instance_state)),
-                        block_size: <span class="prelude-val">None</span>,
-                    },
-                },
-                <span class="kw-2">&amp;</span>external_tx,
-            )
-            .<span class="kw">await</span>;
-        }
 
         <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
@@ -1115,7 +1119,9 @@
             memberships: Arc::new(memberships),
             metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, external_rx),
+            output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
+            external_event_stream: (external_tx, external_rx.deactivate()),
+            anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
         });
 
@@ -1141,6 +1147,32 @@
             ))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
+
+        {
+            <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,
+            // which contains only that leaf and nothing else.
+            </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+                <span class="kw">let </span>(validated_state, state_delta) =
+                    TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
+                broadcast_event(
+                    Event {
+                        view_number: <span class="self">self</span>.anchored_leaf.get_view_number(),
+                        event: EventType::Decide {
+                            leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
+                                <span class="self">self</span>.anchored_leaf.clone(),
+                                Arc::new(validated_state),
+                                <span class="prelude-val">Some</span>(Arc::new(state_delta)),
+                                <span class="prelude-val">None</span>,
+                            )]),
+                            qc: Arc::new(QuorumCertificate::genesis(<span class="self">self</span>.instance_state.as_ref())),
+                            block_size: <span class="prelude-val">None</span>,
+                        },
+                    },
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream.<span class="number">0</span>,
+                )
+                .<span class="kw">await</span>;
+            }
+        }
     }
 
     <span class="doccomment">/// Emit an external event
@@ -1148,7 +1180,7 @@
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_external_event"</span>);
-        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Publishes a transaction asynchronously to the network.
@@ -1322,7 +1354,7 @@
         <span class="comment">// ED Need to set first first number to 1, or properly trigger the change upon start
         </span><span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
 
-        <span class="kw">let </span>output_event_stream = <span class="self">self</span>.output_event_stream.clone();
+        <span class="kw">let </span>output_event_stream = <span class="self">self</span>.external_event_stream.clone();
         <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.internal_event_stream.clone();
 
         <span class="kw">let </span>quorum_network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks.quorum_network);
@@ -1510,7 +1542,7 @@
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_event"</span>);
-        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.output_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
+        broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.external_event_stream.<span class="number">0</span>).<span class="kw">await</span>;
     }
 
     <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {
