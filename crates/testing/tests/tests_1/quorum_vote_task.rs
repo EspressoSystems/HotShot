@@ -78,7 +78,7 @@ async fn test_quorum_vote_task_vote_now() {
 
     let vote_dependency_data = VoteDependencyData {
         quorum_proposal: view.quorum_proposal.data.clone(),
-        leaf: view.leaf.clone(),
+        parent_leaf: view.leaf.clone(),
         disperse_share: view.vid_proposal.0[0].clone(),
         da_cert: view.da_certificate.clone(),
     };
