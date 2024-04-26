@@ -1,12 +1,9 @@
 use hotshot::traits::{
     election::static_committee::{GeneralStaticCommittee, StaticCommittee, StaticElectionConfig},
-    implementations::{
-        CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork, WebServerNetwork,
-    },
+    implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
 };
 use hotshot_types::{
-    constants::WebServerVersion,
     data::ViewNumber,
     message::Message,
     signature_key::{BLSPubKey, BuilderKey},
@@ -61,10 +58,6 @@ pub struct MemoryImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct Libp2pImpl;
 
-/// Web server network implementation
-#[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
-pub struct WebImpl;
-
 /// Combined Network implementation (libp2p + web sever)
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct CombinedImpl;
@@ -81,12 +74,6 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
 impl<TYPES: NodeType> NodeImplementation<TYPES> for MemoryImpl {
     type QuorumNetwork = MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>;
     type CommitteeNetwork = MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>;
-    type Storage = TestStorage<TYPES>;
-}
-
-impl<TYPES: NodeType> NodeImplementation<TYPES> for WebImpl {
-    type QuorumNetwork = WebServerNetwork<TYPES, WebServerVersion>;
-    type CommitteeNetwork = WebServerNetwork<TYPES, WebServerVersion>;
     type Storage = TestStorage<TYPES>;
 }
 
