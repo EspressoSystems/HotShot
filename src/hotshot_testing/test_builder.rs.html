@@ -353,19 +353,6 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
@@ -398,10 +385,8 @@
     </span><span class="kw">pub </span>round_start_delay: u64,
     <span class="doccomment">/// Delay after init before starting consensus, in milliseconds
     </span><span class="kw">pub </span>start_delay: u64,
-    <span class="doccomment">/// The minimum amount of time a leader has to wait to start a round
-    </span><span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
-    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
+    </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Delay before sending through the secondary network in CombinedNetworks
@@ -436,8 +421,6 @@
     </span><span class="kw">pub </span>txn_description: TxnTaskDescription,
     <span class="doccomment">/// completion task
     </span><span class="kw">pub </span>completion_task_description: CompletionTaskDescription,
-    <span class="doccomment">/// Minimum transactions required for a block
-    </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// timing data
     </span><span class="kw">pub </span>timing_data: TimingData,
     <span class="doccomment">/// unrelabile networking metadata
@@ -453,8 +436,7 @@
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">100</span>,
             start_delay: <span class="number">100</span>,
-            propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
-            propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
+            builder_timeout: Duration::from_millis(<span class="number">1000</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             secondary_network_delay: Duration::from_millis(<span class="number">1000</span>),
             view_sync_timeout: Duration::from_millis(<span class="number">2000</span>),
@@ -570,7 +552,6 @@
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         <span class="self">Self </span>{
             timing_data: TimingData::default(),
-            min_transactions: <span class="number">0</span>,
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -615,7 +596,6 @@
         <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
-            min_transactions,
             timing_data,
             da_staked_committee_size,
             da_non_staked_committee_size,
@@ -666,8 +646,6 @@
             </span>known_da_nodes,
             num_nodes_without_stake: <span class="number">0</span>,
             num_bootstrap: num_bootstrap_nodes,
-            min_transactions,
-            max_transactions: NonZeroUsize::new(<span class="number">99999</span>).unwrap(),
             known_nodes_with_stake,
             known_nodes_without_stake: <span class="macro">vec!</span>[],
             my_own_validator_config,
@@ -679,9 +657,7 @@
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">25</span>,
             start_delay: <span class="number">1</span>,
-            <span class="comment">// TODO do we use these fields??
-            </span>propose_min_round_time: Duration::from_millis(<span class="number">0</span>),
-            propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
+            builder_timeout: Duration::from_millis(<span class="number">1000</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             <span class="comment">// TODO what's the difference between this and the second config?
             </span>election_config: <span class="prelude-val">Some</span>(TYPES::Membership::default_election_config(
@@ -696,8 +672,7 @@
             timeout_ratio,
             round_start_delay,
             start_delay,
-            propose_min_round_time,
-            propose_max_round_time,
+            builder_timeout,
             data_request_delay,
             secondary_network_delay,
             view_sync_timeout,
@@ -709,8 +684,7 @@
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;
                 a.start_delay = start_delay;
-                a.propose_min_round_time = propose_min_round_time;
-                a.propose_max_round_time = propose_max_round_time;
+                a.builder_timeout = builder_timeout;
                 a.data_request_delay = data_request_delay;
                 a.view_sync_timeout = view_sync_timeout;
             };

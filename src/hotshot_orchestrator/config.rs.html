@@ -759,25 +759,6 @@
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     env, fs,
@@ -828,10 +809,8 @@
     </span><span class="kw">pub </span>mesh_n: usize,
     <span class="doccomment">/// timeout before starting the next view
     </span><span class="kw">pub </span>next_view_timeout: u64,
-    <span class="doccomment">/// minimum time to wait for a view
-    </span><span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="doccomment">/// maximum time to wait for a view
-    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
+    </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// time node has been running
     </span><span class="kw">pub </span>online_time: u64,
     <span class="doccomment">/// number of transactions per view
@@ -949,10 +928,8 @@
     </span><span class="kw">pub </span>next_view_timeout: u64,
     <span class="doccomment">/// timeout before starting next view sync round
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
-    <span class="doccomment">/// minimum time to wait for a view
-    </span><span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="doccomment">/// maximum time to wait for a view
-    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
+    </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// global index of node (for testing purposes a uid)
@@ -1238,8 +1215,7 @@
             next_view_timeout: <span class="number">10</span>,
             view_sync_timeout: Duration::from_secs(<span class="number">2</span>),
             num_bootrap: <span class="number">5</span>,
-            propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
-            propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
+            builder_timeout: Duration::from_secs(<span class="number">10</span>),
             data_request_delay: Duration::from_millis(<span class="number">2500</span>),
             commit_sha: String::new(),
             builder: BuilderType::default(),
@@ -1306,8 +1282,7 @@
             num_bootrap: val.config.num_bootstrap,
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
-            propose_max_round_time: val.config.propose_max_round_time,
-            propose_min_round_time: val.config.propose_min_round_time,
+            builder_timeout: val.config.builder_timeout,
             data_request_delay: val.config.data_request_delay,
             seed: val.seed,
             transaction_size: val.transaction_size,
@@ -1323,8 +1298,7 @@
                 mesh_outbound_min: libp2p_config.mesh_outbound_min,
                 mesh_n: libp2p_config.mesh_n,
                 next_view_timeout: val.config.next_view_timeout,
-                propose_min_round_time: val.config.propose_min_round_time,
-                propose_max_round_time: val.config.propose_max_round_time,
+                builder_timeout: val.config.builder_timeout,
                 online_time: libp2p_config.online_time,
                 num_txn_per_round: val.transactions_per_round,
                 server_mode: libp2p_config.server_mode,
@@ -1375,10 +1349,6 @@
     </span><span class="kw">pub </span>non_staked_committee_nodes: usize,
     <span class="doccomment">/// Number of fixed leaders for GPU VID
     </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
-    <span class="doccomment">/// Maximum transactions per block
-    </span><span class="kw">pub </span>max_transactions: NonZeroUsize,
-    <span class="doccomment">/// Minimum transactions per block
-    </span><span class="kw">pub </span>min_transactions: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
     </span><span class="kw">pub </span>next_view_timeout: u64,
     <span class="doccomment">/// Duration for view sync round timeout
@@ -1391,10 +1361,8 @@
     </span><span class="kw">pub </span>start_delay: u64,
     <span class="doccomment">/// Number of network bootstrap nodes
     </span><span class="kw">pub </span>num_bootstrap: usize,
-    <span class="doccomment">/// The minimum amount of time a leader has to wait to start a round
-    </span><span class="kw">pub </span>propose_min_round_time: Duration,
-    <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
-    </span><span class="kw">pub </span>propose_max_round_time: Duration,
+    <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
+    </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// Time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Builder API base URL
@@ -1463,8 +1431,6 @@
             num_nodes_with_stake: val.num_nodes_with_stake,
             num_nodes_without_stake: val.num_nodes_without_stake,
             known_da_nodes: val.known_da_nodes,
-            max_transactions: val.max_transactions,
-            min_transactions: val.min_transactions,
             known_nodes_with_stake: val.known_nodes_with_stake,
             known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
@@ -1477,8 +1443,7 @@
             round_start_delay: val.round_start_delay,
             start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
-            propose_min_round_time: val.propose_min_round_time,
-            propose_max_round_time: val.propose_max_round_time,
+            builder_timeout: val.builder_timeout,
             data_request_delay: val.data_request_delay,
             election_config: <span class="prelude-val">None</span>,
             builder_url: val.builder_url,
@@ -1541,16 +1506,13 @@
             known_da_nodes,
             non_staked_committee_nodes: <span class="number">0</span>,
             fixed_leader_for_gpuvid: <span class="number">0</span>,
-            max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
-            min_transactions: <span class="number">1</span>,
             next_view_timeout: <span class="number">10000</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">1000</span>),
             timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
             round_start_delay: <span class="number">1</span>,
             start_delay: <span class="number">1</span>,
             num_bootstrap: <span class="number">5</span>,
-            propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
-            propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
+            builder_timeout: Duration::from_secs(<span class="number">10</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             builder_url: default_builder_url(),
         }
