@@ -337,12 +337,6 @@ pub async fn run_orchestrator<
 ) {
     println!("Starting orchestrator",);
 
-    #[cfg(feature = "fixed-leader-election")]
-    println!(
-        "it should be successful. config.election_type = {:?}",
-        config.election_config_type_name
-    );
-
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
