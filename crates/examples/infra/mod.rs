@@ -311,7 +311,7 @@ pub async fn run_orchestrator<
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
     println!("Starting orchestrator",);
-    let _result = hotshot_orchestrator::run_orchestrator::<TYPES::SignatureKey>(config, url).await;
+    let _ = hotshot_orchestrator::run_orchestrator::<TYPES::SignatureKey>(config, url).await;
 }
 
 /// Helper function to calculate the nuymber of transactions to send per node per round
