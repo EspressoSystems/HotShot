@@ -791,7 +791,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         message: M,
         topic: String,
         bind_version: VER,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), NetworkError> {
         self.wait_for_ready().await;
 
         info!("Publishing to topic: {}", topic);
@@ -1098,7 +1098,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         &self,
         message: M,
         bind_version: VER,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), NetworkError> {
         // send to self
         self.inner
             .sender
@@ -1160,17 +1160,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
-    async fn subscribe_transactions(&self) -> anyhow::Result<()> {
-        Ok(self.inner
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
+        self.inner
             .handle
             .subscribe("transactions".to_string())
-            .await?)
+            .await
+            .map_err(Into::<NetworkError>::into)
     }
 
-    async fn unsubscribe_transactions(&self) -> anyhow::Result<()> {
-        Ok(self.inner
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
+        self.inner
             .handle
             .unsubscribe("transactions".to_string())
-            .await?)
+            .await
+            .map_err(Into::<NetworkError>::into)
     }
 }

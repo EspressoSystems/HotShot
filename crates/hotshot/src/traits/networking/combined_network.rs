@@ -415,12 +415,12 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         message: Message<TYPES>,
         bind_version: VER,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
         let primary_message = message.clone();
         let secondary_message = message.clone();
-        Ok(self.send_both_networks(
+        self.send_both_networks(
             message,
             async move {
                 primary
@@ -433,7 +433,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
                     .await
             },
         )
-        .await?)
+        .await
     }
 
     async fn vid_broadcast_message<VER: StaticVersionType + 'static>(
@@ -534,24 +534,24 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.primary_down.load(Ordering::Relaxed)
     }
 
-    async fn subscribe_transactions(&self) -> anyhow::Result<()> {
+    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
         match join!(
             self.networks.0.subscribe_transactions(),
-            self.networks.1.subscribe_transactions(),
+            self.networks.1.subscribe_transactions()
         ) {
-            (Err(e1), _) => Err(e1)?,
-            (_, Err(e2)) => Err(e2)?,
+            (Err(e1), _) => Err(e1),
+            (_, Err(e2)) => Err(e2),
             (Ok(res), _) => Ok(res),
         }
     }
 
-    async fn unsubscribe_transactions(&self) -> anyhow::Result<()> {
+    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
         match join!(
             self.networks.0.unsubscribe_transactions(),
-            self.networks.1.unsubscribe_transactions(),
+            self.networks.1.unsubscribe_transactions()
         ) {
-            (Err(e1), _) => Err(e1)?,
-            (_, Err(e2)) => Err(e2)?,
+            (Err(e1), _) => Err(e1),
+            (_, Err(e2)) => Err(e2),
             (Ok(res), _) => Ok(res),
         }
     }
