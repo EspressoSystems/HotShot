@@ -61,20 +61,6 @@ pub async fn build_system_handle(
 
     let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
 
-    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <TestTypes as NodeType>::Membership::default_election_config(
-            config.num_nodes_with_stake.get() as u64,
-            config.num_nodes_without_stake as u64,
-        )
-    });
-
-    let committee_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <TestTypes as NodeType>::Membership::default_election_config(
-            // Use the _actual_ number of known DA nodes instead of the expected number of DA nodes
-            config.known_da_nodes.len() as u64,
-            config.num_nodes_without_stake as u64,
-        )
-    });
     let networks_bundle = Networks {
         quorum_network: networks.0.clone(),
         da_network: networks.1.clone(),
@@ -84,22 +70,22 @@ pub async fn build_system_handle(
     let memberships = Memberships {
         quorum_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            quorum_election_config.clone(),
+            known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
         da_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            committee_election_config,
+            config.known_da_nodes.clone().into_iter().collect(),
             config.fixed_leader_for_gpuvid,
         ),
         vid_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            quorum_election_config.clone(),
+            known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
         view_sync_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            quorum_election_config,
+            known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
     };

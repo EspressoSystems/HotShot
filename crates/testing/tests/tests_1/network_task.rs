@@ -40,16 +40,10 @@ async fn test_network_task() {
     let config = launcher.resource_generator.config.clone();
     let public_key = config.my_own_validator_config.public_key;
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <TestTypes as NodeType>::Membership::default_election_config(
-            config.num_nodes_with_stake.get() as u64,
-            config.num_nodes_without_stake as u64,
-        )
-    });
 
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
-        quorum_election_config.clone(),
+        known_nodes_with_stake.clone(),
         config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
@@ -109,16 +103,10 @@ async fn test_network_storage_fail() {
     let config = launcher.resource_generator.config.clone();
     let public_key = config.my_own_validator_config.public_key;
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-    let quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-        <TestTypes as NodeType>::Membership::default_election_config(
-            config.num_nodes_with_stake.get() as u64,
-            config.num_nodes_without_stake as u64,
-        )
-    });
 
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
-        quorum_election_config.clone(),
+        known_nodes_with_stake.clone(),
         config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
