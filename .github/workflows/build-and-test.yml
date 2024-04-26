@@ -87,7 +87,7 @@ jobs:
 
       - name: Test examples
         run: |
-          just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
+          just ${{ matrix.just_variants }} example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml
 
   build-release:
     strategy:
