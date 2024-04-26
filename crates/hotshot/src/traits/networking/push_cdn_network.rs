@@ -438,9 +438,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         message: Message<TYPES>,
         bind_version: VER,
-    ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Transactions, bind_version)
-            .await
+    ) -> anyhow::Result<()> {
+        Ok(self.broadcast_message(message, Topic::Transactions, bind_version)
+            .await?)
     }
 
     /// Send a direct message to a node with a particular key. Does not retry.
@@ -550,21 +550,15 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// We don't need to poll.
     async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
 
-    async fn subscribe_transactions(&self) -> Result<(), NetworkError> {
-        self.client
+    async fn subscribe_transactions(&self) -> anyhow::Result<()> {
+        Ok(self.client
             .subscribe(vec![Topic::Transactions])
-            .await
-            .map_err(|_e| NetworkError::PushCdnNetwork {
-                source: PushCdnNetworkError::FailedToSubscribe,
-            })
+            .await?)
     }
 
-    async fn unsubscribe_transactions(&self) -> Result<(), NetworkError> {
-        self.client
+    async fn unsubscribe_transactions(&self) -> anyhow::Result<()> {
+        Ok(self.client
             .unsubscribe(vec![Topic::Transactions])
-            .await
-            .map_err(|_e| NetworkError::PushCdnNetwork {
-                source: PushCdnNetworkError::FailedToUnsubscribe,
-            })
+            .await?)
     }
 }
