@@ -468,17 +468,6 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.secondary().queue_node_lookup(view_number, pk).await
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <PushCdnNetwork<_> as ConnectedNetwork<
-            Message<TYPES>,
-            TYPES::SignatureKey,
-        >>::inject_consensus_info(self.primary(), event.clone())
-        .await;
-
-        <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
-            inject_consensus_info(self.secondary(), event).await;
-    }
-
     fn update_view(&self, view: u64) {
         let delayed_map = Arc::clone(&self.delayed_tasks);
         async_spawn(async move {

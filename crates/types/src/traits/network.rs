@@ -420,11 +420,6 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         Ok(())
     }
 
-    /// Injects consensus data such as view number into the networking implementation
-    /// blocking
-    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<K>) {}
-
     /// handles view update
     fn update_view(&self, _view: u64) {}
 

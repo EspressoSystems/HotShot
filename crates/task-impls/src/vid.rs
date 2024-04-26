@@ -127,13 +127,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 self.cur_view = view;
 
-                // Start polling for VID disperse for the new view
-                self.network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
-                        *self.cur_view + 1,
-                    ))
-                    .await;
-
                 // If we are not the next leader, we should exit
                 if self.membership.get_leader(self.cur_view + 1) != self.public_key {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);

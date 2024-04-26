@@ -1111,25 +1111,4 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .send(Some((view_number, pk)))
             .await
     }
-
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        match event {
-            ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) => {
-                let _ = self
-                    .queue_node_lookup(ViewNumber::new(future_view), future_leader)
-                    .await
-                    .map_err(|err| warn!("failed to process node lookup request: {}", err));
-            }
-
-            ConsensusIntentEvent::PollForProposal(new_view) => {
-                if new_view > self.inner.latest_seen_view.load(Ordering::Relaxed) {
-                    self.inner
-                        .latest_seen_view
-                        .store(new_view, Ordering::Relaxed);
-                }
-            }
-
-            _ => {}
-        }
-    }
 }

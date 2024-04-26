@@ -1,4 +1,4 @@
-use hotshot::tasks::{inject_quorum_proposal_polls, task_state::CreateTaskState};
+use hotshot::tasks::{task_state::CreateTaskState};
 use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestValidatedState,
@@ -110,7 +110,6 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -171,7 +170,6 @@ async fn test_quorum_proposal_task_qc_timeout() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -237,7 +235,6 @@ async fn test_quorum_proposal_task_view_sync() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -366,7 +363,6 @@ async fn test_quorum_proposal_task_propose_now() {
     for stage in vec![view_qp, view_timeout, view_view_sync] {
         let quorum_proposal_task_state =
             QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-        inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
         let script = vec![stage];
         run_test_script(script, quorum_proposal_task_state).await;
@@ -410,7 +406,6 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;

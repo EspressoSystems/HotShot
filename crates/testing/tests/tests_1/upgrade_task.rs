@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use hotshot::{
-    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    tasks::{task_state::CreateTaskState},
     types::SystemContextHandle,
 };
 use hotshot_example_types::{
@@ -154,8 +154,6 @@ async fn test_consensus_task_upgrade() {
     >::create_from(&handle)
     .await;
 
-    inject_consensus_polls(&consensus_state).await;
-
     run_test_script(script, consensus_state).await;
 }
 
@@ -234,8 +232,6 @@ async fn test_upgrade_and_consensus_task() {
     .await;
 
     upgrade_state.should_vote = |_| true;
-
-    inject_consensus_polls(&consensus_state).await;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
@@ -425,8 +421,6 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     .await;
 
     upgrade_state.should_vote = |_| true;
-
-    inject_consensus_polls(&consensus_state).await;
 
     let inputs = vec![
         vec![

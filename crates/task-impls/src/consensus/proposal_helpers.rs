@@ -602,14 +602,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         *proposal.data.view_number
     );
 
-    // stop polling for the received proposal
-    task_state
-        .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
-            *proposal.data.view_number,
-        ))
-        .await;
-
     validate_proposal_view_and_certs(
         proposal,
         &sender,

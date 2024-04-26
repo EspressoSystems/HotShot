@@ -62,35 +62,8 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     *cur_view = new_view;
 
-    // Poll the future leader for lookahead
-    let lookahead_view = new_view + LOOK_AHEAD;
-    if quorum_membership.get_leader(lookahead_view) != public_key {
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                *lookahead_view,
-                quorum_membership.get_leader(lookahead_view),
-            ))
-            .await;
-    }
-
     // The next view is just the current view + 1
     let next_view = *cur_view + 1;
-
-    // Start polling for proposals for the new view
-    quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*next_view))
-        .await;
-
-    quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*next_view))
-        .await;
-
-    if quorum_membership.get_leader(next_view) == public_key {
-        debug!("Polling for quorum votes for view {}", **cur_view);
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(**cur_view))
-            .await;
-    }
 
     broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
 

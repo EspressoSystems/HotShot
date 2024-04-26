@@ -645,13 +645,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QCFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *timeout_cert.view_number,
-                            ))
-                            .await;
-
                         let view = timeout_cert.view_number + 1;
                         info!("Making QC Timeout dependency for view {view:?}");
 
@@ -670,13 +663,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                         let mut consensus = self.consensus.write().await;
                         consensus.high_qc = qc.clone();
-
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *qc.view_number,
-                            ))
-                            .await;
 
                         // We need to drop our handle here to make the borrow checker happy.
                         drop(consensus);
@@ -722,13 +708,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                // cancel poll for votes
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                        *certificate.view_number - 1,
-                    ))
-                    .await;
-
                 let view = certificate.view_number;
 
                 if self.quorum_membership.get_leader(view) == self.public_key {
@@ -745,13 +724,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     "Received Quorum Proposal for view {}",
                     *proposal.data.view_number
                 );
-
-                // stop polling for the received proposal
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
-                        *proposal.data.view_number,
-                    ))
-                    .await;
 
                 let view = proposal.data.get_view_number();
                 if view < self.cur_view {
@@ -909,33 +881,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 cancel_task(timeout_task).await;
             }
             self.cur_view = new_view;
-
-            // Poll the future leader for lookahead
-            let lookahead_view = new_view + LOOK_AHEAD;
-            if self.quorum_membership.get_leader(lookahead_view) != self.public_key {
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                        *lookahead_view,
-                        self.quorum_membership.get_leader(lookahead_view),
-                    ))
-                    .await;
-            }
-
-            // Start polling for proposals for the new view
-            self.quorum_network
-                .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*self.cur_view + 1))
-                .await;
-
-            self.quorum_network
-                .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*self.cur_view + 1))
-                .await;
-
-            if self.quorum_membership.get_leader(self.cur_view + 1) == self.public_key {
-                debug!("Polling for quorum votes for view {}", *self.cur_view);
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view))
-                    .await;
-            }
 
             broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
 
