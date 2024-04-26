@@ -39,6 +39,8 @@ async fn test_consensus_task_upgrade() {
 
     let handle = build_system_handle(1).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -58,7 +60,7 @@ async fn test_consensus_task_upgrade() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
@@ -173,6 +175,8 @@ async fn test_upgrade_and_consensus_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let other_handles = futures::future::join_all((0..=9).map(build_system_handle)).await;
 
@@ -195,7 +199,7 @@ async fn test_upgrade_and_consensus_task() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -333,6 +337,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     let handle = build_system_handle(6).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -353,7 +359,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());

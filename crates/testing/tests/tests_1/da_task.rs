@@ -28,6 +28,8 @@ async fn test_da_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -38,7 +40,7 @@ async fn test_da_task() {
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -107,6 +109,8 @@ async fn test_da_task_storage_failure() {
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.get_storage().write().await.should_return_err = true;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -117,7 +121,7 @@ async fn test_da_task_storage_failure() {
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

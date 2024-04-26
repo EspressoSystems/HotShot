@@ -265,6 +265,7 @@ pub fn build_vid_proposal(
 
 pub fn build_da_certificate(
     quorum_membership: &<TestTypes as NodeType>::Membership,
+    da_membership: &<TestTypes as NodeType>::Membership,
     view_number: ViewNumber,
     transactions: Vec<TestTransaction>,
     public_key: &<TestTypes as NodeType>::SignatureKey,
@@ -281,7 +282,7 @@ pub fn build_da_certificate(
 
     build_cert::<TestTypes, DAData, DAVote<TestTypes>, DACertificate<TestTypes>>(
         da_data,
-        quorum_membership,
+        da_membership,
         view_number,
         public_key,
         private_key,
