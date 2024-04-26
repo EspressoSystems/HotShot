@@ -29,35 +29,6 @@ async fn test_quorum_vote_task_success() {
     generator.next();
     let view = generator.current_view.clone().unwrap();
 
-    let consensus = handle.get_consensus();
-    let mut consensus = consensus.write().await;
-
-    // `find_parent_leaf_and_state` depends on the existence of prior values in the consensus
-    // state, but since we do not spin up the consensus task, these values must be manually filled
-    // out.
-
-    // First, insert a parent view whose leaf commitment will be returned in the lower function
-    // call.
-    consensus.validated_state_map.insert(
-        ViewNumber::new(1),
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: view.leaf.get_parent_commitment(),
-                state: TestValidatedState::default().into(),
-                delta: None,
-            },
-        },
-    );
-
-    // Match an entry into the saved leaves for the parent commitment, returning the generated leaf
-    // for this call.
-    consensus
-        .saved_leaves
-        .insert(view.leaf.get_parent_commitment(), view.leaf.clone());
-
-    // Release the write lock before proceeding with the test
-    drop(consensus);
-
     // Send the validated quorum proposal, DAC, and VID disperse data, in which case a dummy vote
     // can be formed and the view number will be updated.
     let view_success = TestScriptStage {
@@ -82,130 +53,130 @@ async fn test_quorum_vote_task_success() {
     run_test_script(vec![view_success], quorum_vote_state).await;
 }
 
-// #[cfg(test)]
-// #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-// #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-// async fn test_quorum_vote_task_vote_now() {
-//     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
-//     use hotshot_testing::{
-//         predicates::event::{exact, quorum_vote_send},
-//         script::{run_test_script, TestScriptStage},
-//         task_helpers::build_system_handle,
-//         view_generator::TestViewGenerator,
-//     };
-//     use hotshot_types::vote::VoteDependencyData;
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_vote_task_vote_now() {
+    use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
+    use hotshot_testing::{
+        predicates::event::{exact, quorum_vote_send},
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+        view_generator::TestViewGenerator,
+    };
+    use hotshot_types::vote::VoteDependencyData;
 
-//     async_compatibility_layer::logging::setup_logging();
-//     async_compatibility_layer::logging::setup_backtrace();
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
 
-//     let handle = build_system_handle(2).await.0;
-//     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-//     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-//     generator.next();
-//     let view = generator.current_view.clone().unwrap();
+    generator.next();
+    let view = generator.current_view.clone().unwrap();
 
-//     let vote_dependency_data = VoteDependencyData {
-//         quorum_proposal: view.quorum_proposal.data.clone(),
-//         leaf: view.leaf.clone(),
-//         disperse_share: view.vid_proposal.0[0].clone(),
-//         da_cert: view.da_certificate.clone(),
-//     };
+    let vote_dependency_data = VoteDependencyData {
+        quorum_proposal: view.quorum_proposal.data.clone(),
+        leaf: view.leaf.clone(),
+        disperse_share: view.vid_proposal.0[0].clone(),
+        da_cert: view.da_certificate.clone(),
+    };
 
-//     // Submit an event with just the `VoteNow` event which should successfully send a vote.
-//     let view_vote_now = TestScriptStage {
-//         inputs: vec![VoteNow(view.view_number, vote_dependency_data)],
-//         outputs: vec![
-//             exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
-//             quorum_vote_send(),
-//         ],
-//         asserts: vec![],
-//     };
+    // Submit an event with just the `VoteNow` event which should successfully send a vote.
+    let view_vote_now = TestScriptStage {
+        inputs: vec![VoteNow(view.view_number, vote_dependency_data)],
+        outputs: vec![
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
+            quorum_vote_send(),
+        ],
+        asserts: vec![],
+    };
 
-//     let quorum_vote_state =
-//         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let quorum_vote_state =
+        QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-//     run_test_script(vec![view_vote_now], quorum_vote_state).await;
-// }
+    run_test_script(vec![view_vote_now], quorum_vote_state).await;
+}
 
-// #[cfg(test)]
-// #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-// #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-// async fn test_quorum_vote_task_miss_dependency() {
-//     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
-//     use hotshot_testing::{
-//         predicates::event::exact,
-//         script::{run_test_script, TestScriptStage},
-//         task_helpers::build_system_handle,
-//         view_generator::TestViewGenerator,
-//     };
+#[cfg(test)]
+#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+async fn test_quorum_vote_task_miss_dependency() {
+    use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
+    use hotshot_testing::{
+        predicates::event::exact,
+        script::{run_test_script, TestScriptStage},
+        task_helpers::build_system_handle,
+        view_generator::TestViewGenerator,
+    };
 
-//     async_compatibility_layer::logging::setup_logging();
-//     async_compatibility_layer::logging::setup_backtrace();
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
 
-//     let handle = build_system_handle(2).await.0;
-//     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let handle = build_system_handle(2).await.0;
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-//     let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
 
-//     let mut proposals = Vec::new();
-//     let mut leaders = Vec::new();
-//     let mut leaves = Vec::new();
-//     let mut votes = Vec::new();
-//     let mut dacs = Vec::new();
-//     let mut vids = Vec::new();
-//     for view in (&mut generator).take(3) {
-//         proposals.push(view.quorum_proposal.clone());
-//         leaders.push(view.leader_public_key);
-//         leaves.push(view.leaf.clone());
-//         votes.push(view.create_quorum_vote(&handle));
-//         dacs.push(view.da_certificate.clone());
-//         vids.push(view.vid_proposal.clone());
-//     }
+    let mut proposals = Vec::new();
+    let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
+    let mut votes = Vec::new();
+    let mut dacs = Vec::new();
+    let mut vids = Vec::new();
+    for view in (&mut generator).take(3) {
+        proposals.push(view.quorum_proposal.clone());
+        leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
+        votes.push(view.create_quorum_vote(&handle));
+        dacs.push(view.da_certificate.clone());
+        vids.push(view.vid_proposal.clone());
+    }
 
-//     // Send two of the validated quorum proposal, DAC, and VID disperse data, in which case there's
-//     // no vote.
-//     let view_no_dac = TestScriptStage {
-//         inputs: vec![
-//             QuorumProposalValidated(proposals[0].data.clone(), leaves[0].clone()),
-//             VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
-//         ],
-//         outputs: vec![
-//             exact(ViewChange(ViewNumber::new(2))),
-//             exact(VIDShareValidated(vids[0].0[0].clone())),
-//         ],
-//         asserts: vec![],
-//     };
-//     let view_no_vid = TestScriptStage {
-//         inputs: vec![
-//             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
-//             DACertificateRecv(dacs[1].clone()),
-//         ],
-//         outputs: vec![
-//             exact(ViewChange(ViewNumber::new(3))),
-//             exact(DACertificateValidated(dacs[1].clone())),
-//         ],
-//         asserts: vec![],
-//     };
-//     let view_no_quorum_proposal = TestScriptStage {
-//         inputs: vec![
-//             DACertificateRecv(dacs[2].clone()),
-//             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
-//         ],
-//         outputs: vec![
-//             exact(DACertificateValidated(dacs[2].clone())),
-//             exact(VIDShareValidated(vids[2].0[0].clone())),
-//         ],
-//         asserts: vec![],
-//     };
+    // Send two of the validated quorum proposal, DAC, and VID disperse data, in which case there's
+    // no vote.
+    let view_no_dac = TestScriptStage {
+        inputs: vec![
+            QuorumProposalValidated(proposals[0].data.clone(), leaves[0].clone()),
+            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(2))),
+            exact(VIDShareValidated(vids[0].0[0].clone())),
+        ],
+        asserts: vec![],
+    };
+    let view_no_vid = TestScriptStage {
+        inputs: vec![
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
+            DACertificateRecv(dacs[1].clone()),
+        ],
+        outputs: vec![
+            exact(ViewChange(ViewNumber::new(3))),
+            exact(DACertificateValidated(dacs[1].clone())),
+        ],
+        asserts: vec![],
+    };
+    let view_no_quorum_proposal = TestScriptStage {
+        inputs: vec![
+            DACertificateRecv(dacs[2].clone()),
+            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
+        ],
+        outputs: vec![
+            exact(DACertificateValidated(dacs[2].clone())),
+            exact(VIDShareValidated(vids[2].0[0].clone())),
+        ],
+        asserts: vec![],
+    };
 
-//     let quorum_vote_state =
-//         QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let quorum_vote_state =
+        QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-//     run_test_script(
-//         vec![view_no_dac, view_no_vid, view_no_quorum_proposal],
-//         quorum_vote_state,
-//     )
-//     .await;
-// }
+    run_test_script(
+        vec![view_no_dac, view_no_vid, view_no_quorum_proposal],
+        quorum_vote_state,
+    )
+    .await;
+}
