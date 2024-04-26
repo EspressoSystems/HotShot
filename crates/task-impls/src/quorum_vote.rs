@@ -272,7 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             return;
         }
 
-        let quorum_proposal_dependency = self.create_event_dependency(
+        let mut quorum_proposal_dependency = self.create_event_dependency(
             VoteDependency::QuorumProposal,
             view_number,
             event_receiver.clone(),
@@ -291,13 +291,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         if let Some(event) = event {
             // Match on the type of event
             match event.as_ref() {
-                HotShotEvent::VoteNow(..) => {
-                    tracing::info!("Completing all events");
-                    vote_now_dependency.mark_as_completed(event);
-                }
                 HotShotEvent::QuorumProposalValidated(..) => {
                     tracing::info!("Completing the proposal dependency");
                     quorum_proposal_dependency.mark_as_completed(event);
+                }
+                HotShotEvent::VoteNow(..) => {
+                    tracing::info!("Completing all events");
+                    vote_now_dependency.mark_as_completed(event);
                 }
                 _ => {}
             }
@@ -371,7 +371,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 debug!("Received QuorumProposalValidated for view {}", *view);
 
                 self.create_dependency_task_if_new(
-                    *view,
+                    view,
                     event_receiver,
                     &event_sender,
                     Some(event),
@@ -502,8 +502,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
-            HotShotEvent::QuorumProposalValidated(_) |
-            HotShotEvent::DACertificateRecv(_)
+            HotShotEvent::QuorumProposalValidated(..)
+                | HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
