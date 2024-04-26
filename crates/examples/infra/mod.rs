@@ -456,7 +456,7 @@ pub trait RunDA<
     #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
-        mut context: SystemContextHandle<TYPES, NODE>,
+        context: SystemContextHandle<TYPES, NODE>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
@@ -1080,7 +1080,7 @@ pub async fn main_entry_point<
 
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
-    let mut hotshot = run.initialize_state_and_hotshot().await;
+    let hotshot = run.initialize_state_and_hotshot().await;
 
     if let Some(task) = builder_task {
         task.start(Box::new(hotshot.get_event_stream()));
