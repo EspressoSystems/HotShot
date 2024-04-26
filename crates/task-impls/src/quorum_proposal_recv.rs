@@ -165,7 +165,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             view,
                             VoteDependencyData {
                                 quorum_proposal: current_proposal,
-                                parent_leaf: parent_leaf,
+                                parent_leaf,
                                 disperse_share: disperse_share.clone(),
                                 da_cert: da_cert.clone(),
                             },
