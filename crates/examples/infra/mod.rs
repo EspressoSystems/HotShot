@@ -269,6 +269,27 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (
     (config, orchestrator_url)
 }
 
+#[must_use]
+/// get election type in use
+pub fn get_election_type() -> String {
+    // leader is chosen in index order
+    #[cfg(not(any(
+        feature = "randomized-leader-election",
+        feature = "fixed-leader-election"
+    )))]
+    let election_type = "static-leader-selection".to_string();
+
+    // leader is from a fixed set
+    #[cfg(feature = "fixed-leader-election")]
+    let election_type = "fixed-leader-election".to_string();
+
+    // leader is randomly chosen
+    #[cfg(feature = "randomized-leader-election")]
+    let election_type = "randomized-leader-election".to_string();
+
+    election_type
+}
+
 /// Reads a network configuration from a given filepath
 /// # Panics
 /// if unable to convert the config file into toml
@@ -291,6 +312,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         config_toml.into();
+    config.election_config_type_name = get_election_type();
 
     // my_own_validator_config would be best to load from file,
     // but its type is too complex to load so we'll generate it from seed now.
@@ -314,6 +336,13 @@ pub async fn run_orchestrator<
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
     println!("Starting orchestrator",);
+
+    #[cfg(feature = "fixed-leader-election")]
+    println!(
+        "it should be successful. config.election_type = {:?}",
+        config.election_config_type_name
+    );
+
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
