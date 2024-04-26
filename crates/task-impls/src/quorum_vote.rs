@@ -84,6 +84,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     if proposed_leaf.get_parent_commitment() != parent_commitment {
+                        error!("Proposal has inconsistent leaf commitment with the given parent leaf.");
                         return;
                     }
                     leaf = Some(proposed_leaf);

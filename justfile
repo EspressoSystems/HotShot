@@ -120,6 +120,10 @@ test_consensus_task:
   echo Testing the consensus task
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
+test_quorum_proposal_task:
+  echo Testing the quorum vote task
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_task -- --test-threads=1 --nocapture
+
 test_quorum_vote_task:
   echo Testing the quorum vote task
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_vote_task -- --test-threads=1 --nocapture

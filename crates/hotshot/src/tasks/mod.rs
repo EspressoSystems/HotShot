@@ -313,6 +313,19 @@ pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg.run_task(task).await;
 }
 
+/// Add the quorum proposal recv task.
+pub async fn add_quorum_proposal_recv_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let quorum_proposal_recv_task_state = QuorumProposalTaskState::create_from(handle).await;
+    inject_quorum_proposal_polls(&quorum_proposal_recv_task_state).await;
+    let task = Task::new(tx, rx, Arc::clone(&task_reg), quorum_proposal_recv_task_state);
+    task_reg.run_task(task).await;
+}
+
 /// add the quorum proposal task
 pub async fn add_quorum_proposal_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
@@ -321,7 +334,6 @@ pub async fn add_quorum_proposal_task<TYPES: NodeType, I: NodeImplementation<TYP
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let quorum_proposal_task_state = QuorumProposalTaskState::create_from(handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
     let task = Task::new(tx, rx, Arc::clone(&task_reg), quorum_proposal_task_state);
     task_reg.run_task(task).await;
 }
