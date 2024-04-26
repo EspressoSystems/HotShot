@@ -309,7 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             VoteDependencyHandle {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                storage: self.storage.clone(),
+                storage: Arc::clone(&self.storage),
                 view_number,
                 sender: event_sender.clone(),
             },
@@ -357,6 +357,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     event_receiver,
                     &event_sender,
                     Some(event),
+                );
+            }
+            HotShotEvent::QuorumProposalValidated(proposal, _) => {
+                let new_view = proposal.view_number + 1;
+
+  
+
+                info!(
+                    "Node {} creating dependency task for view {:?} from QuorumProposalValidated",
+                    self.id, new_view
+                );
+
+                self.create_dependency_task_if_new(
+                    new_view,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(&event),
                 );
             }
             HotShotEvent::DACertificateRecv(cert) => {

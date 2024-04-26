@@ -17,7 +17,8 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
+        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     traits::{
         block_contents::BuilderFee,
@@ -84,11 +85,9 @@ pub struct Consensus<TYPES: NodeType> {
     ///
     /// Certificates received from other nodes will get reattached regardless of this fields,
     /// since they will be present in the leaf we propose off of.
-    #[cfg(feature = "dependency-tasks")]
     pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
     /// most recent decided upgrade certificate
-    #[cfg(feature = "dependency-tasks")]
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
@@ -271,7 +270,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.cur_view = view_number;
     }
 
-    /// gather information from the parent chain of leafs
+    /// gather information from the parent chain of leaves
     /// # Errors
     /// If the leaf or its ancestors are not found in storage
     pub fn visit_leaf_ancestors<F>(

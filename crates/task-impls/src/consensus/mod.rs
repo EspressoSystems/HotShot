@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 #[cfg(not(feature = "dependency-tasks"))]
 use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
@@ -16,45 +13,44 @@ use crate::{
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
 use async_broadcast::Sender;
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use chrono::Utc;
-#[cfg(not(feature = "dependency-tasks"))]
 use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::message::Proposal;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
-    event::{Event, EventType, LeafInfo},
+    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
+    event::{Event, EventType},
+    message::GeneralConsensusMessage,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
         network::{ConnectedNetwork, ConsensusIntentEvent},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
-        BlockPayload,
     },
-    utils::Terminator,
     vote::{Certificate, HasViewNumber},
 };
+
 #[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{data::Leaf, message::Proposal};
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{
-    data::{null_block, VidDisperseShare},
-    message::GeneralConsensusMessage,
-    simple_vote::QuorumData,
-};
+use hotshot_types::data::VidDisperseShare;
+
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
-/// Helper functions to handler proposal-related functionality.
+
+#[cfg(not(feature = "dependency-tasks"))]
+use self::proposal_helpers::handle_quorum_proposal_validated;
+
+/// Helper functions to handle proposal-related functionality.
 pub(crate) mod proposal_helpers;
 
 /// Handles view-change related functionality.
@@ -148,7 +144,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
     /// Cancel all tasks the consensus tasks has spawned before the given view
-    async fn cancel_tasks(&mut self, view: TYPES::Time) {
+    pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);
         let mut cancel = Vec::new();
         while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
@@ -160,7 +156,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus vote if able", level = "error")]
-    #[cfg(not(feature = "dependency-tasks"))]
     // Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
     async fn vote_if_able(&mut self, event_stream: &Sender<Arc<HotShotEvent<TYPES>>>) -> bool {
@@ -314,8 +309,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         false
     }
 
-    /// Publishes a proposal
+    /// Dummy proposal
+    #[cfg(feature = "dependency-tasks")]
+    #[allow(clippy::unused_async, clippy::no_effect_underscore_binding)]
+    async fn publish_proposal(
+        &mut self,
+        _view: TYPES::Time,
+        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     #[cfg(not(feature = "dependency-tasks"))]
+    /// Publishes a proposal
     async fn publish_proposal(
         &mut self,
         view: TYPES::Time,
@@ -325,16 +331,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.cur_view,
             view,
             event_stream,
-            self.quorum_membership.clone(),
+            Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             self.private_key.clone(),
-            self.consensus.clone(),
+            Arc::clone(&self.consensus),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
             self.decided_upgrade_cert.clone(),
             &mut self.payload_commitment_and_metadata,
             &mut self.proposal_cert,
-            self.instance_state.clone(),
+            Arc::clone(&self.instance_state),
         )
         .await?;
 
@@ -366,197 +372,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         }
                     }
                     Ok(None) => {}
-                    Err(e) => warn!(?e, "Failed to propose"),
+                    Err(e) => warn!("Failed to propose {e:#}"),
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let consensus = self.consensus.upgradable_read().await;
-                let view = proposal.get_view_number();
-                self.current_proposal = Some(proposal.clone());
-                let mut new_anchor_view = consensus.last_decided_view;
-                let mut new_locked_view = consensus.locked_view;
-                let mut last_view_number_visited = view;
-                let mut new_commit_reached: bool = false;
-                let mut new_decide_reached = false;
-                let mut new_decide_qc = None;
-                let mut leaf_views = Vec::new();
-                let mut leafs_decided = Vec::new();
-                let mut included_txns = HashSet::new();
-                let old_anchor_view = consensus.last_decided_view;
-                let parent_view = proposal.justify_qc.get_view_number();
-                let mut current_chain_length = 0usize;
-                if parent_view + 1 == view {
-                    current_chain_length += 1;
-                    if let Err(e) = consensus.visit_leaf_ancestors(
-                        parent_view,
-                        Terminator::Exclusive(old_anchor_view),
-                        true,
-                        |leaf, state, delta| {
-                            if !new_decide_reached {
-                                if last_view_number_visited == leaf.get_view_number() + 1 {
-                                    last_view_number_visited = leaf.get_view_number();
-                                    current_chain_length += 1;
-                                    if current_chain_length == 2 {
-                                        new_locked_view = leaf.get_view_number();
-                                        new_commit_reached = true;
-                                        // The next leaf in the chain, if there is one, is decided, so this
-                                        // leaf's justify_qc would become the QC for the decided chain.
-                                        new_decide_qc = Some(leaf.get_justify_qc().clone());
-                                    } else if current_chain_length == 3 {
-                                        new_anchor_view = leaf.get_view_number();
-                                        new_decide_reached = true;
-                                    }
-                                } else {
-                                    // nothing more to do here... we don't have a new chain extension
-                                    return false;
-                                }
-                            }
-                            // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-                            if new_decide_reached {
-                                let mut leaf = leaf.clone();
-                                if leaf.get_view_number() == new_anchor_view {
-                                    consensus
-                                        .metrics
-                                        .last_synced_block_height
-                                        .set(usize::try_from(leaf.get_height()).unwrap_or(0));
-                                }
-                                if let Some(cert) = leaf.get_upgrade_certificate() {
-                                  if cert.data.decide_by < view {
-                                    warn!("Failed to decide an upgrade certificate in time. Ignoring.");
-                                  } else {
-                                    info!("Updating consensus state with decided upgrade certificate: {:?}", cert);
-                                    self.decided_upgrade_cert = Some(cert.clone());
-                                  }
-                                }
-                                // If the block payload is available for this leaf, include it in
-                                // the leaf chain that we send to the client.
-                                if let Some(encoded_txns) =
-                                    consensus.saved_payloads.get(&leaf.get_view_number())
-                                {
-                                    let payload = BlockPayload::from_bytes(
-                                        encoded_txns,
-                                        leaf.get_block_header().metadata(),
-                                    );
-
-                                    leaf.fill_block_payload_unchecked(payload);
-                                }
-
-                                // Get the VID share at the leaf's view number, corresponding to our key
-                                // (if one exists)
-                                let vid_share = consensus
-                                        .vid_shares
-                                        .get(&leaf.get_view_number())
-                                        .unwrap_or(&HashMap::new())
-                                        .get(&self.public_key).cloned().map(|prop| prop.data);
-
-                                // Add our data into a new `LeafInfo`
-                                leaf_views.push(LeafInfo::new(leaf.clone(), state.clone(), delta.clone(), vid_share));
-                                leafs_decided.push(leaf.clone());
-                                if let Some(ref payload) = leaf.get_block_payload() {
-                                    for txn in payload
-                                        .transaction_commitments(leaf.get_block_header().metadata())
-                                    {
-                                        included_txns.insert(txn);
-                                    }
-                                }
-                            }
-                            true
-                        },
-                    ) {
-                        error!("view publish error {e}");
-                    }
-                }
-
-                let included_txns_set: HashSet<_> = if new_decide_reached {
-                    included_txns
-                } else {
-                    HashSet::new()
-                };
-
-                let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-                if new_commit_reached {
-                    consensus.locked_view = new_locked_view;
-                }
-                #[allow(clippy::cast_precision_loss)]
-                if new_decide_reached {
-                    broadcast_event(
-                        Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
-                        &event_stream,
-                    )
-                    .await;
-                    let decide_sent = broadcast_event(
-                        Event {
-                            view_number: consensus.last_decided_view,
-                            event: EventType::Decide {
-                                leaf_chain: Arc::new(leaf_views),
-                                qc: Arc::new(new_decide_qc.unwrap()),
-                                block_size: Some(included_txns_set.len().try_into().unwrap()),
-                            },
-                        },
-                        &self.output_event_stream,
-                    );
-                    let old_anchor_view = consensus.last_decided_view;
-                    consensus.collect_garbage(old_anchor_view, new_anchor_view);
-                    consensus.last_decided_view = new_anchor_view;
-                    consensus
-                        .metrics
-                        .last_decided_time
-                        .set(Utc::now().timestamp().try_into().unwrap());
-                    consensus.metrics.invalid_qc.set(0);
-                    consensus
-                        .metrics
-                        .last_decided_view
-                        .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
-                    let cur_number_of_views_per_decide_event =
-                        *self.cur_view - consensus.last_decided_view.get_u64();
-                    consensus
-                        .metrics
-                        .number_of_views_per_decide_event
-                        .add_point(cur_number_of_views_per_decide_event as f64);
-
-                    debug!("Sending Decide for view {:?}", consensus.last_decided_view);
-                    debug!("Decided txns len {:?}", included_txns_set.len());
-                    decide_sent.await;
-                    debug!("decide send succeeded");
-                }
-
-                #[cfg(not(feature = "dependency-tasks"))]
-                let new_view = self.current_proposal.clone().unwrap().view_number + 1;
-                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                #[cfg(not(feature = "dependency-tasks"))]
-                let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
-                    && consensus.high_qc.view_number
-                        == self.current_proposal.clone().unwrap().view_number;
-                // todo get rid of this clone
-                #[cfg(not(feature = "dependency-tasks"))]
-                let qc = consensus.high_qc.clone();
-
-                drop(consensus);
-                if new_decide_reached {
-                    self.cancel_tasks(new_anchor_view).await;
-                }
-
-                #[cfg(not(feature = "dependency-tasks"))]
+                if let Err(e) =
+                    handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    if should_propose {
-                        debug!(
-                            "Attempting to publish proposal after voting; now in view: {}",
-                            *new_view
-                        );
-                        if let Err(e) = self
-                            .publish_proposal(qc.view_number + 1, event_stream.clone())
-                            .await
-                        {
-                            warn!("Failed to propose; error = {e:?}");
-                        };
-                    }
-
-                    if !self.vote_if_able(&event_stream).await {
-                        return;
-                    }
+                    info!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
-                self.current_proposal = None;
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
                 debug!("Received quorum vote: {:?}", vote.get_view_number());
@@ -581,7 +406,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
-                        membership: self.quorum_membership.clone(),
+                        membership: Arc::clone(&self.quorum_membership),
                         view: vote.get_view_number(),
                         id: self.id,
                     };
@@ -595,7 +420,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), &event_stream)
+                        .handle_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -627,7 +452,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
-                        membership: self.quorum_membership.clone(),
+                        membership: Arc::clone(&self.quorum_membership),
                         view: vote.get_view_number(),
                         id: self.id,
                     };
@@ -641,7 +466,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), &event_stream)
+                        .handle_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -833,16 +658,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     self.public_key.clone(),
                     new_view,
                     &event_stream,
-                    self.quorum_membership.clone(),
-                    self.quorum_network.clone(),
+                    Arc::clone(&self.quorum_membership),
+                    Arc::clone(&self.quorum_network),
                     self.timeout,
-                    self.consensus.clone(),
+                    Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
                 )
                 .await
                 {
-                    tracing::trace!("Failed to update view; error = {e:?}");
+                    tracing::trace!("Failed to update view; error = {e}");
                     return;
                 }
 
@@ -996,10 +821,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
+<<<<<<< HEAD
                         if let Err(e) = self.publish_proposal(view, event_stream).await {
                             warn!("Failed to propose; error = {e:?}");
                         };
                     }
+=======
+
+                    if let Err(e) = self.publish_proposal(view, event_stream).await {
+                        warn!("Failed to propose; error = {e:?}");
+                    };
+>>>>>>> jp/issue-2951
                 }
             }
             _ => {}

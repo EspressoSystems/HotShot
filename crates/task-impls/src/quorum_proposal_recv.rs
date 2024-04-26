@@ -1,18 +1,17 @@
-#![cfg(feature = "dependency-tasks")]
+#![allow(unused_imports)]
 
-use crate::helpers::broadcast_event;
+use futures::future::join_all;
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     consensus::proposal_helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
     events::HotShotEvent,
-    helpers::cancel_task,
+    helpers::{broadcast_event, cancel_task},
 };
 use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
@@ -92,14 +91,16 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 
+    /// Immutable instance state
+    pub instance_state: Arc<TYPES::InstanceState>,
+
     /// The node's id
     pub id: u64,
 }
 
-#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
-    /// Cancel all tasks that have been spawned before the provided view.
-    async fn cancel_tasks(&mut self, view: TYPES::Time) {
+    /// Cancel all tasks the consensus tasks has spawned before the given view
+    pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);
         let mut cancel = Vec::new();
         while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
@@ -112,11 +113,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
 
     /// Handles all consensus events relating to propose and vote-enabling events.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[allow(unused_variables)]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
                 Ok(Some(current_proposal)) => {
@@ -124,9 +127,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     let parent_leaf = match get_parent_leaf_and_state(
                         self.cur_view,
                         proposal.data.get_view_number() + 1,
-                        self.quorum_membership.clone(),
+                        Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        self.consensus.clone(),
+                        Arc::clone(&self.consensus),
                     )
                     .await
                     {
@@ -144,7 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     let Some(vid_shares) = consensus.vid_shares.get(&view) else {
                         debug!(
                                 "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-                                current_proposal.view_number
+                                view
                             );
                         return;
                     };
@@ -183,7 +186,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     for QuorumProposalRecvTaskState<TYPES, I>
 {
