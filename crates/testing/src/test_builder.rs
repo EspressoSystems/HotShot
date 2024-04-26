@@ -29,10 +29,8 @@ pub struct TimingData {
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Delay before sending through the secondary network in CombinedNetworks
@@ -67,8 +65,6 @@ pub struct TestDescription {
     pub txn_description: TxnTaskDescription,
     /// completion task
     pub completion_task_description: CompletionTaskDescription,
-    /// Minimum transactions required for a block
-    pub min_transactions: usize,
     /// timing data
     pub timing_data: TimingData,
     /// unrelabile networking metadata
@@ -84,8 +80,7 @@ impl Default for TimingData {
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,
-            propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::from_millis(1000),
+            builder_timeout: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             secondary_network_delay: Duration::from_millis(1000),
             view_sync_timeout: Duration::from_millis(2000),
@@ -201,7 +196,6 @@ impl Default for TestDescription {
         let num_nodes_without_stake = 0;
         Self {
             timing_data: TimingData::default(),
-            min_transactions: 0,
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -246,7 +240,6 @@ impl TestDescription {
         let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
-            min_transactions,
             timing_data,
             da_staked_committee_size,
             da_non_staked_committee_size,
@@ -292,13 +285,12 @@ impl TestDescription {
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
+            start_threshold: (1, 1),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             // Currently making this zero for simplicity
             known_da_nodes,
             num_nodes_without_stake: 0,
             num_bootstrap: num_bootstrap_nodes,
-            min_transactions,
-            max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes_with_stake,
             known_nodes_without_stake: vec![],
             my_own_validator_config,
@@ -310,9 +302,7 @@ impl TestDescription {
             timeout_ratio: (11, 10),
             round_start_delay: 25,
             start_delay: 1,
-            // TODO do we use these fields??
-            propose_min_round_time: Duration::from_millis(0),
-            propose_max_round_time: Duration::from_millis(1000),
+            builder_timeout: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             // Placeholder until we spin up the builder
             builder_url: Url::parse("http://localhost:9999").expect("Valid URL"),
@@ -322,8 +312,7 @@ impl TestDescription {
             timeout_ratio,
             round_start_delay,
             start_delay,
-            propose_min_round_time,
-            propose_max_round_time,
+            builder_timeout,
             data_request_delay,
             secondary_network_delay,
             view_sync_timeout,
@@ -335,8 +324,7 @@ impl TestDescription {
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;
                 a.start_delay = start_delay;
-                a.propose_min_round_time = propose_min_round_time;
-                a.propose_max_round_time = propose_max_round_time;
+                a.builder_timeout = builder_timeout;
                 a.data_request_delay = data_request_delay;
                 a.view_sync_timeout = view_sync_timeout;
             };

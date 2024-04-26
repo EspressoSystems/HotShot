@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+
+use hotshot_example_types::state_types::TestInstanceState;
+
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
@@ -75,7 +78,7 @@ async fn test_da_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
@@ -156,7 +159,7 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],

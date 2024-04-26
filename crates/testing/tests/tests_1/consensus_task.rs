@@ -1,5 +1,9 @@
 use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+
+use std::sync::Arc;
+
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::event::{
@@ -87,7 +91,11 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    Arc::new(TestInstanceState {}),
+                )
+                .unwrap(),
             ),
         ],
         outputs: vec![
@@ -363,7 +371,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4).unwrap(),
+                null_block::builder_fee(4, Arc::new(TestInstanceState {})).unwrap(),
             ),
         ],
         outputs: vec![
