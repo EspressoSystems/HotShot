@@ -27,8 +27,7 @@ use hotshot_types::{
     constants::{Version01, VERSION_0_1},
     message::{Message, Messages},
     traits::{
-        election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         storage::Storage,
     },

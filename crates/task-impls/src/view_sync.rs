@@ -24,7 +24,6 @@ use hotshot_types::{
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },

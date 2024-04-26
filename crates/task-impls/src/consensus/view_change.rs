@@ -9,12 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
-    constants::LOOK_AHEAD,
-    traits::{
-        election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
+    traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -32,11 +27,11 @@ use crate::{
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    public_key: TYPES::SignatureKey,
+    _public_key: TYPES::SignatureKey,
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    quorum_membership: Arc<TYPES::Membership>,
-    quorum_network: Arc<I::QuorumNetwork>,
+    _quorum_membership: Arc<TYPES::Membership>,
+    _quorum_network: Arc<I::QuorumNetwork>,
     timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,

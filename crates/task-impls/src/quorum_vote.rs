@@ -19,7 +19,6 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -666,13 +665,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 }
             }
             HotShotEvent::ViewChange(new_view) => {
-                let new_view = *new_view;
                 debug!(
                     "View Change event for view {} in quorum vote task",
-                    *new_view
+                    **new_view
                 );
-
-                let old_voted_view = self.latest_voted_view;
             }
             _ => {}
         }

@@ -32,9 +32,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
-        network::{
-            ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage, ViewMessage,
-        },
+        network::{ConnectedNetwork, ResponseChannel, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
     },
     BoxSyncFuture,

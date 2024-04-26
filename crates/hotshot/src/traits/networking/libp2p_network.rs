@@ -40,10 +40,10 @@ use hotshot_types::{
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         network::{
-            self, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ResponseMessage,
+            self, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            ResponseMessage,
         },
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,

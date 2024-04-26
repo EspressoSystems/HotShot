@@ -16,7 +16,6 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -258,12 +257,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-
-                // Inject view info into network
-                let is_da = self
-                    .da_membership
-                    .get_whole_committee(self.cur_view + 1)
-                    .contains(&self.public_key);
 
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.da_membership.get_leader(self.cur_view + 1) != self.public_key {
