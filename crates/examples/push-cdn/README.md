@@ -22,13 +22,16 @@ For brokers, there is a magic value called `local_ip`. This resolves to the loca
 
 **Examples:**
 
+*Test Locally*
+
 `just async_std example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml`
 
 OR
 
 ```
+docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb
 just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://127.0.0.1:4444
-just async_std cdn-broker -d "test.sqlite" --public-bind-endpoint 0.0.0.0:1740 --public-advertise-endpoint local_ip:1740 --private-bind-endpoint 0.0.0.0:1741 --private-advertise-endpoint local_ip:1741
-just async_std cdn-marshal -d "test.sqlite" -b 127.0.0.1:9000
-just async_std validator-push-cdn -- 10 http://127.0.0.1:4444
+just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000
+just async_std example cdn-broker -- -d redis://localhost:6379 --public-bind-endpoint 0.0.0.0:1740 --public-advertise-endpoint local_ip:1740 --private-bind-endpoint 0.0.0.0:1741 --private-advertise-endpoint local_ip:1741
+10 x just async_std example validator-push-cdn -- http://127.0.0.1:4444
 ```
