@@ -290,10 +290,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         // If we have an event provided to us
         if let Some(event) = event {
             // Match on the type of event
-            if let HotShotEvent::VoteNow(..) = event.as_ref() {
-                tracing::info!("Completing all events");
-                vote_now_dependency.mark_as_completed(event);
-            };
+            match event.as_ref() {
+                HotShotEvent::VoteNow(..) => {
+                    tracing::info!("Completing all events");
+                    vote_now_dependency.mark_as_completed(event);
+                }
+                HotShotEvent::QuorumProposalValidated(..) => {
+                    tracing::info!("Completing the proposal dependency");
+                    quorum_proposal_dependency.mark_as_completed(event);
+                }
+                _ => {}
+            }
         }
 
         let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
@@ -360,20 +367,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let new_view = proposal.view_number + 1;
-
-  
-
-                info!(
-                    "Node {} creating dependency task for view {:?} from QuorumProposalValidated",
-                    self.id, new_view
-                );
+                let view = proposal.view_number;
+                debug!("Received QuorumProposalValidated for view {}", *view);
 
                 self.create_dependency_task_if_new(
-                    new_view,
+                    *view,
                     event_receiver,
-                    event_sender,
-                    Arc::clone(&event),
+                    &event_sender,
+                    Some(event),
                 );
             }
             HotShotEvent::DACertificateRecv(cert) => {
@@ -501,6 +502,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
+            HotShotEvent::QuorumProposalValidated(_) |
             HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
