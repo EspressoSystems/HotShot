@@ -21,6 +21,7 @@ use jf_primitives::vid::VidScheme;
 use sha2::Digest;
 
 #[cfg(test)]
+#[cfg(feature = "dependency-tasks")]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_recv_task() {
