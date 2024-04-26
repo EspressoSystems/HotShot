@@ -138,7 +138,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         }
                     };
 
-                    // TODO: Can we send `VoteNow` without calling `vote_if_able` before?
                     let consensus = self.consensus.read().await;
                     let view = current_proposal.get_view_number();
                     let Some(vid_shares) = consensus.vid_shares.get(&view) else {

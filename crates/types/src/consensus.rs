@@ -43,6 +43,46 @@ pub type VidShares<TYPES> = BTreeMap<
 ///
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
+#[cfg(not(feature = "dependency-tasks"))]
+pub struct Consensus<TYPES: NodeType> {
+    /// The validated states that are currently loaded in memory.
+    pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+
+    /// All the VID shares we've received for current and future views.
+    pub vid_shares: VidShares<TYPES>,
+
+    /// All the DA certs we've received for current and future views.
+    /// view -> DA cert
+    pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+
+    /// View number that is currently on.
+    pub cur_view: TYPES::Time,
+
+    /// last view had a successful decide event
+    pub last_decided_view: TYPES::Time,
+
+    /// Map of leaf hash -> leaf
+    /// - contains undecided leaves
+    /// - includes the MOST RECENT decided leaf
+    pub saved_leaves: CommitmentMap<Leaf<TYPES>>,
+
+    /// Saved payloads.
+    ///
+    /// Encoded transactions for every view if we got a payload for that view.
+    pub saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
+
+    /// The `locked_qc` view number
+    pub locked_view: TYPES::Time,
+
+    /// the highqc per spec
+    pub high_qc: QuorumCertificate<TYPES>,
+
+    /// A reference to the metrics trait
+    pub metrics: Arc<ConsensusMetricsValue>,
+}
+
+#[derive(custom_debug::Debug)]
+#[cfg(feature = "dependency-tasks")]
 pub struct Consensus<TYPES: NodeType> {
     /// The validated states that are currently loaded in memory.
     pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
