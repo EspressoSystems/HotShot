@@ -380,6 +380,34 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -393,6 +421,7 @@
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
+<span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>vbs::BinarySerializer;
 
 <span class="kw">use crate</span>::{config::NetworkConfig, OrchestratorVersion};
@@ -636,11 +665,16 @@
     /// Then return it for the init validator config
     /// # Panics
     /// if unable to post
+    </span><span class="attr">#[instrument(skip_all, name = <span class="string">"orchestrator node index for validator config"</span>)]
     </span><span class="kw">pub async fn </span>get_node_index_for_init_validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u16 {
         <span class="kw">let </span>cur_node_index = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
-                <span class="kw">let </span>cur_node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; =
-                    client.post(<span class="string">"api/get_tmp_node_index"</span>).send().<span class="kw">await</span>;
+                <span class="kw">let </span>cur_node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; = client
+                    .post(<span class="string">"api/get_tmp_node_index"</span>)
+                    .send()
+                    .<span class="kw">await
+                    </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>));
+
                 cur_node_index
             }
             .boxed()
@@ -652,17 +686,24 @@
     /// a successful call requires all nodes to be registered.
     ///
     /// Does not fail, retries internally until success.
+    </span><span class="attr">#[instrument(skip_all, name = <span class="string">"orchestrator config"</span>)]
     </span><span class="kw">pub async fn </span>get_config_after_collection&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; NetworkConfig&lt;K, E&gt; {
         <span class="comment">// Define the request for post-register configurations
         </span><span class="kw">let </span>get_config_after_collection = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
-                client
+                <span class="kw">let </span>result = client
                     .get(<span class="string">"api/get_config_after_peer_collected"</span>)
                     .send()
-                    .<span class="kw">await
-            </span>}
+                    .<span class="kw">await</span>;
+
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>err) = result {
+                    <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>);
+                }
+
+                result
+            }
             .boxed()
         };
 
@@ -676,6 +717,7 @@
     /// Blocks until the orchestrator collects all peer's public keys/configs
     /// # Panics
     /// if unable to post
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator public keys"</span>)]
     </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey, E: ElectionConfig&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         node_index: u64,
@@ -689,11 +731,19 @@
             .body_binary(<span class="kw-2">&amp;</span>PeerConfig::&lt;K&gt;::to_bytes(<span class="kw-2">&amp;</span>my_pub_key))
             .unwrap()
             .send()
-            .<span class="kw">await</span>;
+            .<span class="kw">await
+            </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>));
 
         <span class="comment">// wait for all nodes' public keys
         </span><span class="kw">let </span>wait_for_all_nodes_pub_key = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
-            <span class="kw">async move </span>{ client.get(<span class="string">"api/peer_pub_ready"</span>).send().<span class="kw">await </span>}.boxed()
+            <span class="kw">async move </span>{
+                client
+                    .get(<span class="string">"api/peer_pub_ready"</span>)
+                    .send()
+                    .<span class="kw">await
+                    </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>))
+            }
+            .boxed()
         };
         <span class="self">self</span>.wait_for_fn_from_orchestrator::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ()&gt;(wait_for_all_nodes_pub_key)
             .<span class="kw">await</span>;
@@ -705,6 +755,7 @@
     /// Blocks until the orchestrator indicates all nodes are ready to start
     /// # Panics
     /// Panics if unable to post.
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator ready signal"</span>)]
     </span><span class="kw">pub async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, node_index: u64) -&gt; bool {
         <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
@@ -713,7 +764,8 @@
                     .body_json(<span class="kw-2">&amp;</span>node_index)
                     .unwrap()
                     .send()
-                    .<span class="kw">await</span>;
+                    .<span class="kw">await
+                    </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>));
                 result
             }
             .boxed()
@@ -731,6 +783,7 @@
     <span class="doccomment">/// Sends the benchmark metrics to the orchestrator
     /// # Panics
     /// Panics if unable to post
+    </span><span class="attr">#[instrument(skip_all, name = <span class="string">"orchestrator metrics"</span>)]
     </span><span class="kw">pub async fn </span>post_bench_results(<span class="kw-2">&amp;</span><span class="self">self</span>, bench_results: BenchResults) {
         <span class="kw">let </span>_send_metrics_f: <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; = <span class="self">self
             </span>.client
@@ -738,11 +791,13 @@
             .body_json(<span class="kw-2">&amp;</span>bench_results)
             .unwrap()
             .send()
-            .<span class="kw">await</span>;
+            .<span class="kw">await
+            </span>.inspect_err(|err| <span class="macro">tracing::warn!</span>(<span class="string">"{err}"</span>));
     }
 
     <span class="doccomment">/// Generic function that waits for the orchestrator to return a non-error
     /// Returns whatever type the given function returns
+    </span><span class="attr">#[instrument(skip_all, name = <span class="string">"waiting for orchestrator"</span>)]
     </span><span class="kw">async fn </span>wait_for_fn_from_orchestrator&lt;F, Fut, GEN&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; GEN
     <span class="kw">where
         </span>F: Fn(Client&lt;ClientError, OrchestratorVersion&gt;) -&gt; Fut,
@@ -753,7 +808,8 @@
             <span class="kw">let </span>res = f(client).<span class="kw">await</span>;
             <span class="kw">match </span>res {
                 <span class="prelude-val">Ok</span>(x) =&gt; <span class="kw">break </span>x,
-                <span class="prelude-val">Err</span>(_x) =&gt; {
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">tracing::info!</span>(<span class="string">"{err}"</span>);
                     async_sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
                 }
             }
