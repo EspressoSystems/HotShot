@@ -190,7 +190,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(event.as_ref(), HotShotEvent::QuorumProposalRecv(..))
+        !matches!(
+            event.as_ref(),
+            HotShotEvent::QuorumProposalRecv(..) | HotShotEvent::Shutdown
+        )
     }
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
