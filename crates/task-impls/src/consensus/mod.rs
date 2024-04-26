@@ -492,7 +492,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             *qc.view_number
                         );
 
-                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -522,7 +521,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             *qc.view_number
                         );
 
-                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -758,37 +756,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     block_view: view,
                 });
 
-                #[cfg(not(feature = "dependency-tasks"))]
+                if self.quorum_membership.get_leader(view) == self.public_key
+                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
-                    if self.quorum_membership.get_leader(view) == self.public_key
-                        && self.consensus.read().await.high_qc.get_view_number() + 1 == view
-                    {
-                        if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
-                            warn!("Failed to propose; error = {e:?}");
-                        };
-                    }
+                    if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
+                        warn!("Failed to propose; error = {e:?}");
+                    };
+                }
 
-                    if let Some(cert) = &self.proposal_cert {
-                        match cert {
-                            ViewChangeEvidence::Timeout(tc) => {
-                                if self.quorum_membership.get_leader(tc.get_view_number() + 1)
-                                    == self.public_key
-                                {
-                                    if let Err(e) = self.publish_proposal(view, event_stream).await
-                                    {
-                                        warn!("Failed to propose; error = {e:?}");
-                                    };
-                                }
+                if let Some(cert) = &self.proposal_cert {
+                    match cert {
+                        ViewChangeEvidence::Timeout(tc) => {
+                            if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                                == self.public_key
+                            {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
+                                    warn!("Failed to propose; error = {e:?}");
+                                };
                             }
-                            ViewChangeEvidence::ViewSync(vsc) => {
-                                if self.quorum_membership.get_leader(vsc.get_view_number())
-                                    == self.public_key
-                                {
-                                    if let Err(e) = self.publish_proposal(view, event_stream).await
-                                    {
-                                        warn!("Failed to propose; error = {e:?}");
-                                    };
-                                }
+                        }
+                        ViewChangeEvidence::ViewSync(vsc) => {
+                            if self.quorum_membership.get_leader(vsc.get_view_number())
+                                == self.public_key
+                            {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
+                                    warn!("Failed to propose; error = {e:?}");
+                                };
                             }
                         }
                     }
@@ -812,20 +805,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     ))
                     .await;
 
-                #[cfg(not(feature = "dependency-tasks"))]
-                {
-                    let view = certificate.view_number;
+                let view = certificate.view_number;
 
-                    if self.quorum_membership.get_leader(view) == self.public_key {
-                        debug!(
+                if self.quorum_membership.get_leader(view) == self.public_key {
+                    debug!(
                             "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                             *certificate.view_number
                         );
 
-                        if let Err(e) = self.publish_proposal(view, event_stream).await {
-                            warn!("Failed to propose; error = {e:?}");
-                        };
-                    }
+                    if let Err(e) = self.publish_proposal(view, event_stream).await {
+                        warn!("Failed to propose; error = {e:?}");
+                    };
                 }
             }
             _ => {}
