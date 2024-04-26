@@ -79,3 +79,12 @@ METHOD = "POST"
 DOC = """
 Post run results.
 """
+
+# GET whether or not to start the run
+[route.post_force_start]
+PATH = ["force_start"]
+METHOD = "POST"
+":password" = "String"
+DOC = """
+Post whether the orchestrator should start the run immediately, with the nodes that have already registered.
+"""

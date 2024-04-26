@@ -163,6 +163,9 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub rounds: usize,
     /// number of transactions per view
     pub transactions_per_round: usize,
+    /// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    pub force_start_password: Option<String>,
     /// number of bootstrap nodes
     pub num_bootrap: usize,
     /// timeout before starting the next view
@@ -446,6 +449,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             node_index: 0,
             seed: [0u8; 32],
             transaction_size: ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
+            force_start_password: None,
             libp2p_config: None,
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: 60,
@@ -479,6 +483,10 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// number of transactions per view
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND)]
     pub transactions_per_round: usize,
+    /// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    #[serde(default)]
+    pub force_start_password: Option<String>,
     /// global index of node (for testing purposes a uid)
     #[serde(default)]
     pub node_index: u64,
@@ -524,6 +532,7 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
             transactions_per_round: val.transactions_per_round,
             node_index: 0,
             num_bootrap: val.config.num_bootstrap,
+            force_start_password: val.force_start_password,
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
             propose_max_round_time: val.config.propose_max_round_time,

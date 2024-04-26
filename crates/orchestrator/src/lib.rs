@@ -190,6 +190,10 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// # Errors
     /// if unable to serve
     fn post_ready(&mut self) -> Result<(), ServerError>;
+    /// post endpoint for force starting the orchestrator
+    /// # Errors
+    /// if unable to serve
+    fn post_force_start(&mut self, password: String) -> Result<(), ServerError>;
 }
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
@@ -340,6 +344,16 @@ where
         Ok(())
     }
 
+    // Assumes nodes do not post 'ready' twice
+    // TODO ED Add a map to verify which nodes have posted they're ready
+    fn post_force_start(&mut self, password: String) -> Result<(), ServerError> {
+        if self.config.force_start_password == Some(password) {
+            self.start = true;
+        }
+
+        Ok(())
+    }
+
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
         if metrics.total_transactions_committed != 0 {
@@ -453,6 +467,16 @@ where
     .post(
         "post_ready",
         |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
+    )?
+    .post(
+        "force_start",
+        |req, state: &mut <State as ReadState>::State| {
+            async move {
+                let password = req.string_param("password")?;
+                state.post_force_start(password.to_string())
+            }
+            .boxed()
+        },
     )?
     .get("get_start", |_req, state| {
         async move { state.get_start() }.boxed()
