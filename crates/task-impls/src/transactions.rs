@@ -174,7 +174,7 @@ impl<
                     // Calculate the builder fee for the empty block
                     let Some(builder_fee) = null_block::builder_fee(
                         self.membership.total_nodes(),
-                        self.instance_state.clone(),
+                        Arc::<<TYPES as NodeType>::InstanceState>::clone(&self.instance_state),
                     ) else {
                         error!("Failed to get builder fee");
                         return None;
@@ -183,7 +183,7 @@ impl<
                     // Create an empty block payload and metadata
                     let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
                         vec![],
-                        self.instance_state.clone(),
+                        Arc::<<TYPES as NodeType>::InstanceState>::clone(&self.instance_state),
                     ) else {
                         error!("Failed to create empty block payload");
                         return None;
