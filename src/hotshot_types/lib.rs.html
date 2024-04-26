@@ -202,6 +202,9 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>std::{
     collections::HashSet, fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration,
@@ -364,6 +367,9 @@
 </span><span class="kw">pub struct </span>HotShotConfig&lt;KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig&gt; {
     <span class="doccomment">/// Whether to run one view or continuous views
     </span><span class="kw">pub </span>execution_type: ExecutionType,
+    <span class="doccomment">/// The proportion of nodes required before the orchestrator issues the ready signal,
+    /// expressed as (numerator, denominator)
+    </span><span class="kw">pub </span>start_threshold: (u64, u64),
     <span class="doccomment">/// Total number of nodes in the network
     </span><span class="comment">// Earlier it was total_nodes
     </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,

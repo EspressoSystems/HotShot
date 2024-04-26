@@ -353,6 +353,7 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
@@ -641,6 +642,7 @@
         </span><span class="kw">let </span>config = HotShotConfig {
             <span class="comment">// TODO this doesn't exist anymore
             </span>execution_type: ExecutionType::Incremental,
+            start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             <span class="comment">// Currently making this zero for simplicity
             </span>known_da_nodes,

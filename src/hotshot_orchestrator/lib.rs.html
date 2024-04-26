@@ -494,6 +494,10 @@
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -830,7 +834,11 @@
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
         <span class="macro">println!</span>(<span class="string">"Nodes connected: {}"</span>, <span class="self">self</span>.nodes_connected);
-        <span class="kw">if </span><span class="self">self</span>.nodes_connected &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64) {
+        <span class="comment">// i.e. nodes_connected &gt;= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
+        </span><span class="kw">if </span><span class="self">self</span>.nodes_connected * <span class="self">self</span>.config.config.start_threshold.<span class="number">1
+            </span>&gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64)
+                * <span class="self">self</span>.config.config.start_threshold.<span class="number">0
+        </span>{
             <span class="self">self</span>.start = <span class="bool-val">true</span>;
         }
         <span class="prelude-val">Ok</span>(())

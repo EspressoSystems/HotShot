@@ -759,6 +759,11 @@
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     env, fs,
@@ -1327,6 +1332,9 @@
 </span><span class="attr">#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>HotShotConfigFile&lt;KEY: SignatureKey&gt; {
+    <span class="doccomment">/// The proportion of nodes required before the orchestrator issues the ready signal,
+    /// expressed as (numerator, denominator)
+    </span><span class="kw">pub </span>start_threshold: (u64, u64),
     <span class="doccomment">/// Total number of staked nodes in the network
     </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
     <span class="doccomment">/// Total number of non-staked nodes in the network
@@ -1428,6 +1436,7 @@
     <span class="kw">fn </span>from(val: HotShotConfigFile&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
+            start_threshold: val.start_threshold,
             num_nodes_with_stake: val.num_nodes_with_stake,
             num_nodes_without_stake: val.num_nodes_without_stake,
             known_da_nodes: val.known_da_nodes,
@@ -1498,6 +1507,7 @@
 
         <span class="self">Self </span>{
             num_nodes_with_stake: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
+            start_threshold: (<span class="number">8</span>, <span class="number">10</span>),
             num_nodes_without_stake: <span class="number">0</span>,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
