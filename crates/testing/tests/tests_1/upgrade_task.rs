@@ -60,7 +60,7 @@ async fn test_consensus_task_upgrade() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
@@ -199,7 +199,7 @@ async fn test_upgrade_and_consensus_task() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -359,7 +359,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());

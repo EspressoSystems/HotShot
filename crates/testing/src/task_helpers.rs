@@ -75,7 +75,7 @@ pub async fn build_system_handle(
         ),
         da_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            config.known_da_nodes.clone().into_iter().collect(),
+            config.known_da_nodes.clone(),
             config.fixed_leader_for_gpuvid,
         ),
         vid_membership: <TestTypes as NodeType>::Membership::create_election(
@@ -85,7 +85,7 @@ pub async fn build_system_handle(
         ),
         view_sync_membership: <TestTypes as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
+            known_nodes_with_stake,
             config.fixed_leader_for_gpuvid,
         ),
     };

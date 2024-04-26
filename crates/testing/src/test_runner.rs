@@ -352,7 +352,7 @@ where
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    config.known_da_nodes.clone().into_iter().collect(),
+                    config.known_da_nodes.clone(),
                     config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(

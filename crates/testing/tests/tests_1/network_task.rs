@@ -43,7 +43,7 @@ async fn test_network_task() {
 
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
-        known_nodes_with_stake.clone(),
+        known_nodes_with_stake,
         config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
@@ -62,7 +62,7 @@ async fn test_network_task() {
     let task = Task::new(tx.clone(), rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;
 
-    let mut generator = TestViewGenerator::generate(membership.clone(), membership.clone());
+    let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().unwrap();
 
     let (out_tx, mut out_rx) = async_broadcast::broadcast(10);
@@ -106,7 +106,7 @@ async fn test_network_storage_fail() {
 
     let membership = <TestTypes as NodeType>::Membership::create_election(
         known_nodes_with_stake.clone(),
-        known_nodes_with_stake.clone(),
+        known_nodes_with_stake,
         config.fixed_leader_for_gpuvid,
     );
     let channel = networks.0.clone();
@@ -125,7 +125,7 @@ async fn test_network_storage_fail() {
     let task = Task::new(tx.clone(), rx, task_reg.clone(), network_state);
     task_reg.run_task(task).await;
 
-    let mut generator = TestViewGenerator::generate(membership.clone(), membership.clone());
+    let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().unwrap();
 
     let (out_tx, mut out_rx) = async_broadcast::broadcast(10);

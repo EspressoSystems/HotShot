@@ -44,7 +44,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

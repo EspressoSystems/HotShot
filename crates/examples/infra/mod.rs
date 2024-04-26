@@ -393,27 +393,26 @@ pub trait RunDA<
             _pd: PhantomData,
         };
 
+        // Create the quorum membership from all nodes
+        let quorum_membership = <TYPES as NodeType>::Membership::create_election(
+            known_nodes_with_stake.clone(),
+            known_nodes_with_stake.clone(),
+            config.config.fixed_leader_for_gpuvid,
+        );
+
+        // Create the quorum membership from all nodes, specifying the committee
+        // as the known da nodes
+        let da_membership = <TYPES as NodeType>::Membership::create_election(
+            known_nodes_with_stake.clone(),
+            known_nodes_with_stake,
+            config.config.fixed_leader_for_gpuvid,
+        );
+
         let memberships = Memberships {
-            quorum_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                known_nodes_with_stake.clone(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            da_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                config.config.known_da_nodes.clone().into_iter().collect(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            vid_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                known_nodes_with_stake.clone(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            view_sync_membership: <TYPES as NodeType>::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                known_nodes_with_stake.clone(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
+            quorum_membership: quorum_membership.clone(),
+            da_membership,
+            vid_membership: quorum_membership.clone(),
+            view_sync_membership: quorum_membership,
         };
 
         SystemContext::init(

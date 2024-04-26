@@ -138,8 +138,8 @@ where
 
         Self {
             all_nodes_with_stake: all_nodes
-                .iter()
-                .map(|entry| entry.stake_table_entry.clone())
+                .into_iter()
+                .map(|entry| entry.stake_table_entry)
                 .collect(),
             committee_nodes_with_stake,
             committee_nodes_without_stake,

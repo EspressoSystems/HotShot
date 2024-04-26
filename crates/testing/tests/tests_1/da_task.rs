@@ -40,7 +40,7 @@ async fn test_da_task() {
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -121,7 +121,7 @@ async fn test_da_task_storage_failure() {
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

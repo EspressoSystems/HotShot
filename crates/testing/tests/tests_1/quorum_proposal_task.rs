@@ -52,7 +52,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
 
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -134,7 +134,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -200,7 +200,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -271,7 +271,7 @@ async fn test_quorum_proposal_task_propose_now() {
 
     let payload_commitment = make_payload_commitment(&quorum_membership, ViewNumber::new(2));
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -395,7 +395,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
