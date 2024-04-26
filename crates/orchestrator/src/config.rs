@@ -519,6 +519,7 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
 
 impl<K: SignatureKey> NetworkConfigFile<K> {
     /// get election type in use
+    #[must_use]
     pub fn get_election_type() -> String {
         // leader is chosen in index order
         #[cfg(not(any(
