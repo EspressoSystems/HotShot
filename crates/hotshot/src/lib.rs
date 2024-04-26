@@ -292,8 +292,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
             metrics: Arc::clone(&consensus_metrics),
-            decided_upgrade_cert: None,
-            formed_upgrade_certificate: None,
+            dontuse_decided_upgrade_cert: None,
+            dontuse_formed_upgrade_certificate: None,
         };
 
         let consensus = Arc::new(RwLock::new(consensus));

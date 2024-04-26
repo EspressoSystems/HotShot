@@ -838,6 +838,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     }
 
     #[allow(unused_mut)]
+    #[allow(unused_variables)]
     let mut decided_upgrade_cert: Option<UpgradeCertificate<TYPES>> = None;
     let mut new_anchor_view = consensus.last_decided_view;
     let mut new_locked_view = consensus.locked_view;
@@ -963,7 +964,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     }
 
     // This is ALWAYS None if "dependency-tasks" is not active.
-    consensus.decided_upgrade_cert = decided_upgrade_cert;
+    #[cfg(feature = "dependency-tasks")]
+    {
+        consensus.dontuse_decided_upgrade_cert = decided_upgrade_cert;
+    }
 
     #[allow(clippy::cast_precision_loss)]
     if new_decide_reached {
