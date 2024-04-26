@@ -616,7 +616,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
-                if let Err(e) = update_view::<TYPES, I>(
+                if let Err(e) = update_view::<TYPES>(
                     new_view,
                     &event_stream,
                     self.timeout,

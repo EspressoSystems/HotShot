@@ -9,7 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
-    traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -26,7 +26,7 @@ use crate::{
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     timeout: u64,

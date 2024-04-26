@@ -621,7 +621,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     }
 
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    if let Err(e) = update_view::<TYPES, I>(
+    if let Err(e) = update_view::<TYPES>(
         view,
         &event_stream,
         task_state.timeout,
