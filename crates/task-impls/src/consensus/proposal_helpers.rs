@@ -655,7 +655,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     )
     .await
     {
-        warn!("Failed to update view; error = {e:?}");
+        debug!("Failed to update view; error = {e:#}");
     }
 
     let consensus_read = task_state.consensus.upgradable_read().await;
