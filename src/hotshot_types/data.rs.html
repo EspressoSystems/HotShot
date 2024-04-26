@@ -759,6 +759,11 @@
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1462,7 +1467,9 @@
 
 <span class="kw">pub mod </span>null_block {
     <span class="attr">#![allow(missing_docs)]
-    </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
+    </span><span class="kw">use </span>std::sync::Arc;
+
+    <span class="kw">use </span>jf_primitives::vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
 
     <span class="kw">use crate</span>::{
@@ -1492,7 +1499,10 @@
 
     <span class="doccomment">/// Builder fee data for a null block payload
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(
+        num_storage_nodes: usize,
+        state: Arc&lt;TYPES::InstanceState&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
         <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
         </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
 
@@ -1502,7 +1512,7 @@
             );
 
         <span class="kw">let </span>(_null_block, null_block_metadata) =
-            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions([]).ok()<span class="question-mark">?</span>;
+            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions([], state).ok()<span class="question-mark">?</span>;
 
         <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_fee(
             <span class="kw-2">&amp;</span>priv_key,

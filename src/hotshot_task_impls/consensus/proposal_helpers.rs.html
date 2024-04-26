@@ -1011,6 +1011,13 @@
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
 <a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1426,14 +1433,21 @@
 
     <span class="comment">// Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     </span><span class="macro">ensure!</span>(upgrade_cert.in_interim(cur_view), <span class="string">"Cert is not in interim"</span>);
-    <span class="kw">let </span>(payload, metadata) = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(Vec::new())
-        .context(<span class="string">"Failed to build null block payload and metadata"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>(payload, metadata) = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(
+        Vec::new(),
+        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span>instance_state),
+    )
+    .context(<span class="string">"Failed to build null block payload and metadata"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
     <span class="kw">let </span>null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context(<span class="string">"Failed to calculate null block commitment"</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>null_block_fee = null_block::builder_fee::&lt;TYPES&gt;(quorum_membership.total_nodes())
-        .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>null_block_fee = null_block::builder_fee::&lt;TYPES&gt;(
+        quorum_membership.total_nodes(),
+        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span>instance_state),
+    )
+    .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(async_spawn(<span class="kw">async move </span>{
         create_and_send_proposal(

@@ -416,6 +416,11 @@
 <a href="#414" id="414">414</a>
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -494,6 +499,8 @@
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// InstanceState
+    </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 }
@@ -589,16 +596,19 @@
                         .add(<span class="number">1</span>);
 
                     <span class="comment">// Calculate the builder fee for the empty block
-                    </span><span class="kw">let </span><span class="prelude-val">Some</span>(builder_fee) = null_block::builder_fee(<span class="self">self</span>.membership.total_nodes())
-                    <span class="kw">else </span>{
+                    </span><span class="kw">let </span><span class="prelude-val">Some</span>(builder_fee) = null_block::builder_fee(
+                        <span class="self">self</span>.membership.total_nodes(),
+                        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+                    ) <span class="kw">else </span>{
                         <span class="macro">error!</span>(<span class="string">"Failed to get builder fee"</span>);
                         <span class="kw">return </span><span class="prelude-val">None</span>;
                     };
 
                     <span class="comment">// Create an empty block payload and metadata
-                    </span><span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, metadata)) =
-                        &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_transactions(<span class="macro">vec!</span>[])
-                    <span class="kw">else </span>{
+                    </span><span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, metadata)) = &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_transactions(
+                        <span class="macro">vec!</span>[],
+                        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+                    ) <span class="kw">else </span>{
                         <span class="macro">error!</span>(<span class="string">"Failed to create empty block payload"</span>);
                         <span class="kw">return </span><span class="prelude-val">None</span>;
                     };
