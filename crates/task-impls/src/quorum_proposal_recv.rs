@@ -120,6 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
                 Ok(Some(current_proposal)) => {
+                    self.cancel_tasks(proposal.data.get_view_number() + 1).await;
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match get_parent_leaf_and_state(
                         self.cur_view,
@@ -175,7 +176,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    self.cancel_tasks(proposal.data.get_view_number() + 1).await;
+                }
                 Err(e) => warn!(?e, "Failed to propose"),
             }
         }

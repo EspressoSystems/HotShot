@@ -838,7 +838,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     }
 
     #[allow(unused_mut)]
-    let mut decided_upgrade_cert = None;
+    let mut decided_upgrade_cert: Option<UpgradeCertificate<TYPES>> = None;
     let mut new_anchor_view = consensus.last_decided_view;
     let mut new_locked_view = consensus.locked_view;
     let mut last_view_number_visited = view;
@@ -1033,7 +1033,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 .publish_proposal(qc.view_number + 1, event_stream.clone())
                 .await
             {
-                warn!("Failed to propose; error = {e:?}");
+                debug!("Failed to propose; error = {e:#}");
             };
         }
 
