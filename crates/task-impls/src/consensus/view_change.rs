@@ -27,11 +27,8 @@ use crate::{
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    _public_key: TYPES::SignatureKey,
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    _quorum_membership: Arc<TYPES::Membership>,
-    _quorum_network: Arc<I::QuorumNetwork>,
     timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,

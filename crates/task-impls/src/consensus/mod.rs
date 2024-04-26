@@ -617,11 +617,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
                 if let Err(e) = update_view::<TYPES, I>(
-                    self.public_key.clone(),
                     new_view,
                     &event_stream,
-                    Arc::clone(&self.quorum_membership),
-                    Arc::clone(&self.quorum_network),
                     self.timeout,
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,

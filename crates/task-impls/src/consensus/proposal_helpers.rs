@@ -622,11 +622,8 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
     if let Err(e) = update_view::<TYPES, I>(
-        task_state.public_key.clone(),
         view,
         &event_stream,
-        Arc::clone(&task_state.quorum_membership),
-        Arc::clone(&task_state.quorum_network),
         task_state.timeout,
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
