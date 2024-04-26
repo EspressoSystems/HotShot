@@ -47,7 +47,6 @@ use hotshot_types::{
         states::ValidatedState,
         BlockPayload,
     },
-    vote::Certificate,
     HotShotConfig,
 };
 // -- Rexports
@@ -154,6 +153,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// External event stream for communication with the application.
     pub(crate) external_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
+    /// Anchored leaf provided by the initializer.
+    anchored_leaf: Leaf<TYPES>,
+
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
     internal_event_stream: (
@@ -183,6 +185,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             start_view: self.start_view,
             output_event_stream: self.output_event_stream.clone(),
             external_event_stream: self.external_event_stream.clone(),
+            anchored_leaf: self.anchored_leaf.clone(),
             internal_event_stream: self.internal_event_stream.clone(),
             id: self.id,
             storage: Arc::clone(&self.storage),
@@ -300,6 +303,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
             external_event_stream: (external_tx, external_rx.deactivate()),
+            anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
         });
 
@@ -326,21 +330,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             .await
             .expect("Genesis Broadcast failed");
 
-        if let Some(anchored_leaf) = consensus
-            .saved_leaves
-            .get(&consensus.high_qc.get_data().leaf_commit)
         {
             // Some applications seem to expect a leaf decide event for the genesis leaf,
             // which contains only that leaf and nothing else.
-            if anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            if self.anchored_leaf.get_view_number() == TYPES::Time::genesis() {
                 let (validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(&self.instance_state);
                 broadcast_event(
                     Event {
-                        view_number: anchored_leaf.get_view_number(),
+                        view_number: self.anchored_leaf.get_view_number(),
                         event: EventType::Decide {
                             leaf_chain: Arc::new(vec![LeafInfo::new(
-                                anchored_leaf.clone(),
+                                self.anchored_leaf.clone(),
                                 Arc::new(validated_state),
                                 Some(Arc::new(state_delta)),
                                 None,
