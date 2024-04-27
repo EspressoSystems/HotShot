@@ -121,7 +121,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey>,
 
     /// Networks used by the instance of hotshot
     pub networks: Arc<Networks<TYPES, I>>,
@@ -205,7 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
@@ -486,7 +486,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
@@ -709,20 +709,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
         self.hotshot.config.num_nodes_with_stake
     }
 
-    fn propose_min_round_time(&self) -> Duration {
-        self.hotshot.config.propose_min_round_time
-    }
-
-    fn propose_max_round_time(&self) -> Duration {
-        self.hotshot.config.propose_max_round_time
-    }
-
-    fn max_transactions(&self) -> NonZeroUsize {
-        self.hotshot.config.max_transactions
-    }
-
-    fn min_transactions(&self) -> usize {
-        self.hotshot.config.min_transactions
+    fn builder_timeout(&self) -> Duration {
+        self.hotshot.config.builder_timeout
     }
 
     async fn send_event(&self, event: Event<TYPES>) {

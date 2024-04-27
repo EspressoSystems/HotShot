@@ -1,13 +1,11 @@
 //! Types and Traits for the `HotShot` consensus module
-use std::{
-    collections::HashSet, fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration,
-};
+use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 use bincode::Options;
 use displaydoc::Display;
 use light_client::StateVerKey;
 use tracing::error;
-use traits::{election::ElectionConfig, signature_key::SignatureKey};
+use traits::signature_key::SignatureKey;
 use url::Url;
 
 use crate::utils::bincode_opts;
@@ -157,22 +155,21 @@ impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
-pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
+pub struct HotShotConfig<KEY: SignatureKey> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
+    /// The proportion of nodes required before the orchestrator issues the ready signal,
+    /// expressed as (numerator, denominator)
+    pub start_threshold: (u64, u64),
     /// Total number of nodes in the network
     // Earlier it was total_nodes
     pub num_nodes_with_stake: NonZeroUsize,
     /// Number of nodes without stake
     pub num_nodes_without_stake: usize,
-    /// Minimum transactions per block
-    pub min_transactions: usize,
-    /// Maximum transactions per block
-    pub max_transactions: NonZeroUsize,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
     /// All public keys known to be DA nodes
-    pub known_da_nodes: HashSet<PeerConfig<KEY>>,
+    pub known_da_nodes: Vec<PeerConfig<KEY>>,
     /// List of known non-staking nodes' public keys
     pub known_nodes_without_stake: Vec<KEY>,
     /// My own validator config, including my public key, private key, stake value, serving as private parameter
@@ -195,14 +192,10 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub start_delay: u64,
     /// Number of network bootstrap nodes
     pub num_bootstrap: usize,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
-    /// the election configuration
-    pub election_config: Option<ELECTIONCONFIG>,
     /// Builder API base URL
     pub builder_url: Url,
 }
