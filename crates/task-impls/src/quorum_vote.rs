@@ -70,7 +70,6 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
         let mut leaf = None;
         let mut disperse_share = None;
         for event in res {
-            debug!("Processing event {event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
