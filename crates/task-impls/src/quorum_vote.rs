@@ -370,7 +370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 // the other would still have been attempted regardless. Therefore, we pass this through as a task and
                 // eschew validation in lieu of the `QuorumProposal` task doing it for us and updating the internal state.
                 self.create_dependency_task_if_new(
-                    proposal.view_number + 1,
+                    proposal.view_number,
                     event_receiver,
                     &event_sender,
                     Some(Arc::clone(&event)),
