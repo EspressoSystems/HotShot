@@ -136,6 +136,10 @@ test_view_sync_task:
   echo Testing the view sync task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
+test_quorum_proposal_recv_task:
+  echo Testing the view sync task
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
+
 test_pkg := "hotshot"
 
 default_test := ""
