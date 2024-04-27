@@ -183,13 +183,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             self.quorum_membership,
             self.public_key,
             self.private_key,
-            self.consensus.clone(),
+            Arc::clone(&self.consensus),
             self.round_start_delay,
             None,
             None,
             &mut commit_and_metadata,
             &mut None,
-            self.instance_state.clone(),
+            Arc::clone(&self.instance_state),
         )
         .await
         {
