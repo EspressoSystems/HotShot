@@ -348,20 +348,13 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::{
-    traits::{election::Membership, node_implementation::NodeType},
-    ExecutionType, HotShotConfig, ValidatorConfig,
+    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
 
@@ -586,7 +579,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>gen_launcher&lt;
         TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
-        I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
+        I: TestableNodeImplementation&lt;TYPES&gt;,
     &gt;(
         <span class="self">self</span>,
         node_id: u64,
@@ -604,7 +597,7 @@
             ..
         } = <span class="self">self</span>.clone();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = HashSet::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = Vec::new();
 
         <span class="comment">// We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
         </span><span class="kw">let </span>known_nodes_with_stake = (<span class="number">0</span>..num_nodes_with_stake)
@@ -619,7 +612,7 @@
 
                 <span class="comment">// Add the node to the known DA nodes based on the index (for tests)
                 </span><span class="kw">if </span>node_id_ &lt; da_staked_committee_size {
-                    known_da_nodes.insert(cur_validator_config.get_public_config());
+                    known_da_nodes.push(cur_validator_config.get_public_config());
                 }
 
                 cur_validator_config.get_public_config()
@@ -661,11 +654,6 @@
             start_delay: <span class="number">1</span>,
             builder_timeout: Duration::from_millis(<span class="number">1000</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
-            <span class="comment">// TODO what's the difference between this and the second config?
-            </span>election_config: <span class="prelude-val">Some</span>(TYPES::Membership::default_election_config(
-                num_nodes_with_stake <span class="kw">as </span>u64,
-                <span class="number">0</span>,
-            )),
             <span class="comment">// Placeholder until we spin up the builder
             </span>builder_url: Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>),
         };
@@ -681,7 +669,7 @@
         } = timing_data;
         <span class="kw">let </span>mod_config =
             <span class="comment">// TODO this should really be using the timing config struct
-            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;| {
+            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey&gt;| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;

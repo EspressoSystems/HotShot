@@ -1122,26 +1122,6 @@
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
 <a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
-<a href="#1135" id="1135">1135</a>
-<a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
-<a href="#1141" id="1141">1141</a>
-<a href="#1142" id="1142">1142</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1214,7 +1194,7 @@
     <span class="doccomment">/// The url the orchestrator runs on; this should be in the form of `http://localhost:5555` or `http://0.0.0.0:5555`
     </span><span class="kw">pub </span>url: Url,
     <span class="doccomment">/// The configuration file to be used for this run
-    </span><span class="kw">pub </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span><span class="kw">pub </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
 }
 
 <span class="attr">#[derive(Parser, Debug, Clone)]
@@ -1240,10 +1220,8 @@
 /// # Panics
 /// If unable to read the config file from the command line
 </span><span class="attr">#[allow(clippy::too_many_lines)]
-</span><span class="kw">pub fn </span>read_orchestrator_init_config&lt;TYPES: NodeType&gt;() -&gt; (
-    NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    Url,
-) {
+</span><span class="kw">pub fn </span>read_orchestrator_init_config&lt;TYPES: NodeType&gt;() -&gt; (NetworkConfig&lt;TYPES::SignatureKey&gt;, Url)
+{
     <span class="comment">// assign default setting
     </span><span class="kw">let </span><span class="kw-2">mut </span>orchestrator_url = Url::parse(<span class="string">"http://localhost:4444"</span>).unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>args = ConfigArgs::default();
@@ -1355,7 +1333,7 @@
     } <span class="kw">else </span>{
         <span class="macro">error!</span>(<span class="string">"No config file provided, we'll use the default one."</span>);
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
+    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt; =
         load_config_from_file::&lt;TYPES&gt;(<span class="kw-2">&amp;</span>args.config_file);
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(total_nodes_string) = matches.get_one::&lt;String&gt;(<span class="string">"total_nodes"</span>) {
@@ -1426,15 +1404,14 @@
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>load_config_from_file&lt;TYPES: NodeType&gt;(
     config_file: <span class="kw-2">&amp;</span>str,
-) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
     <span class="kw">let </span>config_file_as_string: String = fs::read_to_string(config_file)
         .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Could not read config file located at {config_file}"</span>));
     <span class="kw">let </span>config_toml: NetworkConfigFile&lt;TYPES::SignatureKey&gt; =
         toml::from_str::&lt;NetworkConfigFile&lt;TYPES::SignatureKey&gt;&gt;(<span class="kw-2">&amp;</span>config_file_as_string)
             .expect(<span class="string">"Unable to convert config file to TOML"</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; =
-        config_toml.into();
+    <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt; = config_toml.into();
 
     <span class="comment">// my_own_validator_config would be best to load from file,
     // but its type is too complex to load so we'll generate it from seed now.
@@ -1458,11 +1435,7 @@
     OrchestratorArgs { url, config }: OrchestratorArgs&lt;TYPES&gt;,
 ) {
     <span class="macro">println!</span>(<span class="string">"Starting orchestrator"</span>,);
-    <span class="kw">let </span>_result = hotshot_orchestrator::run_orchestrator::&lt;
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-    &gt;(config, url)
-    .<span class="kw">await</span>;
+    <span class="kw">let _ </span>= hotshot_orchestrator::run_orchestrator::&lt;TYPES::SignatureKey&gt;(config, url).<span class="kw">await</span>;
 }
 
 <span class="doccomment">/// Helper function to calculate the nuymber of transactions to send per node per round
@@ -1483,7 +1456,7 @@
 /// # Panics
 /// Panics if the web server config doesn't exist in `config`
 </span><span class="kw">fn </span>webserver_network_from_config&lt;TYPES: NodeType, NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>&gt;(
-    config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     pub_key: TYPES::SignatureKey,
 ) -&gt; WebServerNetwork&lt;TYPES, NetworkVersion&gt; {
     <span class="comment">// Get the configuration for the web server
@@ -1516,7 +1489,7 @@
 {
     <span class="doccomment">/// Initializes networking, returns self
     </span><span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; <span class="self">Self</span>;
 
@@ -1538,46 +1511,32 @@
         <span class="kw">let </span>da_network = <span class="self">self</span>.get_da_channel();
         <span class="kw">let </span>quorum_network = <span class="self">self</span>.get_quorum_channel();
 
-        <span class="comment">// Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
-        </span><span class="kw">let </span>quorum_election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(
-                config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
-                config.config.num_nodes_without_stake <span class="kw">as </span>u64,
-            )
-        });
-
-        <span class="kw">let </span>committee_election_config = TYPES::Membership::default_election_config(
-            <span class="comment">// Use the number of _actual_ DA nodes connected for the committee size
-            </span>config.config.known_da_nodes.len() <span class="kw">as </span>u64,
-            config.config.num_nodes_without_stake <span class="kw">as </span>u64,
-        );
         <span class="kw">let </span>networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
             da_network: da_network.clone().into(),
             _pd: PhantomData,
         };
 
+        <span class="comment">// Create the quorum membership from all nodes
+        </span><span class="kw">let </span>quorum_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+            known_nodes_with_stake.clone(),
+            known_nodes_with_stake.clone(),
+            config.config.fixed_leader_for_gpuvid,
+        );
+
+        <span class="comment">// Create the quorum membership from all nodes, specifying the committee
+        // as the known da nodes
+        </span><span class="kw">let </span>da_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+            known_nodes_with_stake.clone(),
+            known_nodes_with_stake,
+            config.config.fixed_leader_for_gpuvid,
+        );
+
         <span class="kw">let </span>memberships = Memberships {
-            quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                committee_election_config,
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config.clone(),
-                config.config.fixed_leader_for_gpuvid,
-            ),
-            view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-                known_nodes_with_stake.clone(),
-                quorum_election_config,
-                config.config.fixed_leader_for_gpuvid,
-            ),
+            quorum_membership: quorum_membership.clone(),
+            da_membership,
+            vid_membership: quorum_membership.clone(),
+            view_sync_membership: quorum_membership,
         };
 
         SystemContext::init(
@@ -1764,7 +1723,7 @@
     </span><span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QUORUMNET;
 
     <span class="doccomment">/// Returns the config for this run
-    </span><span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;;
+    </span><span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt;;
 }
 
 <span class="comment">// WEB SERVER
@@ -1772,7 +1731,7 @@
 </span><span class="doccomment">/// Represents a web server-based run
 </span><span class="kw">pub struct </span>WebServerDARun&lt;TYPES: NodeType, NetworkVersion: StaticVersionType&gt; {
     <span class="doccomment">/// the network configuration
-    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// quorum channel
     </span>quorum_channel: WebServerNetwork&lt;TYPES, NetworkVersion&gt;,
     <span class="doccomment">/// data availability channel
@@ -1809,7 +1768,7 @@
     NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         _libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; WebServerDARun&lt;TYPES, NetworkVersion&gt; {
         <span class="comment">// Get our own key
@@ -1845,7 +1804,7 @@
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -1855,7 +1814,7 @@
 </span><span class="doccomment">/// Represents a Push CDN-based run
 </span><span class="kw">pub struct </span>PushCdnDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying configuration
-    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// The quorum channel
     </span>quorum_channel: PushCdnNetwork&lt;TYPES&gt;,
     <span class="doccomment">/// The DA channel
@@ -1884,7 +1843,7 @@
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         _libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; PushCdnDaRun&lt;TYPES&gt; {
         <span class="comment">// Get our own key
@@ -1931,7 +1890,7 @@
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -1941,7 +1900,7 @@
 </span><span class="doccomment">/// Represents a libp2p-based run
 </span><span class="kw">pub struct </span>Libp2pDARun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the network configuration
-    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// quorum channel
     </span>quorum_channel: Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     <span class="doccomment">/// data availability channel
@@ -1976,7 +1935,7 @@
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; Libp2pDARun&lt;TYPES&gt; {
         <span class="comment">// Extrapolate keys for ease of use
@@ -2029,7 +1988,7 @@
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -2039,7 +1998,7 @@
 </span><span class="doccomment">/// Represents a combined-network-based run
 </span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the network configuration
-    </span>config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// quorum channel
     </span>quorum_channel: CombinedNetworks&lt;TYPES&gt;,
     <span class="doccomment">/// data availability channel
@@ -2068,7 +2027,7 @@
     <span class="self">Self</span>: Sync,
 {
     <span class="kw">async fn </span>initialize_networking(
-        config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; CombinedDARun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
@@ -2125,7 +2084,7 @@
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
+    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -2164,11 +2123,13 @@
     <span class="kw">let </span>orchestrator_client: OrchestratorClient = OrchestratorClient::new(args.clone());
 
     <span class="comment">// We assume one node will not call this twice to generate two validator_config-s with same identity.
-    </span><span class="kw">let </span>my_own_validator_config = NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::generate_init_validator_config(
-        <span class="kw-2">&amp;</span>orchestrator_client,
-        <span class="comment">// This is false for now, we only use it to generate the keypair
-        </span><span class="bool-val">false
-    </span>).<span class="kw">await</span>;
+    </span><span class="kw">let </span>my_own_validator_config =
+        NetworkConfig::&lt;TYPES::SignatureKey&gt;::generate_init_validator_config(
+            <span class="kw-2">&amp;</span>orchestrator_client,
+            <span class="comment">// This is false for now, we only use it to generate the keypair
+            </span><span class="bool-val">false</span>,
+        )
+        .<span class="kw">await</span>;
 
     <span class="comment">// Derives our Libp2p private key from our private key, and then returns the public key of that key
     </span><span class="kw">let </span>libp2p_public_key =
@@ -2181,18 +2142,17 @@
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
-        NetworkConfig::&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;::get_complete_config(
-            <span class="kw-2">&amp;</span>orchestrator_client,
-            args.clone().network_config_file,
-            my_own_validator_config,
-            args.advertise_address,
-            <span class="prelude-val">Some</span>(libp2p_public_key),
-            <span class="comment">// If `indexed_da` is true: use the node index to determine if we are a DA node.
-            </span><span class="bool-val">true</span>,
-        )
-        .<span class="kw">await
-        </span>.expect(<span class="string">"failed to get config"</span>);
+    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) = NetworkConfig::&lt;TYPES::SignatureKey&gt;::get_complete_config(
+        <span class="kw-2">&amp;</span>orchestrator_client,
+        args.clone().network_config_file,
+        my_own_validator_config,
+        args.advertise_address,
+        <span class="prelude-val">Some</span>(libp2p_public_key),
+        <span class="comment">// If `indexed_da` is true: use the node index to determine if we are a DA node.
+        </span><span class="bool-val">true</span>,
+    )
+    .<span class="kw">await
+    </span>.expect(<span class="string">"failed to get config"</span>);
 
     <span class="kw">let </span>builder_task = <span class="kw">match </span>run_config.builder {
         BuilderType::External =&gt; <span class="prelude-val">None</span>,

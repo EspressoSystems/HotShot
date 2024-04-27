@@ -757,15 +757,7 @@
 <a href="#755" id="755">755</a>
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::HashSet,
     env, fs,
     net::SocketAddr,
     num::NonZeroUsize,
@@ -777,8 +769,7 @@
 
 <span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>serde_inline_default::serde_inline_default;
@@ -922,7 +913,7 @@
 <span class="doccomment">/// a network configuration
 </span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
-</span><span class="kw">pub struct </span>NetworkConfig&lt;KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig&gt; {
+</span><span class="kw">pub struct </span>NetworkConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// number of views to run
     </span><span class="kw">pub </span>rounds: usize,
     <span class="doccomment">/// number of transactions per view
@@ -947,12 +938,10 @@
     </span><span class="kw">pub </span>start_delay_seconds: u64,
     <span class="doccomment">/// name of the key type (for debugging)
     </span><span class="kw">pub </span>key_type_name: String,
-    <span class="doccomment">/// election config type (for debugging)
-    </span><span class="kw">pub </span>election_config_type_name: String,
     <span class="doccomment">/// the libp2p config
     </span><span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
     <span class="doccomment">/// the hotshot config
-    </span><span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
+    </span><span class="kw">pub </span>config: HotShotConfig&lt;KEY&gt;,
     <span class="doccomment">/// the webserver config
     </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
     <span class="doccomment">/// the data availability web server config
@@ -977,7 +966,7 @@
     </span>File,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; NetworkConfig&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; NetworkConfig&lt;K&gt; {
     <span class="doccomment">/// Asynchronously retrieves a `NetworkConfig` either from a file or from an orchestrator.
     ///
     /// This function takes an `OrchestratorClient`, an optional file path, and Libp2p-specific parameters.
@@ -1008,7 +997,7 @@
         file: <span class="prelude-ty">Option</span>&lt;String&gt;,
         libp2p_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
-    ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K, E&gt;, NetworkConfigSource)&gt; {
+    ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K&gt;, NetworkConfigSource)&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = file {
             <span class="macro">info!</span>(<span class="string">"Retrieving config from the file"</span>);
             <span class="comment">// if we pass in file, try there first
@@ -1067,7 +1056,7 @@
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
         <span class="comment">// If true, we will use the node index to determine if we are a DA node
         </span>indexed_da: bool,
-    ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K, E&gt;, NetworkConfigSource)&gt; {
+    ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K&gt;, NetworkConfigSource)&gt; {
         <span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
             <span class="self">Self</span>::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
                 .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1090,8 +1079,8 @@
         }
 
         <span class="comment">// one more round of orchestrator here to get peer's public key/config
-        </span><span class="kw">let </span>updated_config: NetworkConfig&lt;K, E&gt; = client
-            .post_and_wait_all_public_keys::&lt;K, E&gt;(
+        </span><span class="kw">let </span>updated_config: NetworkConfig&lt;K&gt; = client
+            .post_and_wait_all_public_keys::&lt;K&gt;(
                 run_config.node_index,
                 run_config
                     .config
@@ -1200,7 +1189,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; Default <span class="kw">for </span>NetworkConfig&lt;K&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             rounds: ORCHESTRATOR_DEFAULT_NUM_ROUNDS,
@@ -1212,7 +1201,6 @@
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: <span class="number">60</span>,
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
-            election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             web_server_config: <span class="prelude-val">None</span>,
             da_web_server_config: <span class="prelude-val">None</span>,
             cdn_marshal_address: <span class="prelude-val">None</span>,
@@ -1278,7 +1266,7 @@
     </span><span class="kw">pub </span>random_builder: <span class="prelude-ty">Option</span>&lt;RandomBuilderConfig&gt;,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K&gt; {
     <span class="kw">fn </span>from(val: NetworkConfigFile&lt;K&gt;) -&gt; <span class="self">Self </span>{
         NetworkConfig {
             rounds: val.rounds,
@@ -1310,7 +1298,6 @@
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
-            election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             cdn_marshal_address: val.cdn_marshal_address,
             web_server_config: val.web_server_config,
@@ -1347,7 +1334,7 @@
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known DA nodes' public key and stake values
-    </span><span class="kw">pub </span>known_da_nodes: HashSet&lt;PeerConfig&lt;KEY&gt;&gt;,
+    </span><span class="kw">pub </span>known_da_nodes: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known non-staking nodes'
     </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
@@ -1432,7 +1419,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;KEY: SignatureKey, E: ElectionConfig&gt; From&lt;HotShotConfigFile&lt;KEY&gt;&gt; <span class="kw">for </span>HotShotConfig&lt;KEY, E&gt; {
+<span class="kw">impl</span>&lt;KEY: SignatureKey&gt; From&lt;HotShotConfigFile&lt;KEY&gt;&gt; <span class="kw">for </span>HotShotConfig&lt;KEY&gt; {
     <span class="kw">fn </span>from(val: HotShotConfigFile&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
@@ -1454,7 +1441,6 @@
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
             data_request_delay: val.data_request_delay,
-            election_config: <span class="prelude-val">None</span>,
             builder_url: val.builder_url,
         }
     }
@@ -1474,9 +1460,9 @@
         </span>ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, <span class="number">1</span>, val.is_da)
     }
 }
-<span class="kw">impl</span>&lt;KEY: SignatureKey, E: ElectionConfig&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;KEY, E&gt; {
+<span class="kw">impl</span>&lt;KEY: SignatureKey&gt; From&lt;ValidatorConfigFile&gt; <span class="kw">for </span>HotShotConfig&lt;KEY&gt; {
     <span class="kw">fn </span>from(value: ValidatorConfigFile) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>config: HotShotConfig&lt;KEY, E&gt; = HotShotConfigFile::default().into();
+        <span class="kw">let </span><span class="kw-2">mut </span>config: HotShotConfig&lt;KEY&gt; = HotShotConfigFile::default().into();
         config.my_own_validator_config = value.into();
         config
     }
@@ -1488,7 +1474,7 @@
         </span><span class="kw">let </span>staked_committee_nodes: usize = <span class="number">5</span>;
 
         <span class="comment">// Aggregate the DA nodes
-        </span><span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = HashSet::new();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = Vec::new();
 
         <span class="kw">let </span>gen_known_nodes_with_stake = (<span class="number">0</span>..<span class="number">10</span>)
             .map(|node_id| {
@@ -1497,7 +1483,7 @@
 
                 <span class="comment">// Add to DA nodes based on index
                 </span><span class="kw">if </span>node_id &lt; staked_committee_nodes <span class="kw">as </span>u64 {
-                    known_da_nodes.insert(cur_validator_config.get_public_config());
+                    known_da_nodes.push(cur_validator_config.get_public_config());
                     cur_validator_config.is_da = <span class="bool-val">true</span>;
                 }
 

@@ -927,7 +927,7 @@
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
     <span class="doccomment">/// Configuration items for this hotshot instance
-    </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
 
     <span class="doccomment">/// Networks used by the instance of hotshot
     </span><span class="kw">pub </span>networks: Arc&lt;Networks&lt;TYPES, I&gt;&gt;,
@@ -1011,7 +1011,7 @@
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
-        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         memberships: Memberships&lt;TYPES&gt;,
         networks: Networks&lt;TYPES, I&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
@@ -1289,7 +1289,7 @@
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         node_id: u64,
-        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         memberships: Memberships&lt;TYPES&gt;,
         networks: Networks&lt;TYPES, I&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,

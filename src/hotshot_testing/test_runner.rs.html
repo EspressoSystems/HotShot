@@ -467,16 +467,6 @@
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -540,7 +530,7 @@
     (
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
         Memberships&lt;TYPES&gt;,
-        HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, &lt;TYPES <span class="kw">as </span>NodeType&gt;::ElectionConfigType&gt;,
+        HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
     ),
 &gt;;
 
@@ -598,7 +588,7 @@
         N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     &gt; TestRunner&lt;TYPES, I, N&gt;
 <span class="kw">where
-    </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
+    </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = N,
@@ -814,12 +804,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
         <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
-        <span class="kw">let </span>quorum_election_config = config.election_config.clone().unwrap_or_else(|| {
-            TYPES::Membership::default_election_config(
-                config.num_nodes_with_stake.get() <span class="kw">as </span>u64,
-                config.num_nodes_without_stake <span class="kw">as </span>u64,
-            )
-        });
+
         <span class="kw">let </span>(<span class="kw-2">mut </span>builder_task, builder_url) =
             B::start(config.num_nodes_with_stake.into(), B::Config::default()).<span class="kw">await</span>;
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
@@ -828,30 +813,25 @@
             <span class="self">self</span>.next_node_id += <span class="number">1</span>;
             <span class="macro">tracing::debug!</span>(<span class="string">"launch node {}"</span>, i);
 
-            <span class="kw">let </span>committee_election_config = I::committee_election_config_generator();
             <span class="kw">let </span>memberships = Memberships {
                 quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    quorum_election_config.clone(),
+                    known_nodes_with_stake.clone(),
                     config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    committee_election_config(
-                        <span class="comment">// Use the _actual_ number of DA nodes instead of expected
-                        </span>config.known_da_nodes.len() <span class="kw">as </span>u64,
-                        config.num_nodes_without_stake <span class="kw">as </span>u64,
-                    ),
+                    config.known_da_nodes.clone(),
                     config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    quorum_election_config.clone(),
+                    known_nodes_with_stake.clone(),
                     config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
-                    quorum_election_config.clone(),
+                    known_nodes_with_stake.clone(),
                     config.fixed_leader_for_gpuvid,
                 ),
             };
@@ -925,7 +905,7 @@
         networks: Networks&lt;TYPES, I&gt;,
         memberships: Memberships&lt;TYPES&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
-        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         storage: I::Storage,
     ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {

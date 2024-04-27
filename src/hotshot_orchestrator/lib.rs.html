@@ -478,26 +478,6 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -511,11 +491,7 @@
 <span class="kw">use </span>client::{BenchResults, BenchResultsDownloadConfig};
 <span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_types::{
-    constants::Version01,
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    PeerConfig,
-};
+<span class="kw">use </span>hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
 <span class="kw">use </span>libp2p::{
     identity::{
         ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
@@ -563,13 +539,13 @@
 
 <span class="doccomment">/// The state of the orchestrator
 </span><span class="attr">#[derive(Default, Clone)]
-</span><span class="kw">struct </span>OrchestratorState&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
+</span><span class="kw">struct </span>OrchestratorState&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// Tracks the latest node index we have generated a configuration for
     </span>latest_index: u16,
     <span class="doccomment">/// Tracks the latest temporary index we have generated for init validator's key pair
     </span>tmp_latest_index: u16,
     <span class="doccomment">/// The network configuration
-    </span>config: NetworkConfig&lt;KEY, ELECTION&gt;,
+    </span>config: NetworkConfig&lt;KEY&gt;,
     <span class="doccomment">/// The total nodes that have posted their public keys
     </span>nodes_with_pubkey: u64,
     <span class="doccomment">/// Whether the network configuration has been updated with all the peer's public keys/configs
@@ -587,11 +563,9 @@
     </span>nodes_post_results: u64,
 }
 
-<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>, ELECTION: ElectionConfig + <span class="lifetime">'static</span>&gt;
-    OrchestratorState&lt;KEY, ELECTION&gt;
-{
+<span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>&gt; OrchestratorState&lt;KEY&gt; {
     <span class="doccomment">/// create a new [`OrchestratorState`]
-    </span><span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
         OrchestratorState {
             latest_index: <span class="number">0</span>,
             tmp_latest_index: <span class="number">0</span>,
@@ -615,7 +589,6 @@
             transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
             transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
             rounds: <span class="self">self</span>.config.rounds,
-            leader_election_type: <span class="self">self</span>.config.election_config_type_name.clone(),
             avg_latency_in_sec: <span class="self">self</span>.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: <span class="self">self</span>.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: <span class="self">self</span>.bench_results.maximum_latency_in_sec,
@@ -640,7 +613,7 @@
 }
 
 <span class="doccomment">/// An api exposed by the orchestrator
-</span><span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey, ELECTION: ElectionConfig&gt; {
+</span><span class="kw">pub trait </span>OrchestratorApi&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
     /// # Errors
@@ -653,10 +626,7 @@
     <span class="doccomment">/// post endpoint for each node's config
     /// # Errors
     /// if unable to serve
-    </span><span class="kw">fn </span>post_getconfig(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        _node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
+    </span><span class="kw">fn </span>post_getconfig(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _node_index: u16) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY&gt;, ServerError&gt;;
     <span class="doccomment">/// get endpoint for the next available temporary node index
     /// # Errors
     /// if unable to serve
@@ -677,7 +647,7 @@
     <span class="doccomment">/// get endpoint for the network config after all peers public keys are collected
     /// # Errors
     /// if unable to serve
-    </span><span class="kw">fn </span>get_config_after_peer_collected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt;;
+    </span><span class="kw">fn </span>get_config_after_peer_collected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY&gt;, ServerError&gt;;
     <span class="doccomment">/// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -692,10 +662,9 @@
     </span><span class="kw">fn </span>post_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
 }
 
-<span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
+<span class="kw">impl</span>&lt;KEY&gt; OrchestratorApi&lt;KEY&gt; <span class="kw">for </span>OrchestratorState&lt;KEY&gt;
 <span class="kw">where
     </span>KEY: serde::Serialize + Clone + SignatureKey + <span class="lifetime">'static</span>,
-    ELECTION: serde::Serialize + Clone + Send + ElectionConfig + <span class="lifetime">'static</span>,
 {
     <span class="doccomment">/// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
@@ -736,10 +705,7 @@
 
     <span class="comment">// Assumes nodes will set their own index that they received from the
     // 'identity' endpoint
-    </span><span class="kw">fn </span>post_getconfig(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        _node_index: u16,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt; {
+    </span><span class="kw">fn </span>post_getconfig(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _node_index: u16) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY&gt;, ServerError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.config.clone())
     }
 
@@ -784,7 +750,7 @@
             <span class="self">self</span>.config
                 .config
                 .known_da_nodes
-                .insert(register_pub_key_with_stake);
+                .push(register_pub_key_with_stake);
         };
 
         <span class="self">self</span>.nodes_with_pubkey += <span class="number">1</span>;
@@ -808,7 +774,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.peer_pub_ready)
     }
 
-    <span class="kw">fn </span>get_config_after_peer_collected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY, ELECTION&gt;, ServerError&gt; {
+    <span class="kw">fn </span>get_config_after_peer_collected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY&gt;, ServerError&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.peer_pub_ready {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -893,13 +859,12 @@
 }
 
 <span class="doccomment">/// Sets up all API routes
-</span><span class="kw">fn </span>define_api&lt;KEY: SignatureKey, ELECTION: ElectionConfig, State, VER: StaticVersionType&gt;(
+</span><span class="kw">fn </span>define_api&lt;KEY: SignatureKey, State, VER: StaticVersionType&gt;(
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError, VER&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
-    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY, ELECTION&gt;,
+    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY&gt;,
     KEY: serde::Serialize,
-    ELECTION: serde::Serialize,
     VER: <span class="lifetime">'static</span>,
 {
     <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
@@ -976,21 +941,16 @@
 /// This errors if tide disco runs into an issue during serving
 /// # Panics
 /// This panics if unable to register the api with tide disco
-</span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY, ELECTION&gt;(
-    network_config: NetworkConfig&lt;KEY, ELECTION&gt;,
-    url: Url,
-) -&gt; io::Result&lt;()&gt;
+</span><span class="kw">pub async fn </span>run_orchestrator&lt;KEY&gt;(network_config: NetworkConfig&lt;KEY&gt;, url: Url) -&gt; io::Result&lt;()&gt;
 <span class="kw">where
     </span>KEY: SignatureKey + <span class="lifetime">'static </span>+ serde::Serialize,
-    ELECTION: ElectionConfig + <span class="lifetime">'static </span>+ serde::Serialize,
 {
     <span class="kw">let </span>web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, <span class="string">"Failed to define api"</span>));
 
-    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
-        RwLock::new(OrchestratorState::new(network_config));
+    <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY&gt;&gt; = RwLock::new(OrchestratorState::new(network_config));
 
-    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
+    <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module::&lt;ServerError, OrchestratorVersion&gt;(<span class="string">"api"</span>, web_api.unwrap())
         .expect(<span class="string">"Error registering api"</span>);
     <span class="macro">tracing::error!</span>(<span class="string">"listening on {:?}"</span>, url);

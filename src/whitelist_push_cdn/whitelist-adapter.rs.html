@@ -83,8 +83,6 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The whitelist is an adaptor that is able to update the allowed public keys for
 //! all brokers. Right now, we do this by asking the orchestrator for the list of
 //! allowed public keys. In the future, we will pull the stake table from the L1.
@@ -139,10 +137,8 @@
 
     <span class="comment">// Attempt to get the config from the orchestrator.
     // Loops internally until the config is received.
-    </span><span class="kw">let </span>config: NetworkConfig&lt;
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::ElectionConfigType,
-    &gt; = orchestrator_client.get_config_after_collection().<span class="kw">await</span>;
+    </span><span class="kw">let </span>config: NetworkConfig&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; =
+        orchestrator_client.get_config_after_collection().<span class="kw">await</span>;
 
     <span class="macro">tracing::info!</span>(<span class="string">"Received config from orchestrator"</span>);
 

@@ -400,24 +400,12 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
-<span class="kw">use </span>hotshot_types::{
-    constants::Version01,
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    PeerConfig,
-};
+<span class="kw">use </span>hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
@@ -494,8 +482,6 @@
     </span><span class="kw">pub </span>transaction_size: u64,
     <span class="doccomment">/// The number of rounds
     </span><span class="kw">pub </span>rounds: usize,
-    <span class="doccomment">/// The type of leader election used
-    </span><span class="kw">pub </span>leader_election_type: String,
 
     <span class="comment">// Results starting here
     </span><span class="doccomment">/// The average latency of the transactions
@@ -606,11 +592,11 @@
     /// # Errors
     /// If we were unable to serialize the Libp2p data
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub async fn </span>get_config_without_peer&lt;K: SignatureKey, E: ElectionConfig&gt;(
+    </span><span class="kw">pub async fn </span>get_config_without_peer&lt;K: SignatureKey&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         libp2p_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
-    ) -&gt; anyhow::Result&lt;NetworkConfig&lt;K, E&gt;&gt; {
+    ) -&gt; anyhow::Result&lt;NetworkConfig&lt;K&gt;&gt; {
         <span class="comment">// Get the (possible) Libp2p advertise address from our args
         </span><span class="kw">let </span>libp2p_address = libp2p_address.map(|f| {
             Multiaddr::try_from(<span class="macro">format!</span>(
@@ -646,7 +632,7 @@
         <span class="comment">// get the corresponding config
         </span><span class="kw">let </span>f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
-                <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;K, E&gt;, ClientError&gt; = client
+                <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;K&gt;, ClientError&gt; = client
                     .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/config/{node_index}"</span>))
                     .send()
                     .<span class="kw">await</span>;
@@ -687,9 +673,7 @@
     ///
     /// Does not fail, retries internally until success.
     </span><span class="attr">#[instrument(skip_all, name = <span class="string">"orchestrator config"</span>)]
-    </span><span class="kw">pub async fn </span>get_config_after_collection&lt;K: SignatureKey, E: ElectionConfig&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; NetworkConfig&lt;K, E&gt; {
+    </span><span class="kw">pub async fn </span>get_config_after_collection&lt;K: SignatureKey&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;K&gt; {
         <span class="comment">// Define the request for post-register configurations
         </span><span class="kw">let </span>get_config_after_collection = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
@@ -718,12 +702,12 @@
     /// # Panics
     /// if unable to post
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator public keys"</span>)]
-    </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey, E: ElectionConfig&gt;(
+    </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         node_index: u64,
         my_pub_key: PeerConfig&lt;K&gt;,
         is_da: bool,
-    ) -&gt; NetworkConfig&lt;K, E&gt; {
+    ) -&gt; NetworkConfig&lt;K&gt; {
         <span class="comment">// send my public key
         </span><span class="kw">let </span>_send_pubkey_ready_f: <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; = <span class="self">self
             </span>.client

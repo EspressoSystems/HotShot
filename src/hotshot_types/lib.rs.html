@@ -201,20 +201,14 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
-</span><span class="kw">use </span>std::{
-    collections::HashSet, fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration,
-};
+</span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>displaydoc::Display;
 <span class="kw">use </span>light_client::StateVerKey;
 <span class="kw">use </span>tracing::error;
-<span class="kw">use </span>traits::{election::ElectionConfig, signature_key::SignatureKey};
+<span class="kw">use </span>traits::signature_key::SignatureKey;
 <span class="kw">use </span>url::Url;
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::bincode_opts;
@@ -364,7 +358,7 @@
 <span class="doccomment">/// Holds configuration for a `HotShot`
 </span><span class="attr">#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
-</span><span class="kw">pub struct </span>HotShotConfig&lt;KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig&gt; {
+</span><span class="kw">pub struct </span>HotShotConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// Whether to run one view or continuous views
     </span><span class="kw">pub </span>execution_type: ExecutionType,
     <span class="doccomment">/// The proportion of nodes required before the orchestrator issues the ready signal,
@@ -378,7 +372,7 @@
     <span class="doccomment">/// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// All public keys known to be DA nodes
-    </span><span class="kw">pub </span>known_da_nodes: HashSet&lt;PeerConfig&lt;KEY&gt;&gt;,
+    </span><span class="kw">pub </span>known_da_nodes: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// List of known non-staking nodes' public keys
     </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
     <span class="doccomment">/// My own validator config, including my public key, private key, stake value, serving as private parameter
@@ -405,8 +399,6 @@
     </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
-    <span class="doccomment">/// the election configuration
-    </span><span class="kw">pub </span>election_config: <span class="prelude-ty">Option</span>&lt;ELECTIONCONFIG&gt;,
     <span class="doccomment">/// Builder API base URL
     </span><span class="kw">pub </span>builder_url: Url,
 }

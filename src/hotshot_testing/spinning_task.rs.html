@@ -303,7 +303,7 @@
         N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;
 <span class="kw">where
-    </span>I: TestableNodeImplementation&lt;TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType&gt;,
+    </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = N,
