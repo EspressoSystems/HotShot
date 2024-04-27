@@ -509,6 +509,8 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
 
+    error!("Getting ready to send the proposal");
+
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
     let cnm = commitment_and_metadata

@@ -159,6 +159,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                 return;
             }
             broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
+            tracing::info!("Voted successfully");
         }
     }
 }
