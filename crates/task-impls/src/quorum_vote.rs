@@ -70,6 +70,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
         let mut leaf = None;
         let mut disperse_share = None;
         for event in res {
+            debug!("Processing event {event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -84,6 +85,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     if proposed_leaf.get_parent_commitment() != parent_commitment {
+                        warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
                         return;
                     }
                     leaf = Some(proposed_leaf);
@@ -272,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             return;
         }
 
-        let quorum_proposal_dependency = self.create_event_dependency(
+        let mut quorum_proposal_dependency = self.create_event_dependency(
             VoteDependency::QuorumProposal,
             view_number,
             event_receiver.clone(),
@@ -289,11 +291,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
         // If we have an event provided to us
         if let Some(event) = event {
-            // Match on the type of event
-            if let HotShotEvent::VoteNow(..) = event.as_ref() {
-                tracing::info!("Completing all events");
-                vote_now_dependency.mark_as_completed(event);
-            };
+            match event.as_ref() {
+                HotShotEvent::VoteNow(..) => {
+                    vote_now_dependency.mark_as_completed(event);
+                }
+                HotShotEvent::QuorumProposalValidated(..) => {
+                    quorum_proposal_dependency.mark_as_completed(event);
+                }
+                _ => {}
+            }
         }
 
         let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
@@ -357,6 +363,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     event_receiver,
                     &event_sender,
                     Some(event),
+                );
+            }
+            HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
+                // This task simultaneously does not rely on the state updates of the `handle_quorum_proposal_validated`
+                // function and that function does not return an `Error` unless the propose or vote fails, in which case
+                // the other would still have been attempted regardless. Therefore, we pass this through as a task and
+                // eschew validation in lieu of the `QuorumProposal` task doing it for us and updating the internal state.
+                self.create_dependency_task_if_new(
+                    proposal.view_number + 1,
+                    event_receiver,
+                    &event_sender,
+                    Some(Arc::clone(&event)),
                 );
             }
             HotShotEvent::DACertificateRecv(cert) => {
@@ -484,12 +502,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(_, _)
-                | HotShotEvent::DACertificateRecv(_)
+            HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
                 | HotShotEvent::VoteNow(..)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::Shutdown,
         )
     }
