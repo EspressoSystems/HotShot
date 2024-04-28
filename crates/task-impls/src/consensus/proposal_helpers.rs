@@ -509,7 +509,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
 
-    error!("Getting ready to send the proposal");
+    error!(?cur_view, ?view, "Getting ready to send the proposal");
 
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
@@ -1008,6 +1008,11 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
+        error!(
+            "cur_view {:?} last_decided {:?}",
+            task_state.cur_view,
+            consensus.last_decided_view.get_u64()
+        );
         let cur_number_of_views_per_decide_event =
             *task_state.cur_view - consensus.last_decided_view.get_u64();
         consensus

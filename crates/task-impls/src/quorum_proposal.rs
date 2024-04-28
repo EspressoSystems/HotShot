@@ -59,6 +59,9 @@ enum ProposalDependency {
 
 /// Handler for the proposal dependency
 struct ProposalDependencyHandle<TYPES: NodeType> {
+    /// The view number that this node is executing in.
+    cur_view: TYPES::Time,
+
     /// The view number to propose for.
     view_number: TYPES::Time,
 
@@ -177,7 +180,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         }
 
         if let Err(e) = publish_proposal_if_able(
-            self.view_number,
+            self.cur_view,
             self.view_number,
             self.sender,
             self.quorum_membership,
@@ -327,7 +330,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    info!("Dependency {:?} is complete!", dependency_type);
+                    info!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
                 }
                 valid
             }),
@@ -460,6 +463,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let dependency_task = DependencyTask::new(
             dependency_chain,
             ProposalDependencyHandle {
+                cur_view: self.cur_view,
                 view_number,
                 sender: event_sender,
                 consensus: Arc::clone(&self.consensus),
@@ -618,12 +622,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
+                error!("GOT QUORUM PROPOSAL VALIDATED");
                 let new_view = proposal.view_number + 1;
 
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
                 {
-                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
+                    error!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 info!(

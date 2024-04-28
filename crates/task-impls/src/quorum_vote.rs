@@ -28,7 +28,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use crate::{
     events::HotShotEvent,
@@ -159,7 +159,6 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                 return;
             }
             broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
-            tracing::info!("Voted successfully");
         }
     }
 }
@@ -252,7 +251,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 };
                 if event_view == view_number {
-                    debug!("Vote dependency {:?} completed", dependency_type);
+                    trace!("Vote dependency {:?} completed", dependency_type);
                     return true;
                 }
                 false
@@ -379,7 +378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::DACertificateRecv(cert) => {
                 let view = cert.view_number;
-                debug!("Received DAC for view {}", *view);
+                trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -413,7 +412,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
-                debug!("Received VID share for view {}", *view);
+                trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -477,7 +476,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
-                debug!(
+                trace!(
                     "View Change event for view {} in quorum vote task",
                     *new_view
                 );

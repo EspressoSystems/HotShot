@@ -475,6 +475,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QCFormed(cert) => {
                 match cert {
                     either::Right(qc) => {
@@ -612,7 +613,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
-                debug!("View Change event for view {} in consensus task", *new_view);
+                tracing::trace!("View Change event for view {} in consensus task", *new_view);
 
                 let old_view_number = self.cur_view;
 
