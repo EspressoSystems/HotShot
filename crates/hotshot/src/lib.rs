@@ -53,7 +53,9 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
-use tasks::{add_request_network_task, add_response_task, add_vid_task};
+use tasks::{
+    add_quorum_proposal_recv_task, add_request_network_task, add_response_task, add_vid_task,
+};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
@@ -691,6 +693,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_vote_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        #[cfg(feature = "dependency-tasks")]
+        add_quorum_proposal_recv_task(
             Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),

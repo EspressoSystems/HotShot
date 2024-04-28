@@ -15,6 +15,7 @@ use hotshot_task_impls::{
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     quorum_proposal::QuorumProposalTaskState,
+    quorum_proposal_recv::QuorumProposalRecvTaskState,
     quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
@@ -234,6 +235,23 @@ pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation
         .await;
 }
 
+/// Setup polls for the [`QuorumProposalRecvTaskState`].
+pub async fn inject_quorum_proposal_recv_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    quorum_proposal_recv_task_state: &QuorumProposalRecvTaskState<TYPES, I>,
+) {
+    // Poll (forever) for the latest quorum proposal
+    quorum_proposal_recv_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Start polling for proposals for the first view
+    quorum_proposal_recv_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
+        .await;
+}
+
 /// add the consensus task
 pub async fn add_consensus_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     task_reg: Arc<TaskRegistry>,
@@ -335,5 +353,23 @@ pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
 ) {
     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
     let task = Task::new(tx, rx, Arc::clone(&task_reg), quorum_vote_state);
+    task_reg.run_task(task).await;
+}
+
+/// Add the quorum proposal recv task.
+pub async fn add_quorum_proposal_recv_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    task_reg: Arc<TaskRegistry>,
+    tx: Sender<Arc<HotShotEvent<TYPES>>>,
+    rx: Receiver<Arc<HotShotEvent<TYPES>>>,
+    handle: &SystemContextHandle<TYPES, I>,
+) {
+    let quorum_proposal_recv_task_state = QuorumProposalRecvTaskState::create_from(handle).await;
+    inject_quorum_proposal_recv_polls(&quorum_proposal_recv_task_state).await;
+    let task = Task::new(
+        tx,
+        rx,
+        Arc::clone(&task_reg),
+        quorum_proposal_recv_task_state,
+    );
     task_reg.run_task(task).await;
 }

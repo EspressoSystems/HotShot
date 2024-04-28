@@ -738,6 +738,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
