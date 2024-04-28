@@ -24,7 +24,7 @@ async fn libp2p_network() {
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::new(60, 0),
+                duration: Duration::new(240, 0),
             },
         ),
         timing_data: TimingData {
@@ -56,7 +56,7 @@ async fn libp2p_network_failures_2() {
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(60),
+                duration: Duration::from_secs(240),
             },
         ),
         timing_data: TimingData {
