@@ -83,6 +83,7 @@ async fn test_consensus_task() {
     // Run view 2 and propose.
     let view_2 = TestScriptStage {
         inputs: vec![
+            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QCFormed(either::Left(cert)),
             // We must have a payload commitment and metadata to propose.

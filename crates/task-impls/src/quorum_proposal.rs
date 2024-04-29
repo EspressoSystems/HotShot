@@ -181,6 +181,15 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
+        let Some(Some(vid_share)) = consensus
+            .vid_shares
+            .get(&leaf.get_view_number())
+            .map(|shares| shares.get(&self.public_key))
+        else {
+            error!("Cannot propopse without our VID share");
+            return false;
+        };
+
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
         let block_header = TYPES::BlockHeader::new(
             state,
@@ -190,6 +199,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commit_and_metadata.builder_commitment,
             commit_and_metadata.metadata,
             commit_and_metadata.fee,
+            vid_share.data.common.clone(),
         )
         .await;
 
