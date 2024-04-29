@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+use hotshot::tasks::{task_state::CreateTaskState};
 use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,

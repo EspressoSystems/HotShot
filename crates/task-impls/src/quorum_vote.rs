@@ -1,9 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -23,7 +19,6 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -35,6 +30,11 @@ use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
@@ -389,14 +389,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
-                    .await;
-
-                self.committee_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
-
                 // Add to the storage.
                 self.consensus
                     .write()
@@ -462,16 +454,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .entry(view)
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.clone());
+
                 if disperse.data.recipient_key != self.public_key {
                     debug!("Got a Valid VID share but it's not for our key");
                     return;
                 }
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
+
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     &event_sender.clone(),
@@ -487,20 +475,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 }
             }
             HotShotEvent::ViewChange(new_view) => {
-                let new_view = *new_view;
                 debug!(
                     "View Change event for view {} in quorum vote task",
-                    *new_view
+                    **new_view
                 );
-
-                let old_voted_view = self.latest_voted_view;
-
-                // Start polling for VID disperse for the new view
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
-                        *old_voted_view + 1,
-                    ))
-                    .await;
             }
             _ => {}
         }
