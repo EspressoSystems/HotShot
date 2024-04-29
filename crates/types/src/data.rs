@@ -457,7 +457,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// interpreted as bytes).
     #[must_use]
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
-        let (payload, metadata) = TYPES::BlockPayload::genesis();
+        let (payload, metadata) =
+            TYPES::BlockPayload::from_transactions([], Arc::new(instance_state)).unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode().expect("unable to encode genesis payload");
 
