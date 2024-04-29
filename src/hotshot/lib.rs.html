@@ -804,6 +804,9 @@
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
 <a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -1086,7 +1089,10 @@
             </span>locked_view: anchored_leaf.get_view_number(),
             high_qc: initializer.high_qc,
             metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
+            dontuse_decided_upgrade_cert: <span class="prelude-val">None</span>,
+            dontuse_formed_upgrade_certificate: <span class="prelude-val">None</span>,
         };
+
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
         <span class="kw">let </span>version = Arc::new(RwLock::new(BASE_VERSION));
 

@@ -432,6 +432,18 @@
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -449,7 +461,8 @@
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
+        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     traits::{
         block_contents::BuilderFee,
@@ -509,6 +522,17 @@
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
+
+    <span class="doccomment">/// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    </span><span class="kw">pub </span>dontuse_formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// most recent decided upgrade certificate
+    </span><span class="kw">pub </span>dontuse_decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 }
 
 <span class="doccomment">/// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces

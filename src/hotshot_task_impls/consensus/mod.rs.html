@@ -872,27 +872,20 @@
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
 <a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
-<span class="kw">use </span><span class="self">self</span>::proposal_helpers::handle_quorum_proposal_validated;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
 <span class="kw">use crate</span>::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
+    consensus::view_change::update_view,
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
-<span class="kw">use </span>anyhow::Result;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -900,13 +893,15 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>hotshot_types::message::Proposal;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
-    message::Proposal,
+    message::GeneralConsensusMessage,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumData, QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -918,19 +913,19 @@
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
+
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::{
-    data::{null_block, VidDisperseShare},
-    message::GeneralConsensusMessage,
-    simple_vote::QuorumData,
-};
+</span><span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="doccomment">/// Helper functions to handler proposal-related functionality.
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="self">self</span>::proposal_helpers::handle_quorum_proposal_validated;
+
+<span class="doccomment">/// Helper functions to handle proposal-related functionality.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>proposal_helpers;
 
 <span class="doccomment">/// Handles view-change related functionality.
@@ -1024,7 +1019,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ConsensusTaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
-    </span><span class="kw">async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
+    </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
         <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
         <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, tasks)) = <span class="self">self</span>.spawned_tasks.pop_first() {
@@ -1035,14 +1030,7 @@
         join_all(cancel).<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// Ignores old vote behavior and lets `QuorumVoteTask` take over.
-    </span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-    </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) -&gt; bool {
-        <span class="bool-val">false
-    </span>}
-
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus vote if able"</span>, level = <span class="string">"error"</span>)]
-    #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="comment">// Check if we are able to vote, like whether the proposal is valid,
     // whether we have DAC and VID share, and if so, vote.
     </span><span class="kw">async fn </span>vote_if_able(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) -&gt; bool {
@@ -1213,17 +1201,8 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-    </span><span class="kw">async fn </span>publish_proposal(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view: TYPES::Time,
-        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Publishes a proposal
-    </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+    </span><span class="doccomment">/// Publishes a proposal
     </span><span class="kw">async fn </span>publish_proposal(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
@@ -1277,11 +1256,12 @@
                     <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="string">"Failed to propose {e:#}"</span>),
                 }
             }
-            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), <span class="self">self</span>).<span class="kw">await
                 </span>{
-                    <span class="macro">info!</span>(<span class="string">"Failed to handle QuorumProposalValidated event {e:#}"</span>);
+                    <span class="macro">debug!</span>(<span class="string">"Failed to handle QuorumProposalValidated event {e:#}"</span>);
                 }
             }
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
@@ -1377,7 +1357,8 @@
                     }
                 }
             }
-            HotShotEvent::QCFormed(cert) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>HotShotEvent::QCFormed(cert) =&gt; {
                 <span class="kw">match </span>cert {
                     either::Right(qc) =&gt; {
                         <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(qc.clone()));
@@ -1656,38 +1637,44 @@
                     fee: fee.clone(),
                     block_view: view,
                 });
-                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
-                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
-                {
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
-                        <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
-                    };
-                }
+                <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+                </span>{
+                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
+                        &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
+                    {
+                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
+                            <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                        };
+                    }
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.proposal_cert {
-                    <span class="kw">match </span>cert {
-                        ViewChangeEvidence::Timeout(tc) =&gt; {
-                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
-                                == <span class="self">self</span>.public_key
-                            {
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
-                                };
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.proposal_cert {
+                        <span class="kw">match </span>cert {
+                            ViewChangeEvidence::Timeout(tc) =&gt; {
+                                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
+                                    == <span class="self">self</span>.public_key
+                                {
+                                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await
+                                    </span>{
+                                        <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                                    };
+                                }
                             }
-                        }
-                        ViewChangeEvidence::ViewSync(vsc) =&gt; {
-                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(vsc.get_view_number())
-                                == <span class="self">self</span>.public_key
-                            {
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
-                                };
+                            ViewChangeEvidence::ViewSync(vsc) =&gt; {
+                                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(vsc.get_view_number())
+                                    == <span class="self">self</span>.public_key
+                                {
+                                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await
+                                    </span>{
+                                        <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                                    };
+                                }
                             }
                         }
                     }
                 }
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
                     <span class="macro">warn!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
@@ -1712,6 +1699,7 @@
                         <span class="string">"Attempting to publish proposal after forming a View Sync Finalized Cert for view {}"</span>,
                         <span class="kw-2">*</span>certificate.view_number
                     );
+
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
                         <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };

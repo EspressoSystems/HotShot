@@ -1018,7 +1018,59 @@
 <a href="#1016" id="1016">1016</a>
 <a href="#1017" id="1017">1017</a>
 <a href="#1018" id="1018">1018</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal::QuorumProposalTaskState;
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal_recv::QuorumProposalRecvTaskState;
+<span class="kw">use crate</span>::{
+    consensus::update_view,
+    events::HotShotEvent,
+    helpers::{broadcast_event, AnyhowTracing},
+};
+<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -1056,13 +1108,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, warn};
-
-<span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
-<span class="kw">use crate</span>::{
-    consensus::update_view,
-    events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
-};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -1612,6 +1657,14 @@
     </span>}
 }
 
+<span class="doccomment">/// TEMPORARY TYPE: Quorum proposal recv task state when using dependency tasks
+</span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = QuorumProposalRecvTaskState&lt;TYPES, I&gt;;
+
+<span class="doccomment">/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
+</span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
+
 <span class="comment">// TODO: Fix `clippy::too_many_lines`.
 </span><span class="doccomment">/// Handle the received quorum proposal.
 ///
@@ -1621,7 +1674,7 @@
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumProposal&lt;TYPES&gt;&gt;&gt; {
     <span class="kw">let </span>sender = sender.clone();
     <span class="macro">debug!</span>(
@@ -1670,7 +1723,7 @@
     )
     .<span class="kw">await
     </span>{
-        <span class="macro">warn!</span>(<span class="string">"Failed to update view; error = {e:?}"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Failed to update view; error = {e:#}"</span>);
     }
 
     <span class="kw">let </span>consensus_read = task_state.consensus.upgradable_read().<span class="kw">await</span>;
@@ -1800,12 +1853,7 @@
                     .or_default()
                     .push(create_and_send_proposal_handle);
             }
-            <span class="comment">// TODO: Instead of calling `vote_if_able` here, we can call it in the original place
-            // in the consensus task, and set `current_proposal` accordingly.
-            // if self.vote_if_able(&amp;event_stream).await {
-            //     current_proposal = None;
-            // }
-        </span>}
+        }
         <span class="macro">warn!</span>(<span class="question-mark">?</span>high_qc, <span class="question-mark">?</span>proposal.data, <span class="question-mark">?</span>locked_view, <span class="string">"Failed liveneess check; cannot find parent either."</span>);
 
         <span class="kw">return </span><span class="prelude-val">Ok</span>(current_proposal);
@@ -1835,16 +1883,31 @@
     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 }
 
-<span class="doccomment">/// Handle `QuorumProposalRecv` event content and submit a proposal if possible.
+<span class="doccomment">/// TEMPORARY TYPE: Quorum proposal task state when using dependency tasks
+</span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">type </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt; = QuorumProposalTaskState&lt;TYPES, I&gt;;
+
+<span class="doccomment">/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
+</span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">type </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
+
+<span class="doccomment">/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">pub async fn </span>handle_quorum_proposal_validated&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>consensus = task_state.consensus.upgradable_read().<span class="kw">await</span>;
     <span class="kw">let </span>view = proposal.get_view_number();
-    task_state.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
+    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+    </span>{
+        task_state.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
+    }
+
+    <span class="attr">#[allow(unused_mut)]
+    #[allow(unused_variables)]
+    </span><span class="kw">let </span><span class="kw-2">mut </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>new_anchor_view = consensus.last_decided_view;
     <span class="kw">let </span><span class="kw-2">mut </span>new_locked_view = consensus.locked_view;
     <span class="kw">let </span><span class="kw-2">mut </span>last_view_number_visited = view;
@@ -1900,7 +1963,15 @@
                                 <span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>,
                                 cert
                             );
-                            task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+                            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+                            </span>{
+                                task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+                            }
+
+                            <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+                            </span>{
+                                decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+                            }
                         }
                     }
                     <span class="comment">// If the block payload is available for this leaf, include it in
@@ -1959,6 +2030,13 @@
     <span class="kw">if </span>new_commit_reached {
         consensus.locked_view = new_locked_view;
     }
+
+    <span class="comment">// This is ALWAYS None if "dependency-tasks" is not active.
+    </span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+    </span>{
+        consensus.dontuse_decided_upgrade_cert = decided_upgrade_cert;
+    }
+
     <span class="attr">#[allow(clippy::cast_precision_loss)]
     </span><span class="kw">if </span>new_decide_reached {
         broadcast_event(
@@ -2002,37 +2080,41 @@
         <span class="macro">debug!</span>(<span class="string">"decide send succeeded"</span>);
     }
 
-    <span class="kw">let </span>new_view = task_state.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
-    <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-    </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view) == task_state.public_key
-        &amp;&amp; consensus.high_qc.view_number
-            == task_state.current_proposal.clone().unwrap().view_number;
-    <span class="comment">// todo get rid of this clone
-    </span><span class="kw">let </span>qc = consensus.high_qc.clone();
+    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+    </span>{
+        <span class="kw">let </span>new_view = task_state.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
+        <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+        </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
+            == task_state.public_key
+            &amp;&amp; consensus.high_qc.view_number
+                == task_state.current_proposal.clone().unwrap().view_number;
+        <span class="comment">// todo get rid of this clone
+        </span><span class="kw">let </span>qc = consensus.high_qc.clone();
 
-    drop(consensus);
-    <span class="kw">if </span>new_decide_reached {
-        task_state.cancel_tasks(new_anchor_view).<span class="kw">await</span>;
-    }
-    <span class="kw">if </span>should_propose {
-        <span class="macro">debug!</span>(
-            <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
-            <span class="kw-2">*</span>new_view
-        );
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
-            .publish_proposal(qc.view_number + <span class="number">1</span>, event_stream.clone())
-            .<span class="kw">await
-        </span>{
-            <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
-        };
-    }
+        drop(consensus);
+        <span class="kw">if </span>new_decide_reached {
+            task_state.cancel_tasks(new_anchor_view).<span class="kw">await</span>;
+        }
+        <span class="kw">if </span>should_propose {
+            <span class="macro">debug!</span>(
+                <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
+                <span class="kw-2">*</span>new_view
+            );
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
+                .publish_proposal(qc.view_number + <span class="number">1</span>, event_stream.clone())
+                .<span class="kw">await
+            </span>{
+                <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:#}"</span>);
+            };
+        }
 
-    <span class="macro">ensure!</span>(
-        task_state.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>,
-        <span class="string">"Failed to vote"
-    </span>);
-    task_state.current_proposal = <span class="prelude-val">None</span>;
+        <span class="macro">ensure!</span>(
+            task_state.vote_if_able(<span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>,
+            <span class="string">"Failed to vote"
+        </span>);
+        task_state.current_proposal = <span class="prelude-val">None</span>;
+    }
 
     <span class="prelude-val">Ok</span>(())
 }

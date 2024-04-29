@@ -201,6 +201,7 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Vote, Accumulator, and Certificate Types
 
 </span><span class="kw">use </span>std::{
@@ -393,8 +394,9 @@ The votes all must be over the `Commitment` associated type.
     <span class="doccomment">/// The quorum proposal (not necessarily valid).
     </span><span class="kw">pub </span>quorum_proposal: QuorumProposal&lt;TYPES&gt;,
 
-    <span class="doccomment">/// The leaf we've obtained from the `QuorumProposalValidated` event.
-    </span><span class="kw">pub </span>leaf: Leaf&lt;TYPES&gt;,
+    <span class="doccomment">/// The leaf we've obtained from the `QuorumProposalValidated` event. This is the
+    /// parent leaf.
+    </span><span class="kw">pub </span>parent_leaf: Leaf&lt;TYPES&gt;,
 
     <span class="doccomment">/// The Vid disperse proposal.
     </span><span class="kw">pub </span>disperse_share: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
