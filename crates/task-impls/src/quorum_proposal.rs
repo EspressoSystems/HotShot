@@ -830,7 +830,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-                let Some((parent_leaf, parent_state)) = parent else {
+                let Some((parent_leaf, _parent_state)) = parent else {
                     warn!(
                         "Proposal's parent missing from storage with commitment: {:?}",
                         justify_qc.get_data().leaf_commit
@@ -844,13 +844,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         Arc::clone(&self.consensus),
                         None,
                         Arc::clone(&self.quorum_membership),
-                        Arc::clone(&parent_state),
                         view_leader_key,
                         event_sender.clone(),
                         sender,
                         self.output_event_stream.clone(),
-                        Arc::clone(&self.storage),
-                        Arc::clone(&self.instance_state),
                     )
                     .map(AnyhowTracing::err_as_debug),
                 );

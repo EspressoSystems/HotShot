@@ -346,6 +346,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
     /// Handle a vote dependent event received on the event stream
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error")]
+    #[allow(unused_variables)]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -361,7 +362,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     Some(event),
                 );
             }
-            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+            HotShotEvent::QuorumProposalRecv(proposal, _sender) => {
                 let view = proposal.data.view_number;
                 debug!("Received Quorum Proposal for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -471,6 +472,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         self.instance_state.as_ref(),
                         &parent_leaf,
                         &proposal.data.block_header.clone(),
+                        todo!(),
                     )
                     .await
                 else {

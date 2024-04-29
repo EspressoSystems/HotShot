@@ -37,7 +37,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
-use super::ConsensusTaskState;
+use super::{vote_if_able, ConsensusTaskState};
 use crate::{
     consensus::update_view,
     events::HotShotEvent,
@@ -54,25 +54,11 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     quorum_membership: Arc<TYPES::Membership>,
-    parent_state: Arc<TYPES::ValidatedState>,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
-    storage: Arc<RwLock<impl Storage<TYPES>>>,
-    instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<()> {
-    let (validated_state, state_delta) = parent_state
-        .validate_and_apply_header(
-            instance_state.as_ref(),
-            &parent_leaf,
-            &proposal.data.block_header.clone(),
-        )
-        .await
-        .context("Block header doesn't extend the proposal!")?;
-
-    let state = Arc::new(validated_state);
-    let delta = Arc::new(state_delta);
     let view = proposal.data.get_view_number();
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
@@ -160,31 +146,9 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
 
-    consensus.validated_state_map.insert(
-        view,
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: proposed_leaf.commit(),
-                state: Arc::clone(&state),
-                delta: Some(Arc::clone(&delta)),
-            },
-        },
-    );
     consensus
         .saved_leaves
         .insert(proposed_leaf.commit(), proposed_leaf.clone());
-
-    if let Err(e) = storage
-        .write()
-        .await
-        .update_undecided_state(
-            consensus.saved_leaves.clone(),
-            consensus.validated_state_map.clone(),
-        )
-        .await
-    {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
-    }
 
     Ok(())
 }
@@ -684,7 +648,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     }
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
-    let Some((parent_leaf, parent_state)) = parent else {
+    let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.get_data().leaf_commit
@@ -773,11 +737,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                     .or_default()
                     .push(create_and_send_proposal_handle);
             }
-            // TODO: Instead of calling `vote_if_able` here, we can call it in the original place
-            // in the consensus task, and set `current_proposal` accordingly.
-            // if self.vote_if_able(&event_stream).await {
-            //     current_proposal = None;
-            // }
         }
         warn!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
 
@@ -795,13 +754,10 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                 Arc::clone(&task_state.consensus),
                 task_state.decided_upgrade_cert.clone(),
                 Arc::clone(&task_state.quorum_membership),
-                Arc::clone(&parent_state),
                 view_leader_key,
                 event_stream.clone(),
                 sender,
                 task_state.output_event_stream.clone(),
-                Arc::clone(&task_state.storage),
-                Arc::clone(&task_state.instance_state),
             )
             .map(AnyhowTracing::err_as_debug),
         ));
@@ -1000,12 +956,36 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             warn!("Failed to propose; error = {e:?}");
         };
     }
-
-    ensure!(
-        task_state.vote_if_able(&event_stream).await,
-        "Failed to vote"
-    );
-    task_state.current_proposal = None;
+    let proposal = proposal.clone();
+    let upgrade = task_state.decided_upgrade_cert.clone();
+    let pub_key = task_state.public_key.clone();
+    let priv_key = task_state.private_key.clone();
+    let consensus = task_state.consensus.clone();
+    let storage = task_state.storage.clone();
+    let quorum_mem = task_state.quorum_membership.clone();
+    let committee_mem = task_state.committee_membership.clone();
+    let instance_state = task_state.instance_state.clone();
+    let handle = async_spawn(async move {
+        vote_if_able::<TYPES, I>(
+            view,
+            proposal,
+            pub_key,
+            priv_key,
+            consensus,
+            storage,
+            upgrade,
+            quorum_mem,
+            committee_mem,
+            instance_state,
+            event_stream,
+        )
+        .await;
+    });
+    task_state
+        .spawned_tasks
+        .entry(view)
+        .or_default()
+        .push(handle);
 
     Ok(())
 }
