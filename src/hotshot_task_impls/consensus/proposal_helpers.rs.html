@@ -1059,18 +1059,8 @@
 <a href="#1057" id="1057">1057</a>
 <a href="#1058" id="1058">1058</a>
 <a href="#1059" id="1059">1059</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal::QuorumProposalTaskState;
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal_recv::QuorumProposalRecvTaskState;
-<span class="kw">use crate</span>::{
-    consensus::update_view,
-    events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
-};
-<span class="kw">use </span>core::time::Duration;
+<a href="#1060" id="1060">1060</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -1108,6 +1098,18 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, warn};
+
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal::QuorumProposalTaskState;
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal_recv::QuorumProposalRecvTaskState;
+<span class="kw">use crate</span>::{
+    consensus::update_view,
+    events::HotShotEvent,
+    helpers::{broadcast_event, AnyhowTracing},
+};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.

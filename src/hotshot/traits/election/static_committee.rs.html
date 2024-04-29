@@ -213,7 +213,10 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>ethereum_types::U256;
+<a href="#214" id="214">214</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
+
+<span class="kw">use </span>ethereum_types::U256;
 <span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>hotshot_types::traits::signature_key::StakeTableEntryType;
 <span class="kw">use </span>hotshot_types::{
@@ -223,7 +226,6 @@
 };
 <span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
 </span><span class="kw">use </span>rand::{rngs::StdRng, Rng};
-<span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
 <span class="kw">use </span>tracing::debug;
 
 <span class="doccomment">/// Dummy implementation of [`Membership`]

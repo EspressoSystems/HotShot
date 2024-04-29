@@ -871,19 +871,8 @@
 <a href="#869" id="869">869</a>
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
-<span class="kw">use crate</span>::{
-    consensus::view_change::update_view,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
@@ -893,6 +882,8 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>hotshot_types::message::Proposal;
 <span class="kw">use </span>hotshot_types::{
@@ -913,9 +904,6 @@
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
@@ -924,6 +912,16 @@
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span><span class="self">self</span>::proposal_helpers::handle_quorum_proposal_validated;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
+<span class="kw">use crate</span>::{
+    consensus::view_change::update_view,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 <span class="doccomment">/// Helper functions to handle proposal-related functionality.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>proposal_helpers;
