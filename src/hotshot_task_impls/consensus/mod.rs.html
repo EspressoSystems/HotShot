@@ -860,8 +860,38 @@
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
+<span class="kw">use </span><span class="self">self</span>::proposal_helpers::handle_quorum_proposal_validated;
+<span class="kw">use crate</span>::{
+    consensus::{
+        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
+        view_change::update_view,
+    },
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
@@ -885,6 +915,7 @@
         signature_key::SignatureKey,
         storage::Storage,
     },
+    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -893,23 +924,11 @@
     message::GeneralConsensusMessage,
     simple_vote::QuorumData,
 };
+<span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
-
-<span class="kw">use </span><span class="self">self</span>::proposal_helpers::handle_quorum_proposal_validated;
-<span class="kw">use crate</span>::{
-    consensus::{
-        proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able},
-        view_change::update_view,
-    },
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
 
 <span class="doccomment">/// Helper functions to handler proposal-related functionality.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>proposal_helpers;
@@ -1148,33 +1167,50 @@
         <span class="bool-val">false
     </span>}
 
-    <span class="doccomment">/// Validates whether the VID Dispersal Proposal is correctly signed
+    <span class="doccomment">/// Validate the VID disperse is correctly signed and has the correct share.
     </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">fn </span>validate_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; bool {
         <span class="kw">let </span>view = disperse.data.get_view_number();
         <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
-        <span class="comment">// Check whether the data comes from the right leader for this view
-        </span><span class="kw">if </span><span class="self">self
+
+        <span class="comment">// Check whether the data satisfies one of the following.
+        // * From the right leader for this view.
+        // * Calculated and signed by the current node.
+        // * Signed by one of the staked DA committee members.
+        </span><span class="kw">if </span>!<span class="self">self
             </span>.quorum_membership
             .get_leader(view)
             .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
+            &amp;&amp; !<span class="self">self
+                </span>.public_key
+                .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
         {
-            <span class="kw">return </span><span class="bool-val">true</span>;
-        }
-        <span class="comment">// or the data was calculated and signed by the current node
-        </span><span class="kw">if </span><span class="self">self
-            </span>.public_key
-            .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-        {
-            <span class="kw">return </span><span class="bool-val">true</span>;
-        }
-        <span class="comment">// or the data was signed by one of the staked DA committee members
-        </span><span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.committee_membership.get_staked_committee(view) {
-            <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
-                <span class="kw">return </span><span class="bool-val">true</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
+            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.committee_membership.get_staked_committee(view) {
+                <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
+                    validated = <span class="bool-val">true</span>;
+                    <span class="kw">break</span>;
+                }
+            }
+            <span class="kw">if </span>!validated {
+                <span class="kw">return </span><span class="bool-val">false</span>;
             }
         }
-        <span class="bool-val">false
+
+        <span class="comment">// Validate the VID share.
+        </span><span class="kw">if </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes())
+            .verify_share(
+                <span class="kw-2">&amp;</span>disperse.data.share,
+                <span class="kw-2">&amp;</span>disperse.data.common,
+                <span class="kw-2">&amp;</span>payload_commitment,
+            )
+            .is_err()
+        {
+            <span class="macro">debug!</span>(<span class="string">"Invalid VID share."</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        }
+
+        <span class="bool-val">true
     </span>}
 
     <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]

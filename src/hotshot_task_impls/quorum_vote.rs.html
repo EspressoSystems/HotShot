@@ -736,8 +736,24 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -764,16 +780,13 @@
         ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
+    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
-
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
 
 <span class="doccomment">/// Vote dependency types.
 </span><span class="attr">#[derive(Debug, PartialEq)]
@@ -1389,6 +1402,17 @@
                     <span class="kw">if </span>!validated {
                         <span class="kw">return</span>;
                     }
+                }
+                <span class="kw">if </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes())
+                    .verify_share(
+                        <span class="kw-2">&amp;</span>disperse.data.share,
+                        <span class="kw-2">&amp;</span>disperse.data.common,
+                        <span class="kw-2">&amp;</span>payload_commitment,
+                    )
+                    .is_err()
+                {
+                    <span class="macro">debug!</span>(<span class="string">"Invalid VID share."</span>);
+                    <span class="kw">return</span>;
                 }
 
                 <span class="self">self</span>.consensus
