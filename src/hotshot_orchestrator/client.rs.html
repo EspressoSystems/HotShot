@@ -400,6 +400,7 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -482,7 +483,8 @@
     </span><span class="kw">pub </span>transaction_size: u64,
     <span class="doccomment">/// The number of rounds
     </span><span class="kw">pub </span>rounds: usize,
-
+    <span class="doccomment">/// The type of leader election: static, fixed, random
+    </span><span class="kw">pub </span>leader_election_type: String,
     <span class="comment">// Results starting here
     </span><span class="doccomment">/// The average latency of the transactions
     </span><span class="kw">pub </span>avg_latency_in_sec: i64,

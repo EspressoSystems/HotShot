@@ -478,6 +478,28 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -580,6 +602,27 @@
         }
     }
 
+    <span class="doccomment">/// get election type in use
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>get_election_type() -&gt; String {
+        <span class="comment">// leader is chosen in index order
+        </span><span class="attr">#[cfg(not(any(
+            feature = <span class="string">"randomized-leader-election"</span>,
+            feature = <span class="string">"fixed-leader-election"
+        </span>)))]
+        </span><span class="kw">let </span>election_type = <span class="string">"static-leader-selection"</span>.to_string();
+
+        <span class="comment">// leader is from a fixed set
+        </span><span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
+        </span><span class="kw">let </span>election_type = <span class="string">"fixed-leader-election"</span>.to_string();
+
+        <span class="comment">// leader is randomly chosen
+        </span><span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
+        </span><span class="kw">let </span>election_type = <span class="string">"randomized-leader-election"</span>.to_string();
+
+        election_type
+    }
+
     <span class="doccomment">/// Output the results to a csv file according to orchestrator state
     </span><span class="kw">pub fn </span>output_to_csv(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>output_csv = BenchResultsDownloadConfig {
@@ -589,6 +632,7 @@
             transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
             transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
             rounds: <span class="self">self</span>.config.rounds,
+            leader_election_type: OrchestratorState::&lt;KEY&gt;::get_election_type(),
             avg_latency_in_sec: <span class="self">self</span>.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: <span class="self">self</span>.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: <span class="self">self</span>.bench_results.maximum_latency_in_sec,

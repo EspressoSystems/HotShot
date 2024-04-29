@@ -208,6 +208,11 @@
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>ethereum_types::U256;
 <span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>hotshot_types::traits::signature_key::StakeTableEntryType;
@@ -284,8 +289,13 @@
     </span><span class="doccomment">/// Only get leader in fixed set
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
     </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
+        <span class="kw">if </span><span class="self">self</span>.fixed_leader_for_gpuvid &lt;= <span class="number">0
+            </span>|| <span class="self">self</span>.fixed_leader_for_gpuvid &gt; <span class="self">self</span>.all_nodes_with_stake.len()
+        {
+            <span class="macro">panic!</span>(<span class="string">"fixed_leader_for_gpuvid is not set correctly."</span>);
+        }
         <span class="kw">let </span>index = usize::try_from(<span class="kw-2">*</span>view_number % <span class="self">self</span>.fixed_leader_for_gpuvid <span class="kw">as </span>u64).unwrap();
-        <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
+        <span class="kw">let </span>res = <span class="self">self</span>.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
     }
 
@@ -295,7 +305,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number);
         <span class="kw">let </span>randomized_view_number: usize = rng.gen();
         <span class="kw">let </span>index = randomized_view_number % <span class="self">self</span>.nodes_with_stake.len();
-        <span class="kw">let </span>res = <span class="self">self</span>.nodes_with_stake[index].clone();
+        <span class="kw">let </span>res = <span class="self">self</span>.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
     }
 
