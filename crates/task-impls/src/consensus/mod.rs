@@ -12,6 +12,12 @@ use crate::{
 };
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
+
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::vid::vid_scheme;
+#[cfg(not(feature = "dependency-tasks"))]
+use jf_primitives::vid::VidScheme;
+
 use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -668,7 +674,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
-                    false
+                    false,
                 )
                 .await
                 {
