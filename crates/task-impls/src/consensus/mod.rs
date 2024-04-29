@@ -10,6 +10,7 @@ use crate::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
+#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -35,12 +36,13 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
 
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::data::VidDisperseShare;
-
+use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -279,44 +281,50 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         false
     }
 
-    /// Validates whether the VID Dispersal Proposal is correctly signed
+    /// Validate the VID disperse is correctly signed and has the correct share.
     #[cfg(not(feature = "dependency-tasks"))]
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.get_view_number();
         let payload_commitment = disperse.data.payload_commitment;
-        // Check whether the data comes from the right leader for this view
-        if self
+
+        // Check whether the data satisfies one of the following.
+        // * From the right leader for this view.
+        // * Calculated and signed by the current node.
+        // * Signed by one of the staked DA committee members.
+        if !self
             .quorum_membership
             .get_leader(view)
             .validate(&disperse.signature, payload_commitment.as_ref())
+            && !self
+                .public_key
+                .validate(&disperse.signature, payload_commitment.as_ref())
         {
-            return true;
-        }
-        // or the data was calculated and signed by the current node
-        if self
-            .public_key
-            .validate(&disperse.signature, payload_commitment.as_ref())
-        {
-            return true;
-        }
-        // or the data was signed by one of the staked DA committee members
-        for da_member in self.committee_membership.get_staked_committee(view) {
-            if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
-                return true;
+            let mut validated = false;
+            for da_member in self.committee_membership.get_staked_committee(view) {
+                if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
+                    validated = true;
+                    break;
+                }
+            }
+            if !validated {
+                return false;
             }
         }
-        false
-    }
 
-    /// Dummy proposal
-    #[cfg(feature = "dependency-tasks")]
-    #[allow(clippy::unused_async, clippy::no_effect_underscore_binding)]
-    async fn publish_proposal(
-        &mut self,
-        _view: TYPES::Time,
-        _event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<()> {
-        Ok(())
+        // Validate the VID share.
+        if vid_scheme(self.quorum_membership.total_nodes())
+            .verify_share(
+                &disperse.data.share,
+                &disperse.data.common,
+                &payload_commitment,
+            )
+            .is_err()
+        {
+            debug!("Invalid VID share.");
+            return false;
+        }
+
+        true
     }
 
     #[cfg(not(feature = "dependency-tasks"))]
@@ -756,37 +764,43 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     fee: fee.clone(),
                     block_view: view,
                 });
-                if self.quorum_membership.get_leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
+                #[cfg(not(feature = "dependency-tasks"))]
                 {
-                    if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
-                        warn!("Failed to propose; error = {e:?}");
-                    };
-                }
+                    if self.quorum_membership.get_leader(view) == self.public_key
+                        && self.consensus.read().await.high_qc.get_view_number() + 1 == view
+                    {
+                        if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
+                            warn!("Failed to propose; error = {e:?}");
+                        };
+                    }
 
-                if let Some(cert) = &self.proposal_cert {
-                    match cert {
-                        ViewChangeEvidence::Timeout(tc) => {
-                            if self.quorum_membership.get_leader(tc.get_view_number() + 1)
-                                == self.public_key
-                            {
-                                if let Err(e) = self.publish_proposal(view, event_stream).await {
-                                    warn!("Failed to propose; error = {e:?}");
-                                };
+                    if let Some(cert) = &self.proposal_cert {
+                        match cert {
+                            ViewChangeEvidence::Timeout(tc) => {
+                                if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                                    == self.public_key
+                                {
+                                    if let Err(e) = self.publish_proposal(view, event_stream).await
+                                    {
+                                        warn!("Failed to propose; error = {e:?}");
+                                    };
+                                }
                             }
-                        }
-                        ViewChangeEvidence::ViewSync(vsc) => {
-                            if self.quorum_membership.get_leader(vsc.get_view_number())
-                                == self.public_key
-                            {
-                                if let Err(e) = self.publish_proposal(view, event_stream).await {
-                                    warn!("Failed to propose; error = {e:?}");
-                                };
+                            ViewChangeEvidence::ViewSync(vsc) => {
+                                if self.quorum_membership.get_leader(vsc.get_view_number())
+                                    == self.public_key
+                                {
+                                    if let Err(e) = self.publish_proposal(view, event_stream).await
+                                    {
+                                        warn!("Failed to propose; error = {e:?}");
+                                    };
+                                }
                             }
                         }
                     }
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(

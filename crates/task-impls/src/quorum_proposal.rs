@@ -622,13 +622,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                error!("GOT QUORUM PROPOSAL VALIDATED");
                 let new_view = proposal.view_number + 1;
 
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
                 {
-                    error!("Failed to handle QuorumProposalValidated event; error = {e:#}");
+                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 info!(
