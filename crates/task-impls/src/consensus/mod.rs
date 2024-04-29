@@ -465,6 +465,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QCFormed(cert) => {
                 match cert {
                     either::Right(qc) => {
@@ -481,7 +482,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             *qc.view_number
                         );
 
-                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -511,7 +511,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             *qc.view_number
                         );
 
-                        #[cfg(not(feature = "dependency-tasks"))]
                         if let Err(e) = self
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
@@ -782,6 +781,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
@@ -800,20 +800,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     ))
                     .await;
 
-                #[cfg(not(feature = "dependency-tasks"))]
-                {
-                    let view = certificate.view_number;
+                let view = certificate.view_number;
 
-                    if self.quorum_membership.get_leader(view) == self.public_key {
-                        debug!(
+                if self.quorum_membership.get_leader(view) == self.public_key {
+                    debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
 
-                        if let Err(e) = self.publish_proposal(view, event_stream).await {
-                            warn!("Failed to propose; error = {e:?}");
-                        };
-                    }
+                    if let Err(e) = self.publish_proposal(view, event_stream).await {
+                        warn!("Failed to propose; error = {e:?}");
+                    };
                 }
             }
             _ => {}
