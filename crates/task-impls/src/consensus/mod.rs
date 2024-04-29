@@ -811,9 +811,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                 if self.quorum_membership.get_leader(view) == self.public_key {
                     debug!(
-                            "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                            *certificate.view_number
-                        );
+                        "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
+                        *certificate.view_number
+                    );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
                         warn!("Failed to propose; error = {e:?}");
