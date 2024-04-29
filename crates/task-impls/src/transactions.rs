@@ -272,6 +272,9 @@ impl<
             {
                 // We got a block
                 Ok(Ok(block)) => {
+                    if block.blocks_initial_info.block_size == 0 {
+                        async_sleep(Duration::from_millis(400)).await;
+                    }
                     return Some(block);
                 }
 
