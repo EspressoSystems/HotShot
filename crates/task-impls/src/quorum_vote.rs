@@ -371,6 +371,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let view = proposal.view_number;
                 debug!("Received QuorumProposalValidated for view {}", *view);
 
+                // This task simultaneously does not rely on the state updates of the
+                // `handle_quorum_proposal_validated` function and that function does not return an
+                // `Error` unless the propose or vote fails, in which case the other would still
+                // have been attempted regardless. Therefore, we pass this through as a task and
+                // eschew validation in lieu of the `QuorumProposal` task doing it for us and
+                // updating the internal state.
                 self.create_dependency_task_if_new(
                     view,
                     event_receiver,
