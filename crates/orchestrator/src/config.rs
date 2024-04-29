@@ -236,6 +236,8 @@ impl<K: SignatureKey> NetworkConfig<K> {
     pub async fn from_file_or_orchestrator(
         client: &OrchestratorClient,
         file: Option<String>,
+        my_pub_key: PeerConfig<K>,
+        is_da: bool,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
@@ -249,7 +251,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
                     error!("{e}, falling back to orchestrator");
 
                     let config = client
-                        .get_config_without_peer(libp2p_address, libp2p_public_key)
+                        .get_config_without_peer(my_pub_key, is_da,libp2p_address, libp2p_public_key)
                         .await?;
 
                     // save to file if we fell back
@@ -266,7 +268,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
             // otherwise just get from orchestrator
             Ok((
                 client
-                    .get_config_without_peer(libp2p_address, libp2p_public_key)
+                    .get_config_without_peer(my_pub_key, is_da, libp2p_address, libp2p_public_key)
                     .await?,
                 NetworkConfigSource::Orchestrator,
             ))
@@ -299,7 +301,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
         indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
         let (mut run_config, source) =
-            Self::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
+            Self::from_file_or_orchestrator(client, file, my_own_validator_config.get_public_config(), my_own_validator_config.is_da, libp2p_address, libp2p_public_key)
                 .await?;
         let node_index = run_config.node_index;
 
@@ -320,6 +322,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
         }
 
         // one more round of orchestrator here to get peer's public key/config
+        // TODO ED Change stuff below: 
         let updated_config: NetworkConfig<K> = client
             .post_and_wait_all_public_keys::<K>(
                 run_config.node_index,

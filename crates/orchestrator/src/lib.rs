@@ -5,7 +5,11 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
-use std::{collections::HashSet, fs::OpenOptions, io, io::ErrorKind};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::OpenOptions,
+    io::{self, ErrorKind},
+};
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
@@ -26,6 +30,7 @@ use tide_disco::{
     method::{ReadState, WriteState},
     Api, App, RequestError,
 };
+use tracing::error;
 use vbs::{
     version::{StaticVersion, StaticVersionType},
     BinarySerializer,
@@ -81,6 +86,10 @@ struct OrchestratorState<KEY: SignatureKey> {
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
     nodes_post_results: u64,
+
+    /// Map of key to node index
+    // TODO ED Maybe don't need a hash map
+    map: HashMap<PeerConfig::<KEY>, u64>,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -97,6 +106,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
+            map: HashMap::default(),
         }
     }
 
@@ -140,6 +150,8 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// If we were unable to serve the request
     fn post_identity(
         &mut self,
+        pubkey: Vec<u8>,
+        is_da: bool,
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<u16, ServerError>;
@@ -192,11 +204,29 @@ where
     /// If we were unable to serve the request
     fn post_identity(
         &mut self,
+        pubkey: Vec<u8>,
+        is_da: bool,
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<u16, ServerError> {
+
+
+        // TODO ED shouldn't unwrap
+        if self.map.contains_key(&PeerConfig::<KEY>::from_bytes(&pubkey).unwrap()) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Key has already registered".to_string(),
+            });
+        }
         let node_index = self.latest_index;
         self.latest_index += 1;
+
+
+      
+
+        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() - 1 {
+            self.peer_pub_ready = true; 
+        }
 
         if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
@@ -204,6 +234,15 @@ where
                 message: "Network has reached capacity".to_string(),
             });
         }
+
+        self.map.insert(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap(), self.latest_index as u64);
+
+        self.config.config.known_nodes_with_stake.push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+
+        if is_da {
+            self.config.config.known_da_nodes.push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+        }
+
 
         // If the orchestrator is set up for libp2p and we have supplied the proper
         // Libp2p data, add our node to the list of bootstrap nodes.
@@ -220,17 +259,23 @@ where
                     .push((libp2p_public_key, libp2p_address));
             }
         }
+
+        
         Ok(node_index)
     }
 
     // Assumes nodes will set their own index that they received from the
     // 'identity' endpoint
     fn post_getconfig(&mut self, _node_index: u16) -> Result<NetworkConfig<KEY>, ServerError> {
+        /// ED I don't think we need this function honestly....
+
         Ok(self.config.clone())
     }
 
     // Assumes one node do not get twice
+    // TODO ED I guess this one is fine to have duplicate registers because we use it for internal testing... but perhaps we shouldn't
     fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
+        error!("Inside get temp node index");
         let tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
@@ -251,40 +296,44 @@ where
         pubkey: &mut Vec<u8>,
         is_da: bool,
     ) -> Result<(), ServerError> {
-        if self.pub_posted.contains(&node_index) {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: "Node has already posted public key".to_string(),
-            });
-        }
-        self.pub_posted.insert(node_index);
+        // panic!();
+
+        // if self.pub_posted.contains(&node_index) {
+        //     return Err(ServerError {
+        //         status: tide_disco::StatusCode::BadRequest,
+        //         message: "Node has already posted public key".to_string(),
+        //     });
+        // }
+        // self.pub_posted.insert(node_index);
 
         // The guess is the first extra 12 bytes are from orchestrator serialization
-        pubkey.drain(..12);
-        let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
-        self.config.config.known_nodes_with_stake[node_index as usize] =
-            register_pub_key_with_stake.clone();
+        // pubkey.drain(..12);
+        // let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+        // self.config.config.known_nodes_with_stake[node_index as usize] =
+        //     register_pub_key_with_stake.clone();
 
-        // If the node wants to be DA, add it to the list of known DAs
-        if is_da {
-            self.config
-                .config
-                .known_da_nodes
-                .push(register_pub_key_with_stake);
-        };
+        // // If the node wants to be DA, add it to the list of known DAs
+        // if is_da {
+        //     self.config
+        //         .config
+        //         .known_da_nodes
+        //         .push(register_pub_key_with_stake);
+        // };
 
-        self.nodes_with_pubkey += 1;
-        println!(
-            "Node {:?} posted public key, now total num posted public key: {:?}",
-            node_index, self.nodes_with_pubkey
-        );
-        if self.nodes_with_pubkey >= (self.config.config.num_nodes_with_stake.get() as u64) {
-            self.peer_pub_ready = true;
-        }
+        // self.nodes_with_pubkey += 1;
+        // println!(
+        //     "Node {:?} posted public key, now total num posted public key: {:?}",
+        //     node_index, self.nodes_with_pubkey
+        // );
+        // if self.nodes_with_pubkey >= (self.config.config.num_nodes_with_stake.get() as u64) {
+        //     self.peer_pub_ready = true;
+        // }
         Ok(())
     }
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
+        
+        // TODO ED Remove
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -295,6 +344,8 @@ where
     }
 
     fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY>, ServerError> {
+      
+
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -305,6 +356,8 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
+      
+
         // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
@@ -318,6 +371,8 @@ where
     // Assumes nodes do not post 'ready' twice
     // TODO ED Add a map to verify which nodes have posted they're ready
     fn post_ready(&mut self) -> Result<(), ServerError> {
+     
+        // TODO ED Add key as parameter so we know which nodes are ready
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
         // i.e. nodes_connected >= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
@@ -332,6 +387,8 @@ where
 
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
+     
+
         if metrics.total_transactions_committed != 0 {
             // Deal with the bench results
             if self.bench_results.total_transactions_committed == 0 {
@@ -400,17 +457,19 @@ where
             body_bytes.drain(..12);
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
-            let Ok((libp2p_address, libp2p_public_key)) =
+            let Ok((pubkey, is_da, libp2p_address, libp2p_public_key)) =
                 vbs::Serializer::<Version01>::deserialize(&body_bytes)
             else {
+                error!("Failed to deserialize");
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
                     message: "Malformed body".to_string(),
                 });
             };
 
+
             // Call our state function to process the request
-            state.post_identity(libp2p_address, libp2p_public_key)
+            state.post_identity(pubkey, is_da, libp2p_address, libp2p_public_key)
         }
         .boxed()
     })?
@@ -429,6 +488,7 @@ where
             let node_index = req.integer_param("node_index")?;
             let is_da = req.boolean_param("is_da")?;
             let mut pubkey = req.body_bytes();
+            // Why mut pk? ED
             state.register_public_key(node_index, &mut pubkey, is_da)
         }
         .boxed()
@@ -475,4 +535,73 @@ where
         .expect("Error registering api");
     tracing::error!("listening on {:?}", url);
     app.serve(url, ORCHESTRATOR_VERSION).await
+}
+
+#[cfg(test)]
+mod orchestrator_tests {
+    use hotshot_types::{signature_key::BLSPubKey, ValidatorConfig};
+    use tide_disco::Url;
+
+    use crate::{
+        client::{OrchestratorClient, ValidatorArgs},
+        config::NetworkConfig,
+        run_orchestrator,
+    };
+    use async_compatibility_layer::art::async_spawn;
+    use async_compatibility_layer::logging::*;
+    use tracing::error;
+
+    #[async_std::test]
+    async fn it_works() {
+        setup_logging();
+        setup_backtrace();
+        let _orchestrator_handle = async_spawn({
+            let url = Url::parse("http://localhost:3000").unwrap();
+            let network_config = NetworkConfig::<BLSPubKey>::default();
+            run_orchestrator(network_config, url)
+        });
+
+        let validator_args = ValidatorArgs {
+            url: Url::parse("http://localhost:3000").unwrap(),
+            advertise_address: None,
+            network_config_file: None,
+        };
+        let orchestrator_client = OrchestratorClient::new(validator_args.clone());
+        let orchestrator_client_1 = OrchestratorClient::new(validator_args);
+
+        // let result = orchestrator_client
+        //     .get_node_index_for_init_validator_config()
+        //     .await;
+        // let result = orchestrator_client
+        //     .get_node_index_for_init_validator_config()
+        //     .await;
+        let validator_config_0 =
+            ValidatorConfig::<BLSPubKey>::generated_from_seed_indexed([0u8; 32], 0, 1, false);
+        let validator_config_1 =
+            ValidatorConfig::<BLSPubKey>::generated_from_seed_indexed([0u8; 32], 0, 1, false);
+
+        let mut handles = Vec::new();
+
+        for i in 0..10 {
+            let handle = orchestrator_client.post_and_wait_all_public_keys(
+                i,
+                validator_config_0.get_public_config(),
+                false,
+            );
+            handles.push(handle);
+        }
+
+        futures::future::join_all(handles).await;
+
+        let result: NetworkConfig<BLSPubKey> =
+            orchestrator_client.get_config_after_collection().await;
+        // error!("{:?}", result.config.known_nodes_with_stake);
+
+        assert_ne!(
+            result.config.known_nodes_with_stake[0],
+            result.config.known_nodes_with_stake[1]
+        );
+
+        return;
+    }
 }

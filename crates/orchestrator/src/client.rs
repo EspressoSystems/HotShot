@@ -192,6 +192,8 @@ impl OrchestratorClient {
     #[allow(clippy::type_complexity)]
     pub async fn get_config_without_peer<K: SignatureKey>(
         &self,
+        my_pub_key: PeerConfig<K>,
+        is_da: bool,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<NetworkConfig<K>> {
@@ -208,7 +210,7 @@ impl OrchestratorClient {
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
-            vbs::Serializer::<Version01>::serialize(&(libp2p_address, libp2p_public_key))?;
+            vbs::Serializer::<Version01>::serialize(&(&PeerConfig::<K>::to_bytes(&my_pub_key), is_da, libp2p_address, libp2p_public_key))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure
@@ -323,7 +325,7 @@ impl OrchestratorClient {
                     .get("api/peer_pub_ready")
                     .send()
                     .await
-                    .inspect_err(|err| tracing::error!("{err}"))
+                    .inspect_err(|err| tracing::warn!("{err}"))
             }
             .boxed()
         };

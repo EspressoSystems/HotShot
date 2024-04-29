@@ -10,6 +10,7 @@ METHOD = "POST"
 DOC = """
 POST a node's identity (IP address) to the orchestrator.  Returns the node's node_index.
 """
+## TODO ED update what identity is
 
 # POST retrieve the network configuration
 [route.post_getconfig]
