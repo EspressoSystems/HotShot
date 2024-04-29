@@ -110,7 +110,7 @@ impl<
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                tracing::trace!("view change in transactions to view {:?}", view);
+                debug!("view change in transactions to view {:?}", view);
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }

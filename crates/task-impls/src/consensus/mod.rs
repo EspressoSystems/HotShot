@@ -36,13 +36,11 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
 
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::data::VidDisperseShare;
-use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -670,10 +668,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
+                    false
                 )
                 .await
                 {
-                    tracing::trace!("Failed to update view; error = {e}");
+                    debug!("Failed to update view; error = {e}");
                     return;
                 }
 

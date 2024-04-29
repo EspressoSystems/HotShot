@@ -108,7 +108,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
-        error!("HANDLING DEP RESULT");
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut _quorum_certificate = None;
@@ -133,7 +132,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     view,
                     fee,
                 ) => {
-                    debug!("Got commit and meta {:?}", payload_commitment);
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
                         builder_commitment: builder_commitment.clone(),
@@ -259,7 +257,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
     /// Create an event dependency
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Quorum proposal create event dependency", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Create event dependency", level = "info")]
     fn create_event_dependency(
         &self,
         dependency_type: ProposalDependency,
@@ -443,7 +441,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// dependency as already completed. This allows for the task to receive a proposable event
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Quorum proposal create dependency task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Create dependency task", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -451,7 +449,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
     ) {
-        info!("Attempting to make dependency task for event {:?}", event);
+        // Don't even bother making the task if we are not entitled to propose anyay.
+        if self.quorum_membership.get_leader(view_number) != self.public_key {
+            return;
+        }
+
+        // Don't try to propose twice for the same view.
+        if view_number <= self.latest_proposed_view {
+            return;
+        }
+
+        debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
         if self.propose_dependencies.get(&view_number).is_some() {
             debug!("Task already exists");
             return;
@@ -463,7 +471,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let dependency_task = DependencyTask::new(
             dependency_chain,
             ProposalDependencyHandle {
-                cur_view: self.cur_view,
+                cur_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
                 consensus: Arc::clone(&self.consensus),
@@ -483,16 +491,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Update the latest proposed view number.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal update latest proposed view", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
-            info!(
-                "Updating next proposal view from {} to {} in the quorum proposal task",
+            debug!(
+                "Updating latest proposed view from {} to {} in the Quorum Proposal task",
                 *self.latest_proposed_view, *new_view
             );
 
             // Cancel the old dependency tasks.
-            for view in (*self.latest_proposed_view + 1)..=(*new_view) {
+            for view in (*self.latest_proposed_view)..=(*new_view) {
                 if let Some(dependency) = self.propose_dependencies.remove(&TYPES::Time::new(view))
                 {
                     cancel_task(dependency).await;
@@ -507,7 +515,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Quorum proposal handle", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -534,7 +542,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             .await;
 
                         let view = timeout_cert.view_number + 1;
-                        info!("Making QC Timeout dependency for view {view:?}");
 
                         self.create_dependency_task_if_new(
                             view,
@@ -563,7 +570,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         drop(consensus);
 
                         let view = qc.view_number + 1;
-                        info!("Making QC Dependency for view {view:?}");
 
                         self.create_dependency_task_if_new(
                             view,
@@ -582,13 +588,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 _fee,
             ) => {
                 let view = *view;
-                debug!(
-                    "Got payload commitment {:?} for view {view:?}",
-                    payload_commitment
-                );
+
+                if self.quorum_membership.get_leader(view + 1) == self.public_key {
+                    debug!(
+                        "Got payload commitment {:?} for view {view:?}",
+                        payload_commitment
+                    );
+                }
 
                 self.create_dependency_task_if_new(
-                    view,
+                    view + 1,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
@@ -612,28 +621,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                 let view = certificate.view_number;
 
-                if self.quorum_membership.get_leader(view) == self.public_key {
-                    debug!(
-                        "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                        *certificate.view_number
-                    );
-                    self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
-                }
+                self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
             }
             #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let new_view = proposal.view_number + 1;
+                let new_view = proposal.view_number;
 
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
                 {
                     debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
-
-                info!(
-                    "Node {} creating dependency task for view {:?} from QuorumProposalValidated",
-                    self.id, new_view
-                );
 
                 self.create_dependency_task_if_new(
                     new_view,
@@ -645,7 +643,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number;
                 if !self.update_latest_proposed_view(view).await {
-                    warn!("Failed to update latest proposed view");
+                    tracing::trace!("Failed to update latest proposed view");
+                    return;
+                }
+            }
+            HotShotEvent::QuorumProposalRecv(proposal, _) => {
+                let view = proposal.data.view_number;
+                if !self.update_latest_proposed_view(view).await {
+                    tracing::trace!("Failed to update latest proposed view");
                     return;
                 }
             }
@@ -663,10 +668,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
+                | HotShotEvent::QuorumProposalRecv(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)
+                | HotShotEvent::QuorumProposalSend(..)
                 | HotShotEvent::Shutdown,
         )
     }

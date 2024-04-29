@@ -41,8 +41,8 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
     timeout_task: &mut Option<JoinHandle<()>>,
+    double_send: bool,
 ) -> Result<()> {
-    error!("UPDAING VIEW");
     ensure!(
         new_view > *cur_view,
         "New view is not greater than our current view"
@@ -87,14 +87,14 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .await;
 
     if quorum_membership.get_leader(next_view) == public_key {
-        debug!("Polling for quorum votes for view {}", **cur_view);
         quorum_network
             .inject_consensus_info(ConsensusIntentEvent::PollForVotes(**cur_view))
             .await;
     }
 
-    broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
-
+    if double_send {
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+    }
     // Spawn a timeout task if we did actually update view
     *timeout_task = Some(async_spawn({
         let stream = event_stream.clone();
@@ -128,6 +128,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     }
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
     consensus.update_view(new_view);
+    tracing::trace!("View updated successfully");
 
     Ok(())
 }
