@@ -1,3 +1,5 @@
+***Steps***
+
 KeyDB is the ephemeral database, it's like Redis but with extra features. The only thing we run it with is with `--requirepass` to set a password.
 
 **Marshals:**
@@ -20,9 +22,9 @@ In a run with multiple machines, we want two brokers. With one machine, it's pro
 For brokers, there is a magic value called `local_ip`. This resolves to the local IP address, which skips the need for talking to the AWS metadata server. For in-AWS uses, the following configuration is probably fine:
 `cdn-broker --public-bind-endpoint 0.0.0.0:1740 --public-advertise-endpoint local_ip:1740 --private-bind-endpoint 0.0.0.0:1741 --private-advertise-endpoint local_ip:1741`. You won't need to put this port or values anywhere, as the marshal does everything for you.
 
-**Examples:**
+***Examples:***
 
-*Test Locally*
+**Run Locally** 
 
 `just async_std example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml`
 
