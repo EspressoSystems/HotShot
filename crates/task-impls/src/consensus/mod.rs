@@ -963,6 +963,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     };
                 }
             }
+            HotShotEvent::QuorumVoteSend(vote) => {
+                let Some(proposal) = &self.current_proposal else {
+                    return;
+                };
+                if proposal.get_view_number() == vote.get_view_number() {
+                    self.current_proposal = None;
+                }
+            }
             _ => {}
         }
     }
@@ -986,6 +994,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
                 | HotShotEvent::TimeoutVoteRecv(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+                | HotShotEvent::QuorumVoteSend(_)
                 | HotShotEvent::Shutdown,
         )
     }
