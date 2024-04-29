@@ -74,8 +74,9 @@ where
     /// Only get leader in fixed set
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        if self.fixed_leader_for_gpuvid <= 0 || 
-            self.fixed_leader_for_gpuvid > self.all_nodes_with_stake.len() {
+        if self.fixed_leader_for_gpuvid <= 0
+            || self.fixed_leader_for_gpuvid > self.all_nodes_with_stake.len()
+        {
             panic!("fixed_leader_for_gpuvid is not set correctly.");
         }
         let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
