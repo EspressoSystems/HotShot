@@ -1,4 +1,7 @@
 use std::time::Duration;
+use hotshot_example_types::state_types::TestInstanceState;
+use std::sync::Arc;
+
 
 use hotshot::{
     tasks::{task_state::CreateTaskState},
@@ -39,6 +42,8 @@ async fn test_consensus_task_upgrade() {
 
     let handle = build_system_handle(1).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -58,7 +63,7 @@ async fn test_consensus_task_upgrade() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
@@ -171,6 +176,8 @@ async fn test_upgrade_and_consensus_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let other_handles = futures::future::join_all((0..=9).map(build_system_handle)).await;
 
@@ -193,7 +200,7 @@ async fn test_upgrade_and_consensus_task() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -250,7 +257,7 @@ async fn test_upgrade_and_consensus_task() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
         ],
@@ -329,6 +336,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     let handle = build_system_handle(6).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -349,7 +358,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -437,7 +446,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[1].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
         ],
         vec![
@@ -448,7 +457,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
@@ -460,7 +469,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[3].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
@@ -472,7 +481,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[4].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
@@ -483,7 +492,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[5].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(6),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
@@ -495,7 +504,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[6].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(7),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],

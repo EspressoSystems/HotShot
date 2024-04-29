@@ -3,14 +3,11 @@ use std::{net::SocketAddr, time::Duration};
 use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
-use hotshot_types::{
-    constants::Version01,
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    PeerConfig,
-};
+use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
+use tracing::instrument;
 use vbs::BinarySerializer;
 
 use crate::{config::NetworkConfig, OrchestratorVersion};
@@ -83,8 +80,6 @@ pub struct BenchResultsDownloadConfig {
     pub transaction_size: u64,
     /// The number of rounds
     pub rounds: usize,
-    /// The type of leader election used
-    pub leader_election_type: String,
 
     // Results starting here
     /// The average latency of the transactions
@@ -195,11 +190,11 @@ impl OrchestratorClient {
     /// # Errors
     /// If we were unable to serialize the Libp2p data
     #[allow(clippy::type_complexity)]
-    pub async fn get_config_without_peer<K: SignatureKey, E: ElectionConfig>(
+    pub async fn get_config_without_peer<K: SignatureKey>(
         &self,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
-    ) -> anyhow::Result<NetworkConfig<K, E>> {
+    ) -> anyhow::Result<NetworkConfig<K>> {
         // Get the (possible) Libp2p advertise address from our args
         let libp2p_address = libp2p_address.map(|f| {
             Multiaddr::try_from(format!(
@@ -235,7 +230,7 @@ impl OrchestratorClient {
         // get the corresponding config
         let f = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
-                let config: Result<NetworkConfig<K, E>, ClientError> = client
+                let config: Result<NetworkConfig<K>, ClientError> = client
                     .post(&format!("api/config/{node_index}"))
                     .send()
                     .await;
@@ -254,11 +249,16 @@ impl OrchestratorClient {
     /// Then return it for the init validator config
     /// # Panics
     /// if unable to post
+    #[instrument(skip_all, name = "orchestrator node index for validator config")]
     pub async fn get_node_index_for_init_validator_config(&self) -> u16 {
         let cur_node_index = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
-                let cur_node_index: Result<u16, ClientError> =
-                    client.post("api/get_tmp_node_index").send().await;
+                let cur_node_index: Result<u16, ClientError> = client
+                    .post("api/get_tmp_node_index")
+                    .send()
+                    .await
+                    .inspect_err(|err| tracing::error!("{err}"));
+
                 cur_node_index
             }
             .boxed()
@@ -270,16 +270,21 @@ impl OrchestratorClient {
     /// a successful call requires all nodes to be registered.
     ///
     /// Does not fail, retries internally until success.
-    pub async fn get_config_after_collection<K: SignatureKey, E: ElectionConfig>(
-        &self,
-    ) -> NetworkConfig<K, E> {
+    #[instrument(skip_all, name = "orchestrator config")]
+    pub async fn get_config_after_collection<K: SignatureKey>(&self) -> NetworkConfig<K> {
         // Define the request for post-register configurations
         let get_config_after_collection = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
-                client
+                let result = client
                     .get("api/get_config_after_peer_collected")
                     .send()
-                    .await
+                    .await;
+
+                if let Err(ref err) = result {
+                    tracing::error!("{err}");
+                }
+
+                result
             }
             .boxed()
         };
@@ -294,12 +299,13 @@ impl OrchestratorClient {
     /// Blocks until the orchestrator collects all peer's public keys/configs
     /// # Panics
     /// if unable to post
-    pub async fn post_and_wait_all_public_keys<K: SignatureKey, E: ElectionConfig>(
+    #[instrument(skip(self), name = "orchestrator public keys")]
+    pub async fn post_and_wait_all_public_keys<K: SignatureKey>(
         &self,
         node_index: u64,
         my_pub_key: PeerConfig<K>,
         is_da: bool,
-    ) -> NetworkConfig<K, E> {
+    ) -> NetworkConfig<K> {
         // send my public key
         let _send_pubkey_ready_f: Result<(), ClientError> = self
             .client
@@ -307,11 +313,19 @@ impl OrchestratorClient {
             .body_binary(&PeerConfig::<K>::to_bytes(&my_pub_key))
             .unwrap()
             .send()
-            .await;
+            .await
+            .inspect_err(|err| tracing::error!("{err}"));
 
         // wait for all nodes' public keys
         let wait_for_all_nodes_pub_key = |client: Client<ClientError, OrchestratorVersion>| {
-            async move { client.get("api/peer_pub_ready").send().await }.boxed()
+            async move {
+                client
+                    .get("api/peer_pub_ready")
+                    .send()
+                    .await
+                    .inspect_err(|err| tracing::error!("{err}"))
+            }
+            .boxed()
         };
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
@@ -323,6 +337,7 @@ impl OrchestratorClient {
     /// Blocks until the orchestrator indicates all nodes are ready to start
     /// # Panics
     /// Panics if unable to post.
+    #[instrument(skip(self), name = "orchestrator ready signal")]
     pub async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
@@ -331,7 +346,8 @@ impl OrchestratorClient {
                     .body_json(&node_index)
                     .unwrap()
                     .send()
-                    .await;
+                    .await
+                    .inspect_err(|err| tracing::error!("{err}"));
                 result
             }
             .boxed()
@@ -349,6 +365,7 @@ impl OrchestratorClient {
     /// Sends the benchmark metrics to the orchestrator
     /// # Panics
     /// Panics if unable to post
+    #[instrument(skip_all, name = "orchestrator metrics")]
     pub async fn post_bench_results(&self, bench_results: BenchResults) {
         let _send_metrics_f: Result<(), ClientError> = self
             .client
@@ -356,11 +373,13 @@ impl OrchestratorClient {
             .body_json(&bench_results)
             .unwrap()
             .send()
-            .await;
+            .await
+            .inspect_err(|err| tracing::warn!("{err}"));
     }
 
     /// Generic function that waits for the orchestrator to return a non-error
     /// Returns whatever type the given function returns
+    #[instrument(skip_all, name = "waiting for orchestrator")]
     async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(Client<ClientError, OrchestratorVersion>) -> Fut,
@@ -371,7 +390,8 @@ impl OrchestratorClient {
             let res = f(client).await;
             match res {
                 Ok(x) => break x,
-                Err(_x) => {
+                Err(err) => {
+                    tracing::info!("{err}");
                     async_sleep(Duration::from_millis(250)).await;
                 }
             }

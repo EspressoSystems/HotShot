@@ -37,6 +37,7 @@ pub struct TestView {
     pub leaf: Leaf<TestTypes>,
     pub view_number: ViewNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
+    pub da_membership: <TestTypes as NodeType>::Membership,
     pub vid_proposal: (
         Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
@@ -51,13 +52,19 @@ pub struct TestView {
 }
 
 impl TestView {
-    pub fn genesis(quorum_membership: &<TestTypes as NodeType>::Membership) -> Self {
+    pub fn genesis(
+        quorum_membership: &<TestTypes as NodeType>::Membership,
+        da_membership: &<TestTypes as NodeType>::Membership,
+    ) -> Self {
         let genesis_view = ViewNumber::new(1);
 
         let transactions = Vec::new();
 
-        let (block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone()).unwrap();
+        let (block_payload, metadata) = TestBlockPayload::from_transactions(
+            transactions.clone(),
+            Arc::new(TestInstanceState {}),
+        )
+        .unwrap();
         let builder_commitment = block_payload.builder_commitment(&metadata);
 
         let (private_key, public_key) = key_pair_for_id(*genesis_view);
@@ -75,6 +82,7 @@ impl TestView {
 
         let da_certificate = build_da_certificate(
             quorum_membership,
+            da_membership,
             genesis_view,
             transactions.clone(),
             &public_key,
@@ -133,6 +141,7 @@ impl TestView {
             leaf,
             view_number: genesis_view,
             quorum_membership: quorum_membership.clone(),
+            da_membership: da_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
             transactions,
@@ -159,6 +168,8 @@ impl TestView {
         let next_view = max(old_view, self.view_number) + 1;
 
         let quorum_membership = &self.quorum_membership;
+        let da_membership = &self.da_membership;
+
         let transactions = &self.transactions;
 
         let quorum_data = QuorumData {
@@ -171,8 +182,11 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let (block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone()).unwrap();
+        let (block_payload, metadata) = TestBlockPayload::from_transactions(
+            transactions.clone(),
+            Arc::new(TestInstanceState {}),
+        )
+        .unwrap();
         let builder_commitment = block_payload.builder_commitment(&metadata);
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
@@ -186,6 +200,7 @@ impl TestView {
 
         let da_certificate = build_da_certificate(
             quorum_membership,
+            da_membership,
             next_view,
             transactions.clone(),
             &public_key,
@@ -320,6 +335,7 @@ impl TestView {
             leaf,
             view_number: next_view,
             quorum_membership: quorum_membership.clone(),
+            da_membership: self.da_membership.clone(),
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
             leader_public_key,
@@ -387,13 +403,18 @@ impl TestView {
 pub struct TestViewGenerator {
     pub current_view: Option<TestView>,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
+    pub da_membership: <TestTypes as NodeType>::Membership,
 }
 
 impl TestViewGenerator {
-    pub fn generate(quorum_membership: <TestTypes as NodeType>::Membership) -> Self {
+    pub fn generate(
+        quorum_membership: <TestTypes as NodeType>::Membership,
+        da_membership: <TestTypes as NodeType>::Membership,
+    ) -> Self {
         TestViewGenerator {
             current_view: None,
             quorum_membership,
+            da_membership,
         }
     }
 
@@ -473,7 +494,10 @@ impl Iterator for TestViewGenerator {
         if let Some(view) = &self.current_view {
             self.current_view = Some(TestView::next_view(view));
         } else {
-            self.current_view = Some(TestView::genesis(&self.quorum_membership));
+            self.current_view = Some(TestView::genesis(
+                &self.quorum_membership,
+                &self.da_membership,
+            ));
         }
 
         self.current_view.clone()
