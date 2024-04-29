@@ -308,6 +308,7 @@ async fn test_view_sync_finalize_propose() {
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
     votes.push(view.create_quorum_vote(&handle));
+    vids.push(view.vid_proposal);
 
     // This is a bog standard view and covers the situation where everything is going normally.
     let view_1 = TestScriptStage {
@@ -363,6 +364,7 @@ async fn test_view_sync_finalize_propose() {
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let view_4 = TestScriptStage {
         inputs: vec![
+            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             TimeoutVoteRecv(timeout_vote_view_2),
             TimeoutVoteRecv(timeout_vote_view_3),

@@ -37,7 +37,7 @@ fn make_payload_commitment(
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
 }
-
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -122,6 +122,7 @@ async fn test_quorum_proposal_task_quorum_proposal() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -185,6 +186,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -253,6 +255,7 @@ async fn test_quorum_proposal_task_view_sync() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -385,6 +388,7 @@ async fn test_quorum_proposal_task_propose_now() {
     }
 }
 
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]

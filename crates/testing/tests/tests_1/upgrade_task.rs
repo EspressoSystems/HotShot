@@ -255,7 +255,7 @@ async fn test_upgrade_and_consensus_task() {
         upgrade_vote_recvs,
         vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         vec![
-            DACertificateRecv(dacs[1].clone()),
+            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
                 proposals[2].data.block_header.builder_commitment.clone(),
@@ -493,6 +493,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         ],
         vec![
             DACertificateRecv(dacs[5].clone()),
+            VIDShareRecv(get_vid_share(&vids[5].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[5].0[0].data.payload_commitment,
                 proposals[5].data.block_header.builder_commitment.clone(),

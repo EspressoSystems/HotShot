@@ -95,7 +95,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         ),
     ];
 
-    let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
+    view_2_inputs.insert(0, VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())));
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
