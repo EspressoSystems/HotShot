@@ -26,6 +26,7 @@ impl<TYPES: NodeType> std::fmt::Debug for EventPredicate<TYPES> {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct TestPredicate<INPUT> {
     pub function: Arc<RwLock<dyn FnMut(&INPUT) -> PredicateResult + Send + Sync>>,
     pub info: String,
@@ -72,7 +73,7 @@ where
 
     Box::new(TestPredicate {
         function: Arc::new(RwLock::new(function)),
-        info: info,
+        info,
     })
 }
 
@@ -88,7 +89,7 @@ pub fn all_predicates<TYPES: NodeType>(
             .clone()
             .into_iter()
             .map(|pred| (pred.check)(e.clone()))
-            .fold(false, |acc, val| acc || val)
+            .any(|val| val)
         {
             return PredicateResult::Fail;
         }
@@ -104,7 +105,7 @@ pub fn all_predicates<TYPES: NodeType>(
 
     Box::new(TestPredicate {
         function: Arc::new(RwLock::new(function)),
-        info: info,
+        info,
     })
 }
 
