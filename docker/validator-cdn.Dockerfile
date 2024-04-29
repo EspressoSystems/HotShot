@@ -6,7 +6,7 @@ RUN apt-get update \
 
 ARG ASYNC_EXECUTOR=async-std
 
-COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/release/examples/validator-push-cdn /usr/local/bin/validator-push-cdn
+COPY --chmod=0755 ./target/${ASYNC_EXECUTOR}/release-lto/examples/validator-push-cdn /usr/local/bin/validator-push-cdn
 
 # logging
 ENV RUST_LOG="warn"

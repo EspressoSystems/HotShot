@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# make sure the following is added to ~/.bashrc
+# make sure the following line is added to `~/.bashrc`
 source "$HOME/.cargo/env"
 
 # assign local ip
@@ -16,8 +16,10 @@ docker push ghcr.io/espressosystems/hotshot/pushcdn-validator:6
 
 # ecs deploy
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/pushcdn-validator:6
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
+# runstart keydb
+docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb
 # server1: broker and marshal
 # server2: broker
 
@@ -36,8 +38,6 @@ do
                 for transaction_size in 512 4096 # see large transaction size in aws_ecs_nginx_benchmarks.sh
                 do
                     rounds=100
-                    # runstart keydb
-                    docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb
 
                     # start orchestrator
                     just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \

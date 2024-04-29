@@ -86,8 +86,16 @@ name = "all-push-cdn"
 path = "push-cdn/all.rs"
 
 [[example]]
+name = "orchestrator-push-cdn"
+path = "push-cdn/orchestrator.rs"
+
+[[example]]
 name = "validator-push-cdn"
 path = "push-cdn/validator.rs"
+
+[[example]]
+name = "multi-validator-push-cdn"
+path = "push-cdn/multi-validator.rs"
 
 [[example]]
 name = "cdn-broker"
