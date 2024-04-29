@@ -152,6 +152,7 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         &event_sender,
     )
     .await;
+    error!("SENDING QUORUM PROPOSAL VALIDATED EVENT");
     // Notify other tasks
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalValidated(
@@ -798,6 +799,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         return Ok(current_proposal);
     };
 
+    error!("Spawing validate proposal safety and liveness event.");
     task_state
         .spawned_tasks
         .entry(proposal.data.get_view_number())

@@ -139,7 +139,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     };
 
                     let view = current_proposal.get_view_number();
-                    self.cancel_tasks(view).await;
+                    // self.cancel_tasks(view).await;
                     let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares.get(&view) else {
                         debug!(
@@ -177,7 +177,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .await;
                 }
                 Ok(None) => {
-                    self.cancel_tasks(proposal.data.get_view_number() + 1).await;
+                    self.cancel_tasks(proposal.data.get_view_number()).await;
                 }
                 Err(e) => warn!(?e, "Failed to propose"),
             }

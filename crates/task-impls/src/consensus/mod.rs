@@ -769,37 +769,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     fee: fee.clone(),
                     block_view: view,
                 });
-                #[cfg(not(feature = "dependency-tasks"))]
+                if self.quorum_membership.get_leader(view) == self.public_key
+                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                 {
-                    if self.quorum_membership.get_leader(view) == self.public_key
-                        && self.consensus.read().await.high_qc.get_view_number() + 1 == view
-                    {
-                        if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
-                            warn!("Failed to propose; error = {e:?}");
-                        };
-                    }
+                    if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
+                        warn!("Failed to propose; error = {e:?}");
+                    };
+                }
 
-                    if let Some(cert) = &self.proposal_cert {
-                        match cert {
-                            ViewChangeEvidence::Timeout(tc) => {
-                                if self.quorum_membership.get_leader(tc.get_view_number() + 1)
-                                    == self.public_key
-                                {
-                                    if let Err(e) = self.publish_proposal(view, event_stream).await
-                                    {
-                                        warn!("Failed to propose; error = {e:?}");
-                                    };
-                                }
+                if let Some(cert) = &self.proposal_cert {
+                    match cert {
+                        ViewChangeEvidence::Timeout(tc) => {
+                            if self.quorum_membership.get_leader(tc.get_view_number() + 1)
+                                == self.public_key
+                            {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
+                                    warn!("Failed to propose; error = {e:?}");
+                                };
                             }
-                            ViewChangeEvidence::ViewSync(vsc) => {
-                                if self.quorum_membership.get_leader(vsc.get_view_number())
-                                    == self.public_key
-                                {
-                                    if let Err(e) = self.publish_proposal(view, event_stream).await
-                                    {
-                                        warn!("Failed to propose; error = {e:?}");
-                                    };
-                                }
+                        }
+                        ViewChangeEvidence::ViewSync(vsc) => {
+                            if self.quorum_membership.get_leader(vsc.get_view_number())
+                                == self.public_key
+                            {
+                                if let Err(e) = self.publish_proposal(view, event_stream).await {
+                                    warn!("Failed to propose; error = {e:?}");
+                                };
                             }
                         }
                     }

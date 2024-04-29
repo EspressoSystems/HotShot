@@ -589,7 +589,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ) => {
                 let view = *view;
 
-                if self.quorum_membership.get_leader(view + 1) == self.public_key {
+                if self.quorum_membership.get_leader(view) == self.public_key {
                     debug!(
                         "Got payload commitment {:?} for view {view:?}",
                         payload_commitment
@@ -597,7 +597,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 self.create_dependency_task_if_new(
-                    view + 1,
+                    view,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
@@ -626,6 +626,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let new_view = proposal.view_number;
+                info!("Received quorum proposal validated event for view {new_view:?}");
 
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
