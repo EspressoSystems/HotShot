@@ -318,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         }
 
         // Validate the VID share.
-        if vid_scheme(self.committee_membership.total_nodes())
+        if vid_scheme(self.quorum_membership.total_nodes())
             .verify_share(
                 &disperse.data.share,
                 &disperse.data.common,

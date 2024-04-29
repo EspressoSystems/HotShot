@@ -653,7 +653,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         return;
                     }
                 }
-                if vid_scheme(self.da_membership.total_nodes())
+                if vid_scheme(self.quorum_membership.total_nodes())
                     .verify_share(
                         &disperse.data.share,
                         &disperse.data.common,
