@@ -121,8 +121,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
             match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
                 Ok(Some(current_proposal)) => {
                     tracing::error!("Cancelling tasks and voting");
-                    // self.cancel_tasks(proposal.data.get_view_number()).await;
-                    self.cancel_tasks(proposal.data.get_view_number() + 1).await;
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match get_parent_leaf_and_state(
                         self.cur_view,
@@ -140,8 +138,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         }
                     };
 
-                    let consensus = self.consensus.read().await;
                     let view = current_proposal.get_view_number();
+                    self.cancel_tasks(view).await;
+                    let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares.get(&view) else {
                         debug!(
                                 "We have not seen the VID share for this view {:?} yet, so we cannot vote.",

@@ -52,7 +52,7 @@ use tracing::{debug, error, info, warn};
 /// a `QuorumProposalValidated` event.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
+async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,

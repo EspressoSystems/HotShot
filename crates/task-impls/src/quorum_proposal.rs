@@ -50,7 +50,7 @@ enum ProposalDependency {
     /// For the `QCFormed` event timeout branch.
     TimeoutCert,
 
-    /// For the `QuroumProposalRecv` event.
+    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
     Proposal,
 
     /// For the `ProposeNow` event.
@@ -631,7 +631,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 info!(
-                    "Node {} creating dependency task for view {:?} from QuorumProposalRecv",
+                    "Node {} creating dependency task for view {:?} from QuorumProposalValidated",
                     self.id, new_view
                 );
 

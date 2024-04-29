@@ -39,7 +39,7 @@ use tracing::{debug, error, instrument, trace, warn};
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
 enum VoteDependency {
-    /// For the `QuorumProposalRecv` event.
+    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
     QuorumProposal,
     /// For the `DACertificateRecv` event.
     Dac,
@@ -293,9 +293,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         if let Some(event) = event {
             match event.as_ref() {
                 HotShotEvent::VoteNow(..) => {
+                    tracing::trace!("Completing all dependencies due to receiving VoteNow");
                     vote_now_dependency.mark_as_completed(event);
                 }
                 HotShotEvent::QuorumProposalValidated(..) => {
+                    tracing::trace!("Completing the Proposal dependency");
                     quorum_proposal_dependency.mark_as_completed(event);
                 }
                 _ => {}
@@ -366,6 +368,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
+                debug!(
+                    "Received QuorumProposalValidated for view {}",
+                    *proposal.view_number
+                );
                 // This task simultaneously does not rely on the state updates of the `handle_quorum_proposal_validated`
                 // function and that function does not return an `Error` unless the propose or vote fails, in which case
                 // the other would still have been attempted regardless. Therefore, we pass this through as a task and

@@ -211,27 +211,10 @@ pub async fn inject_consensus_polls<TYPES: NodeType, I: NodeImplementation<TYPES
 pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     quorum_proposal_task_state: &QuorumProposalTaskState<TYPES, I>,
 ) {
-    // Poll (forever) for the latest quorum proposal
-    quorum_proposal_task_state
-        .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
-        .await;
-
     // Poll (forever) for the latest view sync certificate
     quorum_proposal_task_state
         .quorum_network
         .inject_consensus_info(ConsensusIntentEvent::PollForLatestViewSyncCertificate)
-        .await;
-
-    // Start polling for proposals for the first view
-    quorum_proposal_task_state
-        .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
-        .await;
-
-    quorum_proposal_task_state
-        .quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
         .await;
 }
 
