@@ -28,7 +28,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use crate::{
     events::HotShotEvent,
@@ -84,7 +84,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     if proposed_leaf.get_parent_commitment() != parent_commitment {
-                        error!("Proposal has inconsistent leaf commitment with the given parent leaf.");
+                        warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
                         return;
                     }
                     leaf = Some(proposed_leaf);
@@ -113,7 +113,7 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
                     }
                 }
                 HotShotEvent::VoteNow(_, vote_dependency_data) => {
-                    leaf = Some(vote_dependency_data.leaf.clone());
+                    leaf = Some(vote_dependency_data.parent_leaf.clone());
                     disperse_share = Some(vote_dependency_data.disperse_share.clone());
                 }
                 _ => {}
@@ -251,7 +251,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 };
                 if event_view == view_number {
-                    debug!("Vote dependency {:?} completed", dependency_type);
+                    trace!("Vote dependency {:?} completed", dependency_type);
                     return true;
                 }
                 false
@@ -380,7 +380,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::DACertificateRecv(cert) => {
                 let view = cert.view_number;
-                debug!("Received DAC for view {}", *view);
+                trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -414,7 +414,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
-                debug!("Received VID share for view {}", *view);
+                trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -478,7 +478,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
-                debug!(
+                trace!(
                     "View Change event for view {} in quorum vote task",
                     *new_view
                 );
@@ -503,12 +503,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
-            HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::DACertificateRecv(_)
+            HotShotEvent::DACertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
                 | HotShotEvent::VoteNow(..)
+                | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::Shutdown,
         )
     }

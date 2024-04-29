@@ -1,7 +1,12 @@
-use hotshot::{
-    tasks::{inject_consensus_polls, task_state::CreateTaskState},
-};
+// TODO: Remove after integration of dependency-tasks
+#![allow(unused_imports)]
+
+use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+
+use std::sync::Arc;
+
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::event::{
@@ -24,6 +29,7 @@ use jf_primitives::vid::VidScheme;
 use sha2::Digest;
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
@@ -35,6 +41,7 @@ async fn test_consensus_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -43,7 +50,8 @@ async fn test_consensus_task() {
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -87,7 +95,11 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    Arc::new(TestInstanceState {}),
+                )
+                .unwrap(),
             ),
         ],
         outputs: vec![
@@ -98,11 +110,7 @@ async fn test_consensus_task() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     inject_consensus_polls(&consensus_state).await;
 
@@ -110,6 +118,7 @@ async fn test_consensus_task() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
@@ -126,8 +135,10 @@ async fn test_consensus_vote() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -158,11 +169,7 @@ async fn test_consensus_vote() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1], consensus_state).await;
@@ -171,14 +178,17 @@ async fn test_consensus_vote() {
 /// Tests the voting behavior by allowing the input to be permuted in any order desired. This
 /// assures that, no matter what, a vote is indeed sent no matter what order the precipitating
 /// events occur. The permutation is specified as `input_permutation` and is a vector of indices.
+#[cfg(not(feature = "dependency-tasks"))]
 async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -227,17 +237,14 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote_with_permuted_dac() {
@@ -253,6 +260,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
@@ -265,6 +273,8 @@ async fn test_view_sync_finalize_propose() {
     let handle = build_system_handle(4).await.0;
     let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(4));
@@ -277,7 +287,8 @@ async fn test_view_sync_finalize_propose() {
         round: ViewNumber::new(4),
     };
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
@@ -368,7 +379,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4).unwrap(),
+                null_block::builder_fee(4, Arc::new(TestInstanceState {})).unwrap(),
             ),
         ],
         outputs: vec![
@@ -379,11 +390,7 @@ async fn test_view_sync_finalize_propose() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     let stages = vec![view_1, view_2_3, view_4];
 
@@ -392,6 +399,7 @@ async fn test_view_sync_finalize_propose() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -402,13 +410,15 @@ async fn test_view_sync_finalize_vote() {
 
     let handle = build_system_handle(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
         relay: 4,
         round: ViewNumber::new(5),
     };
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
@@ -478,11 +488,7 @@ async fn test_view_sync_finalize_vote() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     let stages = vec![view_1, view_2, view_3];
 
@@ -491,6 +497,7 @@ async fn test_view_sync_finalize_vote() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -501,13 +508,15 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     let handle = build_system_handle(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let view_sync_finalize_data: ViewSyncFinalizeData<TestTypes> = ViewSyncFinalizeData {
         relay: 4,
         round: ViewNumber::new(10),
     };
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut votes = Vec::new();
@@ -587,11 +596,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     let stages = vec![view_1, view_2, view_3];
 
@@ -600,6 +605,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_disperse_storage_failure() {
@@ -611,7 +617,10 @@ async fn test_vid_disperse_storage_failure() {
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.get_storage().write().await.should_return_err = true;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
+    let mut generator =
+        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -641,11 +650,7 @@ async fn test_vid_disperse_storage_failure() {
         asserts: vec![],
     };
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     inject_consensus_polls(&consensus_state).await;
 

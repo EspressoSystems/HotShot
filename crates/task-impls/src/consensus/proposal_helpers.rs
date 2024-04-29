@@ -417,14 +417,21 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
 
     // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     ensure!(upgrade_cert.in_interim(cur_view), "Cert is not in interim");
-    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(Vec::new())
-        .context("Failed to build null block payload and metadata")?;
+    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(
+        Vec::new(),
+        Arc::<<TYPES as NodeType>::InstanceState>::clone(&instance_state),
+    )
+    .context("Failed to build null block payload and metadata")?;
 
     let builder_commitment = payload.builder_commitment(&metadata);
     let null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context("Failed to calculate null block commitment")?;
-    let null_block_fee = null_block::builder_fee::<TYPES>(quorum_membership.total_nodes())
-        .context("Failed to calculate null block fee info")?;
+
+    let null_block_fee = null_block::builder_fee::<TYPES>(
+        quorum_membership.total_nodes(),
+        Arc::<<TYPES as NodeType>::InstanceState>::clone(&instance_state),
+    )
+    .context("Failed to calculate null block fee info")?;
 
     Ok(async_spawn(async move {
         create_and_send_proposal(
@@ -501,6 +508,8 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .as_ref()
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
+
+    error!(?cur_view, ?view, "Getting ready to send the proposal");
 
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
@@ -654,7 +663,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     )
     .await
     {
-        warn!("Failed to update view; error = {e:?}");
+        debug!("Failed to update view; error = {e:#}");
     }
 
     let consensus_read = task_state.consensus.upgradable_read().await;
@@ -837,7 +846,8 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     }
 
     #[allow(unused_mut)]
-    let mut decided_upgrade_cert = None;
+    #[allow(unused_variables)]
+    let mut decided_upgrade_cert: Option<UpgradeCertificate<TYPES>> = None;
     let mut new_anchor_view = consensus.last_decided_view;
     let mut new_locked_view = consensus.locked_view;
     let mut last_view_number_visited = view;
@@ -962,7 +972,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     }
 
     // This is ALWAYS None if "dependency-tasks" is not active.
-    consensus.decided_upgrade_cert = decided_upgrade_cert;
+    #[cfg(feature = "dependency-tasks")]
+    {
+        consensus.dontuse_decided_upgrade_cert = decided_upgrade_cert;
+    }
 
     #[allow(clippy::cast_precision_loss)]
     if new_decide_reached {
@@ -994,6 +1007,11 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
+        error!(
+            "cur_view {:?} last_decided {:?}",
+            task_state.cur_view,
+            consensus.last_decided_view.get_u64()
+        );
         let cur_number_of_views_per_decide_event =
             *task_state.cur_view - consensus.last_decided_view.get_u64();
         consensus
@@ -1032,7 +1050,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 .publish_proposal(qc.view_number + 1, event_stream.clone())
                 .await
             {
-                warn!("Failed to propose; error = {e:?}");
+                debug!("Failed to propose; error = {e:#}");
             };
         }
 

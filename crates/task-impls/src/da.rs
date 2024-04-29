@@ -273,7 +273,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .contains(&self.public_key);
 
                 if is_da {
-                    debug!("Polling for DA proposals for view {}", *self.cur_view + 1);
+                    tracing::trace!("Polling for DA proposals for view {}", *self.cur_view + 1);
                     self.da_network
                         .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
                             *self.cur_view + 1,

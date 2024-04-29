@@ -9,8 +9,6 @@ use committable::Commitment;
 use displaydoc::Display;
 use tracing::error;
 
-#[cfg(feature = "dependency-tasks")]
-use crate::simple_certificate::UpgradeCertificate;
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperseShare},
@@ -85,10 +83,10 @@ pub struct Consensus<TYPES: NodeType> {
     ///
     /// Certificates received from other nodes will get reattached regardless of this fields,
     /// since they will be present in the leaf we propose off of.
-    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    pub dontuse_formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
     /// most recent decided upgrade certificate
-    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    pub dontuse_decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces

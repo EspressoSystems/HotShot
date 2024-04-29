@@ -192,7 +192,7 @@ pub struct VoteDependencyData<TYPES: NodeType> {
 
     /// The leaf we've obtained from the `QuorumProposalValidated` event. This is the
     /// parent leaf.
-    pub leaf: Leaf<TYPES>,
+    pub parent_leaf: Leaf<TYPES>,
 
     /// The Vid disperse proposal.
     pub disperse_share: Proposal<TYPES, VidDisperseShare<TYPES>>,

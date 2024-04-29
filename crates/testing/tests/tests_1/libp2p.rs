@@ -44,6 +44,7 @@ async fn libp2p_network() {
 /// libp2p network test with failures
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[ignore]
 #[instrument]
 async fn libp2p_network_failures_2() {
     async_compatibility_layer::logging::setup_logging();

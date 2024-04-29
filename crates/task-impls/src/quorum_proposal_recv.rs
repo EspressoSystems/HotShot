@@ -120,6 +120,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
                 Ok(Some(current_proposal)) => {
+                    tracing::error!("Cancelling tasks and voting");
+                    // self.cancel_tasks(proposal.data.get_view_number()).await;
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match get_parent_leaf_and_state(
                         self.cur_view,
@@ -167,7 +169,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             view,
                             VoteDependencyData {
                                 quorum_proposal: current_proposal,
-                                leaf: parent_leaf,
+                                parent_leaf,
                                 disperse_share: disperse_share.clone(),
                                 da_cert: da_cert.clone(),
                             },
@@ -176,8 +178,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Ok(None) => {}
-                Err(e) => warn!(?e, "Failed to propose"),
+                Ok(None) => {
+                    tracing::error!("Cancelling tasks");
+                    // self.cancel_tasks(proposal.data.get_view_number()).await;
+                }
+                Err(error) => warn!(?error, "Failed to propose"),
             }
         }
     }
@@ -189,7 +194,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(event.as_ref(), HotShotEvent::QuorumProposalRecv(..))
+        !matches!(
+            event.as_ref(),
+            HotShotEvent::QuorumProposalRecv(..) | HotShotEvent::Shutdown
+        )
     }
 
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>

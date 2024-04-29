@@ -372,7 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         }
                     }
                     Ok(None) => {}
-                    Err(e) => warn!("Failed to propose {e:#}"),
+                    Err(e) => debug!("Failed to propose {e:#}"),
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
@@ -380,7 +380,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    info!("Failed to handle QuorumProposalValidated event {e:#}");
+                    debug!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
@@ -476,6 +476,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QCFormed(cert) => {
                 match cert {
                     either::Right(qc) => {
@@ -613,7 +614,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
-                debug!("View Change event for view {} in consensus task", *new_view);
+                tracing::trace!("View Change event for view {} in consensus task", *new_view);
 
                 let old_view_number = self.cur_view;
 
@@ -739,6 +740,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
