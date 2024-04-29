@@ -69,6 +69,12 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Marshal` binary, which just instantiates and runs
 //! a `Marshal` object.
 
@@ -77,6 +83,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::ProductionDef;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
+<span class="kw">use </span>tracing_subscriber::EnvFilter;
 
 <span class="comment">// TODO: forall, add logging where we need it
 
@@ -116,9 +123,14 @@
 
     <span class="comment">// Initialize tracing
     </span><span class="kw">if </span>std::env::var(<span class="string">"RUST_LOG_FORMAT"</span>) == <span class="prelude-val">Ok</span>(<span class="string">"json"</span>.to_string()) {
-        tracing_subscriber::fmt().json().init();
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .json()
+            .init();
     } <span class="kw">else </span>{
-        tracing_subscriber::fmt().init();
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
     }
 
     <span class="comment">// Create a new `Config`
