@@ -350,7 +350,7 @@ pub async fn add_quorum_proposal_recv_task<TYPES: NodeType, I: NodeImplementatio
     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    let quorum_proposal_recv_task_state = QuorumProposalTaskState::create_from(handle).await;
+    let quorum_proposal_recv_task_state = QuorumProposalRecvTaskState::create_from(handle).await;
     inject_quorum_proposal_recv_polls(&quorum_proposal_recv_task_state).await;
     let task = Task::new(
         tx,
