@@ -681,14 +681,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             &handle,
         )
         .await;
-    #[cfg(feature = "dependency-tasks")]
-    add_quorum_proposal_recv_task(
-        Arc::clone(&registry),
-        event_tx.clone(),
-        event_rx.activate_cloned(),
-        &handle,
-    )
-    .await;
+        #[cfg(feature = "dependency-tasks")]
+        add_quorum_proposal_recv_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_proposal_task(
             Arc::clone(&registry),

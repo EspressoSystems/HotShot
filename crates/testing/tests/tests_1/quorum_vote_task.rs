@@ -8,7 +8,6 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_success() {
-    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::event::{exact, quorum_vote_send},
@@ -16,7 +15,6 @@ async fn test_quorum_vote_task_success() {
         task_helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
-    use hotshot_types::utils::{View, ViewInner};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -136,7 +134,6 @@ async fn test_quorum_vote_task_miss_dependency() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    let mut leaves = Vec::new();
     for view in (&mut generator).take(3) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -162,14 +159,14 @@ async fn test_quorum_vote_task_miss_dependency() {
             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
             DACertificateRecv(dacs[1].clone()),
         ],
-<<<<<<< HEAD
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(3))),
-            exact(DACertificateValidated(dacs[1].clone())),
-        ],
-=======
         outputs: vec![exact(DACertificateValidated(dacs[1].clone()))],
+        asserts: vec![],
+    };
+    let view_no_quorum_proposal = TestScriptStage {
+        inputs: vec![
+            DACertificateRecv(dacs[2].clone()),
             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
+        ],
         outputs: vec![
             exact(DACertificateValidated(dacs[2].clone())),
             exact(VIDShareValidated(vids[2].0[0].clone())),
