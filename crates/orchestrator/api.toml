@@ -30,7 +30,18 @@ DOC = """
 Get the latest temporary node index only for generating validator's key pair for testing in hotshot, later the generated key pairs might be bound with other node_index.
 """
 
-# POST the node's node index to generate public key for pubkey collection
+
+# GET the latest temporary node index only for generating validator's key pair
+[route.check_dup_key]
+PATH = ["check_dup_key"]
+METHOD = "POST"
+DOC = """
+Sends a node's public key to the orchestrator to check whether it's duplicate, and get the bool to indicate whether the node can register with its identity.
+Real public key registration is for later `post_and_wait_all_public_keys`.
+Return false if the public key has already been registered.
+"""
+
+# POST the node's node index for pubkey and is_da collection
 [route.post_pubkey]
 PATH = ["pubkey/:node_index/:is_da"]
 METHOD = "POST"

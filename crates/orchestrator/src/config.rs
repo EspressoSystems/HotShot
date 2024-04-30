@@ -8,6 +8,7 @@ use std::{
     vec,
 };
 
+use anyhow::anyhow;
 use clap::ValueEnum;
 use hotshot_types::{
     traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
@@ -298,6 +299,13 @@ impl<K: SignatureKey> NetworkConfig<K> {
         // If true, we will use the node index to determine if we are a DA node
         indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
+        if !client
+            .pass_check_duplicate_keys::<K>(my_own_validator_config.get_public_config())
+            .await
+        {
+            return Err(anyhow!("Duplicate keys registration is not allowed!"));
+        }
+
         let (mut run_config, source) =
             Self::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
                 .await?;
@@ -506,8 +514,6 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     #[serde(default)]
     pub random_builder: Option<RandomBuilderConfig>,
 }
-
-impl<K: SignatureKey> NetworkConfigFile<K> {}
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {

@@ -334,6 +334,37 @@ impl OrchestratorClient {
         self.get_config_after_collection().await
     }
 
+    /// Sends my public key to the orchestrator to check whether it's duplicate
+    /// And get the bool to indicate whether I can register with my identity
+    /// Real public key registration is for later `post_and_wait_all_public_keys`
+    /// Return false if the public key has already been registered
+    #[instrument(
+        skip(self),
+        name = "orchestrator check duplicate keys before identity registration"
+    )]
+    pub async fn pass_check_duplicate_keys<K: SignatureKey>(
+        &self,
+        my_pub_key: PeerConfig<K>,
+    ) -> bool {
+        // check whether my public key is duplicate
+        let check_my_key_no_dup_f = |client: Client<ClientError, OrchestratorVersion>| {
+            // We need to clone here to move it into the closure
+            let request_body = PeerConfig::<K>::to_bytes(&my_pub_key);
+            async move {
+                client
+                    .post("api/check_dup_key")
+                    .body_binary(&request_body)
+                    .unwrap()
+                    .send()
+                    .await
+                    .inspect_err(|err| tracing::error!("{err}"))
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator(check_my_key_no_dup_f)
+            .await
+    }
+
     /// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
     /// # Panics

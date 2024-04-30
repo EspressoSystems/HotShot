@@ -81,6 +81,8 @@ struct OrchestratorState<KEY: SignatureKey> {
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
     nodes_post_results: u64,
+    /// The set of public keys that have tried to register the identity
+    saved_pub: HashSet<Vec<u8>>,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -97,6 +99,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
+            saved_pub: HashSet::new(),
         }
     }
 
@@ -156,6 +159,11 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
 
 /// An api exposed by the orchestrator
 pub trait OrchestratorApi<KEY: SignatureKey> {
+    /// Sends an public key to the orchestrator and check whether it's duplicate
+    /// Return false if it's duplicate
+    /// # Errors
+    /// If we were unable to serve the request
+    fn check_dup_key(&mut self, pubkey: &Vec<u8>) -> Result<bool, ServerError>;
     /// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
     /// # Errors
@@ -208,6 +216,17 @@ impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
 where
     KEY: serde::Serialize + Clone + SignatureKey + 'static,
 {
+    fn check_dup_key(&mut self, pubkey: &Vec<u8>) -> Result<bool, ServerError> {
+        if self.saved_pub.contains(pubkey) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "The public key has already tried registered".to_string(),
+            });
+        }
+        self.saved_pub.insert(pubkey.clone());
+        Ok(true)
+    }
+
     /// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
     /// # Errors
@@ -415,7 +434,14 @@ where
     )))
     .expect("API file is not valid toml");
     let mut api = Api::<State, ServerError, VER>::new(api_toml)?;
-    api.post("post_identity", |req, state| {
+    api.post("check_dup_key", |req, state| {
+        async move {
+            let pubkey = req.body_bytes();
+            state.check_dup_key(&pubkey)
+        }
+        .boxed()
+    })?
+    .post("post_identity", |req, state| {
         async move {
             // Read the bytes from the body
             let mut body_bytes = req.body_bytes();
