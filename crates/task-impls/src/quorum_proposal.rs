@@ -499,7 +499,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             );
 
             // Cancel the old dependency tasks.
-            for view in (*self.latest_proposed_view)..=(*new_view) {
+            for view in (*self.latest_proposed_view + 1)..=(*new_view) {
                 if let Some(dependency) = self.propose_dependencies.remove(&TYPES::Time::new(view))
                 {
                     cancel_task(dependency).await;
@@ -639,7 +639,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 self.create_dependency_task_if_new(
-                    new_view,
+                    new_view + 1,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),

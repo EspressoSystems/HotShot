@@ -153,7 +153,6 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         &event_sender,
     )
     .await;
-    error!("SENDING QUORUM PROPOSAL VALIDATED EVENT");
     // Notify other tasks
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalValidated(
@@ -384,7 +383,6 @@ pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
             }
             next_parent_hash = next_parent_leaf.get_parent_commitment();
         }
-        debug!("updated saved leaves");
         // TODO do some sort of sanity check on the view number that it matches decided
     }
 
@@ -806,7 +804,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         return Ok(None);
     };
 
-    error!("Spawing validate proposal safety and liveness event.");
     task_state
         .spawned_tasks
         .entry(proposal.data.get_view_number())
@@ -1020,8 +1017,17 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             task_state.cur_view,
             consensus.last_decided_view.get_u64()
         );
-        let cur_number_of_views_per_decide_event =
-            *task_state.cur_view - consensus.last_decided_view.get_u64();
+        let cur_number_of_views_per_decide_event = {
+            #[cfg(not(feature = "dependency-tasks"))]
+            {
+                *task_state.cur_view - consensus.last_decided_view.get_u64()
+            }
+
+            #[cfg(feature = "dependency-tasks")]
+            {
+                *task_state.latest_proposed_view - consensus.last_decided_view.get_u64()
+            }
+        };
         consensus
             .metrics
             .number_of_views_per_decide_event
