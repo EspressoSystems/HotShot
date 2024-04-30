@@ -745,10 +745,13 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
         // If we are missing the parent from storage, the safety check will fail.  But we can
         // still vote if the liveness check succeeds.
-        let liveness_check = justify_qc.get_view_number() > consensus_write.locked_view;
+        #[cfg(not(feature = "dependency-tasks"))]
+        {
+            let liveness_check = justify_qc.get_view_number() > consensus_write.locked_view;
 
-        let high_qc = consensus_write.high_qc.clone();
-        let locked_view = consensus_write.locked_view;
+            let high_qc = consensus_write.high_qc.clone();
+            let locked_view = consensus_write.locked_view;
+        }
 
         drop(consensus_write);
 
@@ -1012,11 +1015,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
-        error!(
-            "cur_view {:?} last_decided {:?}",
-            task_state.cur_view,
-            consensus.last_decided_view.get_u64()
-        );
         let cur_number_of_views_per_decide_event = {
             #[cfg(not(feature = "dependency-tasks"))]
             {

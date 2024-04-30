@@ -257,7 +257,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             instance_state: handle.hotshot.get_instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            cur_view: handle.get_cur_view().await,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),

@@ -58,8 +58,8 @@ enum ProposalDependency {
 
 /// Handler for the proposal dependency
 struct ProposalDependencyHandle<TYPES: NodeType> {
-    /// The view number that this node is executing in.
-    cur_view: TYPES::Time,
+    /// Latest view number that has been proposed for.
+    latest_proposed_view: TYPES::Time,
 
     /// The view number to propose for.
     view_number: TYPES::Time,
@@ -177,7 +177,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         }
 
         if let Err(e) = publish_proposal_if_able(
-            self.cur_view,
+            self.latest_proposed_view,
             self.view_number,
             self.sender,
             self.quorum_membership,
@@ -239,9 +239,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Round start delay from config, in milliseconds.
     pub round_start_delay: u64,
 
-    /// The view number that this node is executing in.
-    pub cur_view: TYPES::Time,
-
     /// timeout task handle
     pub timeout_task: Option<JoinHandle<()>>,
 
@@ -256,7 +253,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
     /// Create an event dependency
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Create event dependency", level = "info")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create event dependency", level = "info")]
     fn create_event_dependency(
         &self,
         dependency_type: ProposalDependency,
@@ -440,7 +437,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     /// dependency as already completed. This allows for the task to receive a proposable event
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, view = *self.cur_view), name = "Create dependency task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
@@ -470,7 +467,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let dependency_task = DependencyTask::new(
             dependency_chain,
             ProposalDependencyHandle {
-                cur_view: self.latest_proposed_view,
+                latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
                 consensus: Arc::clone(&self.consensus),
