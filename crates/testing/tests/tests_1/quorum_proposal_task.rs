@@ -67,7 +67,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 
     let view = TestScriptStage {
         inputs: vec![
-            // QuorumProposalValidated(proposals[0].data.clone(), leaves[0].clone()),
             QCFormed(either::Left(cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,

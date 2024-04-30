@@ -528,7 +528,6 @@ impl<
                 } else {
                     // If this is the first timeout we've seen advance to the next view
                     self.current_view = view_number;
-                    info!("View sync task - View Change Send from Timeout");
                     broadcast_event(
                         Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(
                             *self.current_view,
@@ -685,7 +684,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *self.next_view
                 );
 
-                info!("View sync task - View Change Send from View Sync Commit Cert");
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view - 1)),
                     &event_stream,
@@ -769,7 +767,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     cancel_task(timeout_task).await;
                 }
 
-                info!("View sync task - View Change Send from View Sync Finalize Cert");
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view)),
                     &event_stream,

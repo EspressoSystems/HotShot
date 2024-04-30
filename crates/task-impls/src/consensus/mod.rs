@@ -678,7 +678,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 )
                 .await
                 {
-                    debug!("Failed to update view; error = {e}");
+                    tracing::trace!("Failed to update view; error = {e}");
                     return;
                 }
 
