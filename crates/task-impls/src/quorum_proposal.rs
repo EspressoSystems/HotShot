@@ -29,7 +29,6 @@ use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
-
 use crate::{
     consensus::proposal_helpers::publish_proposal_if_able, events::HotShotEvent,
     helpers::cancel_task,

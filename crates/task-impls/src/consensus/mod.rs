@@ -1,16 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 #[cfg(not(feature = "dependency-tasks"))]
-use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
-use crate::{
-    consensus::view_change::update_view,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
-#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -25,6 +15,8 @@ use async_std::task::JoinHandle;
 use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::data::VidDisperseShare;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::message::Proposal;
 use hotshot_types::{
@@ -54,6 +46,16 @@ use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
 use self::proposal_helpers::handle_quorum_proposal_validated;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
+use crate::{
+    consensus::view_change::update_view,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 /// Helper functions to handle proposal-related functionality.
 pub(crate) mod proposal_helpers;
