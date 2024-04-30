@@ -277,7 +277,7 @@ impl OrchestratorClient {
         let get_config_after_collection = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
                 let result = client
-                    .get("api/get_config_after_peer_collected")
+                    .post("api/post_config_after_peer_collected")
                     .send()
                     .await;
 
