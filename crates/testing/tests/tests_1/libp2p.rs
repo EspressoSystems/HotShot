@@ -1,11 +1,12 @@
 use std::time::Duration;
 
 use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_testing::spinning_task::{ChangeNode, SpinningTaskDescription, UpDown};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
-    spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::{TestDescription, TimingData},
 };
 use tracing::instrument;

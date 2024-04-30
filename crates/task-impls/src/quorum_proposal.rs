@@ -25,7 +25,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
@@ -568,7 +568,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
             }
             HotShotEvent::SendPayloadCommitmentAndMetadata(
-                payload_commitment,
+                _payload_commitment,
                 _builder_commitment,
                 _metadata,
                 view,
