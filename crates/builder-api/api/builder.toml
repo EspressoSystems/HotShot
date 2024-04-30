@@ -27,8 +27,9 @@ DESCRIPTION = ""
 FORMAT_VERSION = "0.1.0"
 
 [route.available_blocks]
-PATH = ["availableblocks/:parent_hash/:sender/:signature"]
+PATH = ["availableblocks/:parent_hash/:view_number/:sender/:signature"]
 ":parent_hash" = "TaggedBase64"
+":view_number" = "Integer"
 ":sender" = "TaggedBase64"
 ":signature" = "TaggedBase64"
 DOC = """
@@ -47,9 +48,9 @@ Returns
 """
 
 [route.claim_block]
-PATH = ["claimblock/:block_hash/:parent_hash/:sender/:signature"]
+PATH = ["claimblock/:block_hash/:view_number/:sender/:signature"]
 ":block_hash" = "TaggedBase64"
-":parent_hash" = "TaggedBase64"
+":view_number" = "Integer"
 ":sender" = "TaggedBase64"
 ":signature" = "TaggedBase64"
 DOC = """
@@ -59,9 +60,9 @@ Returns application-specific encoded transactions type
 """
 
 [route.claim_header_input]
-PATH = ["claimheaderinput/:block_hash/:parent_hash/:sender/:signature"]
+PATH = ["claimheaderinput/:block_hash/:view_number/:sender/:signature"]
 ":block_hash" = "TaggedBase64"
-":parent_hash" = "TaggedBase64"
+":view_number" = "Integer"
 ":sender" = "TaggedBase64"
 ":signature" = "TaggedBase64"
 DOC = """

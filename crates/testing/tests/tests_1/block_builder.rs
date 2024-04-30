@@ -49,11 +49,17 @@ async fn test_random_block_builder() {
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed([0_u8; 32], 0);
     let signature = <TestTypes as NodeType>::SignatureKey::sign(&private_key, &[0_u8; 32])
         .expect("Failed to create dummy signature");
+    let dummy_view_number = 0u64;
 
     let mut blocks = loop {
         // Test getting blocks
         let blocks = client
-            .get_available_blocks(vid_commitment(&[], 1), pub_key, &signature)
+            .get_available_blocks(
+                vid_commitment(&[], 1),
+                dummy_view_number,
+                pub_key,
+                &signature,
+            )
             .await
             .expect("Failed to get available blocks");
 
@@ -72,7 +78,7 @@ async fn test_random_block_builder() {
     let _: AvailableBlockData<TestTypes> = client
         .claim_block(
             blocks.pop().unwrap().block_hash,
-            vid_commitment(&[], 1),
+            dummy_view_number,
             pub_key,
             &signature,
         )
@@ -87,7 +93,7 @@ async fn test_random_block_builder() {
     let result = client
         .claim_block(
             commitment_for_non_existent_block,
-            vid_commitment(&[], 1),
+            dummy_view_number,
             pub_key,
             &signature,
         )
