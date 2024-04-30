@@ -44,7 +44,7 @@ use crate::quorum_proposal::QuorumProposalTaskState;
 #[cfg(feature = "dependency-tasks")]
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
-    consensus::update_view,
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::HotShotEvent,
     helpers::{broadcast_event, AnyhowTracing},
 };
@@ -658,7 +658,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
         &mut task_state.timeout_task,
-        true,
+        SEND_VIEW_CHANGE_EVENT,
     )
     .await
     {

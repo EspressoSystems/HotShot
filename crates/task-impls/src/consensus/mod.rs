@@ -47,7 +47,7 @@ use self::proposal_helpers::handle_quorum_proposal_validated;
 #[cfg(not(feature = "dependency-tasks"))]
 use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
 use crate::{
-    consensus::view_change::update_view,
+    consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{
@@ -674,7 +674,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
-                    false,
+                    DONT_SEND_VIEW_CHANGE_EVENT,
                 )
                 .await
                 {
