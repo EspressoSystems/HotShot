@@ -1,16 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 #[cfg(not(feature = "dependency-tasks"))]
-use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
-use crate::{
-    consensus::view_change::update_view,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
-};
-#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
@@ -20,6 +10,8 @@ use async_std::task::JoinHandle;
 use committable::Committable;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::data::VidDisperseShare;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::message::Proposal;
 use hotshot_types::{
@@ -41,9 +33,6 @@ use hotshot_types::{
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::data::VidDisperseShare;
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -52,6 +41,16 @@ use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
 use self::proposal_helpers::handle_quorum_proposal_validated;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::consensus::proposal_helpers::{handle_quorum_proposal_recv, publish_proposal_if_able};
+use crate::{
+    consensus::view_change::update_view,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+    vote_collection::{
+        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+    },
+};
 
 /// Helper functions to handle proposal-related functionality.
 pub(crate) mod proposal_helpers;
