@@ -12,6 +12,7 @@ use std::{
 };
 
 use async_lock::RwLock;
+use clap::error;
 use client::{BenchResults, BenchResultsDownloadConfig};
 use csv::Writer;
 use futures::FutureExt;
@@ -87,9 +88,11 @@ struct OrchestratorState<KEY: SignatureKey> {
     /// The number of nodes that have posted their results
     nodes_post_results: u64,
 
+    is_config_ready: bool,
+
     /// Map of key to node index
     // TODO ED Maybe don't need a hash map
-    map: HashMap<PeerConfig::<KEY>, u64>,
+    map: HashMap<PeerConfig<KEY>, u64>,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -106,6 +109,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
+            is_config_ready: false,
             map: HashMap::default(),
         }
     }
@@ -209,40 +213,81 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<u16, ServerError> {
-
-
         // TODO ED shouldn't unwrap
-        if self.map.contains_key(&PeerConfig::<KEY>::from_bytes(&pubkey).unwrap()) {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: "Key has already registered".to_string(),
-            });
+        // if self.map.contains_key(&PeerConfig::<KEY>::from_bytes(&pubkey).unwrap()) {
+        //     // TODO ED Should actually return the node index we assigned them
+        //     return Err(ServerError {
+        //         status: tide_disco::StatusCode::BadRequest,
+        //         message: "Key has already registered".to_string(),
+        //     });
+        // }
+
+        // Return the node index already assigned.
+        if let Some(node_index) = self
+            .map
+            .get(&PeerConfig::<KEY>::from_bytes(&pubkey).unwrap())
+        {
+            return Ok(*node_index as u16);
         }
+
+        // Else, add them to the map if there is room
+
+        // Inited to zero
         let node_index = self.latest_index;
-        self.latest_index += 1;
 
-
-      
-
-        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() - 1 {
-            self.peer_pub_ready = true; 
-        }
-
+        // We're already at capacity
         if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
-                message: "Network has reached capacity".to_string(),
+                message: format!(
+                    "Network has reached capacity of {} nodes",
+                    self.config.config.num_nodes_with_stake.get()
+                ),
             });
         }
 
-        self.map.insert(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap(), self.latest_index as u64);
+        // Add node to map and update config in place
+        // TODO make node index u64 for easiness
+        // Assert that the key isn't already in the map
+        assert_eq!(
+            self.map.insert(
+                PeerConfig::<KEY>::from_bytes(&pubkey).unwrap(),
+                node_index as u64
+            ),
+            None
+        );
 
-        self.config.config.known_nodes_with_stake.push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+        // Store public key in a local var so we don't do this unwrap all the time ED
+        // WHY CAN"T WE PUSH HERE?
+        // self.config
+        //     .config
+        //     .known_nodes_with_stake
+        //     .push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
 
+        self.config.config.known_nodes_with_stake[node_index as usize] =
+            (PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+
+        error!(
+            "KNown nodes size is {}",
+            self.config.config.known_nodes_with_stake.len()
+        );
+
+        // Relies on honest self reporting, Add check to see if we've already reached our DA limit, or just let any number of DA nodes register
+        // ED Issue is here - we're not adding DA nodes based on index.
         if is_da {
-            self.config.config.known_da_nodes.push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+            self.config
+                .config
+                .known_da_nodes
+                .push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
         }
 
+        // TODO ED Make this flag so that we don't automatically do it
+        if usize::from(node_index) < self.config.config.da_staked_committee_size {
+            self.config
+                .config
+                .known_da_nodes
+                .push(PeerConfig::<KEY>::from_bytes(&pubkey).unwrap());
+        }
 
         // If the orchestrator is set up for libp2p and we have supplied the proper
         // Libp2p data, add our node to the list of bootstrap nodes.
@@ -260,14 +305,37 @@ where
             }
         }
 
-        
+        // We've reached enough nodes that the config should be ready
+        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() - 1 {
+            self.is_config_ready = true;
+            println!("{:?}", self.config);
+            assert_eq!(
+                self.config.config.known_nodes_with_stake.len(),
+                usize::from(self.config.config.num_nodes_with_stake)
+            );
+        }
+        // Instead do this by checking lenth of nodes with stake vec
+
+        self.latest_index += 1;
+        error!("{} nodes have posted their identity", self.latest_index);
         Ok(node_index)
     }
 
     // Assumes nodes will set their own index that they received from the
     // 'identity' endpoint
     fn post_getconfig(&mut self, _node_index: u16) -> Result<NetworkConfig<KEY>, ServerError> {
-        /// ED I don't think we need this function honestly....
+        // Wait for config to be ready
+        if !self.is_config_ready {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Node config is not ready yet".to_string(),
+            });
+        }
+
+        assert_eq!(
+            self.config.config.known_da_nodes.len(),
+            self.config.config.da_staked_committee_size
+        );
 
         Ok(self.config.clone())
     }
@@ -275,7 +343,6 @@ where
     // Assumes one node do not get twice
     // TODO ED I guess this one is fine to have duplicate registers because we use it for internal testing... but perhaps we shouldn't
     fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
-        error!("Inside get temp node index");
         let tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
@@ -296,7 +363,7 @@ where
         pubkey: &mut Vec<u8>,
         is_da: bool,
     ) -> Result<(), ServerError> {
-        // panic!();
+        panic!();
 
         // if self.pub_posted.contains(&node_index) {
         //     return Err(ServerError {
@@ -332,8 +399,8 @@ where
     }
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
-        
         // TODO ED Remove
+        panic!();
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -344,7 +411,7 @@ where
     }
 
     fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY>, ServerError> {
-      
+        panic!();
 
         if !self.peer_pub_ready {
             return Err(ServerError {
@@ -356,8 +423,6 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
-      
-
         // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
@@ -371,7 +436,6 @@ where
     // Assumes nodes do not post 'ready' twice
     // TODO ED Add a map to verify which nodes have posted they're ready
     fn post_ready(&mut self) -> Result<(), ServerError> {
-     
         // TODO ED Add key as parameter so we know which nodes are ready
         self.nodes_connected += 1;
         println!("Nodes connected: {}", self.nodes_connected);
@@ -387,8 +451,6 @@ where
 
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
-     
-
         if metrics.total_transactions_committed != 0 {
             // Deal with the bench results
             if self.bench_results.total_transactions_committed == 0 {
@@ -466,7 +528,6 @@ where
                     message: "Malformed body".to_string(),
                 });
             };
-
 
             // Call our state function to process the request
             state.post_identity(pubkey, is_da, libp2p_address, libp2p_public_key)

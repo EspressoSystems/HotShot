@@ -7,7 +7,7 @@ use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, P
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
-use tracing::instrument;
+use tracing::{error, instrument};
 use vbs::BinarySerializer;
 
 use crate::{config::NetworkConfig, OrchestratorVersion};
@@ -179,6 +179,97 @@ impl OrchestratorClient {
         OrchestratorClient { client }
     }
 
+    pub async fn get_config<K: SignatureKey>(
+        &self,
+        peer_config: PeerConfig<K>,
+        is_da: bool,
+        libp2p_address: Option<SocketAddr>,
+        libp2p_public_key: Option<PeerId>,
+        indexed_da: bool,
+    ) -> anyhow::Result<NetworkConfig<K>> {
+        // First, we must identify with the orchestrator using our key
+        // Let's build the identity endpoint request
+
+        let libp2p_address = libp2p_address.map(|f| {
+            Multiaddr::try_from(format!(
+                "/{}/{}/udp/{}/quic-v1",
+                if f.is_ipv4() { "ip4" } else { "ip6" },
+                f.ip(),
+                f.port()
+            ))
+            .expect("failed to create multiaddress")
+        });
+
+
+        // Serialize our (possible) libp2p-specific data and ED Add more notes
+        let request_body = vbs::Serializer::<Version01>::serialize(&(
+            &PeerConfig::<K>::to_bytes(&peer_config),
+            is_da,
+            libp2p_address,
+            libp2p_public_key,
+        ))?;
+
+        let identity = |client: Client<ClientError, OrchestratorVersion>| {
+            // We need to clone here to move it into the closure
+            let request_body = request_body.clone();
+            async move {
+                let node_index: Result<u16, ClientError> = client
+                    .post("api/identity")
+                    .body_binary(&request_body)
+                    .expect("failed to set request body")
+                    .send()
+                    .await;
+
+                node_index
+            }
+            .boxed()
+        };
+        let node_index = self.wait_for_fn_from_orchestrator(identity).await;
+
+        // Step 2, wait for full config, meaning wait for everyone else to post their keys
+        // ED rename variables
+        let f = |client: Client<ClientError, OrchestratorVersion>| {
+            async move {
+                let config: Result<NetworkConfig<K>, ClientError> = client
+                    .post(&format!("api/config/{node_index}"))
+                    .send()
+                    .await;
+                config
+            }
+            .boxed()
+        };
+
+        let mut config = self.wait_for_fn_from_orchestrator(f).await;
+        config.node_index = From::<u16>::from(node_index);
+
+        error!("Node index is {}", node_index);
+        assert_eq!(config.config.known_da_nodes.len(), config.config.da_staked_committee_size);
+
+
+        // TODO ED update for is da indexed
+        if indexed_da {
+            config.config.my_own_validator_config.is_da =
+                config.node_index < config.config.da_staked_committee_size as u64;
+        }
+      
+        for i in 0..10 {
+            if config.config.known_da_nodes[i] == config.config.my_own_validator_config.get_public_config() {
+                return Ok(config)
+            }
+        }
+        panic!(); 
+
+        // error!("Am i DA? {}", config.config.my_own_validator_config.is_da);
+
+       
+
+        return Ok(config)
+
+
+
+
+    }
+
     /// Get the config from the orchestrator.
     /// If the identity is provided, register the identity with the orchestrator.
     /// If not, just retrieving the config (for passive observers)
@@ -209,8 +300,12 @@ impl OrchestratorClient {
         });
 
         // Serialize our (possible) libp2p-specific data
-        let request_body =
-            vbs::Serializer::<Version01>::serialize(&(&PeerConfig::<K>::to_bytes(&my_pub_key), is_da, libp2p_address, libp2p_public_key))?;
+        let request_body = vbs::Serializer::<Version01>::serialize(&(
+            &PeerConfig::<K>::to_bytes(&my_pub_key),
+            is_da,
+            libp2p_address,
+            libp2p_public_key,
+        ))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure

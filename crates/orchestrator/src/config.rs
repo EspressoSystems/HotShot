@@ -10,7 +10,8 @@ use std::{
 
 use clap::ValueEnum;
 use hotshot_types::{
-    traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    constants::Version01, traits::signature_key::SignatureKey, ExecutionType, HotShotConfig,
+    PeerConfig, ValidatorConfig,
 };
 use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
@@ -18,6 +19,7 @@ use surf_disco::Url;
 use thiserror::Error;
 use toml;
 use tracing::{error, info};
+use vbs::BinarySerializer;
 
 use crate::client::OrchestratorClient;
 
@@ -115,6 +117,9 @@ pub enum NetworkConfigError {
     /// Failed to recursively create path to NetworkConfig
     #[error("Failed to recursively create path to NetworkConfig")]
     FailedToCreatePath(std::io::Error),
+    /// Orchestrator returned invalid NetworkConfig
+    #[error("Orchestrator returned invalid NetworkConfig")]
+    OrchestratorConfigError(std::io::Error),
 }
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, Default, ValueEnum)]
@@ -241,6 +246,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
+        panic!();
         if let Some(file) = file {
             info!("Retrieving config from the file");
             // if we pass in file, try there first
@@ -251,7 +257,12 @@ impl<K: SignatureKey> NetworkConfig<K> {
                     error!("{e}, falling back to orchestrator");
 
                     let config = client
-                        .get_config_without_peer(my_pub_key, is_da,libp2p_address, libp2p_public_key)
+                        .get_config_without_peer(
+                            my_pub_key,
+                            is_da,
+                            libp2p_address,
+                            libp2p_public_key,
+                        )
                         .await?;
 
                     // save to file if we fell back
@@ -291,6 +302,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
     ///
     /// # Errors
     /// If we are unable to get the configuration from the orchestrator
+    // TODO ED Update these docs and description
     pub async fn get_complete_config(
         client: &OrchestratorClient,
         file: Option<String>,
@@ -300,44 +312,193 @@ impl<K: SignatureKey> NetworkConfig<K> {
         // If true, we will use the node index to determine if we are a DA node
         indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
-        let (mut run_config, source) =
-            Self::from_file_or_orchestrator(client, file, my_own_validator_config.get_public_config(), my_own_validator_config.is_da, libp2p_address, libp2p_public_key)
-                .await?;
-        let node_index = run_config.node_index;
-
-        // Assign my_own_validator_config to the run_config if not loading from file
-        match source {
-            NetworkConfigSource::Orchestrator => {
-                run_config.config.my_own_validator_config = my_own_validator_config.clone();
-            }
-            NetworkConfigSource::File => {
-                // do nothing, my_own_validator_config has already been loaded from file
+        // Do we have the file locally?  If yes, then we're done
+        if let Some(file) = file {
+            if let Ok(config) = Self::from_file(file.clone()) {
+                return Ok((config, NetworkConfigSource::File));
             }
         }
-
-        // If we've chosen to be DA based on the index, do so
-        if indexed_da {
-            run_config.config.my_own_validator_config.is_da =
-                run_config.node_index < run_config.config.da_staked_committee_size as u64;
-        }
-
-        // one more round of orchestrator here to get peer's public key/config
-        // TODO ED Change stuff below: 
-        let updated_config: NetworkConfig<K> = client
-            .post_and_wait_all_public_keys::<K>(
-                run_config.node_index,
-                run_config
-                    .config
-                    .my_own_validator_config
-                    .get_public_config(),
-                run_config.config.my_own_validator_config.is_da,
+        // ED Do we need to save the config to a file here, or in another function? 
+        let config = client
+            .get_config(
+                my_own_validator_config.get_public_config(),
+                my_own_validator_config.is_da,
+                libp2p_address,
+                libp2p_public_key,
+                indexed_da, 
             )
             .await;
-        run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
-        run_config.config.known_da_nodes = updated_config.config.known_da_nodes;
+       
 
-        info!("Retrieved config; our node index is {node_index}.");
-        Ok((run_config, source))
+
+
+        return Ok((config?, NetworkConfigSource::Orchestrator));
+
+        // We do not have the file locally and must get it from the orchestrator
+
+        // First, we must identify with the orchestrator using our key
+        // Let's build the identity endpoint request
+
+        // let libp2p_address = libp2p_address.map(|f| {
+        //     Multiaddr::try_from(format!(
+        //         "/{}/{}/udp/{}/quic-v1",
+        //         if f.is_ipv4() { "ip4" } else { "ip6" },
+        //         f.ip(),
+        //         f.port()
+        //     ))
+        //     .expect("failed to create multiaddress")
+        // });
+
+        // Serialize our (possible) libp2p-specific data plus our own key and da info
+        // let request_body = vbs::Serializer::<Version01>::serialize(&(
+        //     &PeerConfig::<K>::to_bytes(&my_own_validator_config.get_public_config()),
+        //     my_own_validator_config.is_da,
+        //     libp2p_address,
+        //     libp2p_public_key,
+        // ))?;
+
+        // let identity_function = |client: Client<ClientError, OrchestratorVersion>| {
+        //     // We need to clone here to move it into the closure
+        //     let request_body = request_body.clone();
+        //     async move {
+        //         let node_index: Result<u16, ClientError> = client
+        //             .post("api/identity")
+        //             .body_binary(&request_body)
+        //             .expect("failed to set request body")
+        //             .send()
+        //             .await;
+
+        //         node_index
+        //     }
+        //     .boxed()
+        // };
+
+        // let node_index = self.wait_for_fn_from_orchestrator(identity_function).await;
+
+        // let config = client.get_config_after_collection().await;
+        // return Ok((config, NetworkConfigSource::Orchestrator));
+
+        // // Serialize our (possible) libp2p-specific data
+        // let request_body =
+        //     vbs::Serializer::<Version01>::serialize(&(&PeerConfig::<K>::to_bytes(&my_pub_key), is_da, libp2p_address, libp2p_public_key))?;
+
+        // let identity = |client: Client<ClientError, OrchestratorVersion>| {
+        //     // We need to clone here to move it into the closure
+        //     let request_body = request_body.clone();
+        //     async move {
+        //         let node_index: Result<u16, ClientError> = client
+        //             .post("api/identity")
+        //             .body_binary(&request_body)
+        //             .expect("failed to set request body")
+        //             .send()
+        //             .await;
+
+        //         node_index
+        //     }
+        //     .boxed()
+        // };
+        // let node_index = self.wait_for_fn_from_orchestrator(identity).await;
+        // if let Some(file) = file {
+        //     info!("Retrieving config from the file");
+        //     match Self::from_file(file.clone()) {
+        //         Ok(config) => {return Ok((config, NetworkConfigSource::File))},
+        //         Err(e) => {
+        //             // fallback to orchestrator
+        //             error!("{e}, falling back to orchestrator");
+
+        //             let config = client
+        //                 .get_config_without_peer(
+        //                     my_pub_key,
+        //                     is_da,
+        //                     libp2p_address,
+        //                     libp2p_public_key,
+        //                 )
+        //                 .await?;
+
+        //             // save to file if we fell back
+        //             if let Err(e) = config.to_file(file) {
+        //                 error!("{e}");
+        //             };
+
+        //             Ok((config, NetworkConfigSource::File))
+        //         }
+        //     }
+        // }
+        // else {
+
+        // }
+
+        // if let Some(file) = file {
+        //     info!("Retrieving config from the file");
+        //     // if we pass in file, try there first
+        //     match Self::from_file(file.clone()) {
+        //         Ok(config) => Ok((config, NetworkConfigSource::File)),
+        //         Err(e) => {
+        //             // fallback to orchestrator
+        //             error!("{e}, falling back to orchestrator");
+
+        //             let config = client
+        //                 .get_config_without_peer(my_pub_key, is_da,libp2p_address, libp2p_public_key)
+        //                 .await?;
+
+        //             // save to file if we fell back
+        //             if let Err(e) = config.to_file(file) {
+        //                 error!("{e}");
+        //             };
+
+        //             Ok((config, NetworkConfigSource::File))
+        //         }
+        //     }
+        // } else {
+        //     info!("Retrieving config from the orchestrator");
+
+        //     // otherwise just get from orchestrator
+        //     Ok((
+        //         client
+        //             .get_config_without_peer(my_pub_key, is_da, libp2p_address, libp2p_public_key)
+        //             .await?,
+        //         NetworkConfigSource::Orchestrator,
+        //     ))
+        // }
+
+        // let (mut run_config, source) =
+        //     Self::from_file_or_orchestrator(client, file, my_own_validator_config.get_public_config(), my_own_validator_config.is_da, libp2p_address, libp2p_public_key)
+        //         .await?;
+        // let node_index = run_config.node_index;
+
+        // // Assign my_own_validator_config to the run_config if not loading from file
+        // match source {
+        //     NetworkConfigSource::Orchestrator => {
+        //         run_config.config.my_own_validator_config = my_own_validator_config.clone();
+        //     }
+        //     NetworkConfigSource::File => {
+        //         // do nothing, my_own_validator_config has already been loaded from file
+        //     }
+        // }
+
+        // // If we've chosen to be DA based on the index, do so
+        // if indexed_da {
+        //     run_config.config.my_own_validator_config.is_da =
+        //         run_config.node_index < run_config.config.da_staked_committee_size as u64;
+        // }
+
+        // // one more round of orchestrator here to get peer's public key/config
+        // // TODO ED Change stuff below:
+        // let updated_config: NetworkConfig<K> = client
+        //     .post_and_wait_all_public_keys::<K>(
+        //         run_config.node_index,
+        //         run_config
+        //             .config
+        //             .my_own_validator_config
+        //             .get_public_config(),
+        //         run_config.config.my_own_validator_config.is_da,
+        //     )
+        //     .await;
+        // run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
+        // run_config.config.known_da_nodes = updated_config.config.known_da_nodes;
+
+        // info!("Retrieved config; our node index is {node_index}.");
+        // Ok((run_config, source))
     }
 
     /// Loads a `NetworkConfig` from a file.
