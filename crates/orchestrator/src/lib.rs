@@ -405,6 +405,7 @@ where
         if self.config.manual_start_password == Some(password) {
             self.accepting_connections = false;
             self.manual_start_allowed = false;
+            self.peer_pub_ready = true;
             self.start = true;
         }
 
