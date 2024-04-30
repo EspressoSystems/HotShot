@@ -45,5 +45,5 @@ pub trait AcceptsTxnSubmits<I>
 where
     I: NodeType,
 {
-    async fn submit_txn(&mut self, txn: <I as NodeType>::Transaction) -> Result<(), BuildError>;
+    async fn submit_txns(&self, txns: &[<I as NodeType>::Transaction]) -> Result<(), BuildError>;
 }
