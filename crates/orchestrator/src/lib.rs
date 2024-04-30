@@ -84,8 +84,8 @@ struct OrchestratorState<KEY: SignatureKey> {
     nodes_post_results: u64,
     /// Whether the orchestrator can be started manually
     manual_start_allowed: bool,
-    /// Whether we are still accepting connections
-    accepting_connections: bool,
+    /// Whether we are still accepting new keys for registration
+    accepting_new_keys: bool,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -103,7 +103,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
             manual_start_allowed: true,
-            accepting_connections: true,
+            accepting_new_keys: true,
         }
     }
 
@@ -284,11 +284,11 @@ where
         pubkey: &mut Vec<u8>,
         is_da: bool,
     ) -> Result<(), ServerError> {
-        if !self.accepting_connections {
+        if !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
                 message:
-                    "Network has been started manually, and new connections are no longer allowed."
+                    "Network has been started manually, and is no longer registering new keys."
                         .to_string(),
             });
         }
@@ -371,7 +371,7 @@ where
             >= (self.config.config.num_nodes_with_stake.get() as u64)
                 * self.config.config.start_threshold.0
         {
-            self.accepting_connections = false;
+            self.accepting_new_keys = false;
             self.manual_start_allowed = false;
             self.start = true;
         }
@@ -391,6 +391,14 @@ where
         let password = String::from_utf8(password_bytes)
             .expect("Failed to decode raw password as UTF-8 string.");
 
+        // Check that the password matches
+        if self.config.manual_start_password != Some(password) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::Forbidden,
+                message: "Incorrect password.".to_string(),
+            });
+        }
+
         if self.pub_posted.len() > 1 {
             self.config.config.num_nodes_with_stake =
                 std::num::NonZeroUsize::new(self.pub_posted.len())
@@ -398,16 +406,13 @@ where
         } else {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
-                message: format!("We cannot manually start the network, because we have {} public keys registered.", self.pub_posted.len())
+                message: format!("We cannot manually start the network, because we only have {} public keys registered.", self.pub_posted.len())
             });
         }
 
-        if self.config.manual_start_password == Some(password) {
-            self.accepting_connections = false;
-            self.manual_start_allowed = false;
-            self.peer_pub_ready = true;
-            self.start = true;
-        }
+        self.accepting_new_keys = false;
+        self.manual_start_allowed = false;
+        self.peer_pub_ready = true;
 
         Ok(())
     }
@@ -553,10 +558,19 @@ where
 /// This errors if tide disco runs into an issue during serving
 /// # Panics
 /// This panics if unable to register the api with tide disco
-pub async fn run_orchestrator<KEY>(network_config: NetworkConfig<KEY>, url: Url) -> io::Result<()>
+pub async fn run_orchestrator<KEY>(
+    mut network_config: NetworkConfig<KEY>,
+    url: Url,
+) -> io::Result<()>
 where
     KEY: SignatureKey + 'static + serde::Serialize,
 {
+    let env_password = std::env::var("ORCHESTRATOR_MANUAL_START_PASSWORD");
+
+    if env_password.is_ok() {
+        network_config.manual_start_password = env_password.ok();
+    }
+
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
