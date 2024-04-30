@@ -47,7 +47,7 @@ Returns
 """
 
 [route.claim_block]
-PATH = ["claimblock/:block_hash/:sender/:signature"]
+PATH = ["claimblock/:block_hash/:parent_hash/:sender/:signature"]
 ":block_hash" = "TaggedBase64"
 ":parent_hash" = "TaggedBase64"
 ":sender" = "TaggedBase64"
@@ -59,7 +59,7 @@ Returns application-specific encoded transactions type
 """
 
 [route.claim_header_input]
-PATH = ["claimheaderinput/:block_hash/:sender/:signature"]
+PATH = ["claimheaderinput/:block_hash/:parent_hash/:sender/:signature"]
 ":block_hash" = "TaggedBase64"
 ":parent_hash" = "TaggedBase64"
 ":sender" = "TaggedBase64"
