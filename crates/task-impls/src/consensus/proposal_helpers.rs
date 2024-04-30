@@ -751,12 +751,9 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
             let high_qc = consensus_write.high_qc.clone();
             let locked_view = consensus_write.locked_view;
-        }
 
-        drop(consensus_write);
+            drop(consensus_write);
 
-        #[cfg(not(feature = "dependency-tasks"))]
-        {
             let mut current_proposal = None;
             if liveness_check {
                 current_proposal = Some(proposal.data.clone());
