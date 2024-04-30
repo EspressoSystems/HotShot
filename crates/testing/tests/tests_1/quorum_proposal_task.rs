@@ -35,6 +35,7 @@ fn make_payload_commitment(
     vid.commit_only(&encoded_transactions).unwrap()
 }
 
+#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -92,6 +93,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
+#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
