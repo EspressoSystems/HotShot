@@ -466,7 +466,10 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.secondary().queue_node_lookup(view_number, pk).await
     }
 
-    fn update_view(&self, view: u64) {
+    async fn update_view<'a, T>(&'a self, view: u64, _membership: &T::Membership)
+    where
+        T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
+    {
         let delayed_map = Arc::clone(&self.delayed_tasks);
         async_spawn(async move {
             let mut cancel_tasks = Vec::new();
@@ -487,6 +490,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             }
             join_all(cancel_tasks).await;
         });
+
         // View changed, let's start primary again
         self.primary_down.store(false, Ordering::Relaxed);
         self.primary_fail_counter.store(0, Ordering::Relaxed);
