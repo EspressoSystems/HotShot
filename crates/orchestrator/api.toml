@@ -31,7 +31,7 @@ Get the latest temporary node index only for generating validator's key pair for
 """
 
 
-# GET the latest temporary node index only for generating validator's key pair
+# POST node's public key for duplicate keys checking
 [route.check_dup_key]
 PATH = ["check_dup_key"]
 METHOD = "POST"
