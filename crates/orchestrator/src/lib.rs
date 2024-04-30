@@ -11,11 +11,7 @@ use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
 use csv::Writer;
 use futures::FutureExt;
-use hotshot_types::{
-    constants::Version01,
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    PeerConfig,
-};
+use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -64,13 +60,13 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 /// The state of the orchestrator
 #[derive(Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
-struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
+struct OrchestratorState<KEY: SignatureKey> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
     /// Tracks the latest temporary index we have generated for init validator's key pair
     tmp_latest_index: u16,
     /// The network configuration
-    config: NetworkConfig<KEY, ELECTION>,
+    config: NetworkConfig<KEY>,
     /// The total nodes that have posted their public keys
     nodes_with_pubkey: u64,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
@@ -92,11 +88,9 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     accepting_connections: bool,
 }
 
-impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
-    OrchestratorState<KEY, ELECTION>
-{
+impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
     /// create a new [`OrchestratorState`]
-    pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
+    pub fn new(network_config: NetworkConfig<KEY>) -> Self {
         OrchestratorState {
             latest_index: 0,
             tmp_latest_index: 0,
@@ -113,6 +107,27 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
         }
     }
 
+    /// get election type in use
+    #[must_use]
+    pub fn get_election_type() -> String {
+        // leader is chosen in index order
+        #[cfg(not(any(
+            feature = "randomized-leader-election",
+            feature = "fixed-leader-election"
+        )))]
+        let election_type = "static-leader-selection".to_string();
+
+        // leader is from a fixed set
+        #[cfg(feature = "fixed-leader-election")]
+        let election_type = "fixed-leader-election".to_string();
+
+        // leader is randomly chosen
+        #[cfg(feature = "randomized-leader-election")]
+        let election_type = "randomized-leader-election".to_string();
+
+        election_type
+    }
+
     /// Output the results to a csv file according to orchestrator state
     pub fn output_to_csv(&self) {
         let output_csv = BenchResultsDownloadConfig {
@@ -122,7 +137,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             transactions_per_round: self.config.transactions_per_round,
             transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,
-            leader_election_type: self.config.election_config_type_name.clone(),
+            leader_election_type: OrchestratorState::<KEY>::get_election_type(),
             avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: self.bench_results.maximum_latency_in_sec,
@@ -147,7 +162,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 }
 
 /// An api exposed by the orchestrator
-pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
+pub trait OrchestratorApi<KEY: SignatureKey> {
     /// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
     /// # Errors
@@ -160,10 +175,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// post endpoint for each node's config
     /// # Errors
     /// if unable to serve
-    fn post_getconfig(
-        &mut self,
-        _node_index: u16,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn post_getconfig(&mut self, _node_index: u16) -> Result<NetworkConfig<KEY>, ServerError>;
     /// get endpoint for the next available temporary node index
     /// # Errors
     /// if unable to serve
@@ -184,9 +196,7 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// get endpoint for the network config after all peers public keys are collected
     /// # Errors
     /// if unable to serve
-    fn get_config_after_peer_collected(
-        &mut self,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -205,10 +215,9 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError>;
 }
 
-impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
+impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
 where
     KEY: serde::Serialize + Clone + SignatureKey + 'static,
-    ELECTION: serde::Serialize + Clone + Send + ElectionConfig + 'static,
 {
     /// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
@@ -249,10 +258,7 @@ where
 
     // Assumes nodes will set their own index that they received from the
     // 'identity' endpoint
-    fn post_getconfig(
-        &mut self,
-        _node_index: u16,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn post_getconfig(&mut self, _node_index: u16) -> Result<NetworkConfig<KEY>, ServerError> {
         self.manual_start_allowed = false;
 
         Ok(self.config.clone())
@@ -299,7 +305,7 @@ where
             self.config
                 .config
                 .known_da_nodes
-                .insert(register_pub_key_with_stake);
+                .push(register_pub_key_with_stake);
         };
 
         self.nodes_with_pubkey += 1;
@@ -323,9 +329,7 @@ where
         Ok(self.peer_pub_ready)
     }
 
-    fn get_config_after_peer_collected(
-        &mut self,
-    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -363,11 +367,17 @@ where
         self.nodes_connected += 1;
 
         println!("Nodes connected: {}", self.nodes_connected);
-        if self.nodes_connected >= (self.config.config.num_nodes_with_stake.get() as u64) {
+
+        // i.e. nodes_connected >= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
+        if self.nodes_connected * self.config.config.start_threshold.1
+            >= (self.config.config.num_nodes_with_stake.get() as u64)
+                * self.config.config.start_threshold.0
+        {
             self.accepting_connections = false;
             self.manual_start_allowed = false;
             self.start = true;
         }
+
         Ok(())
     }
 
@@ -454,13 +464,12 @@ where
 }
 
 /// Sets up all API routes
-fn define_api<KEY: SignatureKey, ELECTION: ElectionConfig, State, VER: StaticVersionType>(
+fn define_api<KEY: SignatureKey, State, VER: StaticVersionType>(
 ) -> Result<Api<State, ServerError, VER>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
-    <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ELECTION>,
+    <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY>,
     KEY: serde::Serialize,
-    ELECTION: serde::Serialize,
     VER: 'static,
 {
     let api_toml = toml::from_str::<toml::Value>(include_str!(concat!(
@@ -547,21 +556,16 @@ where
 /// This errors if tide disco runs into an issue during serving
 /// # Panics
 /// This panics if unable to register the api with tide disco
-pub async fn run_orchestrator<KEY, ELECTION>(
-    network_config: NetworkConfig<KEY, ELECTION>,
-    url: Url,
-) -> io::Result<()>
+pub async fn run_orchestrator<KEY>(network_config: NetworkConfig<KEY>, url: Url) -> io::Result<()>
 where
     KEY: SignatureKey + 'static + serde::Serialize,
-    ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
-    let state: RwLock<OrchestratorState<KEY, ELECTION>> =
-        RwLock::new(OrchestratorState::new(network_config));
+    let state: RwLock<OrchestratorState<KEY>> = RwLock::new(OrchestratorState::new(network_config));
 
-    let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
+    let mut app = App::<RwLock<OrchestratorState<KEY>>, ServerError>::with_state(state);
     app.register_module::<ServerError, OrchestratorVersion>("api", web_api.unwrap())
         .expect("Error registering api");
     tracing::error!("listening on {:?}", url);
