@@ -267,10 +267,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
                         if let HotShotEvent::QCFormed(either::Left(qc)) = event {
-                            warn!(
-                                "QC View number {} View number {}",
-                                *qc.view_number, *view_number
-                            );
                             qc.view_number + 1
                         } else {
                             return false;
@@ -324,7 +320,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    info!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
+                    debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
                 }
                 valid
             }),
@@ -372,11 +368,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ProposalDependency::ProposeNow,
             view_number,
             event_receiver,
-        );
-
-        info!(
-            "Node {} Dependency {:?} is complete for view {}!",
-            self.id, event, *view_number
         );
 
         match event.as_ref() {
@@ -491,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
             debug!(
-                "Updating latest proposed view from {} to {} in the Quorum Proposal task",
+                "Updating latest proposed view from {} to {}",
                 *self.latest_proposed_view, *new_view
             );
 
@@ -549,7 +540,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     either::Left(qc) => {
                         if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
                         {
-                            warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                            warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                         }
 
                         let mut consensus = self.consensus.write().await;
@@ -585,13 +576,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             ) => {
                 let view = *view;
 
-                if self.quorum_membership.get_leader(view) == self.public_key {
-                    debug!(
-                        "Got payload commitment {:?} for view {view:?}",
-                        payload_commitment
-                    );
-                }
-
                 self.create_dependency_task_if_new(
                     view,
                     event_receiver,
@@ -622,7 +606,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let new_view = proposal.view_number;
-                info!("Received quorum proposal validated event for view {new_view:?}");
 
                 if !self.update_latest_proposed_view(new_view).await {
                     tracing::trace!("Failed to update latest proposed view");
@@ -677,7 +660,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     {
         let receiver = task.subscribe();
         let sender = task.clone_sender();
-        tracing::trace!("sender queue len {}", sender.len());
         task.state_mut().handle(event, receiver, sender).await;
         None
     }
