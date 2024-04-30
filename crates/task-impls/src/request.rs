@@ -226,13 +226,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         signature: Signature<TYPES>,
     ) {
         let message = make_vid(&req, signature);
+        let mut recipients_it = self.recipients.iter().cycle();
 
-        while !self.recipients.is_empty() && !self.cancel_vid(&req).await {
+        while !self.cancel_vid(&req).await {
             match async_timeout(
                 REQUEST_TIMEOUT,
                 self.network.request_data::<TYPES, Ver>(
                     message.clone(),
-                    self.recipients.pop().unwrap(),
+                    recipients_it.next().unwrap(),
                     Ver::instance(),
                 ),
             )
@@ -266,7 +267,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        state.vid_shares.contains_key(&view) && state.cur_view > view
+        state.vid_shares.contains_key(&view) || state.cur_view > view
     }
 
     /// Transform a response into a `HotShotEvent`
