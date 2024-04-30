@@ -210,7 +210,7 @@ where
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .context(TxnUnpackSnafu)?;
                 let hash = tx.commit();
-                state.submit_txns(&[tx]).await.context(TxnSubmitSnafu)?;
+                state.submit_txns(vec![tx]).await.context(TxnSubmitSnafu)?;
                 Ok(hash)
             }
             .boxed()
@@ -221,7 +221,7 @@ where
                     .body_auto::<Vec<<Types as NodeType>::Transaction>, Ver>(Ver::instance())
                     .context(TxnUnpackSnafu)?;
                 let hashes = txns.iter().map(|tx| tx.commit()).collect::<Vec<_>>();
-                state.submit_txns(&txns).await.context(TxnSubmitSnafu)?;
+                state.submit_txns(txns).await.context(TxnSubmitSnafu)?;
                 Ok(hashes)
             }
             .boxed()
