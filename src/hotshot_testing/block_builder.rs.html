@@ -582,6 +582,16 @@
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -914,6 +924,16 @@
                 })
             })
             .<span class="kw">await</span>;
+
+        <span class="kw">if </span>transactions.is_empty() {
+            <span class="comment">// We don't want to return an empty block, as we will end up driving consensus to
+            // produce empty blocks extremely quickly. Instead, we return no blocks, so that
+            // consensus will keep asking for blocks until either we have something non-trivial to
+            // propose, or a timeout, in which case consensus will finally propose an empty block
+            // anyways.
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[]);
+        }
+
         <span class="kw">let </span>(metadata, payload, header_input) = build_block(
             transactions,
             <span class="self">self</span>.num_storage_nodes,
