@@ -14,10 +14,6 @@ use futures::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 
-use crate::{
-    constants::LOOK_AHEAD,
-    traits::{election::Membership, node_implementation::ConsensusTime},
-};
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use std::{
@@ -349,17 +345,10 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     }
 
     /// handles view update
-    async fn update_view<'a, TYPES>(&'a self, view: u64, membership: &TYPES::Membership)
+    async fn update_view<'a, TYPES>(&'a self, _view: u64, _membership: &TYPES::Membership)
     where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {
-        let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
-        let future_leader = membership.get_leader(future_view);
-
-        let _ = self
-            .queue_node_lookup(ViewNumber::new(*future_view), future_leader)
-            .await
-            .map_err(|err| tracing::warn!("failed to process node lookup request: {err}"));
     }
 
     /// Is primary network down? Makes sense only for combined network

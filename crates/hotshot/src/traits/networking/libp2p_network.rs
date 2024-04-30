@@ -39,11 +39,12 @@ use hotshot_types::{
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
+        election::Membership,
         network::{
             self, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
             ResponseMessage,
         },
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
@@ -1110,5 +1111,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .node_lookup_send
             .send(Some((view_number, pk)))
             .await
+    }
+
+    /// handles view update
+    async fn update_view<'a, TYPES>(&'a self, view: u64, membership: &TYPES::Membership)
+    where
+        TYPES: NodeType<SignatureKey = K> + 'a,
+    {
+        let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
+        let future_leader = membership.get_leader(future_view);
+
+        let _ = self
+            .queue_node_lookup(ViewNumber::new(*future_view), future_leader)
+            .await
+            .map_err(|err| tracing::warn!("failed to process node lookup request: {err}"));
     }
 }
