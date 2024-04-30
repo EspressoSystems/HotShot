@@ -29,10 +29,10 @@ FORMAT_VERSION = "0.1.0"
 
 [route.submit_txn]
 PATH = ["/submit"]
-METHOD = "AT"
+METHOD = "POST"
 DOC = "Submit a transaction to builder's private mempool."
 
 [route.submit_batch]
 PATH = ["/batch"]
-METHOD = "AT"
+METHOD = "POST"
 DOC = "Submit a list of transactions to builder's private mempool."
