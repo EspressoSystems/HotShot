@@ -163,7 +163,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// Return false if it's duplicate
     /// # Errors
     /// If we were unable to serve the request
-    fn check_dup_key(&mut self, pubkey: &Vec<u8>) -> Result<bool, ServerError>;
+    fn check_dup_key(&mut self, pubkey: &[u8]) -> Result<bool, ServerError>;
     /// Post an identity to the orchestrator. Takes in optional
     /// arguments so others can identify us on the Libp2p network.
     /// # Errors
@@ -216,14 +216,14 @@ impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
 where
     KEY: serde::Serialize + Clone + SignatureKey + 'static,
 {
-    fn check_dup_key(&mut self, pubkey: &Vec<u8>) -> Result<bool, ServerError> {
+    fn check_dup_key(&mut self, pubkey: &[u8]) -> Result<bool, ServerError> {
         if self.saved_pub.contains(pubkey) {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "The public key has already tried registered".to_string(),
             });
         }
-        self.saved_pub.insert(pubkey.clone());
+        self.saved_pub.insert(pubkey.to_vec());
         Ok(true)
     }
 
