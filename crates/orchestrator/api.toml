@@ -48,9 +48,10 @@ DOC = """
 Get whether the node can collect the final config which includs all peer's public config/info like public keys, returns a boolean.
 """
 
-# GET the updated config with all peers' public keys / configs
-[route.get_config_after_peer_collected]
-PATH = ["get_config_after_peer_collected"]
+# POST the updated config with all peers' public keys / configs
+[route.post_config_after_peer_collected]
+PATH = ["post_config_after_peer_collected"]
+METHOD = "POST"
 DOC = """
 Get the updated config with all peers' public keys / configs, returns a NetworkConfig.
 """

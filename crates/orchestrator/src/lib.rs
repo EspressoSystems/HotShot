@@ -84,7 +84,7 @@ struct OrchestratorState<KEY: SignatureKey> {
     nodes_post_results: u64,
     /// Whether the orchestrator can be started manually
     manual_start_allowed: bool,
-    /// Whether the orchestrator can be started manually
+    /// Whether we are still accepting connections
     accepting_connections: bool,
 }
 
@@ -196,7 +196,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// get endpoint for the network config after all peers public keys are collected
     /// # Errors
     /// if unable to serve
-    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError>;
+    fn post_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -259,8 +259,6 @@ where
     // Assumes nodes will set their own index that they received from the
     // 'identity' endpoint
     fn post_getconfig(&mut self, _node_index: u16) -> Result<NetworkConfig<KEY>, ServerError> {
-        self.manual_start_allowed = false;
-
         Ok(self.config.clone())
     }
 
@@ -286,6 +284,15 @@ where
         pubkey: &mut Vec<u8>,
         is_da: bool,
     ) -> Result<(), ServerError> {
+        if !self.accepting_connections {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::Forbidden,
+                message:
+                    "Network has been started manually, and new connections are no longer allowed."
+                        .to_string(),
+            });
+        }
+
         if self.pub_posted.contains(&node_index) {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -329,7 +336,7 @@ where
         Ok(self.peer_pub_ready)
     }
 
-    fn get_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError> {
+    fn post_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -355,15 +362,6 @@ where
     // Assumes nodes do not post 'ready' twice
     // TODO ED Add a map to verify which nodes have posted they're ready
     fn post_ready(&mut self) -> Result<(), ServerError> {
-        if !self.accepting_connections {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
-                message:
-                    "Network has been started manually, and new connections are no longer allowed."
-                        .to_string(),
-            });
-        }
-
         self.nodes_connected += 1;
 
         println!("Nodes connected: {}", self.nodes_connected);
@@ -393,16 +391,14 @@ where
         let password = String::from_utf8(password_bytes)
             .expect("Failed to decode raw password as UTF-8 string.");
 
-        if self.nodes_connected > 0 {
-            self.config.config.num_nodes_with_stake = std::num::NonZeroUsize::new(
-                usize::try_from(self.nodes_connected).expect("Failed to cast u64 to usize"),
-            )
-            .expect("Failed to convert to NonZeroUsize; this should be impossible.");
+        if self.pub_posted.len() > 1 {
+            self.config.config.num_nodes_with_stake =
+                std::num::NonZeroUsize::new(self.pub_posted.len())
+                    .expect("Failed to convert to NonZeroUsize; this should be impossible.");
         } else {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
-                message: "No nodes have connected, so we cannot manually start the network."
-                    .to_string(),
+                message: format!("We cannot manually start the network, because we have {} public keys registered.", self.pub_posted.len())
             });
         }
 
@@ -521,15 +517,15 @@ where
     .get("peer_pubconfig_ready", |_req, state| {
         async move { state.peer_pub_ready() }.boxed()
     })?
-    .post("get_config_after_peer_collected", |_req, state| {
-        async move { state.get_config_after_peer_collected() }.boxed()
+    .post("post_config_after_peer_collected", |_req, state| {
+        async move { state.post_config_after_peer_collected() }.boxed()
     })?
     .post(
         "post_ready",
         |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
     )?
     .post(
-        "manual_start",
+        "post_manual_start",
         |req, state: &mut <State as ReadState>::State| {
             async move {
                 let password = req.body_bytes();
