@@ -63,6 +63,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 
 /// The state of the orchestrator
 #[derive(Default, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
@@ -85,6 +86,10 @@ struct OrchestratorState<KEY: SignatureKey, ELECTION: ElectionConfig> {
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
     nodes_post_results: u64,
+    /// Whether the orchestrator can be started manually
+    manual_start_allowed: bool,
+    /// Whether the orchestrator can be started manually
+    accepting_connections: bool,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -103,6 +108,8 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
+            manual_start_allowed: true,
+            accepting_connections: true,
         }
     }
 
@@ -177,7 +184,9 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// get endpoint for the network config after all peers public keys are collected
     /// # Errors
     /// if unable to serve
-    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn get_config_after_peer_collected(
+        &mut self,
+    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
@@ -190,10 +199,10 @@ pub trait OrchestratorApi<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// # Errors
     /// if unable to serve
     fn post_ready(&mut self) -> Result<(), ServerError>;
-    /// post endpoint for force starting the orchestrator
+    /// post endpoint for manually starting the orchestrator
     /// # Errors
     /// if unable to serve
-    fn post_force_start(&mut self, password: String) -> Result<(), ServerError>;
+    fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError>;
 }
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
@@ -244,6 +253,8 @@ where
         &mut self,
         _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+        self.manual_start_allowed = false;
+
         Ok(self.config.clone())
     }
 
@@ -312,13 +323,17 @@ where
         Ok(self.peer_pub_ready)
     }
 
-    fn get_config_after_peer_collected(&self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn get_config_after_peer_collected(
+        &mut self,
+    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Peer's public configs are not ready".to_string(),
             });
         }
+
+        self.manual_start_allowed = false;
         Ok(self.config.clone())
     }
 
@@ -336,18 +351,54 @@ where
     // Assumes nodes do not post 'ready' twice
     // TODO ED Add a map to verify which nodes have posted they're ready
     fn post_ready(&mut self) -> Result<(), ServerError> {
+        if !self.accepting_connections {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::Forbidden,
+                message:
+                    "Network has been started manually, and new connections are no longer allowed."
+                        .to_string(),
+            });
+        }
+
         self.nodes_connected += 1;
+
         println!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected >= (self.config.config.num_nodes_with_stake.get() as u64) {
+            self.accepting_connections = false;
+            self.manual_start_allowed = false;
             self.start = true;
         }
         Ok(())
     }
 
-    // Assumes nodes do not post 'ready' twice
-    // TODO ED Add a map to verify which nodes have posted they're ready
-    fn post_force_start(&mut self, password: String) -> Result<(), ServerError> {
-        if self.config.force_start_password == Some(password) {
+    /// Manually start the network
+    fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError> {
+        if !self.manual_start_allowed {
+            return Err(ServerError {
+            status: tide_disco::StatusCode::Forbidden,
+            message: "Configs have already been distributed to nodes, and the network can no longer be started manually.".to_string(),
+          });
+        }
+
+        let password = String::from_utf8(password_bytes)
+            .expect("Failed to decode raw password as UTF-8 string.");
+
+        if self.nodes_connected > 0 {
+            self.config.config.num_nodes_with_stake = std::num::NonZeroUsize::new(
+                usize::try_from(self.nodes_connected).expect("Failed to cast u64 to usize"),
+            )
+            .expect("Failed to convert to NonZeroUsize; this should be impossible.");
+        } else {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::Forbidden,
+                message: "No nodes have connected, so we cannot manually start the network."
+                    .to_string(),
+            });
+        }
+
+        if self.config.manual_start_password == Some(password) {
+            self.accepting_connections = false;
+            self.manual_start_allowed = false;
             self.start = true;
         }
 
@@ -461,7 +512,7 @@ where
     .get("peer_pubconfig_ready", |_req, state| {
         async move { state.peer_pub_ready() }.boxed()
     })?
-    .get("get_config_after_peer_collected", |_req, state| {
+    .post("get_config_after_peer_collected", |_req, state| {
         async move { state.get_config_after_peer_collected() }.boxed()
     })?
     .post(
@@ -469,11 +520,11 @@ where
         |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
     )?
     .post(
-        "force_start",
+        "manual_start",
         |req, state: &mut <State as ReadState>::State| {
             async move {
-                let password = req.string_param("password")?;
-                state.post_force_start(password.to_string())
+                let password = req.body_bytes();
+                state.post_manual_start(password)
             }
             .boxed()
         },
