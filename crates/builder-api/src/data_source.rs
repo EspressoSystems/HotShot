@@ -1,13 +1,13 @@
+use crate::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    builder::BuildError,
+};
 use async_trait::async_trait;
+use committable::Commitment;
 use hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
     vid::VidCommitment,
-};
-
-use crate::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::BuildError,
 };
 
 #[async_trait]
@@ -24,6 +24,7 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        parent_hash: &VidCommitment,
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
@@ -32,6 +33,7 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        parent_hash: &VidCommitment,
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError>;
@@ -45,5 +47,8 @@ pub trait AcceptsTxnSubmits<I>
 where
     I: NodeType,
 {
-    async fn submit_txn(&mut self, txn: <I as NodeType>::Transaction) -> Result<(), BuildError>;
+    async fn submit_txn(
+        &mut self,
+        txn: <I as NodeType>::Transaction,
+    ) -> Result<Commitment<<I as NodeType>::Transaction>, BuildError>;
 }

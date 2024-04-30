@@ -19,6 +19,7 @@ use crate::{
     api::load_api,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
+use hotshot_types::vid::VidCommitment;
 
 #[derive(Args, Default)]
 pub struct Options {
@@ -157,28 +158,30 @@ where
         })?
         .get("claim_block", |req, state| {
             async move {
-                let hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let block_hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let parent_hash: VidCommitment = req.blob_param("parent_hash")?;
                 let signature = try_extract_param(&req, "signature")?;
                 let sender = try_extract_param(&req, "sender")?;
                 state
-                    .claim_block(&hash, sender, &signature)
+                    .claim_block(&block_hash, &parent_hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
-                        resource: hash.to_string(),
+                        resource: block_hash.to_string(),
                     })
             }
             .boxed()
         })?
         .get("claim_header_input", |req, state| {
             async move {
-                let hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let block_hash: BuilderCommitment = req.blob_param("block_hash")?;
+                let parent_hash: VidCommitment = req.blob_param("parent_hash")?;
                 let signature = try_extract_param(&req, "signature")?;
                 let sender = try_extract_param(&req, "sender")?;
                 state
-                    .claim_block_header_input(&hash, sender, &signature)
+                    .claim_block_header_input(&block_hash, &parent_hash, sender, &signature)
                     .await
                     .context(BlockClaimSnafu {
-                        resource: hash.to_string(),
+                        resource: block_hash.to_string(),
                     })
             }
             .boxed()

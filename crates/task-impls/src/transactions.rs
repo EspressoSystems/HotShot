@@ -341,8 +341,8 @@ impl<
         .context("signing block hash")?;
 
         let (block, header_input) = futures::join! {
-            self.builder_client.claim_block(block_info.block_hash.clone(), self.public_key.clone(), &request_signature),
-            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), self.public_key.clone(), &request_signature)
+            self.builder_client.claim_block(block_info.block_hash.clone(), parent_comm, self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), parent_comm, self.public_key.clone(), &request_signature)
         };
 
         let block_data = block.context("claiming block data")?;

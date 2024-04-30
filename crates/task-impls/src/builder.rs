@@ -128,13 +128,14 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     pub async fn claim_block(
         &self,
         block_hash: BuilderCommitment,
+        parent_hash: VidCommitment,
         sender: TYPES::SignatureKey,
         signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuilderClientError> {
         let encoded_signature: TaggedBase64 = signature.clone().into();
         self.inner
             .get(&format!(
-                "claimblock/{block_hash}/{sender}/{encoded_signature}"
+                "claimblock/{block_hash}/{parent_hash}/{sender}/{encoded_signature}"
             ))
             .send()
             .await
@@ -149,13 +150,14 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     pub async fn claim_block_header_input(
         &self,
         block_hash: BuilderCommitment,
+        parent_hash: VidCommitment,
         sender: TYPES::SignatureKey,
         signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuilderClientError> {
         let encoded_signature: TaggedBase64 = signature.clone().into();
         self.inner
             .get(&format!(
-                "claimheaderinput/{block_hash}/{sender}/{encoded_signature}"
+                "claimheaderinput/{block_hash}/{parent_hash}/{sender}/{encoded_signature}"
             ))
             .send()
             .await

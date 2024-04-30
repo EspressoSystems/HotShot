@@ -70,7 +70,12 @@ async fn test_random_block_builder() {
     };
 
     let _: AvailableBlockData<TestTypes> = client
-        .claim_block(blocks.pop().unwrap().block_hash, pub_key, &signature)
+        .claim_block(
+            blocks.pop().unwrap().block_hash,
+            vid_commitment(&[], 1),
+            pub_key,
+            &signature,
+        )
         .await
         .expect("Failed to claim block");
 
@@ -80,7 +85,12 @@ async fn test_random_block_builder() {
     }
     .builder_commitment(&TestMetadata);
     let result = client
-        .claim_block(commitment_for_non_existent_block, pub_key, &signature)
+        .claim_block(
+            commitment_for_non_existent_block,
+            vid_commitment(&[], 1),
+            pub_key,
+            &signature,
+        )
         .await;
     assert!(matches!(result, Err(BuilderClientError::NotFound)));
 }
