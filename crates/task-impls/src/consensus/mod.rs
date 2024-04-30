@@ -959,7 +959,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
-                        warn!("Failed to propose; error = {e:?}");
+                        error!("Failed to propose; error = {e:?}");
                     };
                 }
             }
@@ -967,7 +967,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let Some(proposal) = &self.current_proposal else {
                     return;
                 };
-                if proposal.get_view_number() == vote.get_view_number() {
+                if proposal.get_view_number() == vote.get_view_number()
+                    && self.public_key != self.quorum_membership.get_leader(vote.get_view_number())
+                {
                     self.current_proposal = None;
                 }
             }
