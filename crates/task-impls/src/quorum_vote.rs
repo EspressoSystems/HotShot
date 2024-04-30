@@ -37,11 +37,6 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
-
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
 enum VoteDependency {

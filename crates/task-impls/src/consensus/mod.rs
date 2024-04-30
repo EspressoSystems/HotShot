@@ -37,8 +37,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::data::VidDisperseShare;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
