@@ -628,6 +628,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let new_view = proposal.view_number;
                 info!("Received quorum proposal validated event for view {new_view:?}");
 
+                if !self.update_latest_proposed_view(new_view).await {
+                    tracing::trace!("Failed to update latest proposed view");
+                    return;
+                }
+
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
                 {
@@ -648,13 +653,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _) => {
-                let view = proposal.data.view_number;
-                if !self.update_latest_proposed_view(view).await {
-                    tracing::trace!("Failed to update latest proposed view");
-                    return;
-                }
-            }
             _ => {}
         }
     }
@@ -669,7 +667,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QuorumProposalRecv(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)

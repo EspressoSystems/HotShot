@@ -753,50 +753,56 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
         drop(consensus_write);
 
-        let mut current_proposal = None;
+        #[cfg(not(feature = "dependency-tasks"))]
+        {
+            let mut current_proposal = None;
+            if liveness_check {
+                current_proposal = Some(proposal.data.clone());
+                let new_view = proposal.data.view_number + 1;
 
-        if liveness_check {
-            current_proposal = Some(proposal.data.clone());
-            let new_view = proposal.data.view_number + 1;
+                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                let should_propose = task_state.quorum_membership.get_leader(new_view)
+                    == task_state.public_key
+                    && high_qc.view_number == current_proposal.clone().unwrap().view_number;
 
-            // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-            let should_propose = task_state.quorum_membership.get_leader(new_view)
-                == task_state.public_key
-                && high_qc.view_number == current_proposal.clone().unwrap().view_number;
+                let qc = high_qc.clone();
+                if should_propose {
+                    debug!(
+                        "Attempting to publish proposal after voting; now in view: {}",
+                        *new_view
+                    );
+                    let create_and_send_proposal_handle = publish_proposal_if_able(
+                        task_state.cur_view,
+                        qc.view_number + 1,
+                        event_stream,
+                        Arc::clone(&task_state.quorum_membership),
+                        task_state.public_key.clone(),
+                        task_state.private_key.clone(),
+                        Arc::clone(&task_state.consensus),
+                        task_state.round_start_delay,
+                        task_state.formed_upgrade_certificate.clone(),
+                        task_state.decided_upgrade_cert.clone(),
+                        &mut task_state.payload_commitment_and_metadata,
+                        &mut task_state.proposal_cert,
+                        Arc::clone(&task_state.instance_state),
+                    )
+                    .await?;
 
-            let qc = high_qc.clone();
-            if should_propose {
-                debug!(
-                    "Attempting to publish proposal after voting; now in view: {}",
-                    *new_view
-                );
-                let create_and_send_proposal_handle = publish_proposal_if_able(
-                    task_state.cur_view,
-                    qc.view_number + 1,
-                    event_stream,
-                    Arc::clone(&task_state.quorum_membership),
-                    task_state.public_key.clone(),
-                    task_state.private_key.clone(),
-                    Arc::clone(&task_state.consensus),
-                    task_state.round_start_delay,
-                    task_state.formed_upgrade_certificate.clone(),
-                    task_state.decided_upgrade_cert.clone(),
-                    &mut task_state.payload_commitment_and_metadata,
-                    &mut task_state.proposal_cert,
-                    Arc::clone(&task_state.instance_state),
-                )
-                .await?;
-
-                task_state
-                    .spawned_tasks
-                    .entry(view)
-                    .or_default()
-                    .push(create_and_send_proposal_handle);
+                    task_state
+                        .spawned_tasks
+                        .entry(view)
+                        .or_default()
+                        .push(create_and_send_proposal_handle);
+                }
             }
-        }
-        warn!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
 
-        return Ok(current_proposal);
+            warn!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
+
+            return Ok(current_proposal);
+        }
+
+        #[cfg(feature = "dependency-tasks")]
+        return Ok(None);
     };
 
     error!("Spawing validate proposal safety and liveness event.");

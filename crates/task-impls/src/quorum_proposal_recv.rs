@@ -43,9 +43,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
-    /// The commitment to the current block payload and its metadata submitted to DA.
-    pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
-
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
 
@@ -139,7 +136,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     };
 
                     let view = current_proposal.get_view_number();
-                    // self.cancel_tasks(view).await;
+                    self.cancel_tasks(proposal.data.get_view_number()).await;
                     let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares.get(&view) else {
                         debug!(
