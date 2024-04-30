@@ -117,70 +117,92 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         #[cfg(feature = "dependency-tasks")]
-        if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-            match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
-                Ok(Some(current_proposal)) => {
-                    tracing::error!("Cancelling tasks and voting");
-                    // Build the parent leaf since we didn't find it during the proposal check.
-                    let parent_leaf = match get_parent_leaf_and_state(
-                        self.cur_view,
-                        proposal.data.get_view_number() + 1,
-                        Arc::clone(&self.quorum_membership),
-                        self.public_key.clone(),
-                        Arc::clone(&self.consensus),
-                    )
+        match event.as_ref() {
+            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
                     .await
-                    {
-                        Ok((parent_leaf, _ /* state */)) => parent_leaf,
-                        Err(e) => {
-                            warn!(?e, "Failed to get parent leaf and state");
-                            return;
-                        }
-                    };
+                {
+                    Ok(Some(current_proposal)) => {
+                        tracing::error!("Cancelling tasks and voting");
+                        // Build the parent leaf since we didn't find it during the proposal check.
+                        let parent_leaf = match get_parent_leaf_and_state(
+                            self.cur_view,
+                            proposal.data.get_view_number() + 1,
+                            Arc::clone(&self.quorum_membership),
+                            self.public_key.clone(),
+                            Arc::clone(&self.consensus),
+                        )
+                        .await
+                        {
+                            Ok((parent_leaf, _ /* state */)) => parent_leaf,
+                            Err(e) => {
+                                warn!(?e, "Failed to get parent leaf and state");
+                                return;
+                            }
+                        };
 
-                    let view = current_proposal.get_view_number();
-                    // self.cancel_tasks(view).await;
-                    let consensus = self.consensus.read().await;
-                    let Some(vid_shares) = consensus.vid_shares.get(&view) else {
-                        debug!(
+                        let view = current_proposal.get_view_number();
+                        // self.cancel_tasks(view).await;
+                        let consensus = self.consensus.read().await;
+                        let Some(vid_shares) = consensus.vid_shares.get(&view) else {
+                            debug!(
                                 "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
                                 view
                             );
-                        return;
-                    };
-                    let Some(disperse_share) = vid_shares.get(&self.public_key) else {
-                        error!("Did not get a VID share for our public key, aborting vote");
-                        return;
-                    };
-                    let Some(da_cert) = consensus
-                        .saved_da_certs
-                        .get(&current_proposal.get_view_number())
-                    else {
-                        debug!(
-                            "Received VID share, but couldn't find DAC cert for view {:?}",
-                            current_proposal.get_view_number()
-                        );
-                        return;
-                    };
-                    broadcast_event(
-                        Arc::new(HotShotEvent::VoteNow(
-                            view,
-                            VoteDependencyData {
-                                quorum_proposal: current_proposal,
-                                parent_leaf,
-                                disperse_share: disperse_share.clone(),
-                                da_cert: da_cert.clone(),
-                            },
-                        )),
-                        &event_stream,
-                    )
-                    .await;
+                            return;
+                        };
+                        let Some(disperse_share) = vid_shares.get(&self.public_key) else {
+                            error!("Did not get a VID share for our public key, aborting vote");
+                            return;
+                        };
+                        let Some(da_cert) = consensus
+                            .saved_da_certs
+                            .get(&current_proposal.get_view_number())
+                        else {
+                            debug!(
+                                "Received VID share, but couldn't find DAC cert for view {:?}",
+                                current_proposal.get_view_number()
+                            );
+                            return;
+                        };
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VoteNow(
+                                view,
+                                VoteDependencyData {
+                                    quorum_proposal: current_proposal,
+                                    parent_leaf,
+                                    disperse_share: disperse_share.clone(),
+                                    da_cert: da_cert.clone(),
+                                },
+                            )),
+                            &event_stream,
+                        )
+                        .await;
+                    }
+                    Ok(None) => {
+                        self.cancel_tasks(proposal.data.get_view_number()).await;
+                    }
+                    Err(e) => warn!(?e, "Failed to propose"),
                 }
-                Ok(None) => {
-                    self.cancel_tasks(proposal.data.get_view_number()).await;
-                }
-                Err(e) => warn!(?e, "Failed to propose"),
             }
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
+                payload_commitment,
+                builder_commitment,
+                metadata,
+                view,
+                fee,
+            ) => {
+                let view = *view;
+                debug!("got commit and meta {:?}", payload_commitment);
+                self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
+                    commitment: *payload_commitment,
+                    builder_commitment: builder_commitment.clone(),
+                    metadata: metadata.clone(),
+                    fee: fee.clone(),
+                    block_view: view,
+                });
+            }
+            _ => {}
         }
     }
 }
@@ -193,7 +215,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         !matches!(
             event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(..) | HotShotEvent::Shutdown
+            HotShotEvent::QuorumProposalRecv(..)
+                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
+                | HotShotEvent::Shutdown
         )
     }
 

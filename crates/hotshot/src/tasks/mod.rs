@@ -218,6 +218,28 @@ pub async fn inject_quorum_proposal_polls<TYPES: NodeType, I: NodeImplementation
         .await;
 }
 
+/// Setup polls for the [`QuorumVoteTaskState`].
+pub async fn inject_quorum_vote_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    quorum_vote_task_state: &QuorumVoteTaskState<TYPES, I>,
+) {
+    // Poll (forever) for the latest quorum proposal
+    quorum_vote_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForLatestProposal)
+        .await;
+
+    // Start polling for proposals for the first view
+    quorum_vote_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(1))
+        .await;
+
+    quorum_vote_task_state
+        .quorum_network
+        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(1))
+        .await;
+}
+
 /// Setup polls for the [`QuorumProposalRecvTaskState`].
 pub async fn inject_quorum_proposal_recv_polls<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     quorum_proposal_recv_task_state: &QuorumProposalRecvTaskState<TYPES, I>,
@@ -335,6 +357,7 @@ pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     let quorum_vote_state = QuorumVoteTaskState::create_from(handle).await;
+    inject_quorum_vote_polls(&quorum_vote_state).await;
     let task = Task::new(tx, rx, Arc::clone(&task_reg), quorum_vote_state);
     task_reg.run_task(task).await;
 }
