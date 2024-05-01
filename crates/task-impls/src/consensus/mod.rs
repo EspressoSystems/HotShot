@@ -912,7 +912,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                                 {
                                     if let Err(e) = self.publish_proposal(view, event_stream).await
                                     {
-                                        warn!("Failed to propose; error = {e:?}");
+                                        error!("Failed to propose; error = {e:?}");
                                     };
                                 }
                             }
