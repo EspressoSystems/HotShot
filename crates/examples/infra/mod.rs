@@ -323,8 +323,8 @@ fn calculate_num_tx_per_round(
 ) -> usize {
     transactions_per_round / total_num_nodes
         + usize::from(
-            (total_num_nodes - 1 - node_index as usize)
-                < (transactions_per_round % total_num_nodes),
+            (total_num_nodes)
+                < (transactions_per_round % total_num_nodes) + 1 + (node_index as usize),
         )
 }
 

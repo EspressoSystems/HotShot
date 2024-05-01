@@ -331,10 +331,16 @@ impl<K: SignatureKey> NetworkConfig<K> {
                     .my_own_validator_config
                     .get_public_config(),
                 run_config.config.my_own_validator_config.is_da,
+                libp2p_address,
+                libp2p_public_key,
             )
             .await;
         run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
         run_config.config.known_da_nodes = updated_config.config.known_da_nodes;
+        run_config.config.num_nodes_with_stake = updated_config.config.num_nodes_with_stake;
+        run_config.config.da_staked_committee_size = updated_config.config.da_staked_committee_size;
+
+        println!("{:?}", run_config.config);
 
         info!("Retrieved config; our node index is {node_index}.");
         Ok((run_config, source))
@@ -745,7 +751,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
 
         Self {
             num_nodes_with_stake: NonZeroUsize::new(10).unwrap(),
-            start_threshold: (8, 10),
+            start_threshold: (1, 1),
             num_nodes_without_stake: 0,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,

@@ -14,7 +14,7 @@ use crate::{config::NetworkConfig, OrchestratorVersion};
 /// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     /// the client
-    client: surf_disco::Client<ClientError, OrchestratorVersion>,
+    pub client: surf_disco::Client<ClientError, OrchestratorVersion>,
 }
 
 /// Struct describing a benchmark result
@@ -306,16 +306,44 @@ impl OrchestratorClient {
         node_index: u64,
         my_pub_key: PeerConfig<K>,
         is_da: bool,
+        libp2p_address: Option<SocketAddr>,
+        libp2p_public_key: Option<PeerId>,
     ) -> NetworkConfig<K> {
-        // send my public key
-        let _send_pubkey_ready_f: Result<(), ClientError> = self
-            .client
-            .post(&format!("api/pubkey/{node_index}/{is_da}"))
-            .body_binary(&PeerConfig::<K>::to_bytes(&my_pub_key))
-            .unwrap()
-            .send()
-            .await
-            .inspect_err(|err| tracing::error!("{err}"));
+        // Get the (possible) Libp2p advertise address from our args
+        let libp2p_address: Option<Multiaddr> = libp2p_address.map(|f| {
+            Multiaddr::try_from(format!(
+                "/{}/{}/udp/{}/quic-v1",
+                if f.is_ipv4() { "ip4" } else { "ip6" },
+                f.ip(),
+                f.port()
+            ))
+            .expect("failed to create multiaddress")
+        });
+
+        let pubkey: Vec<u8> = PeerConfig::<K>::to_bytes(&my_pub_key).clone();
+
+        // Serialize our (possible) libp2p-specific data
+        let request_body =
+            vbs::Serializer::<Version01>::serialize(&(pubkey, libp2p_address, libp2p_public_key))
+                .expect("failed to serialize request");
+
+        // register our public key with the orchestrator
+        let node_index: u64 = loop {
+            let result = self
+                .client
+                .post(&format!("api/pubkey/{is_da}"))
+                .body_binary(&request_body)
+                .expect("Failed to form request")
+                .send()
+                .await
+                .inspect_err(|err| tracing::error!("{err}"));
+
+            if let Ok(index) = result {
+                break index;
+            }
+
+            async_sleep(Duration::from_millis(250)).await;
+        };
 
         // wait for all nodes' public keys
         let wait_for_all_nodes_pub_key = |client: Client<ClientError, OrchestratorVersion>| {
@@ -331,7 +359,11 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
 
-        self.get_config_after_collection().await
+        let mut network_config = self.get_config_after_collection().await;
+
+        network_config.node_index = node_index;
+
+        network_config
     }
 
     /// Tells the orchestrator this validator is ready to start

@@ -5,7 +5,7 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
-use std::{collections::HashSet, fs::OpenOptions, io, io::ErrorKind};
+use std::{collections::HashMap, fs::OpenOptions, io, io::ErrorKind};
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
@@ -67,12 +67,10 @@ struct OrchestratorState<KEY: SignatureKey> {
     tmp_latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY>,
-    /// The total nodes that have posted their public keys
-    nodes_with_pubkey: u64,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
     peer_pub_ready: bool,
-    /// The set of index for nodes that have posted their public keys/configs
-    pub_posted: HashSet<u64>,
+    /// A map from public keys to the corresponding node index.
+    pub_posted: HashMap<Vec<u8>, u64>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -95,9 +93,8 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             latest_index: 0,
             tmp_latest_index: 0,
             config: network_config,
-            nodes_with_pubkey: 0,
             peer_pub_ready: false,
-            pub_posted: HashSet::new(),
+            pub_posted: HashMap::new(),
             nodes_connected: 0,
             start: false,
             bench_results: BenchResults::default(),
@@ -185,10 +182,11 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// if unable to serve
     fn register_public_key(
         &mut self,
-        node_index: u64,
         pubkey: &mut Vec<u8>,
         is_da: bool,
-    ) -> Result<(), ServerError>;
+        libp2p_address: Option<Multiaddr>,
+        libp2p_public_key: Option<PeerId>,
+    ) -> Result<u64, ServerError>;
     /// post endpoint for whether or not all peers public keys are ready
     /// # Errors
     /// if unable to serve
@@ -280,10 +278,11 @@ where
     #[allow(clippy::cast_possible_truncation)]
     fn register_public_key(
         &mut self,
-        node_index: u64,
         pubkey: &mut Vec<u8>,
         is_da: bool,
-    ) -> Result<(), ServerError> {
+        libp2p_address: Option<Multiaddr>,
+        libp2p_public_key: Option<PeerId>,
+    ) -> Result<u64, ServerError> {
         if !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
@@ -293,37 +292,50 @@ where
             });
         }
 
-        if self.pub_posted.contains(&node_index) {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: "Node has already posted public key".to_string(),
-            });
+        if let Some(node_index) = self.pub_posted.get(pubkey) {
+            return Ok(*node_index);
         }
-        self.pub_posted.insert(node_index);
 
-        // The guess is the first extra 12 bytes are from orchestrator serialization
-        pubkey.drain(..12);
-        let register_pub_key_with_stake = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
-        self.config.config.known_nodes_with_stake[node_index as usize] =
-            register_pub_key_with_stake.clone();
+        let node_index = self.pub_posted.len() as u64;
+
+        self.pub_posted.insert(pubkey.clone(), node_index);
+
+        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+        self.config
+            .config
+            .known_nodes_with_stake
+            .push(staked_pubkey.clone());
 
         // If the node wants to be DA, add it to the list of known DAs
         if is_da {
-            self.config
-                .config
-                .known_da_nodes
-                .push(register_pub_key_with_stake);
+            self.config.config.known_da_nodes.push(staked_pubkey);
         };
 
-        self.nodes_with_pubkey += 1;
-        println!(
-            "Node {:?} posted public key, now total num posted public key: {:?}",
-            node_index, self.nodes_with_pubkey
-        );
-        if self.nodes_with_pubkey >= (self.config.config.num_nodes_with_stake.get() as u64) {
-            self.peer_pub_ready = true;
+        // If the orchestrator is set up for libp2p and we have supplied the proper
+        // Libp2p data, add our node to the list of bootstrap nodes.
+        if self.config.libp2p_config.clone().is_some() {
+            if let (Some(libp2p_public_key), Some(libp2p_address)) =
+                (libp2p_public_key, libp2p_address)
+            {
+                // Push to our bootstrap nodes
+                self.config
+                    .libp2p_config
+                    .as_mut()
+                    .unwrap()
+                    .bootstrap_nodes
+                    .push((libp2p_public_key, libp2p_address));
+            }
         }
-        Ok(())
+
+        println!("Posted public key for node_index {node_index}");
+
+        // node_index starts at 0, so once it matches `num_nodes_with_stake`
+        // we will have registered one node too many. hence, we want `node_index + 1`.
+        if node_index + 1 >= (self.config.config.num_nodes_with_stake.get() as u64) {
+            self.peer_pub_ready = true;
+            self.accepting_new_keys = false;
+        }
+        Ok(node_index)
     }
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
@@ -399,18 +411,19 @@ where
             });
         }
 
-        let registered_nodes = self.pub_posted.len();
+        let registered_nodes_with_stake = self.config.config.known_nodes_with_stake.len();
         let registered_da_nodes = self.config.config.known_da_nodes.len();
 
-        if registered_nodes > 1 && registered_da_nodes > 1 {
-            self.config.config.num_nodes_with_stake = std::num::NonZeroUsize::new(registered_nodes)
-                .expect("Failed to convert to NonZeroUsize; this should be impossible.");
+        if registered_da_nodes > 1 {
+            self.config.config.num_nodes_with_stake =
+                std::num::NonZeroUsize::new(registered_nodes_with_stake)
+                    .expect("Failed to convert to NonZeroUsize; this should be impossible.");
 
             self.config.config.da_staked_committee_size = registered_da_nodes;
         } else {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
-                message: format!("We cannot manually start the network, because we only have {registered_nodes} public keys registered, with {registered_da_nodes} DA nodes.")
+                message: format!("We cannot manually start the network, because we only have {registered_nodes_with_stake} nodes with stake registered, with {registered_da_nodes} DA nodes.")
             });
         }
 
@@ -517,10 +530,22 @@ where
     })?
     .post("post_pubkey", |req, state| {
         async move {
-            let node_index = req.integer_param("node_index")?;
             let is_da = req.boolean_param("is_da")?;
-            let mut pubkey = req.body_bytes();
-            state.register_public_key(node_index, &mut pubkey, is_da)
+            // Read the bytes from the body
+            let mut body_bytes = req.body_bytes();
+            body_bytes.drain(..12);
+
+            // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
+            let Ok((mut pubkey, libp2p_address, libp2p_public_key)) =
+                vbs::Serializer::<Version01>::deserialize(&body_bytes)
+            else {
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::BadRequest,
+                    message: "Malformed body".to_string(),
+                });
+            };
+
+            state.register_public_key(&mut pubkey, is_da, libp2p_address, libp2p_public_key)
         }
         .boxed()
     })?
@@ -575,6 +600,9 @@ where
         tracing::warn!("Took orchestrator manual start password from the environment variable: ORCHESTRATOR_MANUAL_START_PASSWORD={:?}", env_password);
         network_config.manual_start_password = env_password.ok();
     }
+
+    network_config.config.known_nodes_with_stake = vec![];
+    network_config.config.known_da_nodes = vec![];
 
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
