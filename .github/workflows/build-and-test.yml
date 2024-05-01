@@ -88,6 +88,7 @@ jobs:
       - name: Test examples
         run: |
           just ${{ matrix.just_variants }} example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml
+        timeout-minutes: 20
 
   build-release:
     strategy:
