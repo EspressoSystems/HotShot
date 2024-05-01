@@ -1020,7 +1020,6 @@ pub async fn main_entry_point<
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
     let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::get_complete_config(
         &orchestrator_client,
-        args.clone().network_config_file,
         my_own_validator_config,
         args.advertise_address,
         Some(libp2p_public_key),

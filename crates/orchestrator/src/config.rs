@@ -294,27 +294,23 @@ impl<K: SignatureKey> NetworkConfig<K> {
     /// If we are unable to get the configuration from the orchestrator
     pub async fn get_complete_config(
         client: &OrchestratorClient,
-        file: Option<String>,
         my_own_validator_config: ValidatorConfig<K>,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
         // If true, we will use the node index to determine if we are a DA node
         indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
-        let (mut run_config, source) =
-            Self::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
-                .await?;
-        let node_index = run_config.node_index;
+        // get the configuration from the orchestrator
+        let mut run_config: NetworkConfig<K> = client
+            .post_and_wait_all_public_keys::<K>(
+                my_own_validator_config.get_public_config(),
+                my_own_validator_config.is_da,
+                libp2p_address,
+                libp2p_public_key,
+            )
+            .await;
 
-        // Assign my_own_validator_config to the run_config if not loading from file
-        match source {
-            NetworkConfigSource::Orchestrator => {
-                run_config.config.my_own_validator_config = my_own_validator_config.clone();
-            }
-            NetworkConfigSource::File => {
-                // do nothing, my_own_validator_config has already been loaded from file
-            }
-        }
+        run_config.config.my_own_validator_config = my_own_validator_config.clone();
 
         // If we've chosen to be DA based on the index, do so
         if indexed_da {
@@ -322,28 +318,11 @@ impl<K: SignatureKey> NetworkConfig<K> {
                 run_config.node_index < run_config.config.da_staked_committee_size as u64;
         }
 
-        // one more round of orchestrator here to get peer's public key/config
-        let updated_config: NetworkConfig<K> = client
-            .post_and_wait_all_public_keys::<K>(
-                run_config.node_index,
-                run_config
-                    .config
-                    .my_own_validator_config
-                    .get_public_config(),
-                run_config.config.my_own_validator_config.is_da,
-                libp2p_address,
-                libp2p_public_key,
-            )
-            .await;
-        run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
-        run_config.config.known_da_nodes = updated_config.config.known_da_nodes;
-        run_config.config.num_nodes_with_stake = updated_config.config.num_nodes_with_stake;
-        run_config.config.da_staked_committee_size = updated_config.config.da_staked_committee_size;
-
-        println!("{:?}", run_config.config);
-
-        info!("Retrieved config; our node index is {node_index}.");
-        Ok((run_config, source))
+        info!(
+            "Retrieved config; our node index is {}.",
+            run_config.node_index
+        );
+        Ok((run_config, NetworkConfigSource::Orchestrator))
     }
 
     /// Loads a `NetworkConfig` from a file.

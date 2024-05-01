@@ -303,7 +303,6 @@ impl OrchestratorClient {
     #[instrument(skip(self), name = "orchestrator public keys")]
     pub async fn post_and_wait_all_public_keys<K: SignatureKey>(
         &self,
-        node_index: u64,
         my_pub_key: PeerConfig<K>,
         is_da: bool,
         libp2p_address: Option<SocketAddr>,
