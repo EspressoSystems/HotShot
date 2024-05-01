@@ -399,14 +399,18 @@ where
             });
         }
 
-        if self.pub_posted.len() > 1 {
-            self.config.config.num_nodes_with_stake =
-                std::num::NonZeroUsize::new(self.pub_posted.len())
-                    .expect("Failed to convert to NonZeroUsize; this should be impossible.");
+        let registered_nodes = self.pub_posted.len();
+        let registered_da_nodes = self.config.config.known_da_nodes.len();
+
+        if registered_nodes > 1 && registered_da_nodes > 1 {
+            self.config.config.num_nodes_with_stake = std::num::NonZeroUsize::new(registered_nodes)
+                .expect("Failed to convert to NonZeroUsize; this should be impossible.");
+
+            self.config.config.da_staked_committee_size = registered_da_nodes;
         } else {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
-                message: format!("We cannot manually start the network, because we only have {} public keys registered.", self.pub_posted.len())
+                message: format!("We cannot manually start the network, because we only have {registered_nodes} public keys registered, with {registered_da_nodes} DA nodes.")
             });
         }
 
@@ -568,6 +572,7 @@ where
     let env_password = std::env::var("ORCHESTRATOR_MANUAL_START_PASSWORD");
 
     if env_password.is_ok() {
+        tracing::warn!("Took orchestrator manual start password from the environment variable: ORCHESTRATOR_MANUAL_START_PASSWORD={:?}", env_password);
         network_config.manual_start_password = env_password.ok();
     }
 
