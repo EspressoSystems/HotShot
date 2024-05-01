@@ -12,6 +12,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
+    data::ViewChangeEvidence,
     event::Event,
     traits::{
         block_contents::BlockHeader,
@@ -110,8 +111,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
+        let mut timeout_certificate = None;
+        let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
@@ -141,14 +142,14 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
                     either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
+                        timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
                         _quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
+                    view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
@@ -158,10 +159,10 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                             payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
                         },
                         hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
-                            _timeout_certificate = Some(tc.clone());
+                            timeout_certificate = Some(tc.clone());
                         }
                         hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) => {
-                            _view_sync_finalize_cert = Some(vsc.clone());
+                            view_sync_finalize_cert = Some(vsc.clone());
                         },
                     }
                 }
@@ -176,6 +177,14 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
+        let mut proposal_cert = if let Some(view_sync_cert) = view_sync_finalize_cert {
+            Some(ViewChangeEvidence::ViewSync(view_sync_cert))
+        } else if let Some(timeout_cert) = timeout_certificate {
+            Some(ViewChangeEvidence::Timeout(timeout_cert))
+        } else {
+            None
+        };
+
         if let Err(e) = publish_proposal_if_able(
             self.latest_proposed_view,
             self.view_number,
@@ -188,7 +197,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             None,
             None,
             &mut commit_and_metadata,
-            &mut None,
+            &mut proposal_cert,
             Arc::clone(&self.instance_state),
         )
         .await
