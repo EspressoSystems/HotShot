@@ -3,7 +3,9 @@ use std::{net::SocketAddr, time::Duration};
 use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
-use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
+use hotshot_types::{
+    constants::Version01, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
+};
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
@@ -303,8 +305,7 @@ impl OrchestratorClient {
     #[instrument(skip(self), name = "orchestrator public keys")]
     pub async fn post_and_wait_all_public_keys<K: SignatureKey>(
         &self,
-        my_pub_key: PeerConfig<K>,
-        is_da: bool,
+        mut validator_config: ValidatorConfig<K>,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> NetworkConfig<K> {
@@ -319,7 +320,9 @@ impl OrchestratorClient {
             .expect("failed to create multiaddress")
         });
 
-        let pubkey: Vec<u8> = PeerConfig::<K>::to_bytes(&my_pub_key).clone();
+        let pubkey: Vec<u8> =
+            PeerConfig::<K>::to_bytes(&validator_config.get_public_config()).clone();
+        let da_requested: bool = validator_config.is_da;
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
@@ -327,22 +330,24 @@ impl OrchestratorClient {
                 .expect("failed to serialize request");
 
         // register our public key with the orchestrator
-        let node_index: u64 = loop {
+        let (node_index, is_da): (u64, bool) = loop {
             let result = self
                 .client
-                .post(&format!("api/pubkey/{is_da}"))
+                .post(&format!("api/pubkey/{da_requested}"))
                 .body_binary(&request_body)
                 .expect("Failed to form request")
                 .send()
                 .await
                 .inspect_err(|err| tracing::error!("{err}"));
 
-            if let Ok(index) = result {
-                break index;
+            if let Ok((index, is_da)) = result {
+                break (index, is_da);
             }
 
             async_sleep(Duration::from_millis(250)).await;
         };
+
+        validator_config.is_da = is_da;
 
         // wait for all nodes' public keys
         let wait_for_all_nodes_pub_key = |client: Client<ClientError, OrchestratorVersion>| {
@@ -361,6 +366,7 @@ impl OrchestratorClient {
         let mut network_config = self.get_config_after_collection().await;
 
         network_config.node_index = node_index;
+        network_config.config.my_own_validator_config = validator_config;
 
         network_config
     }

@@ -1023,8 +1023,6 @@ pub async fn main_entry_point<
         my_own_validator_config,
         args.advertise_address,
         Some(libp2p_public_key),
-        // If `indexed_da` is true: use the node index to determine if we are a DA node.
-        true,
     )
     .await
     .expect("failed to get config");

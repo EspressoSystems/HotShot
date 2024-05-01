@@ -69,8 +69,8 @@ struct OrchestratorState<KEY: SignatureKey> {
     config: NetworkConfig<KEY>,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
     peer_pub_ready: bool,
-    /// A map from public keys to the corresponding node index.
-    pub_posted: HashMap<Vec<u8>, u64>,
+    /// A map from public keys to `(node_index, is_da)`.
+    pub_posted: HashMap<Vec<u8>, (u64, bool)>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -186,7 +186,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
         is_da: bool,
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
-    ) -> Result<u64, ServerError>;
+    ) -> Result<(u64, bool), ServerError>;
     /// post endpoint for whether or not all peers public keys are ready
     /// # Errors
     /// if unable to serve
@@ -279,10 +279,10 @@ where
     fn register_public_key(
         &mut self,
         pubkey: &mut Vec<u8>,
-        is_da: bool,
+        da_requested: bool,
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
-    ) -> Result<u64, ServerError> {
+    ) -> Result<(u64, bool), ServerError> {
         if !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
@@ -292,13 +292,11 @@ where
             });
         }
 
-        if let Some(node_index) = self.pub_posted.get(pubkey) {
-            return Ok(*node_index);
+        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
+            return Ok((*node_index, *is_da));
         }
 
         let node_index = self.pub_posted.len() as u64;
-
-        self.pub_posted.insert(pubkey.clone(), node_index);
 
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
         self.config
@@ -306,10 +304,26 @@ where
             .known_nodes_with_stake
             .push(staked_pubkey.clone());
 
-        // If the node wants to be DA, add it to the list of known DAs
-        if is_da {
+        let mut added_to_da = false;
+
+        let da_full =
+            self.config.config.known_da_nodes.len() >= self.config.config.da_staked_committee_size;
+
+        #[allow(clippy::nonminimal_bool)]
+        // We add the node to the DA committee depending on either its node index or whether it requested membership.
+        //
+        // Since we issue `node_index` incrementally, if we are deciding DA membership by node_index
+        // we only need to check that the committee is not yet full.
+        //
+        // Note: this logically simplifies to (self.config.indexed_da || da_requested) && !da_full,
+        // but writing it that way makes it a little less clear to me.
+        if (self.config.indexed_da || (!self.config.indexed_da && da_requested)) && !da_full {
             self.config.config.known_da_nodes.push(staked_pubkey);
-        };
+            added_to_da = true;
+        }
+
+        self.pub_posted
+            .insert(pubkey.clone(), (node_index, added_to_da));
 
         // If the orchestrator is set up for libp2p and we have supplied the proper
         // Libp2p data, add our node to the list of bootstrap nodes.
@@ -335,7 +349,7 @@ where
             self.peer_pub_ready = true;
             self.accepting_new_keys = false;
         }
-        Ok(node_index)
+        Ok((node_index, added_to_da))
     }
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {

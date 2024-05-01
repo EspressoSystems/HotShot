@@ -157,6 +157,10 @@ impl Default for RandomBuilderConfig {
 pub struct NetworkConfig<KEY: SignatureKey> {
     /// number of views to run
     pub rounds: usize,
+    /// whether DA membership is determined by index.
+    /// if true, the first k nodes to register form the DA committee
+    /// if false, DA membership is requested by the nodes
+    pub indexed_da: bool,
     /// number of transactions per view
     pub transactions_per_round: usize,
     /// password to have the orchestrator start the network,
@@ -297,30 +301,19 @@ impl<K: SignatureKey> NetworkConfig<K> {
         my_own_validator_config: ValidatorConfig<K>,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
-        // If true, we will use the node index to determine if we are a DA node
-        indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
         // get the configuration from the orchestrator
-        let mut run_config: NetworkConfig<K> = client
+        let run_config: NetworkConfig<K> = client
             .post_and_wait_all_public_keys::<K>(
-                my_own_validator_config.get_public_config(),
-                my_own_validator_config.is_da,
+                my_own_validator_config,
                 libp2p_address,
                 libp2p_public_key,
             )
             .await;
 
-        run_config.config.my_own_validator_config = my_own_validator_config.clone();
-
-        // If we've chosen to be DA based on the index, do so
-        if indexed_da {
-            run_config.config.my_own_validator_config.is_da =
-                run_config.node_index < run_config.config.da_staked_committee_size as u64;
-        }
-
         info!(
-            "Retrieved config; our node index is {}.",
-            run_config.node_index
+            "Retrieved config; our node index is {}. DA committee member: {}",
+            run_config.node_index, run_config.config.my_own_validator_config.is_da
         );
         Ok((run_config, NetworkConfigSource::Orchestrator))
     }
@@ -422,6 +415,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
     fn default() -> Self {
         Self {
             rounds: ORCHESTRATOR_DEFAULT_NUM_ROUNDS,
+            indexed_da: true,
             transactions_per_round: ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND,
             node_index: 0,
             seed: [0u8; 32],
@@ -455,6 +449,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// number of views to run
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_NUM_ROUNDS)]
     pub rounds: usize,
+    /// number of views to run
+    #[serde(default)]
+    pub indexed_da: bool,
     /// number of transactions per view
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND)]
     pub transactions_per_round: usize,
@@ -506,6 +503,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {
         NetworkConfig {
             rounds: val.rounds,
+            indexed_da: val.indexed_da,
             transactions_per_round: val.transactions_per_round,
             node_index: 0,
             num_bootrap: val.config.num_bootstrap,
