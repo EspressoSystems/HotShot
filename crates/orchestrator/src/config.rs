@@ -300,7 +300,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
         indexed_da: bool,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
         if !client
-            .pass_check_duplicate_keys::<K>(my_own_validator_config.get_public_config())
+            .pass_check_no_dup_keys::<K>(my_own_validator_config.get_public_config())
             .await
         {
             return Err(anyhow!("Duplicate keys registration is not allowed!"));

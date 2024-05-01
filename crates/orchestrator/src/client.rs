@@ -342,7 +342,7 @@ impl OrchestratorClient {
         skip(self),
         name = "orchestrator check duplicate keys before identity registration"
     )]
-    pub async fn pass_check_duplicate_keys<K: SignatureKey>(
+    pub async fn pass_check_no_dup_keys<K: SignatureKey>(
         &self,
         my_pub_key: PeerConfig<K>,
     ) -> bool {
