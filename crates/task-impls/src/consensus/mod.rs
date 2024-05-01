@@ -497,7 +497,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
         });
 
-        self.spawned_tasks.entry(propose_view).or_default().push(handle);
+        self.spawned_tasks
+            .entry(propose_view)
+            .or_default()
+            .push(handle);
     }
 
     /// Handles a consensus event received on the event stream
