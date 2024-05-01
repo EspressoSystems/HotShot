@@ -246,17 +246,6 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         return false;
     }
 
-    if let Err(e) = storage
-        .write()
-        .await
-        .update_undecided_state(
-            consensus.saved_leaves.clone(),
-            consensus.validated_state_map.clone(),
-        )
-        .await
-    {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
-    }
     // Validate the DAC.
     let message = if cert.is_valid_cert(committee_membership.as_ref()) {
         // Validate the block payload commitment for non-genesis DAC.
@@ -287,9 +276,10 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         );
         return false;
     };
+
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
     consensus.validated_state_map.insert(
-        view,
+        cur_view,
         View {
             view_inner: ViewInner::Leaf {
                 leaf: proposed_leaf.commit(),
@@ -298,6 +288,19 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             },
         },
     );
+
+    if let Err(e) = storage
+        .write()
+        .await
+        .update_undecided_state(
+            consensus.saved_leaves.clone(),
+            consensus.validated_state_map.clone(),
+        )
+        .await
+    {
+        warn!("Couldn't store undecided state.  Error: {:?}", e);
+    }
+
     if let GeneralConsensusMessage::Vote(vote) = message {
         debug!(
             "Sending vote to next quorum leader {:?}",
@@ -403,8 +406,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
             self.decided_upgrade_cert.clone(),
-            &mut self.payload_commitment_and_metadata,
-            &mut self.proposal_cert,
+            self.payload_commitment_and_metadata.clone(),
+            self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
         )
         .await?;
@@ -415,6 +418,86 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             .push(create_and_send_proposal_handle);
 
         Ok(())
+    }
+
+    #[cfg(not(feature = "dependency-tasks"))]
+    /// Tries to vote then Publishes a proposal
+    fn vote_and_publish_proposal(
+        &mut self,
+        vote_view: TYPES::Time,
+        propose_view: TYPES::Time,
+        proposal: QuorumProposal<TYPES>,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) {
+        use crate::consensus::proposal_helpers::publish_proposal_from_commitment_and_metadata;
+
+        use self::proposal_helpers::publish_proposal_from_upgrade_cert;
+
+        let upgrade = self.decided_upgrade_cert.clone();
+        let pub_key = self.public_key.clone();
+        let priv_key = self.private_key.clone();
+        let consensus = Arc::clone(&self.consensus);
+        let storage = Arc::clone(&self.storage);
+        let quorum_mem = Arc::clone(&self.quorum_membership);
+        let committee_mem = Arc::clone(&self.committee_membership);
+        let instance_state = Arc::clone(&self.instance_state);
+        let commitment_and_metadata = self.payload_commitment_and_metadata.clone();
+        let cur_view = self.cur_view;
+        let sender = event_stream.clone();
+        let decided_upgrade_cert = self.decided_upgrade_cert.clone();
+        let delay = self.round_start_delay;
+        let formed_upgrade_certificate = self.formed_upgrade_certificate.clone();
+        let proposal_cert = self.proposal_cert.clone();
+        let handle = async_spawn(async move {
+            vote_if_able::<TYPES, I>(
+                vote_view,
+                proposal,
+                pub_key.clone(),
+                priv_key.clone(),
+                Arc::clone(&consensus),
+                storage,
+                upgrade,
+                Arc::clone(&quorum_mem),
+                committee_mem,
+                Arc::clone(&instance_state),
+                event_stream,
+            )
+            .await;
+            if let Some(upgrade_cert) = decided_upgrade_cert {
+                let _ = publish_proposal_from_upgrade_cert(
+                    cur_view,
+                    propose_view,
+                    sender,
+                    quorum_mem,
+                    pub_key,
+                    priv_key,
+                    consensus,
+                    upgrade_cert,
+                    delay,
+                    instance_state,
+                )
+                .await;
+            } else {
+                let _ = publish_proposal_from_commitment_and_metadata(
+                    cur_view,
+                    propose_view,
+                    sender,
+                    quorum_mem,
+                    pub_key,
+                    priv_key,
+                    consensus,
+                    delay,
+                    formed_upgrade_certificate,
+                    decided_upgrade_cert,
+                    commitment_and_metadata,
+                    proposal_cert,
+                    instance_state,
+                )
+                .await;
+            }
+        });
+
+        self.spawned_tasks.entry(propose_view).or_default().push(handle);
     }
 
     /// Handles a consensus event received on the event stream
@@ -654,6 +737,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
+                if proposal.get_view_number() != view {
+                    return;
+                }
                 let upgrade = self.decided_upgrade_cert.clone();
                 let pub_key = self.public_key.clone();
                 let priv_key = self.private_key.clone();
@@ -963,10 +1049,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteSend(vote) => {
-                let Some(proposal) = &self.current_proposal else {
+                let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
-                if proposal.get_view_number() == vote.get_view_number()
+
+                let new_view = proposal.get_view_number() + 1;
+                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
+                    && self.consensus.read().await.high_qc.view_number
+                        == proposal.get_view_number();
+                // todo get rid of this clone
+                let qc = self.consensus.read().await.high_qc.clone();
+
+                if should_propose {
+                    debug!(
+                        "Attempting to publish proposal after voting; now in view: {}",
+                        *new_view
+                    );
+                    let _ = self
+                        .publish_proposal(qc.view_number + 1, event_stream.clone())
+                        .await;
+                }
+                if proposal.get_view_number() <= vote.get_view_number()
                     && self.public_key != self.quorum_membership.get_leader(vote.get_view_number())
                 {
                     self.current_proposal = None;

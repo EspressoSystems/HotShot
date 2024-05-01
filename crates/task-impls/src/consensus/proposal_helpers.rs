@@ -371,7 +371,7 @@ pub async fn get_parent_leaf_and_state<TYPES: NodeType>(
 /// case proposal scenario.
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::too_many_arguments)]
-async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
+pub async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -438,7 +438,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
 /// standard case proposal scenario.
 #[allow(clippy::too_many_arguments)]
-async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
+pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -449,8 +449,8 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
-    proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
+    commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
+    proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
@@ -489,7 +489,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     // FIXME - This is not great, and will be fixed later.
     // If it's > July, 2024 and this is still here, something has gone horribly wrong.
     let cnm = commitment_and_metadata
-        .take()
+        .clone()
         .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
 
     ensure!(
@@ -515,9 +515,6 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         .await;
     });
 
-    *proposal_cert = None;
-    *commitment_and_metadata = None;
-
     Ok(create_and_send_proposal_handle)
 }
 
@@ -535,8 +532,8 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-    commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
-    proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
+    commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
+    proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
 ) -> Result<JoinHandle<()>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
@@ -757,8 +754,8 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
                     task_state.decided_upgrade_cert.clone(),
-                    &mut task_state.payload_commitment_and_metadata,
-                    &mut task_state.proposal_cert,
+                    task_state.payload_commitment_and_metadata.clone(),
+                    task_state.proposal_cert.clone(),
                     Arc::clone(&task_state.instance_state),
                 )
                 .await?;
@@ -1002,8 +999,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             == task_state.public_key
             && consensus.high_qc.view_number
                 == task_state.current_proposal.clone().unwrap().view_number;
-        // todo get rid of this clone
-        let qc = consensus.high_qc.clone();
 
         drop(consensus);
         if new_decide_reached {
@@ -1014,44 +1009,44 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
-            if let Err(e) = task_state
-                .publish_proposal(qc.view_number + 1, event_stream.clone())
-                .await
-            {
-                debug!("Failed to propose; error = {e:#}");
-            };
+            task_state.vote_and_publish_proposal(
+                proposal.get_view_number(),
+                new_view,
+                proposal.clone(),
+                event_stream.clone(),
+            );
+        } else {
+            let proposal = proposal.clone();
+            let upgrade = task_state.decided_upgrade_cert.clone();
+            let pub_key = task_state.public_key.clone();
+            let priv_key = task_state.private_key.clone();
+            let consensus = Arc::clone(&task_state.consensus);
+            let storage = Arc::clone(&task_state.storage);
+            let quorum_mem = Arc::clone(&task_state.quorum_membership);
+            let committee_mem = Arc::clone(&task_state.committee_membership);
+            let instance_state = Arc::clone(&task_state.instance_state);
+            let handle = async_spawn(async move {
+                vote_if_able::<TYPES, I>(
+                    view,
+                    proposal,
+                    pub_key,
+                    priv_key,
+                    consensus,
+                    storage,
+                    upgrade,
+                    quorum_mem,
+                    committee_mem,
+                    instance_state,
+                    event_stream,
+                )
+                .await;
+            });
+            task_state
+                .spawned_tasks
+                .entry(view)
+                .or_default()
+                .push(handle);
         }
-
-        let proposal = proposal.clone();
-        let upgrade = task_state.decided_upgrade_cert.clone();
-        let pub_key = task_state.public_key.clone();
-        let priv_key = task_state.private_key.clone();
-        let consensus = Arc::clone(&task_state.consensus);
-        let storage = Arc::clone(&task_state.storage);
-        let quorum_mem = Arc::clone(&task_state.quorum_membership);
-        let committee_mem = Arc::clone(&task_state.committee_membership);
-        let instance_state = Arc::clone(&task_state.instance_state);
-        let handle = async_spawn(async move {
-            vote_if_able::<TYPES, I>(
-                view,
-                proposal,
-                pub_key,
-                priv_key,
-                consensus,
-                storage,
-                upgrade,
-                quorum_mem,
-                committee_mem,
-                instance_state,
-                event_stream,
-            )
-            .await;
-        });
-        task_state
-            .spawned_tasks
-            .entry(view)
-            .or_default()
-            .push(handle);
     }
 
     Ok(())
