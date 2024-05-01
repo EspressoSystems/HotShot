@@ -543,12 +543,37 @@
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
 
+<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
@@ -807,15 +832,32 @@
             .to_string_lossy()
             .into_owned();
 
+        <span class="comment">// Pick some unused public ports
+        </span><span class="kw">let </span>public_address_1 = <span class="macro">format!</span>(
+            <span class="string">"127.0.0.1:{}"</span>,
+            portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>)
+        );
+        <span class="kw">let </span>public_address_2 = <span class="macro">format!</span>(
+            <span class="string">"127.0.0.1:{}"</span>,
+            portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>)
+        );
+
         <span class="comment">// 2 brokers
-        </span><span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
             <span class="comment">// Get the ports to bind to
             </span><span class="kw">let </span>private_port = portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>);
-            <span class="kw">let </span>public_port = portpicker::pick_unused_port().expect(<span class="string">"could not find an open port"</span>);
 
             <span class="comment">// Extrapolate addresses
             </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
-            <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
+            <span class="kw">let </span>(public_address, other_public_address) = <span class="kw">if </span>i == <span class="number">0 </span>{
+                (public_address_1.clone(), public_address_2.clone())
+            } <span class="kw">else </span>{
+                (public_address_2.clone(), public_address_1.clone())
+            };
+
+            <span class="comment">// Calculate the broker identifiers
+            </span><span class="kw">let </span>broker_identifier = <span class="macro">format!</span>(<span class="string">"{public_address}/{public_address}"</span>);
+            <span class="kw">let </span>other_broker_identifier = <span class="macro">format!</span>(<span class="string">"{other_public_address}/{other_public_address}"</span>);
 
             <span class="comment">// Configure the broker
             </span><span class="kw">let </span>config: BrokerConfig&lt;TestingDef&lt;TYPES&gt;&gt; = BrokerConfig {
@@ -837,6 +879,12 @@
             </span>async_spawn(<span class="kw">async move </span>{
                 <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TYPES&gt;&gt; =
                     Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
+
+                <span class="comment">// If we are the first broker by identifier, we need to sleep a bit
+                // for discovery to happen first
+                </span><span class="kw">if </span>other_broker_identifier &gt; broker_identifier {
+                    async_sleep(Duration::from_secs(<span class="number">2</span>)).<span class="kw">await</span>;
+                }
 
                 <span class="comment">// Error if we stopped unexpectedly
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = broker.start().<span class="kw">await </span>{
