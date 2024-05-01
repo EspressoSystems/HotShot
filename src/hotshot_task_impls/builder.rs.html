@@ -164,6 +164,9 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::time::{Duration, Instant};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -273,13 +276,14 @@
     </span><span class="kw">pub async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent: VidCommitment,
+        view_number: u64,
         sender: TYPES::SignatureKey,
         signature: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuilderClientError&gt; {
         <span class="kw">let </span>encoded_signature: TaggedBase64 = signature.clone().into();
         <span class="self">self</span>.inner
             .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">"availableblocks/{parent}/{sender}/{encoded_signature}"
+                <span class="string">"availableblocks/{parent}/{view_number}/{sender}/{encoded_signature}"
             </span>))
             .send()
             .<span class="kw">await
@@ -294,13 +298,14 @@
     </span><span class="kw">pub async fn </span>claim_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: BuilderCommitment,
+        view_number: u64,
         sender: TYPES::SignatureKey,
         signature: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuilderClientError&gt; {
         <span class="kw">let </span>encoded_signature: TaggedBase64 = signature.clone().into();
         <span class="self">self</span>.inner
             .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">"claimblock/{block_hash}/{sender}/{encoded_signature}"
+                <span class="string">"claimblock/{block_hash}/{view_number}/{sender}/{encoded_signature}"
             </span>))
             .send()
             .<span class="kw">await
@@ -315,13 +320,14 @@
     </span><span class="kw">pub async fn </span>claim_block_header_input(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: BuilderCommitment,
+        view_number: u64,
         sender: TYPES::SignatureKey,
         signature: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockHeaderInput&lt;TYPES&gt;, BuilderClientError&gt; {
         <span class="kw">let </span>encoded_signature: TaggedBase64 = signature.clone().into();
         <span class="self">self</span>.inner
             .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">"claimheaderinput/{block_hash}/{sender}/{encoded_signature}"
+                <span class="string">"claimheaderinput/{block_hash}/{view_number}/{sender}/{encoded_signature}"
             </span>))
             .send()
             .<span class="kw">await

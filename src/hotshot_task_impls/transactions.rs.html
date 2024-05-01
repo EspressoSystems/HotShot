@@ -421,6 +421,15 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -637,7 +646,7 @@
     </span>}
 
     <span class="doccomment">/// Get last known builder commitment from consensus.
-    </span><span class="kw">async fn </span>latest_known_vid_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
+    </span><span class="kw">async fn </span>latest_known_vid_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (TYPES::Time, VidCommitment) {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>prev_view = TYPES::Time::new(<span class="self">self</span>.cur_view.saturating_sub(<span class="number">1</span>));
@@ -658,13 +667,16 @@
                         ViewInner::Failed =&gt; <span class="prelude-val">None</span>,
                     })
             {
-                <span class="kw">return </span>commitment;
+                <span class="kw">return </span>(prev_view, commitment);
             }
             prev_view = prev_view - <span class="number">1</span>;
         }
 
         <span class="comment">// If not found, return commitment for last decided block
-        </span>consensus.get_decided_leaf().get_payload_commitment()
+        </span>(
+            prev_view,
+            consensus.get_decided_leaf().get_payload_commitment(),
+        )
     }
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
@@ -672,7 +684,7 @@
         <span class="kw">let </span>task_start_time = Instant::now();
 
         <span class="comment">// Find commitment to the block we want to build upon
-        </span><span class="kw">let </span>parent_comm = <span class="self">self</span>.latest_known_vid_commitment().<span class="kw">await</span>;
+        </span><span class="kw">let </span>(view_num, parent_comm) = <span class="self">self</span>.latest_known_vid_commitment().<span class="kw">await</span>;
         <span class="kw">let </span>parent_comm_sig = <span class="kw">match </span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
             parent_comm.as_ref(),
@@ -689,7 +701,7 @@
                 <span class="self">self</span>.api
                     .builder_timeout()
                     .saturating_sub(task_start_time.elapsed()),
-                <span class="self">self</span>.get_block_from_builder(parent_comm, <span class="kw-2">&amp;</span>parent_comm_sig),
+                <span class="self">self</span>.get_block_from_builder(parent_comm, view_num, <span class="kw-2">&amp;</span>parent_comm_sig),
             )
             .<span class="kw">await
             </span>{
@@ -722,11 +734,17 @@
     </span><span class="kw">async fn </span>get_block_from_builder(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_comm: VidCommitment,
+        view_number: TYPES::Time,
         parent_comm_sig: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; anyhow::Result&lt;BuilderResponses&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>available_blocks = <span class="self">self
             </span>.builder_client
-            .get_available_blocks(parent_comm, <span class="self">self</span>.public_key.clone(), parent_comm_sig)
+            .get_available_blocks(
+                parent_comm,
+                view_number.get_u64(),
+                <span class="self">self</span>.public_key.clone(),
+                parent_comm_sig,
+            )
             .<span class="kw">await
             </span>.context(<span class="string">"getting available blocks"</span>)<span class="question-mark">?</span>;
         <span class="macro">tracing::debug!</span>(<span class="string">"Got available blocks: {available_blocks:?}"</span>);
@@ -764,8 +782,8 @@
         .context(<span class="string">"signing block hash"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join! </span>{
-            <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
-            <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash.clone(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
+            <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
+            <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
         };
 
         <span class="kw">let </span>block_data = block.context(<span class="string">"claiming block data"</span>)<span class="question-mark">?</span>;
