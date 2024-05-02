@@ -32,7 +32,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
-use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
+use crate::consensus::helpers::handle_quorum_proposal_validated;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
@@ -580,7 +580,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         info!("Attempting to make dependency task for event {:?}", event);
-        if self.propose_dependencies.get(&view_number).is_some() {
+        if self.propose_dependencies.contains_key(&view_number) {
             debug!("Task already exists");
             return;
         }
