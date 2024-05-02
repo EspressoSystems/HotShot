@@ -176,7 +176,7 @@ async fn test_upgrade_and_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -226,7 +226,7 @@ async fn test_upgrade_and_consensus_task() {
 
     let upgrade_votes = other_handles
         .iter()
-        .map(|h| views[1].create_upgrade_vote(upgrade_data.clone(), &h.0));
+        .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let consensus_state = ConsensusTaskState::<
         TestTypes,
@@ -253,17 +253,20 @@ async fn test_upgrade_and_consensus_task() {
             DACertificateRecv(dacs[0].clone()),
         ],
         upgrade_vote_recvs,
-        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
+        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+        DACertificateRecv(dacs[1].clone()),
+        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+        ],
         vec![
-            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
-                ViewNumber::new(2),
+                ViewNumber::new(3),
                 null_block::builder_fee(quorum_membership.total_nodes(), Arc::new(TestInstanceState {})).unwrap(),
             ),
-            QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
+            QCFormed(either::Either::Left(proposals[2].data.justify_qc.clone())),
         ],
     ];
 
@@ -286,6 +289,7 @@ async fn test_upgrade_and_consensus_task() {
                 output_asserts: vec![
                     exact::<TestTypes>(ViewChange(ViewNumber::new(2))),
                     quorum_proposal_validated::<TestTypes>(),
+                    quorum_vote_send(),
                 ],
                 task_state_asserts: vec![],
             },

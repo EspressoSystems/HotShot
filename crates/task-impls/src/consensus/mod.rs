@@ -275,7 +275,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             )
             .await;
             if let Some(upgrade_cert) = decided_upgrade_cert {
-                let _ = publish_proposal_from_upgrade_cert(
+                if let Err(e) = publish_proposal_from_upgrade_cert(
                     cur_view,
                     propose_view,
                     sender,
@@ -287,24 +287,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     delay,
                     instance_state,
                 )
-                .await;
-            } else {
-                let _ = publish_proposal_from_commitment_and_metadata(
-                    cur_view,
-                    propose_view,
-                    sender,
-                    quorum_mem,
-                    pub_key,
-                    priv_key,
-                    consensus,
-                    delay,
-                    formed_upgrade_certificate,
-                    decided_upgrade_cert,
-                    commitment_and_metadata,
-                    proposal_cert,
-                    instance_state,
-                )
-                .await;
+                .await
+                {
+                    error!("Couldn't propose with Error: {}", e);
+                }
+            } else if let Err(e) = publish_proposal_from_commitment_and_metadata(
+                cur_view,
+                propose_view,
+                sender,
+                quorum_mem,
+                pub_key,
+                priv_key,
+                consensus,
+                delay,
+                formed_upgrade_certificate,
+                decided_upgrade_cert,
+                commitment_and_metadata,
+                proposal_cert,
+                instance_state,
+            )
+            .await
+            {
+                error!("Couldn't propose with Error: {}", e);
             }
         });
 
@@ -777,7 +781,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 fee,
             ) => {
                 let view = *view;
-                debug!("got commit and meta {:?}", payload_commitment);
+                error!(
+                    "got commit and meta {:?}, view {:?}",
+                    payload_commitment, view
+                );
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
                     builder_commitment: builder_commitment.clone(),
@@ -790,8 +797,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     if self.quorum_membership.get_leader(view) == self.public_key
                         && self.consensus.read().await.high_qc.get_view_number() + 1 == view
                     {
+                        error!("Trying to propose with high qc");
                         if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
-                            warn!("Failed to propose; error = {e:?}");
+                            error!("Failed to propose; error = {e:?}");
                         };
                     }
 
@@ -803,7 +811,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                                 {
                                     if let Err(e) = self.publish_proposal(view, event_stream).await
                                     {
-                                        error!("Failed to propose; error = {e:?}");
+                                        warn!("Failed to propose; error = {e:?}");
                                     };
                                 }
                             }
@@ -831,8 +839,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     return;
                 }
 
-                self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
-
                 // cancel poll for votes
                 self.quorum_network
                     .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
@@ -843,6 +849,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let view = certificate.view_number;
 
                 if self.quorum_membership.get_leader(view) == self.public_key {
+                    self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
+
                     debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
@@ -857,34 +865,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
-
-                #[cfg(not(feature = "dependency-tasks"))]
-                {
-                    let new_view = proposal.get_view_number() + 1;
-                    // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-                    // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                    let should_propose = self.quorum_membership.get_leader(new_view)
-                        == self.public_key
-                        && self.consensus.read().await.high_qc.view_number
-                            == proposal.get_view_number();
-                    // todo get rid of this clone
-                    let qc = self.consensus.read().await.high_qc.clone();
-
-                    if should_propose {
-                        debug!(
-                            "Attempting to publish proposal after voting; now in view: {}",
-                            *new_view
-                        );
-                        let _ = self
-                            .publish_proposal(qc.view_number + 1, event_stream.clone())
-                            .await;
-                    }
-                }
-
-                if proposal.get_view_number() <= vote.get_view_number()
-                    && self.public_key != self.quorum_membership.get_leader(vote.get_view_number())
-                {
+                if proposal.get_view_number() <= vote.get_view_number() {
+                    error!("Resetting current proposal");
                     self.current_proposal = None;
+                }
+            }
+            HotShotEvent::QuorumProposalSend(proposal, _) => {
+                if self
+                    .payload_commitment_and_metadata
+                    .as_ref()
+                    .is_some_and(|p| p.block_view <= proposal.data.get_view_number())
+                {
+                    self.payload_commitment_and_metadata = None;
+                }
+                if let Some(cert) = &self.proposal_cert {
+                    let view = match cert {
+                        ViewChangeEvidence::Timeout(tc) => tc.get_view_number() + 1,
+                        ViewChangeEvidence::ViewSync(vsc) => vsc.get_view_number(),
+                    };
+                    if view < proposal.data.get_view_number() {
+                        self.proposal_cert = None;
+                    }
                 }
             }
             _ => {}
@@ -911,6 +912,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::QuorumVoteSend(_)
+                | HotShotEvent::QuorumProposalSend(_, _)
                 | HotShotEvent::Shutdown,
         )
     }
