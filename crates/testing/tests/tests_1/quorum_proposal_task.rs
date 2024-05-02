@@ -88,7 +88,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view];
     run_test_script(script, quorum_proposal_task_state).await;
