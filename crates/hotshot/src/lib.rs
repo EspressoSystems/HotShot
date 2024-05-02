@@ -272,6 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             vid_shares: BTreeMap::new(),
             cur_view: anchored_leaf.get_view_number(),
             last_decided_view: anchored_leaf.get_view_number(),
+            last_proposed_view: anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
             saved_da_certs: HashMap::new(),

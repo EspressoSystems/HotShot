@@ -271,6 +271,10 @@ impl<
         let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) =
             match event.as_ref().clone() {
                 HotShotEvent::QuorumProposalSend(proposal, sender) => {
+                    error!(
+                        "sending proposal for view {:?}",
+                        proposal.data.get_view_number()
+                    );
                     maybe_action = Some(HotShotAction::Propose);
                     (
                         sender,

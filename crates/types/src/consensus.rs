@@ -55,6 +55,9 @@ pub struct Consensus<TYPES: NodeType> {
     /// View number that is currently on.
     pub cur_view: TYPES::Time,
 
+    /// View we proposed in last.  To prevent duplicate proposals
+    pub last_proposed_view: TYPES::Time,
+
     /// last view had a successful decide event
     pub last_decided_view: TYPES::Time,
 

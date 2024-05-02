@@ -36,7 +36,7 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -176,14 +176,14 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let consensus = state.upgradable_read().await;
     // Only vote if you has seen the VID share for this view
     let Some(vid_shares) = consensus.vid_shares.get(&proposal.view_number) else {
-        debug!(
+        error!(
             "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
             proposal.view_number
         );
         return false;
     };
     let Some(vid_share) = vid_shares.get(&public_key).cloned() else {
-        debug!("we have not seen our VID share yet");
+        error!("we have not seen our VID share yet");
         return false;
     };
 
@@ -192,7 +192,7 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             && Some(proposal.block_header.payload_commitment())
                 != null_block::commitment(quorum_membership.total_nodes())
         {
-            info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
+            error!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
             return false;
         }
     }
@@ -213,7 +213,7 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     let Some(parent) = parent else {
-        warn!(
+        error!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
             justify_qc.get_data().leaf_commit,
             proposal.view_number,
@@ -221,7 +221,7 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         return false;
     };
     let (Some(parent_state), _) = consensus.get_state_and_delta(parent.get_view_number()) else {
-        warn!("Parent state not found! Consensus internally inconsistent");
+        error!("Parent state not found! Consensus internally inconsistent");
         return false;
     };
     let Ok((validated_state, state_delta)) = parent_state
@@ -233,7 +233,7 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         )
         .await
     else {
-        warn!("Block header doesn't extend the proposal!");
+        error!("Block header doesn't extend the proposal!");
         return false;
     };
 
@@ -298,7 +298,7 @@ async fn vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         )
         .await
     {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
+        error!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
     if let GeneralConsensusMessage::Vote(vote) = message {
@@ -521,6 +521,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     .await
                 {
                     Ok(Some(current_proposal)) => {
+                        error!("voting for liveness");
                         let view = current_proposal.get_view_number();
                         let proposal = current_proposal.clone();
                         let upgrade = self.decided_upgrade_cert.clone();
@@ -551,7 +552,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         self.spawned_tasks.entry(view).or_default().push(handle);
                     }
                     Ok(None) => {}
-                    Err(e) => debug!("Failed to propose {e:#}"),
+                    Err(e) => error!("Failed to propose {e:#}"),
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
@@ -559,7 +560,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    debug!("Failed to handle QuorumProposalValidated event {e:#}");
+                    error!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
@@ -667,7 +668,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             ))
                             .await;
 
-                        debug!(
+                        error!(
                             "Attempting to publish proposal after forming a TC for view {}",
                             *qc.view_number
                         );
@@ -676,17 +677,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
                         {
-                            warn!("Failed to propose; error = {e:?}");
+                            error!("Failed to propose; error = {e:?}");
                         };
                     }
                     either::Left(qc) => {
                         if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
                         {
-                            warn!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                            error!("Failed to store High QC of QC we formed. Error: {:?}", e);
                         }
 
-                        let mut consensus = self.consensus.write().await;
-                        consensus.high_qc = qc.clone();
+                        self.consensus.write().await.high_qc = qc.clone();
 
                         // cancel poll for votes
                         self.quorum_network
@@ -695,8 +695,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             ))
                             .await;
 
-                        drop(consensus);
-                        debug!(
+                        error!(
                             "Attempting to publish proposal after forming a QC for view {}",
                             *qc.view_number
                         );
@@ -705,7 +704,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                             .publish_proposal(qc.view_number + 1, event_stream)
                             .await
                         {
-                            warn!("Failed to propose; error = {e:?}");
+                            error!("Failed to propose; error = {e:?}");
                         };
                     }
                 }
@@ -725,7 +724,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::DACertificateRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number);
+                error!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
 
                 self.quorum_network
@@ -777,7 +776,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
-                debug!(
+                error!(
                     "VID disperse received for view: {:?} in consensus task",
                     view
                 );
@@ -1060,11 +1059,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteSend(vote) => {
+                error!("sending vote for view {:?}", vote.get_view_number());
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
+                let new_view = proposal.get_view_number() + 1;
+                // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+                // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
+                    && self.consensus.read().await.high_qc.view_number
+                        == proposal.get_view_number();
+
+                if should_propose {
+                    debug!(
+                        "Attempting to publish proposal after voting; now in view: {}",
+                        *new_view
+                    );
+                    let _ = self.publish_proposal(new_view, event_stream.clone()).await;
+                }
                 if proposal.get_view_number() <= vote.get_view_number() {
-                    error!("Resetting current proposal");
                     self.current_proposal = None;
                 }
             }

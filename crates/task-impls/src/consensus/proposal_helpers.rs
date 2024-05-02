@@ -227,7 +227,10 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         "Sending null proposal for view {:?} \n",
         proposed_leaf.get_view_number(),
     );
-
+    if consensus.read().await.last_proposed_view >= view {
+        return;
+    }
+    consensus.write().await.last_proposed_view = view;
     async_sleep(Duration::from_millis(round_start_delay)).await;
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalSend(
@@ -589,7 +592,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
-    debug!(
+    error!(
         "Received Quorum Proposal for view {}",
         *proposal.data.view_number
     );
@@ -738,7 +741,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
             let qc = high_qc.clone();
             if should_propose {
-                debug!(
+                error!(
                     "Attempting to publish proposal after voting; now in view: {}",
                     *new_view
                 );
@@ -1015,6 +1018,9 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 event_stream.clone(),
             );
         } else {
+            if task_state.quorum_membership.get_leader(new_view) == task_state.public_key {
+                error!("leader just voting");
+            }
             let proposal = proposal.clone();
             let upgrade = task_state.decided_upgrade_cert.clone();
             let pub_key = task_state.public_key.clone();
