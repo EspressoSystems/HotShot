@@ -372,7 +372,7 @@ pub enum BlockError {
 }
 
 /// Additional functions required to use a [`Leaf`] with hotshot-testing.
-pub trait TestableLeaf<TYPES: NodeType> {
+pub trait TestableLeaf {
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
 
@@ -381,7 +381,7 @@ pub trait TestableLeaf<TYPES: NodeType> {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -618,7 +618,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> TestableLeaf<TYPES> for Leaf<TYPES>
+impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
     TYPES::ValidatedState: TestableState<TYPES>,
     TYPES::BlockPayload: TestableBlock<TYPES>,
