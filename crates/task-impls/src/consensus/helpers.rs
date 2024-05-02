@@ -592,7 +592,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
-    error!(
+    debug!(
         "Received Quorum Proposal for view {}",
         *proposal.data.view_number
     );
@@ -1023,7 +1023,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             task_state.cancel_tasks(new_anchor_view).await;
         }
         if should_propose {
-            error!(
+            debug!(
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
@@ -1034,9 +1034,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 event_stream.clone(),
             );
         } else {
-            if task_state.quorum_membership.get_leader(new_view) == task_state.public_key {
-                error!("leader just voting");
-            }
             let proposal = proposal.clone();
             let upgrade = task_state.decided_upgrade_cert.clone();
             let pub_key = task_state.public_key.clone();
