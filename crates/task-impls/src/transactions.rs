@@ -182,9 +182,10 @@ impl<
                     };
 
                     // Create an empty block payload and metadata
-                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions::<
-                        TYPES,
-                    >(vec![], &self.instance_state) else {
+                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
+                        vec![],
+                        &self.instance_state,
+                    ) else {
                         error!("Failed to create empty block payload");
                         return None;
                     };

@@ -416,7 +416,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
 
     // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     ensure!(upgrade_cert.in_interim(cur_view), "Cert is not in interim");
-    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions::<TYPES>(
+    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(
         Vec::new(),
         instance_state.as_ref(),
     )

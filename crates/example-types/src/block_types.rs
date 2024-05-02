@@ -120,9 +120,9 @@ impl BlockPayload for TestBlockPayload {
     type Transaction = TestTransaction;
     type Metadata = TestMetadata;
 
-    fn from_transactions<TYPES: NodeType>(
+    fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        _instance_state: &TYPES::InstanceState,
+        _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
         Ok((

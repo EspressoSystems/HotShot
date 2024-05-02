@@ -78,7 +78,7 @@ pub trait ValidatedState<TYPES: NodeType>:
 pub trait TestableState<TYPES>: ValidatedState<TYPES>
 where
     TYPES: NodeType,
-    TYPES::BlockPayload: TestableBlock<TYPES>,
+    TYPES::BlockPayload: TestableBlock,
 {
     /// Creates random transaction if possible
     /// otherwise panics
@@ -87,5 +87,5 @@ where
         state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction;
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction;
 }

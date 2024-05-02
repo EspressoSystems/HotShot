@@ -538,13 +538,14 @@ async fn build_block<TYPES: NodeType>(
     num_storage_nodes: usize,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
+    instance_state: <TYPES::BlockPayload as BlockPayload>::Instance,
 ) -> (
     AvailableBlockInfo<TYPES>,
     AvailableBlockData<TYPES>,
     AvailableBlockHeaderInput<TYPES>,
 ) {
     let (block_payload, metadata) =
-        TYPES::BlockPayload::from_transactions::<TestTypes>(transactions, &TestInstanceState {})
+        TYPES::BlockPayload::from_transactions(transactions, &instance_state)
             .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);

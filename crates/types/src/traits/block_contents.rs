@@ -43,7 +43,7 @@ pub trait Transaction:
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
-pub trait BlockPayload<TYPES: NodeType>:
+pub trait BlockPayload:
     Serialize + Clone + Debug + Display + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
 {
     /// The error type for this type of block
@@ -112,7 +112,7 @@ pub trait BlockPayload<TYPES: NodeType>:
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock<TYPES: NodeType>: BlockPayload<TYPES> + Debug {
+pub trait TestableBlock: BlockPayload + Debug {
     /// generate a genesis block
     fn genesis() -> Self;
 
@@ -177,7 +177,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         builder_fee: BuilderFee<TYPES>,
     ) -> impl Future<Output = Self> + Send;
 
@@ -186,7 +186,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     ) -> Self;
 
     /// Get the block number.
@@ -196,7 +196,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn payload_commitment(&self) -> VidCommitment;
 
     /// Get the metadata.
-    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata;
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
 
     /// Get the builder commitment
     fn builder_commitment(&self) -> BuilderCommitment;

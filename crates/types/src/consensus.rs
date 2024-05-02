@@ -416,7 +416,7 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Builder Commitment
     pub builder_commitment: BuilderCommitment,
     /// Metadata for the block payload
-    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// Builder fee data
     pub fee: BuilderFee<TYPES>,
     /// View number this block is for

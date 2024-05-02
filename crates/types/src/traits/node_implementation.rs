@@ -65,7 +65,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         state: Option<&TYPES::ValidatedState>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction;
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -74,7 +74,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         leaf: &Leaf<TYPES>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction;
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction;
 
     /// generate a genesis block
     fn block_genesis() -> TYPES::BlockPayload;
@@ -96,7 +96,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES> for I
 where
     TYPES::ValidatedState: TestableState<TYPES>,
-    TYPES::BlockPayload: TestableBlock<TYPES>,
+    TYPES::BlockPayload: TestableBlock,
     I::QuorumNetwork: TestableNetworkingImplementation<TYPES>,
     I::CommitteeNetwork: TestableNetworkingImplementation<TYPES>,
 {
@@ -104,7 +104,7 @@ where
         state: Option<&TYPES::ValidatedState>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction {
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
         <TYPES::ValidatedState as TestableState<TYPES>>::create_random_transaction(
             state, rng, padding,
         )
@@ -114,7 +114,7 @@ where
         leaf: &Leaf<TYPES>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction {
+    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
         Leaf::create_random_transaction(leaf, rng, padding)
     }
 
@@ -201,7 +201,7 @@ pub trait NodeType:
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
-    type BlockPayload: BlockPayload<Self, Transaction = Self::Transaction>;
+    type BlockPayload: BlockPayload<Instance = Self::InstanceState, Transaction = Self::Transaction>;
     /// The signature key that this hotshot setup is using.
     type SignatureKey: SignatureKey;
     /// The transaction type that this hotshot setup is using.

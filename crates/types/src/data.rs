@@ -120,7 +120,7 @@ where
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
-    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
@@ -381,7 +381,7 @@ pub trait TestableLeaf {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -621,7 +621,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
     TYPES::ValidatedState: TestableState<TYPES>,
-    TYPES::BlockPayload: TestableBlock<TYPES>,
+    TYPES::BlockPayload: TestableBlock,
 {
     type NodeType = TYPES;
 
@@ -629,7 +629,7 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction {
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
         TYPES::ValidatedState::create_random_transaction(None, rng, padding)
     }
 }
@@ -748,7 +748,7 @@ pub mod null_block {
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
+        instance_state: &<TYPES::BlockPayload as BlockPayload>::Instance,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
