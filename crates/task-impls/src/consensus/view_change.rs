@@ -20,6 +20,12 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
+/// Constant which tells [`update_view`] to send a view change event when called.
+pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;
+
+/// Constant which tells [`update_view`] to not send a view change event when called.
+pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
+
 /// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
 ///
@@ -32,6 +38,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
     timeout_task: &mut Option<JoinHandle<()>>,
+    send_view_change_event: bool,
 ) -> Result<()> {
     ensure!(
         new_view > *cur_view,
@@ -56,7 +63,9 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     // The next view is just the current view + 1
     let next_view = *cur_view + 1;
 
-    broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+    if send_view_change_event {
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+    }
 
     // Spawn a timeout task if we did actually update view
     *timeout_task = Some(async_spawn({
@@ -91,6 +100,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     }
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
     consensus.update_view(new_view);
+    tracing::trace!("View updated successfully");
 
     Ok(())
 }
