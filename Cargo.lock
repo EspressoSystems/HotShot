@@ -1331,7 +1331,7 @@ checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.4#31a2f7f97ba32f8b2894fae4e7d3e5c484eb3675"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.5#c4208513280bd9beeb151e20e44179f2d3cc690a"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1353,7 +1353,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.4#31a2f7f97ba32f8b2894fae4e7d3e5c484eb3675"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.5#c4208513280bd9beeb151e20e44179f2d3cc690a"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1368,7 +1368,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.4#31a2f7f97ba32f8b2894fae4e7d3e5c484eb3675"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.5#c4208513280bd9beeb151e20e44179f2d3cc690a"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1382,7 +1382,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.4#31a2f7f97ba32f8b2894fae4e7d3e5c484eb3675"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.2.5#c4208513280bd9beeb151e20e44179f2d3cc690a"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -6936,9 +6936,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.199"
+version = "1.0.200"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c9f6e76df036c77cd94996771fb40db98187f096dd0b9af39c6c6e452ba966a"
+checksum = "ddc6f9cc94d67c0e21aaf7eda3a010fd3af78ebf6e096aa6e2e13c79749cce4f"
 dependencies = [
  "serde_derive",
 ]
@@ -6965,9 +6965,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.199"
+version = "1.0.200"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11bd257a6541e141e42ca6d24ae26f7714887b47e89aa739099104c7e4d3b7fc"
+checksum = "856f046b9400cee3c8c94ed572ecdb752444c24528c035cd35882aad6f492bcb"
 dependencies = [
  "proc-macro2",
  "quote",
