@@ -807,6 +807,14 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -867,7 +875,7 @@
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::tasks::{add_quorum_proposal_task, add_quorum_vote_task};
+</span><span class="kw">use </span><span class="kw">crate</span>::tasks::{add_quorum_proposal_recv_task, add_quorum_proposal_task, add_quorum_vote_task};
 <span class="kw">use crate</span>::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -1500,6 +1508,14 @@
         .<span class="kw">await</span>;
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span>add_quorum_vote_task(
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+        </span>add_quorum_proposal_recv_task(
             Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),

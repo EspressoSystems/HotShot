@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["update_view"]};
+window.SIDEBAR_ITEMS = {"constant":["DONT_SEND_VIEW_CHANGE_EVENT","SEND_VIEW_CHANGE_EVENT"],"fn":["update_view"]};

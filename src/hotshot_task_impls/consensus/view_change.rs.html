@@ -132,6 +132,14 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -159,6 +167,12 @@
     helpers::{broadcast_event, cancel_task},
 };
 
+<span class="doccomment">/// Constant which tells [`update_view`] to send a view change event when called.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SEND_VIEW_CHANGE_EVENT: bool = <span class="bool-val">true</span>;
+
+<span class="doccomment">/// Constant which tells [`update_view`] to not send a view change event when called.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>DONT_SEND_VIEW_CHANGE_EVENT: bool = <span class="bool-val">false</span>;
+
 <span class="doccomment">/// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
 ///
@@ -175,6 +189,7 @@
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     cur_view: <span class="kw-2">&amp;mut </span>TYPES::Time,
     timeout_task: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
+    send_view_change_event: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
         new_view &gt; <span class="kw-2">*</span>cur_view,
@@ -220,14 +235,14 @@
         .<span class="kw">await</span>;
 
     <span class="kw">if </span>quorum_membership.get_leader(next_view) == public_key {
-        <span class="macro">debug!</span>(<span class="string">"Polling for quorum votes for view {}"</span>, <span class="kw-2">**</span>cur_view);
         quorum_network
             .inject_consensus_info(ConsensusIntentEvent::PollForVotes(<span class="kw-2">**</span>cur_view))
             .<span class="kw">await</span>;
     }
 
-    broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).<span class="kw">await</span>;
-
+    <span class="kw">if </span>send_view_change_event {
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).<span class="kw">await</span>;
+    }
     <span class="comment">// Spawn a timeout task if we did actually update view
     </span><span class="kw-2">*</span>timeout_task = <span class="prelude-val">Some</span>(async_spawn({
         <span class="kw">let </span>stream = event_stream.clone();
@@ -261,6 +276,7 @@
     }
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
     consensus.update_view(new_view);
+    <span class="macro">tracing::trace!</span>(<span class="string">"View updated successfully"</span>);
 
     <span class="prelude-val">Ok</span>(())
 }

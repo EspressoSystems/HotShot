@@ -1060,6 +1060,20 @@
 <a href="#1058" id="1058">1058</a>
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1106,7 +1120,7 @@
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal_recv::QuorumProposalRecvTaskState;
 <span class="kw">use crate</span>::{
-    consensus::update_view,
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::HotShotEvent,
     helpers::{broadcast_event, AnyhowTracing},
 };
@@ -1115,7 +1129,7 @@
 /// a `QuorumProposalValidated` event.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-</span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
+</span><span class="kw">async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
@@ -1310,10 +1324,9 @@
         _pd: PhantomData,
     };
     <span class="macro">debug!</span>(
-        <span class="string">"Sending null proposal for view {:?} \n {:?}"</span>,
+        <span class="string">"Sending null proposal for view {:?}"</span>,
         proposed_leaf.get_view_number(),
-        <span class="string">""
-    </span>);
+    );
 
     async_sleep(Duration::from_millis(round_start_delay)).<span class="kw">await</span>;
     broadcast_event(
@@ -1446,7 +1459,6 @@
             }
             next_parent_hash = next_parent_leaf.get_parent_commitment();
         }
-        <span class="macro">debug!</span>(<span class="string">"updated saved leaves"</span>);
         <span class="comment">// TODO do some sort of sanity check on the view number that it matches decided
     </span>}
 
@@ -1722,6 +1734,7 @@
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
         <span class="kw-2">&amp;mut </span>task_state.cur_view,
         <span class="kw-2">&amp;mut </span>task_state.timeout_task,
+        SEND_VIEW_CHANGE_EVENT,
     )
     .<span class="kw">await
     </span>{
@@ -1808,57 +1821,63 @@
 
         <span class="comment">// If we are missing the parent from storage, the safety check will fail.  But we can
         // still vote if the liveness check succeeds.
-        </span><span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus_write.locked_view;
+        </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+        </span>{
+            <span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus_write.locked_view;
 
-        <span class="kw">let </span>high_qc = consensus_write.high_qc.clone();
-        <span class="kw">let </span>locked_view = consensus_write.locked_view;
+            <span class="kw">let </span>high_qc = consensus_write.high_qc.clone();
+            <span class="kw">let </span>locked_view = consensus_write.locked_view;
 
-        drop(consensus_write);
+            drop(consensus_write);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>current_proposal = <span class="prelude-val">None</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>current_proposal = <span class="prelude-val">None</span>;
+            <span class="kw">if </span>liveness_check {
+                current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
+                <span class="kw">let </span>new_view = proposal.data.view_number + <span class="number">1</span>;
 
-        <span class="kw">if </span>liveness_check {
-            current_proposal = <span class="prelude-val">Some</span>(proposal.data.clone());
-            <span class="kw">let </span>new_view = proposal.data.view_number + <span class="number">1</span>;
+                <span class="comment">// This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
+                    == task_state.public_key
+                    &amp;&amp; high_qc.view_number == current_proposal.clone().unwrap().view_number;
 
-            <span class="comment">// This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-            </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
-                == task_state.public_key
-                &amp;&amp; high_qc.view_number == current_proposal.clone().unwrap().view_number;
+                <span class="kw">let </span>qc = high_qc.clone();
+                <span class="kw">if </span>should_propose {
+                    <span class="macro">debug!</span>(
+                        <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
+                        <span class="kw-2">*</span>new_view
+                    );
+                    <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
+                        task_state.cur_view,
+                        qc.view_number + <span class="number">1</span>,
+                        event_stream,
+                        Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
+                        task_state.public_key.clone(),
+                        task_state.private_key.clone(),
+                        Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
+                        task_state.round_start_delay,
+                        task_state.formed_upgrade_certificate.clone(),
+                        task_state.decided_upgrade_cert.clone(),
+                        <span class="kw-2">&amp;mut </span>task_state.payload_commitment_and_metadata,
+                        <span class="kw-2">&amp;mut </span>task_state.proposal_cert,
+                        Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
+                    )
+                    .<span class="kw">await</span><span class="question-mark">?</span>;
 
-            <span class="kw">let </span>qc = high_qc.clone();
-            <span class="kw">if </span>should_propose {
-                <span class="macro">debug!</span>(
-                    <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
-                    <span class="kw-2">*</span>new_view
-                );
-                <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
-                    task_state.cur_view,
-                    qc.view_number + <span class="number">1</span>,
-                    event_stream,
-                    Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-                    task_state.public_key.clone(),
-                    task_state.private_key.clone(),
-                    Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
-                    task_state.round_start_delay,
-                    task_state.formed_upgrade_certificate.clone(),
-                    task_state.decided_upgrade_cert.clone(),
-                    <span class="kw-2">&amp;mut </span>task_state.payload_commitment_and_metadata,
-                    <span class="kw-2">&amp;mut </span>task_state.proposal_cert,
-                    Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
-                )
-                .<span class="kw">await</span><span class="question-mark">?</span>;
-
-                task_state
-                    .spawned_tasks
-                    .entry(view)
-                    .or_default()
-                    .push(create_and_send_proposal_handle);
+                    task_state
+                        .spawned_tasks
+                        .entry(view)
+                        .or_default()
+                        .push(create_and_send_proposal_handle);
+                }
             }
-        }
-        <span class="macro">warn!</span>(<span class="question-mark">?</span>high_qc, <span class="question-mark">?</span>proposal.data, <span class="question-mark">?</span>locked_view, <span class="string">"Failed liveneess check; cannot find parent either."</span>);
 
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(current_proposal);
+            <span class="macro">warn!</span>(<span class="question-mark">?</span>high_qc, <span class="question-mark">?</span>proposal.data, <span class="question-mark">?</span>locked_view, <span class="string">"Failed liveneess check; cannot find parent either."</span>);
+
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(current_proposal);
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
     };
 
     task_state
@@ -2069,8 +2088,17 @@
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view.get_u64()).unwrap());
-        <span class="kw">let </span>cur_number_of_views_per_decide_event =
-            <span class="kw-2">*</span>task_state.cur_view - consensus.last_decided_view.get_u64();
+        <span class="kw">let </span>cur_number_of_views_per_decide_event = {
+            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+            </span>{
+                <span class="kw-2">*</span>task_state.cur_view - consensus.last_decided_view.get_u64()
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+            </span>{
+                <span class="kw-2">*</span>task_state.latest_proposed_view - consensus.last_decided_view.get_u64()
+            }
+        };
         consensus
             .metrics
             .number_of_views_per_decide_event

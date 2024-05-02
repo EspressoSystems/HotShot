@@ -269,6 +269,37 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -278,9 +309,10 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, da::DATaskState,
-    quorum_proposal::QuorumProposalTaskState, quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
-    vid::VIDTaskState, view_sync::ViewSyncTaskState,
+    quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
+    view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::traits::{
     consensus_api::ConsensusApi,
@@ -527,13 +559,43 @@
             instance_state: handle.hotshot.get_instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
             timeout_task: <span class="prelude-val">None</span>,
             round_start_delay: handle.hotshot.config.round_start_delay,
+            id: handle.hotshot.id,
+        }
+    }
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+    <span class="kw">for </span>QuorumProposalRecvTaskState&lt;TYPES, I&gt;
+{
+    <span class="kw">async fn </span>create_from(
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+    ) -&gt; QuorumProposalRecvTaskState&lt;TYPES, I&gt; {
+        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        QuorumProposalRecvTaskState {
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            consensus,
+            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            timeout_task: <span class="prelude-val">None</span>,
+            timeout: handle.hotshot.config.next_view_timeout,
+            round_start_delay: handle.hotshot.config.round_start_delay,
+            output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
+            formed_upgrade_certificate: <span class="prelude-val">None</span>,
+            proposal_cert: <span class="prelude-val">None</span>,
+            decided_upgrade_cert: <span class="prelude-val">None</span>,
+            spawned_tasks: BTreeMap::new(),
+            instance_state: handle.hotshot.get_instance_state(),
             id: handle.hotshot.id,
         }
     }
