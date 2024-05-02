@@ -124,15 +124,15 @@ where
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
-
-impl<'de, TYPE: NodeType> Deserialize<'de> for DAProposal<TYPE> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        todo!()
-    }
-}
+// NOTE enabling this resolves error related to `Deserialized`
+// impl<'de, TYPE: NodeType> Deserialize<'de> for DAProposal<TYPE> {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         todo!()
+//     }
+// }
 
 /// A proposal to upgrade the network
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -381,9 +381,7 @@ pub trait TestableLeaf<TYPES: NodeType> {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction
-    where
-        <<Self as TestableLeaf<TYPES>>::NodeType as NodeType>::BlockPayload: BlockPayload<TYPES>;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
