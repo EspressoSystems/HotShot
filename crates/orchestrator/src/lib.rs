@@ -298,6 +298,15 @@ where
 
         let node_index = self.pub_posted.len() as u64;
 
+        if node_index > 5 {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::Forbidden,
+                message:
+                    "Network has been started manually, and is no longer registering new keys."
+                        .to_string(),
+            });
+        }
+
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
         self.config
             .config
@@ -407,6 +416,7 @@ where
 
     /// Manually start the network
     fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError> {
+        println!("post_manual_start triggered");
         if !self.manual_start_allowed {
             return Err(ServerError {
             status: tide_disco::StatusCode::Forbidden,
@@ -416,14 +426,6 @@ where
 
         let password = String::from_utf8(password_bytes)
             .expect("Failed to decode raw password as UTF-8 string.");
-
-        // Check that the password matches
-        if self.config.manual_start_password != Some(password) {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
-                message: "Incorrect password.".to_string(),
-            });
-        }
 
         let registered_nodes_with_stake = self.config.config.known_nodes_with_stake.len();
         let registered_da_nodes = self.config.config.known_da_nodes.len();
@@ -577,6 +579,7 @@ where
         "post_manual_start",
         |req, state: &mut <State as ReadState>::State| {
             async move {
+                println!("post_manual_start API triggered");
                 let password = req.body_bytes();
                 state.post_manual_start(password)
             }
